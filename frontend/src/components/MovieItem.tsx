@@ -52,6 +52,7 @@ import { queryBuilder } from "../plex/QuickFunctions";
 import { AuthStorage } from "../auth/AuthStorage";
 import { mediaQualityBadge } from "../plex/mediaVersions";
 import { mediaArtworkPath } from "../plex/mediaArtwork";
+import { alpha } from "@mui/material/styles";
 
 interface MovieItemPreviewPlaybackState {
   url: string;
@@ -450,14 +451,16 @@ function MovieItem({
                 : "center center"
               : "center center",
           transition:
-            "transform 0.4s cubic-bezier(0.25,0.10,0.25,1.00), box-shadow 0.4s cubic-bezier(0.25,0.10,0.25,1.00), border-color 0.4s cubic-bezier(0.25,0.10,0.25,1.00)",
+            "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease",
           cursor: "pointer",
 
           "&:hover": {
-            transform: layout === "poster" ? "scale(1.08)" : "scale(1.15)",
+            transform: "scale(1.02)",
             zIndex: 10,
-            boxShadow: "0px 8px 24px rgba(0, 0, 0, 0.5)",
-            border: "1px solid rgba(255,255,255,0.15)",
+            backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.08),
+            boxShadow: (theme) =>
+              `0 0 18px ${alpha(theme.palette.primary.main, 0.34)}, 0 6px 18px rgba(0, 0, 0, 0.42)`,
+            borderColor: (theme) => alpha(theme.palette.primary.main, 0.62),
           },
 
           "&:hover .movie-item-hover-overlay": {

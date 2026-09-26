@@ -402,12 +402,6 @@ function MetaScreen() {
               boxShadow: (theme) =>
                 `0 20px 25px -5px ${theme.palette.common.black}`,
               position: "relative",
-              transition: "all 0.3s ease",
-              "&:hover": {
-                transform: "scale(1.02)",
-                boxShadow: (theme) =>
-                  `0 25px 30px -5px ${theme.palette.common.black}`,
-              },
             }}
           >
             <img
