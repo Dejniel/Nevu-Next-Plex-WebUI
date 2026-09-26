@@ -1,0 +1,21 @@
+<svg viewBox="0 0 2048 578" role="img" aria-label="NEVU logo" width="2048" height="578" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="a" x1="0" y1="0" x2=".65" y2="1">
+      <stop offset="0%" stop-color="#818CF8"/>
+      <stop offset="100%" stop-color="#4F46E5"/>
+    </linearGradient>
+    <linearGradient xlink:href="#a" id="c" x1="47.586" y1="60.255" x2="335.835" y2="503.715" gradientTransform="scale(.98769 1.01247)" gradientUnits="userSpaceOnUse"/>
+    <linearGradient xlink:href="#a" id="d" x1="615.862" y1="63.86" x2="886.6" y2="480.38" gradientTransform="scale(.95314 1.04917)" gradientUnits="userSpaceOnUse"/>
+    <linearGradient xlink:href="#a" id="e" x1="394.848" y1="434.871" x2="486.772" y2="576.292" gradientTransform="scale(1.76777 .56569)" gradientUnits="userSpaceOnUse"/>
+    <linearGradient xlink:href="#a" id="b" x1="32.535" y1="88.13" x2="454.135" y2="736.745" gradientTransform="scale(1.44462 .69223)" gradientUnits="userSpaceOnUse"/>
+    <linearGradient xlink:href="#a" id="f" x1="981.582" y1="70.032" x2="1282.562" y2="533.078" gradientTransform="matrix(1.04525 0 0 .9567 0 -6.15)" gradientUnits="userSpaceOnUse"/>
+    <linearGradient xlink:href="#a" id="g" x1="1559" y1="67" x2="1843.05" y2="504" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 -3.15)"/>
+  </defs>
+  <g fill="none" stroke="url(#b)" stroke-linejoin="round" transform="translate(0 -3.15)" stroke-width="80">
+    <path d="M87 504V101l358 369V67" stroke="url(#c)"/>
+    <path d="M984 107H627v297q0 60 60 60h297" stroke="url(#d)"/>
+    <path d="M698 286h250" stroke="url(#e)"/>
+  </g>
+  <path d="M1026 60.85h89l153 314 154-314h88l-202 409q-14 34-40 34t-40-34z" fill="url(#f)"/>
+  <path d="M1599 63.85v237c0 98 69 160 181 160h176v-397" fill="none" stroke="url(#g)" stroke-width="80" stroke-linejoin="round"/>
+</svg>

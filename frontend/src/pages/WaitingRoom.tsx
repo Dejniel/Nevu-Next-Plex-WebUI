@@ -37,10 +37,10 @@ function WaitingRoom() {
       }}
     >
       <img
-        src="/logoBig.png"
-        alt="NEVU"
+        src="/nevu-next-below.svg"
+        alt="Nevu Next"
         style={{
-          width: "30vw",
+          width: "min(65vw, 620px)",
           height: "auto",
           display: "block",
         }}

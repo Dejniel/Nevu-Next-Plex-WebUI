@@ -73,6 +73,7 @@ function Appbar() {
   const { activeProfile, switchProfile, signOut } = useAuthSession();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const isWideDesktop = useMediaQuery(theme.breakpoints.up("xl"));
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -278,9 +279,9 @@ S - Skip onscreen markers (intro, credits, etc)
         }}
       >
         <img
-          src="/logo.png"
+          src={isWideDesktop ? "/nevu-next-right.svg" : "/nevu.svg"}
           alt=""
-          width={isMobile ? 80 : 100}
+          width={isWideDesktop ? 200 : isMobile ? 80 : 100}
           style={{
             objectFit: "contain",
           }}
@@ -389,7 +390,12 @@ S - Skip onscreen markers (intro, credits, etc)
         }}
       >
         <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 2 }}>
-          <img src="/logo.png" alt="" width="100" style={{ objectFit: "contain" }} />
+          <img
+            src="/nevu-next-below.svg"
+            alt=""
+            width="140"
+            style={{ objectFit: "contain" }}
+          />
 
           <SearchBar inDrawer onResultSelected={() => setDrawerOpen(false)} />
 

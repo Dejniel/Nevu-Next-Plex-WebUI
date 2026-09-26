@@ -23,8 +23,8 @@ function SettingsInfo() {
         }}
       >
         <img
-          src="/logoBig.png"
-          alt="PerPlexed Logo"
+          src="/nevu-next-below.svg"
+          alt="Nevu Next"
           style={{
             width: "50%",
             height: "auto",
@@ -43,14 +43,13 @@ function SettingsInfo() {
         }}
       >
         <Typography variant="h4" component="h2" sx={{ mb: 2, fontWeight: 600 }}>
-          Welcome to the Nevu Family!
+          About Nevu Next
         </Typography>
 
         <Typography variant="body1" paragraph>
-          Hey there! Thanks for joining us on this journey to elevate your Plex
-          experience. Nevu is crafted with passion by{" "}
+          Nevu Next Plex WebUI was created and is maintained by{" "}
           <a
-            href="https://ipmake.dev"
+            href="https://github.com/Dejniel"
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -59,9 +58,22 @@ function SettingsInfo() {
               fontWeight: "bold",
             }}
           >
-            Ipmake
+            Dejniel
           </a>{" "}
-          and a community of amazing open-source contributors just like you!
+          as a fork of{" "}
+          <a
+            href="https://github.com/Ipmake/NevuForPlex"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: "#6366F1",
+              textDecoration: "none",
+              fontWeight: "bold",
+            }}
+          >
+            Nevu for Plex
+          </a>, the original project created by Ipmake. It also builds on the work
+          of its open-source contributors.
         </Typography>
 
         <Typography variant="body1" paragraph>

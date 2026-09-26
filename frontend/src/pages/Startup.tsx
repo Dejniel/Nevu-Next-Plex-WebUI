@@ -148,9 +148,9 @@ function Startup() {
       }}
     >
       <img
-        src="/logoBig.png"
-        alt="NEVU Logo"
-        style={{ width: "35vw", height: "auto" }}
+        src="/nevu-next-below.svg"
+        alt="Nevu Next"
+        style={{ width: "min(70vw, 720px)", height: "auto" }}
       />
     </Box>
   );
