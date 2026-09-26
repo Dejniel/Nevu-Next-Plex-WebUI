@@ -1,9 +1,9 @@
-import axios from "axios";
 import { create } from "zustand";
 import {
   AuthStorage,
   HomeProfile,
 } from "../auth/AuthStorage";
+import { authErrorMessage } from "../auth/AuthError";
 import {
   getHomeProfiles,
   getPlexUser,
@@ -37,6 +37,7 @@ interface AuthSessionState {
   switchProfile: () => Promise<void>;
   signOut: () => void;
   setRememberProfile: (enabled: boolean) => void;
+  clearError: () => void;
 }
 
 function resetProfileState() {
@@ -61,13 +62,6 @@ function profileFromUser(
   };
 }
 
-function profileError(error: unknown): string {
-  if (axios.isAxiosError(error) && error.response?.status === 401)
-    return "Incorrect PIN.";
-  if (error instanceof Error) return error.message;
-  return "Unable to switch Plex profile.";
-}
-
 export const useAuthSession = create<AuthSessionState>((set, get) => ({
   status: "initializing",
   profiles: [],
@@ -90,13 +84,18 @@ export const useAuthSession = create<AuthSessionState>((set, get) => ({
     try {
       ownerUser = await getPlexUser(ownerToken);
     } catch (error) {
-      set({ status: "error", error: profileError(error) });
+      set({ status: "error", error: authErrorMessage(error, "account") });
       return;
     }
 
     if (!ownerUser) {
       AuthStorage.clearAll();
-      set({ status: "signedOut", ownerUser: null, activeProfile: null });
+      set({
+        status: "error",
+        error: "The saved Plex session has expired. Sign in again.",
+        ownerUser: null,
+        activeProfile: null,
+      });
       return;
     }
 
@@ -125,7 +124,11 @@ export const useAuthSession = create<AuthSessionState>((set, get) => ({
           return;
         }
       } catch (error) {
-        set({ status: "error", error: profileError(error), ownerUser });
+        set({
+          status: "error",
+          error: authErrorMessage(error, "server"),
+          ownerUser,
+        });
         return;
       }
       AuthStorage.clearActiveSession();
@@ -144,7 +147,11 @@ export const useAuthSession = create<AuthSessionState>((set, get) => ({
       if (profiles.length === 1 && !profiles[0].protected)
         await get().selectProfile(profiles[0]);
     } catch (error) {
-      set({ status: "error", error: profileError(error), ownerUser });
+      set({
+        status: "error",
+        error: authErrorMessage(error, "profiles"),
+        ownerUser,
+      });
     }
   },
 
@@ -162,15 +169,28 @@ export const useAuthSession = create<AuthSessionState>((set, get) => ({
     }
 
     set({ status: "unlocking", error: null });
+    let accountToken: string;
     try {
-      const accountToken = await switchHomeProfile(ownerToken, profile, pin);
+      accountToken = await switchHomeProfile(ownerToken, profile, pin);
+    } catch (error) {
+      set({
+        status: "selectingProfile",
+        error: authErrorMessage(error, "profile"),
+      });
+      return false;
+    }
+
+    try {
       const serverToken = await resolveServerToken(accountToken);
       AuthStorage.saveActiveSession({ profile, accountToken, serverToken });
       resetProfileState();
       set({ status: "ready", activeProfile: profile, error: null });
       return true;
     } catch (error) {
-      set({ status: "selectingProfile", error: profileError(error) });
+      set({
+        status: "selectingProfile",
+        error: authErrorMessage(error, "server"),
+      });
       return false;
     }
   },
@@ -195,7 +215,7 @@ export const useAuthSession = create<AuthSessionState>((set, get) => ({
       const profiles = await getHomeProfiles(ownerToken, ownerUser);
       set({ status: "selectingProfile", profiles, ownerUser });
     } catch (error) {
-      set({ status: "error", error: profileError(error) });
+      set({ status: "error", error: authErrorMessage(error, "profiles") });
     }
   },
 
@@ -215,4 +235,6 @@ export const useAuthSession = create<AuthSessionState>((set, get) => ({
     AuthStorage.setRememberProfile(enabled);
     set({ rememberProfile: enabled });
   },
+
+  clearError: () => set({ error: null }),
 }));

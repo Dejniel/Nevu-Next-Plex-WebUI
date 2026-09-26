@@ -52,6 +52,7 @@ beforeEach(() => {
     activeProfile: null,
     rememberProfile: true,
     error: null,
+    clearError: useAuthSession.getState().clearError,
   });
 });
 
@@ -92,5 +93,17 @@ describe("AuthSessionState", () => {
 
     expect(useAuthSession.getState().status).toBe("error");
     expect(AuthStorage.getOwnerToken()).toBe("owner-token");
+    expect(useAuthSession.getState().error).toContain("verify the Plex account");
+  });
+
+  it("clears an expired account and explains why sign-in is required", async () => {
+    AuthStorage.setOwnerToken("expired-token");
+    (getPlexUser as jest.Mock).mockResolvedValue(null);
+
+    await useAuthSession.getState().initialize();
+
+    expect(useAuthSession.getState().status).toBe("error");
+    expect(useAuthSession.getState().error).toContain("session has expired");
+    expect(AuthStorage.getOwnerToken()).toBeNull();
   });
 });

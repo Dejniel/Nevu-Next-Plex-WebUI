@@ -18,12 +18,13 @@ import { HomeProfile } from "../auth/AuthStorage";
 import { useAuthSession } from "../states/AuthSessionState";
 
 export default function ProfilePicker() {
-  const { profiles, status, error, selectProfile, signOut } = useAuthSession();
+  const { profiles, status, error, selectProfile, signOut, clearError } = useAuthSession();
   const [selectedProfile, setSelectedProfile] = useState<HomeProfile | null>(null);
   const [pin, setPin] = useState("");
   const unlocking = status === "unlocking";
 
   const chooseProfile = async (profile: HomeProfile) => {
+    clearError();
     if (profile.protected) {
       setPin("");
       setSelectedProfile(profile);
@@ -134,7 +135,12 @@ export default function ProfilePicker() {
 
       <Dialog
         open={Boolean(selectedProfile)}
-        onClose={() => !unlocking && setSelectedProfile(null)}
+        onClose={() => {
+          if (!unlocking) {
+            clearError();
+            setSelectedProfile(null);
+          }
+        }}
         maxWidth="xs"
         fullWidth
       >
@@ -206,7 +212,13 @@ export default function ProfilePicker() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSelectedProfile(null)} disabled={unlocking}>
+          <Button
+            onClick={() => {
+              clearError();
+              setSelectedProfile(null);
+            }}
+            disabled={unlocking}
+          >
             Cancel
           </Button>
           {unlocking && <CircularProgress size={20} sx={{ mx: 1 }} />}
