@@ -53,14 +53,10 @@ services:
     ports:
       - "32400:32400"
     environment:
-      TZ: Europe/Warsaw
       PLEX_CLAIM: claim-REPLACE_ME
       ADVERTISE_IP: http://192.168.1.10:32400/
-      PLEX_UID: 1000
-      PLEX_GID: 1000
     volumes:
       - /srv/plex/config:/config
-      - /srv/plex/transcode:/transcode
       - /srv/media:/data:ro
 
   nevu-next:
@@ -70,11 +66,8 @@ services:
       - plex
     ports:
       - "3000:3000"
-      - "44201:44201/udp"
     environment:
       PLEX_SERVER: http://plex:32400
-      LISTEN_PORT: 3000
-      PORT: 3000
     volumes:
       - nevu-data:/app/data
 
@@ -82,13 +75,15 @@ volumes:
   nevu-data:
 ```
 
-Replace the server IP, storage paths, user/group IDs, and `PLEX_CLAIM` from [plex.tv/claim](https://www.plex.tv/claim), then deploy:
+Replace the server IP, storage paths, and `PLEX_CLAIM` from [plex.tv/claim](https://www.plex.tv/claim), then deploy:
 
 ```bash
 docker compose up -d
 ```
 
 Open Plex at `http://192.168.1.10:32400/web` and Nevu Next at `http://192.168.1.10:3000`. The claim token is only needed for Plex's first start.
+
+Timezone, custom Plex user/group IDs, a dedicated `/transcode` mount, hardware acceleration, and additional Plex or Nevu discovery ports are optional and depend on the host. Add them only when your installation requires them.
 
 ### Docker commands: Nevu Next with an existing Plex server
 
@@ -105,11 +100,8 @@ docker run -d \
   --name nevu-next \
   --restart unless-stopped \
   -p 3000:3000 \
-  -p 44201:44201/udp \
   -v nevu-next-data:/app/data \
   -e PLEX_SERVER=http://192.168.1.10:32400 \
-  -e LISTEN_PORT=3000 \
-  -e PORT=3000 \
   ghcr.io/dejniel/nevu-next-plex-webui:latest
 ```
 
