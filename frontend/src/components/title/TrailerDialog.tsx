@@ -7,8 +7,7 @@ import {
   Typography,
 } from "@mui/material";
 import { CloseRounded } from "@mui/icons-material";
-import React, { useEffect, useState } from "react";
-import ReactPlayer from "react-player";
+import React, { useEffect, useRef, useState } from "react";
 import { resolveExtraURL, TitleExtra } from "../../plex/discover";
 
 export default function TrailerDialog({
@@ -20,6 +19,7 @@ export default function TrailerDialog({
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -41,6 +41,75 @@ export default function TrailerDialog({
       active = false;
     };
   }, [extra]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!url || !video || !extra) return;
+
+    if (extra.source !== "discover") {
+      video.src = url;
+      return () => {
+        video.removeAttribute("src");
+        video.load();
+      };
+    }
+
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = url;
+      return () => {
+        video.removeAttribute("src");
+        video.load();
+      };
+    }
+
+    let active = true;
+    let hls: import("hls.js").default | null = null;
+
+    import("hls.js")
+      .then(({ default: Hls }) => {
+        if (!active) return;
+        if (!Hls.isSupported()) {
+          setError("This browser cannot play HLS video.");
+          return;
+        }
+
+        hls = new Hls();
+        let networkRetries = 0;
+        let mediaRetries = 0;
+
+        hls.on(Hls.Events.ERROR, (_event, data) => {
+          if (!data.fatal || !hls) return;
+
+          if (
+            data.type === Hls.ErrorTypes.NETWORK_ERROR &&
+            networkRetries < 1
+          ) {
+            networkRetries += 1;
+            hls.startLoad();
+            return;
+          }
+
+          if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaRetries < 1) {
+            mediaRetries += 1;
+            hls.recoverMediaError();
+            return;
+          }
+
+          setError(`Unable to play this HLS stream (${data.details}).`);
+        });
+
+        hls.loadSource(url);
+        hls.attachMedia(video);
+      })
+      .catch(() => {
+        if (active) setError("Unable to load the HLS player.");
+      });
+
+    return () => {
+      active = false;
+      hls?.destroy();
+    };
+  }, [extra, url]);
 
   return (
     <Dialog
@@ -75,23 +144,18 @@ export default function TrailerDialog({
       >
         {!url && !error && <CircularProgress />}
         {error && <Alert severity="error">{error}</Alert>}
-        {url && (
-          <ReactPlayer
-            url={url}
-            playing
+        {url && !error && (
+          <video
+            ref={videoRef}
+            autoPlay
             controls
-            width="100%"
-            height="100%"
+            playsInline
             onEnded={onClose}
-            config={{
-              file: {
-                attributes: {
-                  controlsList: "nodownload",
-                  disablePictureInPicture: false,
-                  style: { objectFit: "contain", width: "100%", height: "100%" },
-                },
-              },
+            onError={() => {
+              if (extra?.source !== "discover")
+                setError("Unable to play this video file.");
             }}
+            style={{ objectFit: "contain", width: "100%", height: "100%" }}
           />
         )}
       </Box>
