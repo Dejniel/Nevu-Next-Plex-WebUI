@@ -30,9 +30,7 @@ services:
     #   - /dev/dri:/dev/dri
 
   nevu:
-    image: ${NEVU_IMAGE:-local/nevu-next:dev}
-    build:
-      context: .
+    image: ${NEVU_IMAGE:-ghcr.io/dejniel/nevu-next-plex-webui:latest}
     restart: unless-stopped
     depends_on:
       - plex

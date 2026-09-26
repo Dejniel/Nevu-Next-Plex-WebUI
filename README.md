@@ -36,7 +36,7 @@ Nevu Next currently targets Plex movie and TV libraries. It is not an official P
 
 ## Installation
 
-For a complete installation, use the ready Portainer Stack / Docker Compose example. If Plex already exists, the two Docker commands in the second example are enough. Both variants build Nevu Next directly from this repository.
+For a complete installation, use the ready Portainer Stack / Docker Compose example. If Plex already exists, the two Docker commands in the second example are enough. Both variants use the published multi-platform image from GitHub Container Registry.
 
 ### Portainer Stack / Docker Compose: Plex + Nevu Next
 
@@ -63,9 +63,7 @@ services:
       - /srv/media:/data:ro
 
   nevu-next:
-    image: nevu-next:local
-    build:
-      context: https://github.com/Dejniel/Nevu-Next-Plex-WebUI.git#main
+    image: ghcr.io/dejniel/nevu-next-plex-webui:latest
     restart: unless-stopped
     depends_on:
       - plex
@@ -86,17 +84,17 @@ volumes:
 Replace the server IP, storage paths, user/group IDs, and `PLEX_CLAIM` from [plex.tv/claim](https://www.plex.tv/claim), then deploy:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 Open Plex at `http://192.168.1.10:32400/web` and Nevu Next at `http://192.168.1.10:3000`. The claim token is only needed for Plex's first start.
 
 ### Docker commands: Nevu Next with an existing Plex server
 
-When Plex is already running, build Nevu Next directly from the repository:
+When Plex is already running, pull the current Nevu Next image:
 
 ```bash
-docker build -t nevu-next:local "https://github.com/Dejniel/Nevu-Next-Plex-WebUI.git#main"
+docker pull ghcr.io/dejniel/nevu-next-plex-webui:latest
 ```
 
 Then start the container, replacing `PLEX_SERVER` with your server address:
@@ -111,7 +109,7 @@ docker run -d \
   -e PLEX_SERVER=http://192.168.1.10:32400 \
   -e LISTEN_PORT=3000 \
   -e PORT=3000 \
-  nevu-next:local
+  ghcr.io/dejniel/nevu-next-plex-webui:latest
 ```
 
 `PLEX_SERVER` must include `http://` or `https://` and must not end with `/`. Open Nevu Next at `http://SERVER_IP:3000`.

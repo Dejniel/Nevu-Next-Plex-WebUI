@@ -28,6 +28,9 @@ FROM backend-base AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     LISTEN_PORT=3000
+LABEL org.opencontainers.image.source="https://github.com/Dejniel/Nevu-Next-Plex-WebUI" \
+      org.opencontainers.image.title="Nevu Next Plex WebUI" \
+      org.opencontainers.image.licenses="GPL-3.0"
 
 COPY backend/package.json backend/package-lock.json ./
 COPY backend/prisma/ ./prisma/

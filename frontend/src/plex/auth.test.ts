@@ -22,7 +22,7 @@ describe("buildPlexAuthUrl", () => {
     const url = buildPlexAuthUrl({
       clientIdentifier: "client&id",
       pinCode: "pin=code",
-      forwardUrl: "http://192.168.10.197:3101/login?pinID=123",
+      forwardUrl: "http://nevu.test:3101/login?pinID=123",
     });
     const [baseUrl, query] = url.split("#?");
     const params = new URLSearchParams(query);
@@ -32,7 +32,7 @@ describe("buildPlexAuthUrl", () => {
     expect(params.get("code")).toBe("pin=code");
     expect(params.get("context[device][product]")).toBe("NEVU");
     expect(params.get("forwardUrl")).toBe(
-      "http://192.168.10.197:3101/login?pinID=123",
+      "http://nevu.test:3101/login?pinID=123",
     );
   });
 
