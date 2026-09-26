@@ -13,6 +13,22 @@ export interface MetadataUpdate {
   year?: string;
 }
 
+export const EDITABLE_METADATA_FIELDS = [
+  "title",
+  "sortTitle",
+  "originalTitle",
+  "originallyAvailableAt",
+  "year",
+  "studio",
+  "contentRating",
+  "tagline",
+  "summary",
+] as const satisfies readonly (keyof MetadataUpdate)[];
+
+export type MetadataField = (typeof EDITABLE_METADATA_FIELDS)[number];
+export type MetadataLocks = Record<MetadataField, boolean>;
+export type MetadataLockUpdate = Partial<MetadataLocks>;
+
 export class MetadataUpdateError extends Error {
   constructor(
     message: string,
@@ -26,10 +42,15 @@ export class MetadataUpdateError extends Error {
 export function buildMetadataUpdatePath(
   ratingKey: string,
   changes: MetadataUpdate,
+  lockChanges: MetadataLockUpdate = {},
 ): string {
   const params = new URLSearchParams();
   Object.entries(changes).forEach(([field, value]) => {
-    if (value !== undefined) params.set(field, value);
+    if (value !== undefined) params.set(`${field}.value`, value);
+  });
+  Object.entries(lockChanges).forEach(([field, locked]) => {
+    if (locked !== undefined)
+      params.set(`${field}.locked`, locked ? "1" : "0");
   });
 
   return `/library/metadata/${encodeURIComponent(ratingKey)}?${params.toString()}`;
@@ -38,15 +59,20 @@ export function buildMetadataUpdatePath(
 export async function updateMetadata(
   ratingKey: string,
   changes: MetadataUpdate,
+  lockChanges: MetadataLockUpdate = {},
 ): Promise<void> {
   if (!ratingKey) throw new Error("The metadata item has no Plex ID.");
-  if (Object.keys(changes).length === 0) return;
+  if (
+    Object.keys(changes).length === 0 &&
+    Object.keys(lockChanges).length === 0
+  )
+    return;
 
   const token = AuthStorage.getServerToken();
   if (!token) throw new Error("The Plex session has expired. Sign in again.");
 
   const response = await ProxiedRequest(
-    buildMetadataUpdatePath(ratingKey, changes),
+    buildMetadataUpdatePath(ratingKey, changes, lockChanges),
     "PUT",
     {
       Accept: "application/json",
@@ -82,6 +108,7 @@ export async function updateMetadata(
 export function applyMetadataUpdate(
   metadata: Plex.Metadata,
   changes: MetadataUpdate,
+  lockChanges: MetadataLockUpdate = {},
 ): Plex.Metadata {
   const next = { ...metadata };
 
@@ -98,5 +125,32 @@ export function applyMetadataUpdate(
     next.originallyAvailableAt = changes.originallyAvailableAt;
   if (changes.year !== undefined) next.year = Number(changes.year) || 0;
 
+  if (Object.keys(lockChanges).length > 0) {
+    const fields = new Map(
+      (metadata.Field ?? []).map((field) => [field.name, field]),
+    );
+
+    Object.entries(lockChanges).forEach(([name, locked]) => {
+      if (locked) fields.set(name, { name, locked: true });
+      else fields.delete(name);
+    });
+
+    const nextFields = Array.from(fields.values());
+    if (nextFields.length > 0) next.Field = nextFields;
+    else delete next.Field;
+  }
+
   return next;
+}
+
+export function getMetadataLocks(metadata: Plex.Metadata): MetadataLocks {
+  const lockedFields = new Set(
+    (metadata.Field ?? [])
+      .filter((field) => field.locked)
+      .map((field) => field.name),
+  );
+
+  return Object.fromEntries(
+    EDITABLE_METADATA_FIELDS.map((field) => [field, lockedFields.has(field)]),
+  ) as MetadataLocks;
 }

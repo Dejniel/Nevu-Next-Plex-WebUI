@@ -135,6 +135,11 @@ declare namespace Plex {
         Operator: Operator[];
     }
 
+    interface MetadataField {
+        locked: boolean;
+        name: string;
+    }
+
     interface Operator {
         key: string;
         title: string;
@@ -221,6 +226,7 @@ declare namespace Plex {
         Director?: Tag[];
         Writer?: Tag[];
         Role?: Role[];
+        Field?: MetadataField[];
         Chapter?: Chapter[];
         Marker?: Marker[];
         OnDeck?: {

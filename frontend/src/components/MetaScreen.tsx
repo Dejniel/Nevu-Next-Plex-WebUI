@@ -61,6 +61,7 @@ import EditMetadataDialog from "./title/EditMetadataDialog";
 import OriginalDownloadButton from "./title/OriginalDownloadButton";
 import {
   applyMetadataUpdate,
+  MetadataLockUpdate,
   MetadataUpdate,
 } from "../plex/metadata";
 import {
@@ -264,9 +265,12 @@ function MetaScreen() {
   const primaryTrailer = selectPrimaryTrailer(extras, data?.primaryExtraKey);
   const remainingExtras = withoutExtra(extras, primaryTrailer);
 
-  const metadataWasSaved = (changes: MetadataUpdate) => {
+  const metadataWasSaved = (
+    changes: MetadataUpdate,
+    lockChanges: MetadataLockUpdate,
+  ) => {
     setData((current) =>
-      current ? applyMetadataUpdate(current, changes) : current,
+      current ? applyMetadataUpdate(current, changes, lockChanges) : current,
     );
     setMetadataSaved(true);
 

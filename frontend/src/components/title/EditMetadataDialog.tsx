@@ -7,10 +7,22 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
+  InputAdornment,
   TextField,
+  Tooltip,
 } from "@mui/material";
+import { LockOpenRounded, LockRounded } from "@mui/icons-material";
 import React, { useEffect, useMemo, useState } from "react";
-import { MetadataUpdate, updateMetadata } from "../../plex/metadata";
+import {
+  EDITABLE_METADATA_FIELDS,
+  getMetadataLocks,
+  MetadataField,
+  MetadataLocks,
+  MetadataLockUpdate,
+  MetadataUpdate,
+  updateMetadata,
+} from "../../plex/metadata";
 
 interface MetadataDraft {
   title: string;
@@ -23,6 +35,18 @@ interface MetadataDraft {
   originallyAvailableAt: string;
   year: string;
 }
+
+const fieldLabels: Record<MetadataField, string> = {
+  title: "Title",
+  sortTitle: "Sort title",
+  originalTitle: "Original title",
+  originallyAvailableAt: "Release date",
+  year: "Year",
+  studio: "Studio",
+  contentRating: "Content rating",
+  tagline: "Tagline",
+  summary: "Summary",
+};
 
 function draftFromMetadata(data: Plex.Metadata): MetadataDraft {
   return {
@@ -58,22 +82,35 @@ export default function EditMetadataDialog({
   data: Plex.Metadata;
   open: boolean;
   onClose: () => void;
-  onSaved: (changes: MetadataUpdate) => void;
+  onSaved: (
+    changes: MetadataUpdate,
+    lockChanges: MetadataLockUpdate,
+  ) => void;
 }) {
   const initial = useMemo(() => draftFromMetadata(data), [data]);
+  const initialLocks = useMemo(() => getMetadataLocks(data), [data]);
   const [draft, setDraft] = useState(initial);
+  const [locks, setLocks] = useState<MetadataLocks>(initialLocks);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setDraft(initial);
+      setLocks(initialLocks);
       setError(null);
     }
-  }, [initial, open]);
+  }, [initial, initialLocks, open]);
 
   const changes = changedFields(initial, draft);
-  const dirty = Object.keys(changes).length > 0;
+  const lockChanges = Object.fromEntries(
+    EDITABLE_METADATA_FIELDS.filter(
+      (field) =>
+        changes[field] !== undefined || locks[field] !== initialLocks[field],
+    ).map((field) => [field, locks[field]]),
+  ) as MetadataLockUpdate;
+  const dirty =
+    Object.keys(changes).length > 0 || Object.keys(lockChanges).length > 0;
   const year = draft.year ? Number(draft.year) : null;
   const invalidYear =
     year !== null &&
@@ -82,6 +119,52 @@ export default function EditMetadataDialog({
 
   const setField = (field: keyof MetadataDraft, value: string) => {
     setDraft((current) => ({ ...current, [field]: value }));
+    setLocks((current) => ({
+      ...current,
+      [field]: value === initial[field] ? initialLocks[field] : true,
+    }));
+  };
+
+  const lockAdornment = (field: MetadataField, alignTop = false) => {
+    const locked = locks[field];
+    const label = fieldLabels[field];
+
+    return (
+      <InputAdornment
+        position="end"
+        sx={alignTop ? { alignSelf: "flex-start", mt: 1 } : undefined}
+      >
+        <Tooltip
+          title={
+            locked
+              ? "Keep this field during metadata refresh"
+              : "Allow Plex to update this field"
+          }
+        >
+          <span>
+            <IconButton
+              edge="end"
+              size="small"
+              disabled={saving}
+              aria-label={`${locked ? "Unlock" : "Lock"} ${label} metadata`}
+              onClick={() =>
+                setLocks((current) => ({
+                  ...current,
+                  [field]: !current[field],
+                }))
+              }
+              sx={
+                locked
+                  ? { color: "primary.main" }
+                  : { color: "text.disabled" }
+              }
+            >
+              {locked ? <LockRounded /> : <LockOpenRounded />}
+            </IconButton>
+          </span>
+        </Tooltip>
+      </InputAdornment>
+    );
   };
 
   const save = async () => {
@@ -95,8 +178,8 @@ export default function EditMetadataDialog({
     if (normalized.year !== undefined) normalized.year = normalized.year.trim();
 
     try {
-      await updateMetadata(data.ratingKey, normalized);
-      onSaved(normalized);
+      await updateMetadata(data.ratingKey, normalized, lockChanges);
+      onSaved(normalized, lockChanges);
       onClose();
     } catch (error) {
       setError(
@@ -140,6 +223,7 @@ export default function EditMetadataDialog({
             error={invalidTitle}
             helperText={invalidTitle ? "Title is required." : undefined}
             onChange={(event) => setField("title", event.target.value)}
+            slotProps={{ input: { endAdornment: lockAdornment("title") } }}
             sx={{ gridColumn: "1 / -1" }}
           />
           <TextField
@@ -147,19 +231,26 @@ export default function EditMetadataDialog({
             value={draft.sortTitle}
             disabled={saving}
             onChange={(event) => setField("sortTitle", event.target.value)}
+            slotProps={{ input: { endAdornment: lockAdornment("sortTitle") } }}
           />
           <TextField
             label="Original title"
             value={draft.originalTitle}
             disabled={saving}
             onChange={(event) => setField("originalTitle", event.target.value)}
+            slotProps={{
+              input: { endAdornment: lockAdornment("originalTitle") },
+            }}
           />
           <TextField
             label="Release date"
             type="date"
             value={draft.originallyAvailableAt}
             disabled={saving}
-            slotProps={{ inputLabel: { shrink: true } }}
+            slotProps={{
+              input: { endAdornment: lockAdornment("originallyAvailableAt") },
+              inputLabel: { shrink: true },
+            }}
             onChange={(event) =>
               setField("originallyAvailableAt", event.target.value)
             }
@@ -171,7 +262,10 @@ export default function EditMetadataDialog({
             disabled={saving}
             error={invalidYear}
             helperText={invalidYear ? "Enter a valid year." : undefined}
-            slotProps={{ htmlInput: { min: 1800, max: new Date().getFullYear() + 10 } }}
+            slotProps={{
+              input: { endAdornment: lockAdornment("year") },
+              htmlInput: { min: 1800, max: new Date().getFullYear() + 10 },
+            }}
             onChange={(event) => setField("year", event.target.value)}
           />
           <TextField
@@ -179,18 +273,23 @@ export default function EditMetadataDialog({
             value={draft.studio}
             disabled={saving}
             onChange={(event) => setField("studio", event.target.value)}
+            slotProps={{ input: { endAdornment: lockAdornment("studio") } }}
           />
           <TextField
             label="Content rating"
             value={draft.contentRating}
             disabled={saving}
             onChange={(event) => setField("contentRating", event.target.value)}
+            slotProps={{
+              input: { endAdornment: lockAdornment("contentRating") },
+            }}
           />
           <TextField
             label="Tagline"
             value={draft.tagline}
             disabled={saving}
             onChange={(event) => setField("tagline", event.target.value)}
+            slotProps={{ input: { endAdornment: lockAdornment("tagline") } }}
             sx={{ gridColumn: "1 / -1" }}
           />
           <TextField
@@ -200,6 +299,9 @@ export default function EditMetadataDialog({
             multiline
             minRows={5}
             onChange={(event) => setField("summary", event.target.value)}
+            slotProps={{
+              input: { endAdornment: lockAdornment("summary", true) },
+            }}
             sx={{ gridColumn: "1 / -1" }}
           />
         </Box>
