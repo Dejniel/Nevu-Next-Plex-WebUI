@@ -4,9 +4,9 @@ import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import SettingsInfo from "./settings/SettingsInfo";
 import SettingsPlayback from "./settings/SettingsPlayback";
 import { useUserSettings } from "../states/UserSettingsState";
-import SettingsLibraries from "./settings/SettingsLibraries";
 import SettingsAccount from "./settings/SettingsAccount";
 import SettingsSharing from "./settings/SettingsSharing";
+import SettingsLibrariesAdmin from "./settings/SettingsLibrariesAdmin";
 import { useAuthSession } from "../states/AuthSessionState";
 
 function Settings() {
@@ -56,13 +56,16 @@ function Settings() {
       >
         <SettingsDivider title="General" />
         <SettingsItem title="Account" link="/settings/account" />
-        {activeProfile?.isOwner && (
-          <SettingsItem title="Sharing" link="/settings/sharing" />
-        )}
         <SettingsItem title="About" link="/settings/info" />
         <SettingsDivider title="Experience" />
         <SettingsItem title="Playback" link="/settings/experience-playback" />
-        <SettingsItem title="Libraries" link="/settings/experience-libraries" />
+        {activeProfile?.isOwner && (
+          <>
+            <SettingsDivider title="Manage" />
+            <SettingsItem title="Libraries" link="/settings/manage-libraries" />
+            <SettingsItem title="Sharing" link="/settings/sharing" />
+          </>
+        )}
       </Box>
 
       <Box
@@ -86,13 +89,17 @@ function Settings() {
           <Route path="/info" element={<SettingsInfo />} />
           <Route path="/account" element={<SettingsAccount />} />
           <Route path="/sharing" element={<SettingsSharing />} />
+          <Route path="/manage-libraries" element={<SettingsLibrariesAdmin />} />
 
           <Route path="/experience-playback" element={<SettingsPlayback />} />
           <Route
             path="/experience-recommendations"
             element={<Navigate to="/settings/experience-playback" replace />}
           />
-          <Route path="/experience-libraries" element={<SettingsLibraries />} />
+          <Route
+            path="/experience-libraries"
+            element={<Navigate to="/settings/manage-libraries" replace />}
+          />
         </Routes>
       </Box>
     </Box>

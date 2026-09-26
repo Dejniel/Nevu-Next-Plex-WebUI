@@ -1,0 +1,152 @@
+import {
+  DeleteOutlineRounded,
+  DriveFileMoveRounded,
+  EditRounded,
+  ManageSearchRounded,
+  MoreHorizRounded,
+  PushPinOutlined,
+  PushPinRounded,
+  RefreshRounded,
+  RestartAltRounded,
+} from "@mui/icons-material";
+import {
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Divider,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Button,
+  Snackbar,
+} from "@mui/material";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { runLibraryAction } from "../../plex/libraries";
+import {
+  LIBRARY_NAVIGATION_SETTING,
+  NavigationLibrary,
+  normalizeLibraryNavigation,
+  serializeLibraryNavigation,
+} from "../../plex/libraryNavigation";
+import { useAuthSession } from "../../states/AuthSessionState";
+import { useUserSettings } from "../../states/UserSettingsState";
+import LibraryOrderDialog from "./LibraryOrderDialog";
+
+interface Props {
+  anchorEl: HTMLElement | null;
+  library: NavigationLibrary | null;
+  libraries: NavigationLibrary[];
+  onClose: () => void;
+}
+
+export default function LibraryActionsMenu({ anchorEl, library, libraries, onClose }: Props) {
+  const navigate = useNavigate();
+  const { activeProfile } = useAuthSession();
+  const { settings, setSetting } = useUserSettings();
+  const [orderOpen, setOrderOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<"refresh-metadata" | "empty-trash" | null>(null);
+  const [notice, setNotice] = useState("");
+  const navigation = normalizeLibraryNavigation(libraries, settings);
+  const isPinned = Boolean(library && navigation.preference.pinned.includes(library.uuid));
+
+  const closeAnd = (callback: () => void) => {
+    onClose();
+    callback();
+  };
+
+  const togglePinned = async () => {
+    if (!library) return;
+    const pinned = isPinned
+      ? navigation.preference.pinned.filter((id) => id !== library.uuid)
+      : [...navigation.preference.pinned, library.uuid];
+    await setSetting(
+      LIBRARY_NAVIGATION_SETTING,
+      serializeLibraryNavigation({ ...navigation.preference, pinned }),
+    );
+    onClose();
+  };
+
+  const action = async (name: "scan" | "refresh-metadata" | "analyze" | "empty-trash") => {
+    if (!library) return;
+    try {
+      await runLibraryAction(library.key, name);
+      setNotice(
+        name === "scan" ? "Library scan started." :
+        name === "refresh-metadata" ? "Metadata refresh started." :
+        name === "analyze" ? "Library analysis started." : "Library trash emptied.",
+      );
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Library action failed.");
+    }
+    setConfirmAction(null);
+    onClose();
+  };
+
+  return (
+    <>
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl && library)} onClose={onClose}>
+        <MenuItem onClick={togglePinned}>
+          <ListItemIcon>{isPinned ? <PushPinOutlined /> : <PushPinRounded />}</ListItemIcon>
+          <ListItemText>{isPinned ? "Unpin" : "Pin"}</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => closeAnd(() => setOrderOpen(true))}>
+          <ListItemIcon><DriveFileMoveRounded /></ListItemIcon>
+          <ListItemText>Reorder libraries</ListItemText>
+        </MenuItem>
+
+        {activeProfile?.isOwner && library && (
+          <>
+            <Divider />
+            <MenuItem onClick={() => closeAnd(() => navigate(`/settings/manage-libraries?edit=${library.key}`))}>
+              <ListItemIcon><EditRounded /></ListItemIcon>
+              <ListItemText>Edit library</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => action("scan")}>
+              <ListItemIcon><RefreshRounded /></ListItemIcon>
+              <ListItemText>Scan library files</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => closeAnd(() => setConfirmAction("refresh-metadata"))}>
+              <ListItemIcon><RestartAltRounded /></ListItemIcon>
+              <ListItemText>Refresh all metadata</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => action("analyze")}>
+              <ListItemIcon><ManageSearchRounded /></ListItemIcon>
+              <ListItemText>Analyze</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => closeAnd(() => setConfirmAction("empty-trash"))}>
+              <ListItemIcon><DeleteOutlineRounded /></ListItemIcon>
+              <ListItemText>Empty trash</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => closeAnd(() => navigate(`/settings/manage-libraries?delete=${library.key}`))}>
+              <ListItemIcon><MoreHorizRounded /></ListItemIcon>
+              <ListItemText>Delete library</ListItemText>
+            </MenuItem>
+          </>
+        )}
+      </Menu>
+
+      <LibraryOrderDialog open={orderOpen} libraries={libraries} onClose={() => setOrderOpen(false)} />
+      <Dialog open={confirmAction !== null} onClose={() => setConfirmAction(null)}>
+        <DialogTitle>{confirmAction === "empty-trash" ? "Empty library trash?" : "Refresh all metadata?"}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {confirmAction === "empty-trash"
+              ? "Plex will permanently remove unavailable items from this library."
+              : "Plex will refresh metadata for every item in this library."}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmAction(null)}>Cancel</Button>
+          <Button color={confirmAction === "empty-trash" ? "error" : "primary"} variant="contained" onClick={() => confirmAction && action(confirmAction)}>
+            Continue
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Snackbar open={Boolean(notice)} autoHideDuration={5000} onClose={() => setNotice("")} message={notice} />
+    </>
+  );
+}

@@ -11,6 +11,7 @@ import MovieItemSlider from "../components/MovieItemSlider";
 import HeroDisplay from "../components/HeroDisplay";
 import { useWatchListCache } from "../states/WatchListCache";
 import { useUserSettings } from "../states/UserSettingsState";
+import { normalizeLibraryNavigation } from "../plex/libraryNavigation";
 
 export default function Home() {
   const [featured, setFeatured] = React.useState<
@@ -32,14 +33,10 @@ export default function Home() {
       try {
         const librariesData = await getAllLibraries();
 
-        const enabledLibraries = librariesData.filter((library) => {
-          const key = `LIBRARY_${library.uuid}`;
-          const value = settings[key];
-          return value === undefined || value === "true"; // Default to true
-        });
-        const filteredLibraries = enabledLibraries
-          .filter((lib) => ["movie", "show"].includes(lib.type))
-          .slice(0, 4); // limit to first 4 libraries
+        const filteredLibraries = normalizeLibraryNavigation(
+          librariesData.filter((library) => ["movie", "show"].includes(library.type)),
+          settings,
+        ).pinned.slice(0, 4);
 
         const featuredData = await getRecommendations(filteredLibraries);
         setFeatured(featuredData);

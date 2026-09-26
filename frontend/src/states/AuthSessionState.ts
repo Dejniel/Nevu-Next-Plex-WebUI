@@ -16,6 +16,7 @@ import { useUserSessionStore } from "./UserSession";
 import { useUserSettings } from "./UserSettingsState";
 import { useWatchListCache } from "./WatchListCache";
 import { useSessionStore } from "./SessionState";
+import { useLibraries } from "./LibrariesState";
 
 export type AuthStatus =
   | "initializing"
@@ -47,6 +48,7 @@ function resetProfileState() {
   useUserSettings.getState().reset();
   useWatchListCache.getState().reset();
   useSessionStore.getState().reset();
+  useLibraries.getState().reset();
 }
 
 function profileFromUser(

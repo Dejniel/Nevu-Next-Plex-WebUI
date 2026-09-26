@@ -21,7 +21,6 @@ import {
   SxProps,
   TextField,
   Typography,
-  Grid,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
@@ -32,7 +31,7 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
-import { getAllLibraries, getSearch, getTranscodeImageURL } from "../plex";
+import { getSearch, getTranscodeImageURL } from "../plex";
 import { useUserSessionStore } from "../states/UserSession";
 import {
   BookmarkRounded,
@@ -40,6 +39,7 @@ import {
   FullscreenRounded,
   LogoutRounded,
   MenuRounded,
+  MoreVertRounded,
   PeopleRounded,
   SearchRounded,
   SettingsRounded,
@@ -53,6 +53,9 @@ import { useBigReader } from "./BigReader";
 import { useUserSettings } from "../states/UserSettingsState";
 import { useAuthSession } from "../states/AuthSessionState";
 import { SPONSOR_URL } from "../projectLinks";
+import { useLibraries, LIBRARIES_CHANGED_EVENT } from "../states/LibrariesState";
+import { normalizeLibraryNavigation, NavigationLibrary } from "../plex/libraryNavigation";
+import LibraryActionsMenu from "./libraries/LibraryActionsMenu";
 
 const BarSide: SxProps<Theme> = {
   display: "flex",
@@ -88,7 +91,9 @@ function Appbar() {
     };
   }, []);
 
-  const [libraries, setLibraries] = useState<Plex.LibarySection[] | null>(null);
+  const { libraries, load: loadLibraries } = useLibraries();
+  const [libraryMenuAnchor, setLibraryMenuAnchor] = useState<HTMLElement | null>(null);
+  const [menuLibrary, setMenuLibrary] = useState<NavigationLibrary | null>(null);
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
@@ -96,17 +101,22 @@ function Appbar() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    getAllLibraries().then((res) => {
-      const filtered = res.filter((library) => {
-        const key = `LIBRARY_${library.uuid}`;
-        const rawValue = settings[key];
+    void loadLibraries();
+    const reload = () => void loadLibraries();
+    window.addEventListener(LIBRARIES_CHANGED_EVENT, reload);
+    return () => window.removeEventListener(LIBRARIES_CHANGED_EVENT, reload);
+  }, [loadLibraries]);
 
-        return rawValue === undefined || rawValue === "true";
-      });
-
-      setLibraries(filtered.filter((lib) => ["movie", "show"].includes(lib.type)));
-    });
-  }, [settings]);
+  const navigationLibraries = (libraries || []).filter((library) =>
+    ["movie", "show"].includes(library.type)
+  );
+  const libraryNavigation = normalizeLibraryNavigation(navigationLibraries, settings);
+  const pinnedLibraries = libraryNavigation.pinned;
+  const unpinnedLibraries = libraryNavigation.unpinned;
+  const openLibraryMenu = (anchor: HTMLElement, library: NavigationLibrary) => {
+    setMenuLibrary(library);
+    setLibraryMenuAnchor(anchor);
+  };
 
   return (
     <AppBar
@@ -261,6 +271,15 @@ S - Skip onscreen markers (intro, credits, etc)
           <ListItemText>Sign out of Plex</ListItemText>
         </MenuItem>
       </Menu>
+      <LibraryActionsMenu
+        anchorEl={libraryMenuAnchor}
+        library={menuLibrary}
+        libraries={navigationLibraries}
+        onClose={() => {
+          setLibraryMenuAnchor(null);
+          if (isMobile) setDrawerOpen(false);
+        }}
+      />
 
       {/* Mobile: hamburger button */}
       {isMobile && (
@@ -304,18 +323,23 @@ S - Skip onscreen markers (intro, credits, etc)
               Home
             </HeadLink>
             {!libraries && <CircularProgress size="small" />}
-            {libraries?.slice(0, 4).map((library) => (
+            {pinnedLibraries.slice(0, 4).map((library) => (
               <HeadLink
                 to={`/browse/${library.key}`}
                 key={library.key}
                 library={library}
                 active={location.pathname.includes(`/browse/${library.key}`)}
+                onMenu={openLibraryMenu}
               >
                 {library.title}
               </HeadLink>
             ))}
-            {libraries && libraries.length > 4 && (
-              <LibrariesDropdown libraries={libraries} />
+            {libraries && (pinnedLibraries.length > 4 || unpinnedLibraries.length > 0) && (
+              <LibrariesDropdown
+                pinned={pinnedLibraries.slice(4)}
+                unpinned={unpinnedLibraries}
+                onMenu={openLibraryMenu}
+              />
             )}
           </Box>
         )}
@@ -417,9 +441,22 @@ S - Skip onscreen markers (intro, credits, etc)
               </ListItem>
             )}
 
-            {libraries?.map((library) => (
-              <ListItem disablePadding key={library.key}>
+            {pinnedLibraries.map((library) => (
+              <ListItem
+                disablePadding
+                key={library.key}
+                secondaryAction={
+                  <IconButton
+                    edge="end"
+                    onClick={(event) => openLibraryMenu(event.currentTarget, library)}
+                    aria-label={`Actions for ${library.title}`}
+                  >
+                    <MoreVertRounded />
+                  </IconButton>
+                }
+              >
                 <ListItemButton
+                  sx={{ pr: 7 }}
                   selected={location.pathname.includes(`/browse/${library.key}`)}
                   onClick={() => { navigate(`/browse/${library.key}`); setDrawerOpen(false); }}
                 >
@@ -427,6 +464,36 @@ S - Skip onscreen markers (intro, credits, etc)
                 </ListItemButton>
               </ListItem>
             ))}
+
+            {unpinnedLibraries.length > 0 && (
+              <>
+                <Divider sx={{ my: 1 }} />
+                <Typography variant="overline" color="text.secondary" sx={{ px: 2 }}>More</Typography>
+                {unpinnedLibraries.map((library) => (
+                  <ListItem
+                    disablePadding
+                    key={library.key}
+                    secondaryAction={
+                      <IconButton
+                        edge="end"
+                        onClick={(event) => openLibraryMenu(event.currentTarget, library)}
+                        aria-label={`Actions for ${library.title}`}
+                      >
+                        <MoreVertRounded />
+                      </IconButton>
+                    }
+                  >
+                    <ListItemButton
+                      sx={{ pr: 7 }}
+                      selected={location.pathname.includes(`/browse/${library.key}`)}
+                      onClick={() => { navigate(`/browse/${library.key}`); setDrawerOpen(false); }}
+                    >
+                      <ListItemText primary={library.title} />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </>
+            )}
 
             <Divider sx={{ my: 1 }} />
 
@@ -817,13 +884,19 @@ function SearchBar({ onResultSelected, inDrawer }: { onResultSelected?: () => vo
   );
 }
 
-function LibrariesDropdown({ libraries }: { libraries: Plex.LibarySection[] }) {
+function LibrariesDropdown({
+  pinned,
+  unpinned,
+  onMenu,
+}: {
+  pinned: NavigationLibrary[];
+  unpinned: NavigationLibrary[];
+  onMenu: (anchor: HTMLElement, library: NavigationLibrary) => void;
+}) {
   const [librariesAnchorEl, setLibrariesAnchorEl] = React.useState<null | HTMLElement>(null);
   const librariesOpen = Boolean(librariesAnchorEl);
   const navigate = useNavigate();
-  const [, setSearchParams] = useSearchParams();
-
-  const remainingLibraries = libraries.slice(4);
+  const libraries = [...pinned, ...unpinned];
 
   return (
     <>
@@ -851,7 +924,7 @@ function LibrariesDropdown({ libraries }: { libraries: Plex.LibarySection[] }) {
             },
           }}
         >
-          +{remainingLibraries.length} more
+          +{libraries.length} more
         </Typography>
 
         <Popper
@@ -898,59 +971,45 @@ function LibrariesDropdown({ libraries }: { libraries: Plex.LibarySection[] }) {
                 },
               }}
             >
-              <Grid container spacing={1.5}>
-                {remainingLibraries.map((library) => (
-                  <Grid size={{ xs: 12, sm: 6, md: 4 }} key={library.key}>
-                    <Box
-                      sx={{
-                        padding: "12px 16px",
-                        cursor: "pointer",
-                        transition: "all 0.2s ease-in-out",
-                        borderRadius: "4px",
-                        textAlign: "left",
-                        minHeight: "48px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "flex-start",
-                        width: "100%",
-                        backgroundColor: "rgba(255, 255, 255, 0.05)",
-                        "&:hover": {
-                          backgroundColor: "rgba(255, 255, 255, 0.1)",
-                          transform: "translateY(-1px)",
-                        },
-                      }}
-                      onClick={() => {
-                        navigate(`/browse/${library.key}`);
+              {libraries.map((library, index) => (
+                <React.Fragment key={library.key}>
+                  {index === pinned.length && unpinned.length > 0 && (
+                    <>
+                      <Divider sx={{ my: 1 }} />
+                      <Typography variant="overline" color="text.secondary" sx={{ px: 1 }}>Unpinned</Typography>
+                    </>
+                  )}
+                  <Box
+                    sx={{
+                      px: 1.5,
+                      minHeight: 44,
+                      display: "flex",
+                      alignItems: "center",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
+                    }}
+                    onClick={() => {
+                      navigate(`/browse/${library.key}`);
+                      setLibrariesAnchorEl(null);
+                    }}
+                  >
+                    <Typography noWrap sx={{ flex: 1, fontSize: 14, fontWeight: 500 }}>{library.title}</Typography>
+                    <IconButton
+                      size="small"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onMenu(librariesAnchorEl || event.currentTarget, library);
                         setLibrariesAnchorEl(null);
                       }}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        setSearchParams(
-                          new URLSearchParams({
-                            bkey: `/library/sections/${library.key}/all`,
-                          })
-                        );
-                        setLibrariesAnchorEl(null);
-                      }}
+                      aria-label={`Actions for ${library.title}`}
                     >
-                      <Typography
-                        sx={{
-                          fontWeight: 500,
-                          fontFamily: '"Inter Variable", sans-serif',
-                          fontSize: "14px",
-                          lineHeight: "1.3",
-                          textOverflow: "ellipsis",
-                          overflow: "hidden",
-                          whiteSpace: "nowrap",
-                          width: "100%",
-                        }}
-                      >
-                        {library.title}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                ))}
-              </Grid>
+                      <MoreVertRounded fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </React.Fragment>
+              ))}
             </Box>
           </Box>
         </Popper>
@@ -964,37 +1023,53 @@ function HeadLink({
   library,
   children,
   active,
+  onMenu,
 }: {
   to: string;
   library?: Plex.LibarySection;
   children: React.ReactNode;
   active?: boolean;
+  onMenu?: (anchor: HTMLElement, library: NavigationLibrary) => void;
 }): JSX.Element {
   const [, setSearchParams] = useSearchParams();
   return (
-    <Link
-      className={`head-link${active ? " head-link-active" : ""}`}
-      to={to}
-      style={{
-        textDecoration: "none",
-        color: "inherit",
-        fontWeight: 500,
-        transition: "all 0.2s ease-in-out",
-        fontFamily: '"Inter Variable", sans-serif',
-        userSelect: "none",
-      }}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        if (library)
-          setSearchParams(
-            new URLSearchParams({
-              bkey: `/library/sections/${library.key}/all`,
-            })
-          );
-      }}
-      aria-current={active ? "page" : undefined}
-    >
-      {children}
-    </Link>
+    <Box sx={{ display: "flex", alignItems: "center", minWidth: 0, "& .library-menu": { opacity: 0 }, "&:hover .library-menu, &:focus-within .library-menu": { opacity: 1 } }}>
+      <Link
+        className={`head-link${active ? " head-link-active" : ""}`}
+        to={to}
+        style={{
+          textDecoration: "none",
+          color: "inherit",
+          fontWeight: 500,
+          transition: "all 0.2s ease-in-out",
+          fontFamily: '"Inter Variable", sans-serif',
+          userSelect: "none",
+          whiteSpace: "nowrap",
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          if (library)
+            setSearchParams(new URLSearchParams({ bkey: `/library/sections/${library.key}/all` }));
+        }}
+        aria-current={active ? "page" : undefined}
+      >
+        {children}
+      </Link>
+      {library && onMenu && (
+        <IconButton
+          className="library-menu"
+          size="small"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onMenu(event.currentTarget, library);
+          }}
+          aria-label={`Actions for ${library.title}`}
+          sx={{ ml: 0.25, transition: "opacity 0.2s" }}
+        >
+          <MoreVertRounded fontSize="small" />
+        </IconButton>
+      )}
+    </Box>
   );
 }

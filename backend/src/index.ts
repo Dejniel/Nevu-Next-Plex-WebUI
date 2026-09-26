@@ -11,6 +11,7 @@ import { CheckPlexUser } from './common/plex';
 import { Discovery } from 'udp-discovery';
 import httpProxy from 'http-proxy';
 import { createPlexSharingRouter } from './plexSharing';
+import { createPlexLibrariesRouter } from './plexLibraries';
 import { APP_VERSION } from './appVersion';
 
 /* 
@@ -215,6 +216,11 @@ app.get('/config', (req, res) => {
 });
 
 app.use('/sharing', createPlexSharingRouter({
+    plexServer: process.env.PLEX_SERVER || 'http://localhost:32400',
+    httpsAgent: process.env.DISABLE_TLS_VERIFY === 'true' ? noVerifyHttpsAgent : undefined,
+}));
+
+app.use('/libraries', createPlexLibrariesRouter({
     plexServer: process.env.PLEX_SERVER || 'http://localhost:32400',
     httpsAgent: process.env.DISABLE_TLS_VERIFY === 'true' ? noVerifyHttpsAgent : undefined,
 }));

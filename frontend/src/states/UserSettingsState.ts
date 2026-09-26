@@ -14,8 +14,8 @@ export interface UserSettingsState {
     settings: {
         [key in UserSettingsOptions]: string;
     }
-    setSetting: (key: UserSettingsOptions, value: string) => void;
-    fetchSettings: () => void;
+    setSetting: (key: UserSettingsOptions, value: string) => Promise<void>;
+    fetchSettings: () => Promise<void>;
     reset: () => void;
 }
 
