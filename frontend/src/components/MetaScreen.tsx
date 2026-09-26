@@ -385,7 +385,7 @@ function MetaScreen() {
             width: "100%",
             padding: "0 3%",
             mt: {
-              xs: "-25vh",
+              xs: "-38vh",
               sm: `calc(3% - 15vh - ${DESKTOP_HERO_HEIGHT})`,
             },
             gap: "3%",
@@ -394,9 +394,9 @@ function MetaScreen() {
         >
           <Box
             sx={{
-              width: { xs: "60%", sm: "30%" },
-              maxWidth: { xs: "280px", sm: "none" },
-              mb: { xs: 4, sm: 0 },
+              width: { xs: "100%", sm: "30%" },
+              maxWidth: { xs: "320px", sm: "none" },
+              mb: { xs: 2, sm: 0 },
               borderRadius: "10px",
               overflow: "hidden",
               boxShadow: (theme) =>

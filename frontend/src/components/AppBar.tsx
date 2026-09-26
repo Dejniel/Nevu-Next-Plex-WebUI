@@ -310,10 +310,20 @@ S - Skip onscreen markers (intro, credits, etc)
         }}
       >
         <img
-          src={isWideDesktop ? "/nevu-next-right.svg" : "/nevu.svg"}
+          src={
+            isMobile || isWideDesktop
+              ? "/nevu-next-right.svg"
+              : "/nevu.svg"
+          }
           alt=""
-          width={isWideDesktop ? 200 : isMobile ? 80 : 100}
           style={{
+            width: isWideDesktop
+              ? 200
+              : isMobile
+                ? "clamp(118px, 36vw, 150px)"
+                : 100,
+            maxWidth: "100%",
+            height: "auto",
             objectFit: "contain",
           }}
         />

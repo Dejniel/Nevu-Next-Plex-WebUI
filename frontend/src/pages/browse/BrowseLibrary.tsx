@@ -221,86 +221,101 @@ function BrowseLibrary() {
           px: { xs: 1, md: 6 },
           pt: { xs: 6, md: 0.5 },
           pb: 1,
-          pr: { md: "350px" },
           position: "relative",
           display: "flex",
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "flex-start",
-          gap: 1,
-          flexWrap: "wrap",
+          flexDirection: { xs: "column", md: "row" },
+          alignItems: { xs: "stretch", md: "center" },
+          gap: { xs: 1.5, md: 1 },
         }}
       >
-        <Select
-          value={primaryFilter}
-          onChange={(e) => {
-            setPrimaryFilter(e.target.value);
-            localStorage.setItem("primaryFilter", e.target.value);
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: { xs: "space-evenly", md: "flex-start" },
+            flex: "1 1 auto",
+            flexWrap: "wrap",
+            gap: 1,
+            "& > .MuiInputBase-root": {
+              flex: { xs: "1 1 105px", md: "0 0 auto" },
+              minWidth: 0,
+            },
           }}
-          size="small"
         >
-          <MenuItem value="all">All</MenuItem>
-          <MenuItem value="unwatched">Unwatched</MenuItem>
-          <MenuItem value="watched">Watched</MenuItem>
-          <Divider />
-          <MenuItem value="recentlyAdded">Recently Added</MenuItem>
-          <MenuItem value="onDeck">On Deck</MenuItem>
-          <MenuItem value="newest">Newest</MenuItem>
-        </Select>
-
-        {primaryFilter === "all" && (
           <Select
-            value={typeFilter}
+            value={primaryFilter}
             onChange={(e) => {
-              setTypeFilter(e.target.value);
-              if (libraryID)
-                localStorage.setItem(
-                  `typeFilter:${libraryID}`,
-                  e.target.value
-                );
+              setPrimaryFilter(e.target.value);
+              localStorage.setItem("primaryFilter", e.target.value);
             }}
             size="small"
           >
-            <MenuItem value="any">
-              {viewGroupLabel(items?.viewGroup || library?.viewGroup)}
-            </MenuItem>
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value="unwatched">Unwatched</MenuItem>
+            <MenuItem value="watched">Watched</MenuItem>
             <Divider />
-            {library?.Type?.filter((e) =>
-              ["movie", "show", "episode"].includes(e.type)
-            ).map((type) => (
-              <MenuItem key={type.key} value={type.type}>
-                {type.title}
-              </MenuItem>
-            ))}
+            <MenuItem value="recentlyAdded">Recently Added</MenuItem>
+            <MenuItem value="onDeck">On Deck</MenuItem>
+            <MenuItem value="newest">Newest</MenuItem>
           </Select>
-        )}
 
-        <Select
-          value={sortBy}
-          onChange={(e) => {
-            setSortBy(e.target.value);
-            localStorage.setItem("sortBy", e.target.value);
-          }}
-          size="small"
-        >
-          <MenuItem value={"title:asc"}>Title (A-Z)</MenuItem>
-          <MenuItem value={"title:desc"}>Title (Z-A)</MenuItem>
-          <Divider />
-          <MenuItem value={"addedAt:asc"}>Date Added (Oldest)</MenuItem>
-          <MenuItem value={"addedAt:desc"}>Date Added (Newest)</MenuItem>
-          <MenuItem value={"year:asc"}>Year (Oldest)</MenuItem>
-          <MenuItem value={"year:desc"}>Year (Newest)</MenuItem>
-          <MenuItem value={"updated:asc"}>Date Updated (Oldest)</MenuItem>
-          <MenuItem value={"updated:desc"}>Date Updated (Newest)</MenuItem>
-          <Divider />
-          <MenuItem value={"random:desc"}>Random</MenuItem>
-        </Select>
+          {primaryFilter === "all" && (
+            <Select
+              value={typeFilter}
+              onChange={(e) => {
+                setTypeFilter(e.target.value);
+                if (libraryID)
+                  localStorage.setItem(
+                    `typeFilter:${libraryID}`,
+                    e.target.value
+                  );
+              }}
+              size="small"
+            >
+              <MenuItem value="any">
+                {viewGroupLabel(items?.viewGroup || library?.viewGroup)}
+              </MenuItem>
+              <Divider />
+              {library?.Type?.filter((e) =>
+                ["movie", "show", "episode"].includes(e.type)
+              ).map((type) => (
+                <MenuItem key={type.key} value={type.type}>
+                  {type.title}
+                </MenuItem>
+              ))}
+            </Select>
+          )}
+
+          <Select
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value);
+              localStorage.setItem("sortBy", e.target.value);
+            }}
+            size="small"
+          >
+            <MenuItem value={"title:asc"}>Title (A-Z)</MenuItem>
+            <MenuItem value={"title:desc"}>Title (Z-A)</MenuItem>
+            <Divider />
+            <MenuItem value={"addedAt:asc"}>Date Added (Oldest)</MenuItem>
+            <MenuItem value={"addedAt:desc"}>Date Added (Newest)</MenuItem>
+            <MenuItem value={"year:asc"}>Year (Oldest)</MenuItem>
+            <MenuItem value={"year:desc"}>Year (Newest)</MenuItem>
+            <MenuItem value={"updated:asc"}>Date Updated (Oldest)</MenuItem>
+            <MenuItem value={"updated:desc"}>Date Updated (Newest)</MenuItem>
+            <Divider />
+            <MenuItem value={"random:desc"}>Random</MenuItem>
+          </Select>
+        </Box>
 
         <Box
           sx={{
             display: "flex",
             alignItems: "center",
+            justifyContent: { xs: "space-evenly", md: "flex-end", lg: "center" },
             gap: { xs: 1.25, lg: 2 },
+            width: { xs: "100%", md: "auto" },
+            ml: { md: "auto", lg: 0 },
             position: { lg: "absolute" },
             top: { lg: 4 },
             left: { lg: "50%" },
