@@ -1,7 +1,7 @@
 import axios from "axios";
 import { authedGet, authedPost, authedPut, getIncludeProps, getXPlexProps, queryBuilder } from "./QuickFunctions";
 import './plex.d.ts'
-import { getBackendURL } from "../backendURL";
+import { getBackendURL, ProxiedRequest } from "../backendURL";
 import { platformCache } from "../common/DesktopApp";
 import { AuthStorage } from "../auth/AuthStorage";
 
@@ -294,13 +294,17 @@ export async function setMediaPlayedStatus(watched: boolean, ratingKey: string):
  * @param ratingKey - The unique key identifying the media item.
  * @returns A promise that resolves when the rating has been set.
  */
-export async function setMediaRating(rating: number, ratingKey: string): Promise<void> {
-    await authedGet(`/:/rate?${queryBuilder({
+export async function setMediaRating(rating: number, ratingKey: string): Promise<boolean> {
+    const response = await ProxiedRequest(`/:/rate?${queryBuilder({
         identifier: "com.plexapp.plugins.library",
         key: ratingKey,
         rating,
         ...getXPlexProps()
-    })}`);
+    })}`, "GET", {
+        'X-Plex-Token': AuthStorage.getServerToken() as string,
+        'accept': 'application/json'
+    });
+    return response.status === 200;
 }
 
 export interface LibraryDir {

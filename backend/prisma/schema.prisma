@@ -26,7 +26,7 @@ model NevuReviewsLocal {
   created_at DateTime @default(now())
 
   rating Int
-  message String @default("No review text provided")
+  message String @default("")
   spoilers Boolean @default(false)
 
   user NevuReviewsLocalUsers @relation(fields: [userID], references: [id])

@@ -21,6 +21,7 @@ declare namespace PerPlexed {
     interface ConfigOptions {
         DISABLE_PROXY: boolean; // DEPRECATED
         DISABLE_NEVU_SYNC: boolean;
+        DISABLE_GLOBAL_REVIEWS: boolean;
     }
 
     namespace Sync {
@@ -49,6 +50,8 @@ declare namespace PerPlexed {
     }
 
     namespace Reviews {
+        type Visibility = "GLOBAL" | "LOCAL";
+
         interface Review {
             itemID: string;
             userID: string;
@@ -56,7 +59,7 @@ declare namespace PerPlexed {
             rating: number;
             message: string;
             spoilers: boolean;
-            visibility: "GLOBAL" | "LOCAL";
+            visibility: Visibility;
             user: ReviewUser;
         }
 
@@ -66,8 +69,5 @@ declare namespace PerPlexed {
             avatar: string;
         }
 
-        interface ReviewResponse {
-            error?: string;
-        }
     }
 }

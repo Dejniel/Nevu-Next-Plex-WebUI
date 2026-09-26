@@ -1,4 +1,5 @@
 import {
+  Alert,
   Avatar,
   Backdrop,
   Box,
@@ -114,6 +115,7 @@ function MetaScreen() {
   const [data, setData] = useState<Plex.Metadata | undefined>(undefined);
 
   const [page, setPage] = useState<number>(0);
+  const [reviewRevision, setReviewRevision] = useState(0);
 
   const [selectedSeason, setSelectedSeason] = useState<number>(0);
   const [episodes, setEpisodes] = useState<Plex.Metadata[] | null>();
@@ -663,7 +665,12 @@ function MetaScreen() {
                   </Tooltip>
                 )}
 
-                {data && <RatingButton item={data} />}
+                {data && (
+                  <RatingButton
+                    item={data}
+                    onReviewChanged={() => setReviewRevision((value) => value + 1)}
+                  />
+                )}
 
                 <Tooltip
                   placement="top"
@@ -1016,7 +1023,9 @@ function MetaScreen() {
                 loadingExtras={extrasLoading}
               />
             )}
-            {page === 3 && <MetaPageReviews data={data} />}
+            {page === 3 && (
+              <MetaPageReviews data={data} revision={reviewRevision} />
+            )}
             {page === 4 && data && <TitleMedia data={data} />}
           </AnimatePresence>
         </Box>
@@ -1238,40 +1247,83 @@ function EpisodesPage({
   );
 }
 
-function MetaPageReviews({ data }: { data: Plex.Metadata | undefined }) {
+function MetaPageReviews({
+  data,
+  revision,
+}: {
+  data: Plex.Metadata | undefined;
+  revision: number;
+}) {
   const [reviews, setReviews] = useState<
-    | (PlexCommunity.ReviewsData & {
+    | {
+        plexReviews: PlexCommunity.ReviewsData | null;
         nevuReviews: PerPlexed.Reviews.Review[];
-      })
+      }
     | null
   >(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadWarning, setLoadWarning] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!data) return;
+    let cancelled = false;
+    if (!data) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+    setLoadWarning(null);
     const metaID = data.guid.split("/").pop();
-    if (!metaID) return;
+    if (!metaID) {
+      setLoadWarning("This item does not have a valid Plex metadata identifier.");
+      setLoading(false);
+      return;
+    }
 
-    PlexCommunity.getUserReviews(metaID)
-      .then(async (res) => {
-        if (!res) return;
-        res.recentReviews.nodes =
-          res?.recentReviews.nodes.filter(
-            (review) =>
-              res?.topReviews?.nodes.find(
-                (topReview) => topReview.id === review.id
-              ) === undefined
-          ) ?? [];
+    Promise.allSettled([
+      PlexCommunity.getUserReviews(metaID),
+      getNevuReviews(data.guid),
+    ]).then(([plexResult, nevuResult]) => {
+      if (cancelled) return;
+      let plexReviews =
+        plexResult.status === "fulfilled" ? plexResult.value : null;
+      const nevuReviews =
+        nevuResult.status === "fulfilled" ? nevuResult.value : [];
 
-        const nevuReviews = await getNevuReviews(data.guid);
+      if (plexReviews) {
+        const topReviewIDs = new Set(
+          plexReviews.topReviews?.nodes.map(({ id }) => id) || [],
+        );
+        plexReviews = {
+          ...plexReviews,
+          recentReviews: {
+            ...plexReviews.recentReviews,
+            nodes:
+              plexReviews.recentReviews?.nodes.filter(
+                ({ id }) => !topReviewIDs.has(id),
+              ) || [],
+          },
+        };
+      }
 
-        setReviews({ ...res, nevuReviews });
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [data]);
+      if (!plexReviews && nevuResult.status === "rejected")
+        setLoadWarning("Community and Nevu reviews are temporarily unavailable.");
+      else if (!plexReviews)
+        setLoadWarning("Plex community reviews are temporarily unavailable.");
+      else if (nevuResult.status === "rejected")
+        setLoadWarning(
+          nevuResult.reason instanceof Error
+            ? nevuResult.reason.message
+            : "Nevu reviews are temporarily unavailable.",
+        );
+
+      setReviews({ plexReviews, nevuReviews });
+      setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [data, revision]);
 
   const renderReviewsSection = (
     title: string,
@@ -1309,6 +1361,13 @@ function MetaPageReviews({ data }: { data: Plex.Metadata | undefined }) {
               const reviewDate = isNevu
                 ? (review as PerPlexed.Reviews.Review).created_at
                 : (review as PlexCommunity.ActivityReview).date;
+              const message =
+                typeof review.message === "string" &&
+                !["No text provided", "No review text provided"].includes(
+                  review.message,
+                )
+                  ? review.message
+                  : "";
 
               return (
                 <Grid size={{ xs: 12, sm: 6, md: 4 }} key={title + index}>
@@ -1386,31 +1445,34 @@ function MetaPageReviews({ data }: { data: Plex.Metadata | undefined }) {
                       </Box>
                     </Box>
 
-                    <Divider sx={{ mb: 2 }} />
+                    {message && (
+                      <>
+                        <Divider sx={{ mb: 2 }} />
+                        <Typography
+                          sx={{
+                            fontSize: "0.95rem",
+                            color: "text.secondary",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            display: "-webkit-box",
+                            WebkitLineClamp: 5,
+                            WebkitBoxOrient: "vertical",
+                            lineHeight: 1.6,
 
-                    <Typography
-                      sx={{
-                        fontSize: "0.95rem",
-                        color: "text.secondary",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 5,
-                        WebkitBoxOrient: "vertical",
-                        lineHeight: 1.6,
-
-                        ...(hasSpoilers && {
-                          filter: "blur(10px)",
-                          transition: "filter 0.2s ease",
-                          "&:hover": {
-                            filter: "blur(0)",
-                            transition: "filter 3s ease",
-                          },
-                        }),
-                      }}
-                    >
-                      {review.message || "No review text provided."}
-                    </Typography>
+                            ...(hasSpoilers && {
+                              filter: "blur(10px)",
+                              transition: "filter 0.2s ease",
+                              "&:hover": {
+                                filter: "blur(0)",
+                                transition: "filter 3s ease",
+                              },
+                            }),
+                          }}
+                        >
+                          {message}
+                        </Typography>
+                      </>
+                    )}
                   </Paper>
                 </Grid>
               );
@@ -1440,9 +1502,9 @@ function MetaPageReviews({ data }: { data: Plex.Metadata | undefined }) {
 
   const totalReviews =
     (data?.Review?.length ?? 0) +
-    (reviews?.topReviews?.nodes.length ?? 0) +
-    (reviews?.friendReviews?.nodes.length ?? 0) +
-    (reviews?.recentReviews?.nodes.length ?? 0) +
+    (reviews?.plexReviews?.topReviews?.nodes.length ?? 0) +
+    (reviews?.plexReviews?.friendReviews?.nodes.length ?? 0) +
+    (reviews?.plexReviews?.recentReviews?.nodes.length ?? 0) +
     (reviews?.nevuReviews?.length ?? 0);
 
   return (
@@ -1464,6 +1526,12 @@ function MetaPageReviews({ data }: { data: Plex.Metadata | undefined }) {
     >
       {totalReviews === 0 && !loading && (
         <Typography>No one has reviewed this title yet.</Typography>
+      )}
+
+      {loadWarning && (
+        <Alert severity="warning" sx={{ width: "100%" }}>
+          {loadWarning}
+        </Alert>
       )}
 
       {(data?.Review?.length ?? 0) > 0 && (
@@ -1555,20 +1623,20 @@ function MetaPageReviews({ data }: { data: Plex.Metadata | undefined }) {
 
           {renderReviewsSection(
             "Recent Reviews",
-            reviews.recentReviews?.nodes,
-            !reviews.recentReviews?.nodes.length
+            reviews.plexReviews?.recentReviews?.nodes,
+            !reviews.plexReviews?.recentReviews?.nodes.length
           )}
 
           {renderReviewsSection(
             "Top Reviews",
-            reviews.topReviews?.nodes,
-            !reviews.topReviews?.nodes.length
+            reviews.plexReviews?.topReviews?.nodes,
+            !reviews.plexReviews?.topReviews?.nodes.length
           )}
 
           {renderReviewsSection(
             "Friend Reviews",
-            reviews.friendReviews?.nodes,
-            !reviews.friendReviews?.nodes.length
+            reviews.plexReviews?.friendReviews?.nodes,
+            !reviews.plexReviews?.friendReviews?.nodes.length
           )}
         </Box>
       ) : null}
@@ -1576,7 +1644,13 @@ function MetaPageReviews({ data }: { data: Plex.Metadata | undefined }) {
   );
 }
 
-function RatingButton({ item }: { item: Plex.Metadata }): JSX.Element {
+function RatingButton({
+  item,
+  onReviewChanged,
+}: {
+  item: Plex.Metadata;
+  onReviewChanged?: () => void;
+}): JSX.Element {
   const [rating, setRating] = useState<number | null>(
     (item.userRating && item.userRating / 2) ?? null
   );
@@ -1590,6 +1664,11 @@ function RatingButton({ item }: { item: Plex.Metadata }): JSX.Element {
         <AddReviewModal
           item={item}
           onClose={() => setAddReviewModalOpen(false)}
+          onChanged={(value) => {
+            setRating(value);
+            item.userRating = value ? value * 2 : undefined;
+            onReviewChanged?.();
+          }}
         />
       )}
       <Popover
@@ -1648,12 +1727,6 @@ function RatingButton({ item }: { item: Plex.Metadata }): JSX.Element {
           onClick={() => {
             setAddReviewModalOpen(true);
             setAnchorEl(null);
-          }}
-          sx={{
-            height: rating ? "38px" : "0px",
-            opacity: rating ? 1 : 0,
-            overflow: "hidden",
-            transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
         >
           Add Review

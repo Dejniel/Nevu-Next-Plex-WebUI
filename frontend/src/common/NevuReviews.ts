@@ -1,65 +1,85 @@
-import axios, { AxiosError } from "axios";
-import { getBackendURL } from "../backendURL";
+import axios from "axios";
 import { AuthStorage } from "../auth/AuthStorage";
+import { getBackendURL } from "../backendURL";
 
-export async function getNevuReviews(itemID: string, userID?: string): Promise<PerPlexed.Reviews.Review[]> {
-    const res = await axios.get(`${getBackendURL()}/reviews`, {
-        params: {
-            itemID,
-            ...userID ? { userID } : {}
-        }, 
-        headers: {
-            'Content-Type': 'application/json',
-            'x-plex-token': AuthStorage.getProfileAccountToken() || ""
-        }
-    }).catch((error: AxiosError) => {
-        console.error("Failed to fetch Nevu reviews:", error);
-        return error.response || { data: { error: "Failed to fetch reviews" } };
+export class ReviewError extends Error {
+  constructor(message: string, public readonly status?: number) {
+    super(message);
+    this.name = "ReviewError";
+  }
+}
+
+function headers() {
+  const token = AuthStorage.getProfileAccountToken();
+  if (!token)
+    throw new ReviewError(
+      "The active Plex profile session has expired. Sign in again.",
+      401,
+    );
+
+  return {
+    "X-Plex-Token": token,
+    "X-Plex-Client-Identifier": localStorage.getItem("clientID") || "nevu-web",
+  };
+}
+
+function reviewError(error: unknown, fallback: string): ReviewError {
+  if (!axios.isAxiosError(error)) return new ReviewError(fallback);
+  const message =
+    typeof error.response?.data?.error === "string"
+      ? error.response.data.error
+      : fallback;
+  return new ReviewError(message, error.response?.status);
+}
+
+export async function getNevuReviews(
+  itemID: string,
+  userID?: string,
+): Promise<PerPlexed.Reviews.Review[]> {
+  try {
+    const response = await axios.get(`${getBackendURL()}/reviews`, {
+      params: { itemID, ...(userID ? { userID } : {}) },
+      headers: headers(),
     });
-
-    return res.data;
+    if (!Array.isArray(response.data))
+      throw new ReviewError("Nevu returned an invalid reviews response.");
+    return response.data as PerPlexed.Reviews.Review[];
+  } catch (error) {
+    if (error instanceof ReviewError) throw error;
+    throw reviewError(error, "Nevu could not load reviews.");
+  }
 }
 
 export async function updateNevuReview(
-    itemID: string,
-    rating: number,
-    message: string,
-    visibility: "GLOBAL" | "LOCAL",
-    spoilers: boolean
-): Promise<PerPlexed.Reviews.ReviewResponse | null> {
-    const res = await axios.post(`${getBackendURL()}/reviews`, {
-        itemID,
-        rating,
-        message,
-        visibility,
-        spoilers
-    }, {
-        headers: {
-            'Content-Type': 'application/json',
-            'x-plex-token': AuthStorage.getProfileAccountToken() || ""
-        }
-    }).catch((error: AxiosError) => {
-        console.error("Failed to update Nevu review:", error);
-        return error.response || { data: { error: "Failed to update review" } };
-    });
-
-    return res.data;
+  itemID: string,
+  rating: number,
+  message: string,
+  visibility: PerPlexed.Reviews.Visibility,
+  spoilers: boolean,
+): Promise<void> {
+  try {
+    await axios.post(
+      `${getBackendURL()}/reviews`,
+      { itemID, rating, message, visibility, spoilers },
+      { headers: headers() },
+    );
+  } catch (error) {
+    if (error instanceof ReviewError) throw error;
+    throw reviewError(error, "Nevu could not save the review.");
+  }
 }
 
-export async function deleteNevuReview(itemID: string, visibility: "GLOBAL" | "LOCAL"): Promise<void> {
-    const res = await axios.delete(`${getBackendURL()}/reviews`, {
-        params: {
-            itemID,
-            visibility
-        },
-        headers: {
-            'Content-Type': 'application/json',
-            'x-plex-token': AuthStorage.getProfileAccountToken() || ""
-        }
-    }).catch((error: AxiosError) => {
-        console.error("Failed to delete Nevu review:", error);
-        return error.response || { data: { error: "Failed to delete review" } };
+export async function deleteNevuReview(
+  itemID: string,
+  visibility: PerPlexed.Reviews.Visibility,
+): Promise<void> {
+  try {
+    await axios.delete(`${getBackendURL()}/reviews`, {
+      params: { itemID, visibility },
+      headers: headers(),
     });
-
-    return res.data;
+  } catch (error) {
+    if (error instanceof ReviewError) throw error;
+    throw reviewError(error, "Nevu could not delete the review.");
+  }
 }
