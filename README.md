@@ -2,8 +2,6 @@
 
 Nevu Next Plex WebUI is a modern, self-hosted alternative web interface for Plex Media Server. It gives movie and TV libraries a faster, cleaner browser experience with Plex Home profiles, trailers, rich title details, multi-version playback, audio and subtitle selection, watchlists, recommendations, metadata editing, library sharing, and permission-aware original-file downloads. It runs in Docker and keeps Plex as the media server and source of truth.
 
-[Repository](https://github.com/Dejniel/Nevu-Next-Plex-WebUI) | [Report an issue](https://github.com/Dejniel/Nevu-Next-Plex-WebUI/issues) | [Support development](https://buymeacoffee.com/dejniel)
-
 ![Nevu Next Plex WebUI showing a cinematic Plex home screen](assets/screenshot1.png)
 
 ## Why this fork exists
