@@ -72,6 +72,8 @@ import { getTrackChoices } from "../plex/mediaVersions";
 import { useCanManageServer } from "../states/ServerAccess";
 import { useTitleExtras } from "../hooks/useTitleExtras";
 
+const DESKTOP_HERO_HEIGHT = "clamp(560px, 93.333vh, 960px)";
+
 function trackLanguages(data: Plex.Metadata, streamType: 2 | 3) {
   return Array.from(
     new Set(
@@ -330,7 +332,7 @@ function MetaScreen() {
           sx={{
             width: "100%",
             maxWidth: "100%",
-            height: { xs: "50vh", sm: "clamp(420px, 70vh, 720px)" },
+            height: { xs: "50vh", sm: DESKTOP_HERO_HEIGHT },
             backgroundImage: `url(${getTranscodeImageURL(
               data?.art as string,
               1920,
@@ -374,11 +376,14 @@ function MetaScreen() {
           sx={{
             display: "flex",
             flexDirection: { xs: "column", sm: "row" },
-            alignItems: { xs: "center", sm: "flex-end" },
+            alignItems: { xs: "center", sm: "flex-start" },
             justifyContent: "center",
             width: "100%",
             padding: "0 3%",
-            mt: { xs: "-25vh", sm: "-35vh", md: "-55vh" },
+            mt: {
+              xs: "-25vh",
+              sm: `calc(3% - 15vh - ${DESKTOP_HERO_HEIGHT})`,
+            },
             gap: "3%",
             zIndex: 2,
           }}
@@ -420,8 +425,8 @@ function MetaScreen() {
               display: "flex",
               flexDirection: "column",
               alignItems: { xs: "center", sm: "flex-start" },
-              justifyContent: "flex-end",
-              height: "100%",
+              justifyContent: "flex-start",
+              height: { xs: "100%", sm: "auto" },
               marginLeft: { xs: 0, sm: "1%" },
             }}
           >
@@ -432,7 +437,7 @@ function MetaScreen() {
                 alignItems: { xs: "center", sm: "flex-start" },
                 justifyContent: "flex-start",
                 width: "100%",
-                height: "65%",
+                height: { xs: "65%", sm: "auto" },
               }}
             >
               <Box
