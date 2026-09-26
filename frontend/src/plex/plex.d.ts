@@ -408,6 +408,10 @@ declare namespace Plex {
         emailOnlyAuth: boolean;
         hasPassword: boolean;
         protected: boolean;
+        restricted: boolean;
+        home: boolean;
+        homeAdmin: boolean;
+        homeSize: number;
         thumb: string;
         authToken: string;
         mailingListStatus: string;

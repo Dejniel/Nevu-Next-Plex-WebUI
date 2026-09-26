@@ -1,10 +1,11 @@
 import { ProxiedRequest } from "../backendURL";
 import { platformCache } from "../common/DesktopApp";
 import { useSessionStore } from "../states/SessionState";
+import { AuthStorage } from "../auth/AuthStorage";
 
 export async function authedGet(url: string) {
     const res = await ProxiedRequest(url, "GET", {
-        'X-Plex-Token': localStorage.getItem("accessToken") as string,
+        'X-Plex-Token': AuthStorage.getServerToken() as string,
         'accept': 'application/json'
     }).catch((err) => {
         console.log(err);
@@ -17,7 +18,7 @@ export async function authedGet(url: string) {
 
 export async function authedPost(url: string, body?: any) {
     const res = await ProxiedRequest(url, "POST", {
-        'X-Plex-Token': localStorage.getItem("accessToken") as string,
+        'X-Plex-Token': AuthStorage.getServerToken() as string,
         'accept': 'application/json'
     }, body).catch((err) => {
         console.log(err);
@@ -30,7 +31,7 @@ export async function authedPost(url: string, body?: any) {
 
 export async function authedPut(url: string, body: any) {
     const res = await ProxiedRequest(url, "PUT", {
-        'X-Plex-Token': localStorage.getItem("accessToken") as string,
+        'X-Plex-Token': AuthStorage.getServerToken() as string,
         'accept': 'application/json'
     }, body).catch((err) => {
         console.log(err);
@@ -60,7 +61,7 @@ export function getXPlexProps() {
         "X-Plex-Device": platformCache.platform?.platform ? "Chrome" : getBrowserName(),
         "X-Plex-Device-Name": platformCache.deviceName ?? "Nevu Web",
         "X-Plex-Device-Screen-Resolution": getResString(),
-        "X-Plex-Token": localStorage.getItem("accessToken"),
+        "X-Plex-Token": AuthStorage.getServerToken(),
         "X-Plex-Language": "en",
         "X-Plex-Session-Id": sessionStorage.getItem("sessionID"),
         "X-Plex-Session-Identifier": useSessionStore.getState().XPlexSessionID,

@@ -1,6 +1,11 @@
 import axios from "axios";
-import { buildPlexAuthUrl } from "./auth";
-import { getLoggedInUser, getPin } from "./auth";
+import {
+  buildPlexAuthUrl,
+  getHomeProfiles,
+  getLoggedInUser,
+  getPin,
+  switchHomeProfile,
+} from "./auth";
 
 jest.mock("axios");
 
@@ -8,6 +13,7 @@ const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   jest.clearAllMocks();
 });
 
@@ -41,7 +47,7 @@ describe("buildPlexAuthUrl", () => {
         /^https:\/\/plex\.tv\/api\/v2\/pins\?.*strong=true/,
       ),
       undefined,
-      { headers: { accept: "application/json" } },
+      { headers: { Accept: "application/json" } },
     );
   });
 
@@ -49,5 +55,58 @@ describe("buildPlexAuthUrl", () => {
     await expect(getLoggedInUser()).resolves.toBeNull();
 
     expect(mockedAxios.get).not.toHaveBeenCalled();
+  });
+
+  it("returns the owner and Plex Home users only", async () => {
+    mockedAxios.get.mockResolvedValue({
+      data: `<MediaContainer>
+        <User id="2" title="Home user" home="1" protected="1" restricted="1" />
+        <User id="3" title="Friend" home="0" protected="0" restricted="0" />
+      </MediaContainer>`,
+    });
+
+    const profiles = await getHomeProfiles("owner-token", {
+      id: 1,
+      title: "Owner",
+      protected: true,
+      restricted: false,
+    } as Plex.UserData);
+
+    expect(profiles.map(({ id, title, isOwner }) => ({ id, title, isOwner }))).toEqual([
+      { id: 1, title: "Owner", isOwner: true },
+      { id: 2, title: "Home user", isOwner: false },
+    ]);
+  });
+
+  it("switches a Home user with Plex client headers", async () => {
+    mockedAxios.post.mockResolvedValue({
+      data: '<user id="2" authenticationToken="profile-token" />',
+    });
+
+    await expect(
+      switchHomeProfile(
+        "owner-token",
+        {
+          id: 2,
+          title: "Home user",
+          protected: true,
+          restricted: true,
+          isOwner: false,
+        },
+        "1234",
+      ),
+    ).resolves.toBe("profile-token");
+
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      "https://plex.tv/api/home/users/2/switch?pin=1234",
+      undefined,
+      {
+        headers: expect.objectContaining({
+          Accept: "application/xml",
+          "X-Plex-Product": "NEVU",
+          "X-Plex-Token": "owner-token",
+        }),
+      },
+    );
   });
 });

@@ -11,6 +11,7 @@ interface WatchListCacheState {
     removeItem: (item: string) => void;
     loadWatchListCache: () => void;
     isOnWatchList: (item: string) => boolean;
+    reset: () => void;
 }
 
 export const useWatchListCache = create<WatchListCacheState>((set) => ({
@@ -34,4 +35,5 @@ export const useWatchListCache = create<WatchListCacheState>((set) => ({
         set({ watchListCache: watchList });
     },
     isOnWatchList: (item): boolean => useWatchListCache.getState().watchListCache.find((i) => i.guid === item) !== undefined,
+    reset: () => set({ watchListCache: [] }),
 }));

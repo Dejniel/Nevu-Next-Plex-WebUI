@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { create } from 'zustand';
 import { getBackendURL } from '../backendURL';
+import { AuthStorage } from '../auth/AuthStorage';
 
 type UserSettingsOptions = 
 "DISABLE_WATCHSCREEN_DARKENING" |
@@ -16,23 +17,26 @@ export interface UserSettingsState {
     }
     setSetting: (key: UserSettingsOptions, value: string) => void;
     fetchSettings: () => void;
+    reset: () => void;
 }
+
+const defaultSettings = {
+    DISABLE_WATCHSCREEN_DARKENING: "false",
+    DISABLE_HOME_SCREEN_LIBRARIES: "false",
+    AUTO_MATCH_TRACKS: "true",
+    AUTO_NEXT_EP: "true",
+};
 
 export const useUserSettings = create<UserSettingsState>((set) => ({
     loaded: false,
-    settings: {
-        DISABLE_WATCHSCREEN_DARKENING: "false",
-        DISABLE_HOME_SCREEN_LIBRARIES: "false",
-        AUTO_MATCH_TRACKS: "true",
-        AUTO_NEXT_EP: "true",
-    },
+    settings: { ...defaultSettings },
     setSetting: async (key, value) => {
         await axios.post(`${getBackendURL()}/user/options`, {
             key,
             value,
         }, {
             headers: {
-                'X-Plex-Token': localStorage.getItem("accAccessToken"),
+                'X-Plex-Token': AuthStorage.getProfileAccountToken(),
             }
         }).then((res) => {
             // Handle response if needed
@@ -50,7 +54,7 @@ export const useUserSettings = create<UserSettingsState>((set) => ({
     fetchSettings: async () => {
         const settings = await axios.get(`${getBackendURL()}/user/options`, {
             headers: {
-                'X-Plex-Token': localStorage.getItem("accAccessToken"),
+                'X-Plex-Token': AuthStorage.getProfileAccountToken(),
             }
         }).then((res) => {
             return res.data;
@@ -73,4 +77,5 @@ export const useUserSettings = create<UserSettingsState>((set) => ({
 
         set({ loaded: true });
     },
+    reset: () => set({ loaded: false, settings: { ...defaultSettings } }),
 }));

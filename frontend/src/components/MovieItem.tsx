@@ -43,6 +43,7 @@ import ReactPlayer from "react-player";
 import { useConfirmModal } from "./ConfirmModal";
 import { getBackendURL } from "../backendURL";
 import { queryBuilder } from "../plex/QuickFunctions";
+import { AuthStorage } from "../auth/AuthStorage";
 
 interface MovieItemPreviewPlaybackState {
   url: string;
@@ -107,7 +108,7 @@ function MovieItem({
           url: `${getBackendURL()}/dynproxy${
             mediaURL.split("?")[0]
           }?${queryBuilder({
-            "X-Plex-Token": localStorage.getItem("accessToken"),
+            "X-Plex-Token": AuthStorage.getServerToken(),
             ...Object.fromEntries(
               new URL("http://localhost:3000" + mediaURL).searchParams.entries()
             ),

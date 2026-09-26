@@ -4,6 +4,7 @@ import { io, Socket } from "socket.io-client";
 import { getBackendURL, isDev } from "../backendURL";
 import { NavigateFunction } from "react-router-dom";
 import { useToast } from "../components/ToastManager";
+import { AuthStorage } from "../auth/AuthStorage";
 
 export interface SyncSessionState {
     socket: Socket | null;
@@ -25,7 +26,7 @@ export const useSyncSessionState = create<SyncSessionState>((set, get) => ({
         return new Promise<true | PerPlexed.Sync.SocketError>((resolve) => {
             const socket = isDev ? io(getBackendURL(), {
                 auth: {
-                    token: localStorage.getItem("accAccessToken")
+                    token: AuthStorage.getProfileAccountToken()
                 },
                 query: {
                     room: room || "new"
@@ -33,7 +34,7 @@ export const useSyncSessionState = create<SyncSessionState>((set, get) => ({
                 autoConnect: false
             }) : io({
                 auth: {
-                    token: localStorage.getItem("accAccessToken")
+                    token: AuthStorage.getProfileAccountToken()
                 },
                 query: {
                     room: room || "new"

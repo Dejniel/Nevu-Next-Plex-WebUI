@@ -1,11 +1,10 @@
 import React, { useEffect } from "react";
 import AppBar from "./components/AppBar";
-import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 
 import Browse from "./pages/Browse";
 import { Box } from "@mui/material";
 import Watch from "./pages/Watch";
-import Login from "./pages/Login";
 import Search from "./pages/Search";
 import Home from "./pages/Home";
 import Library from "./pages/Library";
@@ -21,6 +20,8 @@ import Settings from "./pages/Settings";
 import { useUserSettings } from "./states/UserSettingsState";
 import MetaScreen from "./components/MetaScreen";
 import ConfirmModal from "./components/ConfirmModal";
+import AuthGate from "./components/AuthGate";
+import { useUserSessionStore } from "./states/UserSession";
 
 function AppManager() {
   const { loading } = useStartupState();
@@ -44,7 +45,11 @@ function AppManager() {
     );
   }
 
-  return <App />;
+  return (
+    <AuthGate>
+      <App />
+    </AuthGate>
+  );
 }
 
 function AppTitleManager() {
@@ -68,18 +73,8 @@ function AppTitleManager() {
 }
 
 function App() {
-  const location = useLocation();
-  const navigate = useNavigate();
-
   useEffect(() => {
-    if (
-      !localStorage.getItem("accessToken") &&
-      !location.pathname.startsWith("/login")
-    )
-      navigate("/login");
-  }, [location.pathname, navigate]);
-
-  useEffect(() => {
+    useUserSessionStore.getState().loadUser();
     useWatchListCache.getState().loadWatchListCache();
     useSessionStore.getState().fetchPlexServer();
     useUserSettings.getState().fetchSettings();
@@ -115,7 +110,6 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/browse/:libraryID" element={<Browse />} />
           <Route path="/watch/:itemID" element={<Watch />} />
-          <Route path="/login" element={<Login />} />
           <Route path="/search/:query?" element={<Search />} />
           <Route path="/sync/waitingroom" element={<WaitingRoom />} />
           <Route

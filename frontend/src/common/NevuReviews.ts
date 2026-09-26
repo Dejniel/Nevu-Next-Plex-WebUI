@@ -1,5 +1,6 @@
 import axios, { AxiosError } from "axios";
 import { getBackendURL } from "../backendURL";
+import { AuthStorage } from "../auth/AuthStorage";
 
 export async function getNevuReviews(itemID: string, userID?: string): Promise<PerPlexed.Reviews.Review[]> {
     const res = await axios.get(`${getBackendURL()}/reviews`, {
@@ -9,7 +10,7 @@ export async function getNevuReviews(itemID: string, userID?: string): Promise<P
         }, 
         headers: {
             'Content-Type': 'application/json',
-            'x-plex-token': localStorage.getItem("accAccessToken") || ""
+            'x-plex-token': AuthStorage.getProfileAccountToken() || ""
         }
     }).catch((error: AxiosError) => {
         console.error("Failed to fetch Nevu reviews:", error);
@@ -35,7 +36,7 @@ export async function updateNevuReview(
     }, {
         headers: {
             'Content-Type': 'application/json',
-            'x-plex-token': localStorage.getItem("accAccessToken") || ""
+            'x-plex-token': AuthStorage.getProfileAccountToken() || ""
         }
     }).catch((error: AxiosError) => {
         console.error("Failed to update Nevu review:", error);
@@ -53,7 +54,7 @@ export async function deleteNevuReview(itemID: string, visibility: "GLOBAL" | "L
         },
         headers: {
             'Content-Type': 'application/json',
-            'x-plex-token': localStorage.getItem("accAccessToken") || ""
+            'x-plex-token': AuthStorage.getProfileAccountToken() || ""
         }
     }).catch((error: AxiosError) => {
         console.error("Failed to delete Nevu review:", error);

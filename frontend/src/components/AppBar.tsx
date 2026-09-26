@@ -44,12 +44,14 @@ import {
   SearchRounded,
   SettingsRounded,
   ShortcutRounded,
+  SwitchAccountRounded,
 } from "@mui/icons-material";
 import { useSyncInterfaceState } from "./PerPlexedSync";
 import { useSyncSessionState } from "../states/SyncSessionState";
 import { config } from "..";
 import { useBigReader } from "./BigReader";
 import { useUserSettings } from "../states/UserSettingsState";
+import { useAuthSession } from "../states/AuthSessionState";
 
 const BarSide: SxProps<Theme> = {
   display: "flex",
@@ -67,6 +69,7 @@ function Appbar() {
   const { settings } = useUserSettings();
 
   const { user } = useUserSessionStore();
+  const { activeProfile, switchProfile, signOut } = useAuthSession();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -151,7 +154,7 @@ function Appbar() {
             fontSize: 18,
           }}
         >
-          {user?.friendlyName ?? user?.username}
+          {user?.friendlyName || user?.title || activeProfile?.title}
         </Typography>
 
         <Divider />
@@ -234,15 +237,26 @@ S - Skip onscreen markers (intro, credits, etc)
 
         <MenuItem
           onClick={() => {
-            localStorage.removeItem("accessToken");
-            localStorage.removeItem("accAccessToken");
-            window.location.reload();
+            setAnchorEl(null);
+            switchProfile();
+          }}
+        >
+          <ListItemIcon>
+            <SwitchAccountRounded fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Switch profile</ListItemText>
+        </MenuItem>
+
+        <MenuItem
+          onClick={() => {
+            setAnchorEl(null);
+            signOut();
           }}
         >
           <ListItemIcon>
             <LogoutRounded fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Logout</ListItemText>
+          <ListItemText>Sign out of Plex</ListItemText>
         </MenuItem>
       </Menu>
 
@@ -341,7 +355,7 @@ S - Skip onscreen markers (intro, credits, etc)
         )}
 
         <Avatar
-          src={user?.thumb}
+          src={user?.thumb || activeProfile?.thumb}
           variant="square"
           alt=""
           onClick={(e) => setAnchorEl(e.currentTarget)}

@@ -522,8 +522,6 @@ app.post('/proxy', (req, res) => {
     const { url, method, headers, data } = req.body;
     const ip = ((req.headers['x-forwarded-for'] || req.socket.remoteAddress || '') as string).replace("::ffff:", "");
 
-    console.log(`[${new Date().toISOString()}] [PROXY] [${method}] ${url} from ${ip}`);
-
     // the url must start with a / to prevent the server from making requests to external servers
     if (!url || !url.startsWith('/')) return res.status(400).send('Invalid URL');
 
@@ -532,6 +530,16 @@ app.post('/proxy', (req, res) => {
 
     // the method must be one of the allowed methods [GET, POST, PUT]
     if (!method || !['GET', 'POST', 'PUT'].includes(method)) return res.status(400).send('Invalid method');
+
+    if (process.env.DISABLE_REQUEST_LOGGING != "true") {
+        const loggedUrl = new URL(url, 'http://plex.local');
+        if (loggedUrl.searchParams.has('X-Plex-Token')) {
+            loggedUrl.searchParams.set('X-Plex-Token', '[redacted]');
+        }
+        console.log(
+            `[${new Date().toISOString()}] [PROXY] [${method}] ${loggedUrl.pathname}${loggedUrl.search} from ${ip}`
+        );
+    }
 
     const config: AxiosRequestConfig = {
         url: `${process.env.PLEX_SERVER}${url}`,
@@ -646,4 +654,3 @@ export { app, server, io, remoteIo, deploymentID, prisma };
 
 import './common/sync';
 import './common/remote'; import { error } from 'console';
-

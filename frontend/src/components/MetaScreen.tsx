@@ -60,6 +60,7 @@ import { getBackendURL } from "../backendURL";
 import { queryBuilder } from "../plex/QuickFunctions";
 import AddReviewModal from "./modals/AddReviewModal";
 import { getNevuReviews } from "../common/NevuReviews";
+import { AuthStorage } from "../auth/AuthStorage";
 
 function MetaScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -137,7 +138,7 @@ function MetaScreen() {
       `${getBackendURL()}/dynproxy${
         data?.Extras?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.key.split("?")[0]
       }?${queryBuilder({
-        "X-Plex-Token": localStorage.getItem("accessToken"),
+        "X-Plex-Token": AuthStorage.getServerToken(),
         ...Object.fromEntries(
           new URL(
             "http://localhost:3000" +

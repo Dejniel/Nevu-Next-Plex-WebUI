@@ -3,6 +3,7 @@ import { authedGet, authedPost, authedPut, getIncludeProps, getXPlexProps, query
 import './plex.d.ts'
 import { getBackendURL } from "../backendURL";
 import { platformCache } from "../common/DesktopApp";
+import { AuthStorage } from "../auth/AuthStorage";
 
 export { getAccessToken, getLoggedInUser, getPin } from "./auth";
 
@@ -229,7 +230,7 @@ export function getTranscodeImageURL(url: string, width: number, height: number)
         width,
         height,
         url,
-        "X-Plex-Token": localStorage.getItem("accessToken") as string,
+        "X-Plex-Token": AuthStorage.getServerToken() as string,
     })}`;
 }
 
@@ -252,7 +253,7 @@ export async function getSearch(query: string): Promise<Plex.SearchResult[]> {
         "includeExtras": 1,
         "searchTypes": "movies,otherVideos,tv",
         "limit": 100,
-        "X-Plex-Token": localStorage.getItem("accessToken") as string
+        "X-Plex-Token": AuthStorage.getServerToken() as string
     })}`);
     return res.MediaContainer.SearchResult;
 }
@@ -336,7 +337,7 @@ export async function getItemByGUID(guid: string): Promise<Plex.Metadata | null>
         "includeMeta": 1,
         "includeMarkerCounts": 1,
         "includeRelated": 1,
-        "X-Plex-Token": localStorage.getItem("accessToken") as string
+        "X-Plex-Token": AuthStorage.getServerToken() as string
     })}`);
 
     if (res.MediaContainer.Metadata?.[0]?.guid !== guid) return null;

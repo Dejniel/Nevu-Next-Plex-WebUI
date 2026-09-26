@@ -1,5 +1,6 @@
 import axios from "axios";
 import { queryBuilder } from "./QuickFunctions";
+import { AuthStorage } from "../auth/AuthStorage";
 
 export namespace PlexTv {
     /**
@@ -14,7 +15,7 @@ export namespace PlexTv {
         try {
             await axios.put(`https://discover.provider.plex.tv/actions/addToWatchlist?ratingKey=${ratingKey}`, {}, {
                 headers: {
-                    "X-Plex-Token": localStorage.getItem("accAccessToken") as string
+                    "X-Plex-Token": AuthStorage.getProfileAccountToken() as string
                 }
             })
         } catch (error) {
@@ -26,7 +27,7 @@ export namespace PlexTv {
         try {
             await axios.put(`https://discover.provider.plex.tv/actions/removeFromWatchlist?ratingKey=${ratingKey}`, {}, {
                 headers: {
-                    "X-Plex-Token": localStorage.getItem("accAccessToken") as string
+                    "X-Plex-Token": AuthStorage.getProfileAccountToken() as string
                 }
             })
         } catch (error) {
@@ -37,7 +38,7 @@ export namespace PlexTv {
     export async function getWatchlist(): Promise<Plex.Metadata[]> {
         try {
             const res = await axios.get(`https://discover.provider.plex.tv/library/sections/watchlist/all?${queryBuilder({
-                "X-Plex-Token": localStorage.getItem("accAccessToken") as string,
+                "X-Plex-Token": AuthStorage.getProfileAccountToken() as string,
                 "includeAdvanced": 1,
                 "includeMeta": 1,
                 "X-Plex-Container-Start": 0,

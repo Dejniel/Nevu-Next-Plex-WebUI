@@ -480,33 +480,6 @@ function MovieItemLegacy({
           </Button>
         </Box>
       </Box>
-      {/* <Box sx={{
-          width: "100%",
-          height: "100%",
-          position: "absolute",
-          backgroundColor: "#00000055",
-          backgroundImage: ["episode"].includes(item.type)
-            ? `url(${getTranscodeImageURL(
-                `${item.thumb}?X-Plex-Token=${localStorage.getItem(
-                  "accessToken"
-                )}`,
-                300,
-                170
-              )})`
-            : `url(${getTranscodeImageURL(
-                `${item.art}?X-Plex-Token=${localStorage.getItem("accessToken")}`,
-                300,
-                170
-              )})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          filter: "blur(10vw)",
-  
-          zIndex: -1,
-          transform: "translateZ(-10px) scale(1)",
-          opacity: 0,
-          transition: "all 2s ease",
-        }}></Box> */}
     </Box>
   );
 }
