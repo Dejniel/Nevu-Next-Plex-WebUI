@@ -88,7 +88,6 @@ function Appbar() {
   const { activeProfile, switchProfile, signOut } = useAuthSession();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const isWideDesktop = useMediaQuery(theme.breakpoints.up("xl"));
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -306,24 +305,20 @@ S - Skip onscreen markers (intro, credits, etc)
       <Box
         sx={{
           justifyContent: "flex-start",
+          minWidth: 0,
           ...BarSide,
         }}
       >
         <img
-          src={
-            isMobile || isWideDesktop
-              ? "/nevu-next-right.svg"
-              : "/nevu.svg"
-          }
+          src="/nevu-next-right.svg"
           alt=""
           style={{
-            width: isWideDesktop
-              ? 200
-              : isMobile
-                ? "clamp(118px, 36vw, 150px)"
-                : 100,
+            width: isMobile
+              ? "clamp(118px, 36vw, 150px)"
+              : "clamp(120px, 14vw, 200px)",
             maxWidth: "100%",
             height: "auto",
+            flexShrink: 1,
             objectFit: "contain",
           }}
         />
