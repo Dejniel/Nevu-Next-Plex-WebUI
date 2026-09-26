@@ -305,7 +305,7 @@ function MetaScreen() {
           justifyContent: "flex-start",
           backgroundColor: "#121216",
           mt: { xs: 0, sm: 4 },
-          pb: "40vh",
+          pb: { xs: 6, sm: 4 },
           position: "relative",
 
           borderTopLeftRadius: { xs: 0, sm: "10px" },
