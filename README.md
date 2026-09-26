@@ -16,6 +16,8 @@ So yes, you are reading the README of a fork created because watching a film tur
 
 This project is under active development. Expect rough edges, but also expect fixes to target real use rather than a mock interface.
 
+Nevu Next is a modified fork of [Ipmake/NevuForPlex](https://github.com/Ipmake/NevuForPlex), maintained under [GPL-3.0](LICENSE) since 2026.
+
 ## Features
 
 - **A cinematic, responsive Plex interface** for desktop and mobile browsers.
@@ -129,48 +131,19 @@ Even a bug report with browser details, Plex server version, relevant logs, and 
 
 ## Development
 
-Development uses Node.js 22 and npm. The frontend runs on port `4000`; the backend runs on port `3000` and proxies requests to Plex.
-
-Install and start the backend:
+Requires Node.js 22 and npm. Run the backend and frontend in separate terminals:
 
 ```bash
-cd backend
-npm ci
-npm run db:generate
-npm run db:push
-PLEX_SERVER=http://192.168.1.10:32400 npm run dev
+(cd backend && npm ci && npm run db:generate && npm run db:push && \
+  PLEX_SERVER=http://192.168.1.10:32400 npm run dev)
+
+(cd frontend && npm ci && npm start)
 ```
 
-In a second terminal, install and start the frontend:
+Checks:
 
 ```bash
-cd frontend
-npm ci
-npm start
-```
-
-Open `http://localhost:4000`.
-
-Run the frontend test suite and production build before submitting a change:
-
-```bash
-cd frontend
-CI=true npm test -- --watchAll=false
-npm run build
-```
-
-Validate the backend and full container image when backend or deployment code changes:
-
-```bash
-cd backend
-npm run build
-
-cd ..
+(cd frontend && CI=true npm test -- --watchAll=false && npm run build)
+(cd backend && npm run build)
 docker build -t nevu-next:test .
 ```
-
-## Project history and license
-
-Nevu Next Plex WebUI is a fork of [Ipmake/NevuForPlex](https://github.com/Ipmake/NevuForPlex). The original project established the interface, Plex integration, and playback foundation this fork continues to develop.
-
-The project is distributed under the [GNU General Public License v3.0](LICENSE).
