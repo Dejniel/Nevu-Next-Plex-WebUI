@@ -243,6 +243,10 @@ function MetaScreen() {
   };
 
   const remainingExtras = withoutExtra(extras, primaryTrailer);
+  const directors = (data?.Director || [])
+    .map(({ tag }) => tag)
+    .filter(Boolean)
+    .join(", ");
 
   const metadataWasSaved = (
     changes: MetadataUpdate,
@@ -475,6 +479,20 @@ function MetaScreen() {
               >
                 {data?.title}
               </Typography>
+
+              {directors && (
+                <Typography
+                  sx={{
+                    mt: 0.25,
+                    fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                    lineHeight: 1.3,
+                    color: "text.secondary",
+                    textAlign: { xs: "center", sm: "left" },
+                  }}
+                >
+                  Directed by: {directors}
+                </Typography>
+              )}
 
               <Box
                 sx={{
@@ -925,7 +943,7 @@ function MetaScreen() {
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "flex-start",
-              gap: { xs: 1, md: 4 },
+              gap: { xs: 2, sm: 3, md: 5 },
               mb: "10px",
               overflowX: "auto",
               flexShrink: 0,
@@ -2171,7 +2189,7 @@ function TabButton({
         fontSize: { xs: "0.85rem", sm: "1.25rem" },
         fontWeight: "bold",
         textTransform: "uppercase",
-        letterSpacing: "0.1em",
+        letterSpacing: "0.05em",
         whiteSpace: "nowrap",
         flexShrink: 0,
         color: selected
