@@ -46,7 +46,6 @@ import {
   EditRounded,
 } from "@mui/icons-material";
 import { durationToText } from "./MovieItemSlider";
-import { useBigReader } from "./BigReader";
 import { HeroWatchListButton } from "./MovieItem";
 import { alpha } from "@mui/material/styles";
 import { AnimatePresence, motion } from "framer-motion";
@@ -71,6 +70,7 @@ import {
 import { getTrackChoices } from "../plex/mediaVersions";
 import { useCanManageServer } from "../states/ServerAccess";
 import { useTitleExtras } from "../hooks/useTitleExtras";
+import ExpandableDescription from "./ExpandableDescription";
 
 const DESKTOP_HERO_HEIGHT = "clamp(560px, 93.333vh, 960px)";
 
@@ -112,6 +112,7 @@ function MetaScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const canManageServer = useCanManageServer();
+  const posterRef = React.useRef<HTMLDivElement>(null);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [data, setData] = useState<Plex.Metadata | undefined>(undefined);
@@ -393,6 +394,7 @@ function MetaScreen() {
           }}
         >
           <Box
+            ref={posterRef}
             sx={{
               width: { xs: "100%", sm: "30%" },
               maxWidth: { xs: "320px", sm: "none" },
@@ -891,29 +893,13 @@ function MetaScreen() {
                 </Box>
               </Collapse>
 
-              <Typography
-                sx={{
-                  mt: 1.5,
-                  fontSize: "1rem",
-                  fontWeight: "normal",
-                  // max 5 lines
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  display: "-webkit-box",
-                  WebkitLineClamp: 5,
-                  WebkitBoxOrient: "vertical",
-                  maxInlineSize: "100%",
-                  userSelect: "none",
-                  cursor: "zoom-in",
-                  color: (theme) => theme.palette.text.secondary,
-                }}
-                onClick={() => {
-                  if (!data?.summary) return;
-                  useBigReader.getState().setBigReader(data?.summary);
-                }}
-              >
-                {data?.summary}
-              </Typography>
+              <Box sx={{ mt: 1.5, width: "100%" }}>
+                <ExpandableDescription
+                  text={data?.summary}
+                  lines={6}
+                  boundaryRef={posterRef}
+                />
+              </Box>
             </Box>
           </Box>
         </Box>

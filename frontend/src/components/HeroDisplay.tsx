@@ -9,7 +9,6 @@ import { Box, Typography, Button, IconButton, Skeleton } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { usePreviewPlayer } from "../states/PreviewPlayerState";
-import { useBigReader } from "./BigReader";
 import { HeroWatchListButton } from "./MovieItem";
 import { getTranscodeImageURL } from "../plex";
 import ExtraPlayer from "./title/ExtraPlayer";
@@ -59,6 +58,14 @@ function HeroDisplay({
       window.removeEventListener("scroll", onScroll);
     };
   }, [primaryTrailer, searchParams]);
+
+  const openDetails = () => {
+    setPreviewVidPlaying(false);
+    setSearchParams({
+      ...searchParams,
+      mid: item.ratingKey.toString(),
+    });
+  };
 
   return (
     <Box
@@ -236,36 +243,49 @@ function HeroDisplay({
               {item.type}
             </Typography>
           </Box>
-          <Typography
+          <Box
+            component="button"
+            type="button"
+            aria-label={`Open details for ${item.title}`}
+            onClick={openDetails}
             sx={{
-              fontSize: { xs: "1.8rem", sm: "2.5rem", md: "3rem" },
-              fontWeight: "bold",
-            }}
-          >
-            {item.title}
-          </Typography>
-          <Typography
-            sx={{
-              fontSize: "medium",
-              fontWeight: "light",
+              display: "block",
               maxWidth: { xs: "85vw", sm: "60vw", md: "35vw" },
-
-              // make the text max 4 lines long and add ellipsis
-              display: "-webkit-box",
-              WebkitLineClamp: 4,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-
-              userSelect: "none",
-              cursor: "zoom-in",
-            }}
-            onClick={() => {
-              useBigReader.getState().setBigReader(item.summary);
+              m: 0,
+              p: 0,
+              border: 0,
+              color: "inherit",
+              background: "none",
+              textAlign: "left",
+              cursor: "pointer",
+              "&:focus-visible": {
+                outline: "2px solid",
+                outlineColor: "primary.main",
+                outlineOffset: 4,
+              },
             }}
           >
-            {item.summary}
-          </Typography>
+            <Typography
+              sx={{
+                fontSize: { xs: "1.8rem", sm: "2.5rem", md: "3rem" },
+                fontWeight: "bold",
+              }}
+            >
+              {item.title}
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: "medium",
+                fontWeight: "light",
+                display: "-webkit-box",
+                WebkitLineClamp: 4,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              {item.summary}
+            </Typography>
+          </Box>
 
           <Box
             sx={{
@@ -311,14 +331,7 @@ function HeroDisplay({
                 },
                 transition: "all 0.2s ease-in-out",
               }}
-              onClick={() => {
-                if (!item) return;
-                setPreviewVidPlaying(false);
-                setSearchParams({
-                  ...searchParams,
-                  mid: item.ratingKey.toString(),
-                });
-              }}
+              onClick={openDetails}
             >
               <InfoOutlined fontSize="medium" />{" "}
               <Typography
