@@ -2,7 +2,6 @@ import {
   Avatar,
   Box,
   Button,
-  Grid,
   Paper,
   Typography,
 } from "@mui/material";
@@ -11,6 +10,8 @@ import React from "react";
 import { useSearchParams } from "react-router-dom";
 import MovieItem from "../MovieItem";
 import { getTranscodeImageURL } from "../../plex";
+import { TitleExtra } from "../../plex/discover";
+import ExtraPlayer from "./ExtraPlayer";
 
 function SectionTitle({
   children,
@@ -42,12 +43,43 @@ function SectionTitle({
   );
 }
 
+function HorizontalRail({
+  children,
+  itemWidth,
+}: {
+  children: React.ReactNode;
+  itemWidth: object;
+}) {
+  return (
+    <Box
+      sx={{
+        width: "100%",
+        display: "grid",
+        gridAutoFlow: "column",
+        gridAutoColumns: itemWidth,
+        gap: 2,
+        overflowX: "auto",
+        overflowY: "hidden",
+        pb: 1,
+        scrollSnapType: "x proximity",
+        scrollbarWidth: "none",
+        "&::-webkit-scrollbar": { display: "none" },
+        "& > *": { scrollSnapAlign: "start" },
+      }}
+    >
+      {children}
+    </Box>
+  );
+}
+
 export default function TitleOverview({
   data,
+  trailer,
   onShowDetails,
   onShowReviews,
 }: {
   data: Plex.Metadata;
+  trailer: TitleExtra | null;
   onShowDetails: () => void;
   onShowReviews: () => void;
 }) {
@@ -65,59 +97,27 @@ export default function TitleOverview({
 
   return (
     <Box sx={{ width: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
-      {related.length > 0 && (
+      {trailer && (
         <Box sx={{ width: "100%" }}>
-          <SectionTitle>More like this</SectionTitle>
-          <Grid container spacing={2} sx={{ width: "100%" }}>
-            {related.map((item) => (
-              <Grid key={item.ratingKey} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                <MovieItem item={item} />
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      )}
-
-      {cast.length > 0 && (
-        <Box sx={{ width: "100%" }}>
-          <SectionTitle action={{ label: "Full cast", onClick: onShowDetails }}>
-            Cast
-          </SectionTitle>
-          <Grid container spacing={1.5} sx={{ width: "100%" }}>
-            {cast.map((role) => (
-              <Grid key={role.id} size={{ xs: 6, sm: 4, md: 3 }}>
-                <Button
-                  onClick={() =>
-                    setSearchParams({
-                      bkey: `/library/sections/${data.librarySectionID}/actor/${role.id}`,
-                    })
-                  }
-                  sx={{
-                    width: "100%",
-                    minHeight: 72,
-                    justifyContent: "flex-start",
-                    gap: 1.5,
-                    px: 1.5,
-                    overflow: "hidden",
-                  }}
-                >
-                  <Avatar
-                    src={role.thumb ? getTranscodeImageURL(role.thumb, 120, 120) : undefined}
-                    alt=""
-                    sx={{ width: 48, height: 48, flexShrink: 0 }}
-                  />
-                  <Box sx={{ minWidth: 0, textAlign: "left" }}>
-                    <Typography noWrap sx={{ fontWeight: 600 }}>
-                      {role.tag}
-                    </Typography>
-                    <Typography noWrap variant="body2" color="text.secondary">
-                      {role.role}
-                    </Typography>
-                  </Box>
-                </Button>
-              </Grid>
-            ))}
-          </Grid>
+          <SectionTitle>Trailer</SectionTitle>
+          <Box
+            sx={{
+              width: "min(720px, 100%)",
+              aspectRatio: "16 / 9",
+              overflow: "hidden",
+              borderRadius: 1,
+              bgcolor: "#000",
+            }}
+          >
+            <ExtraPlayer
+              extra={trailer}
+              poster={
+                data.art
+                  ? getTranscodeImageURL(data.art, 1280, 720)
+                  : undefined
+              }
+            />
+          </Box>
         </Box>
       )}
 
@@ -126,28 +126,93 @@ export default function TitleOverview({
           <SectionTitle action={{ label: "All reviews", onClick: onShowReviews }}>
             Reviews
           </SectionTitle>
-          <Grid container spacing={2} sx={{ width: "100%" }}>
+          <HorizontalRail
+            itemWidth={{ xs: "min(82vw, 320px)", sm: "360px" }}
+          >
             {reviews.map((review) => (
-              <Grid key={review.id} size={{ xs: 12, md: 4 }}>
-                <Paper sx={{ p: 2.5, height: "100%" }}>
-                  <Typography sx={{ fontWeight: 700 }}>{review.tag}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                    {review.source}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      display: "-webkit-box",
-                      WebkitLineClamp: 5,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {review.text}
-                  </Typography>
-                </Paper>
-              </Grid>
+              <Paper key={review.id} sx={{ p: 2.5, height: "100%" }}>
+                <Typography sx={{ fontWeight: 700 }}>{review.tag}</Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 1.5 }}
+                >
+                  {review.source}
+                </Typography>
+                <Typography
+                  sx={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: 5,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}
+                >
+                  {review.text}
+                </Typography>
+              </Paper>
             ))}
-          </Grid>
+          </HorizontalRail>
+        </Box>
+      )}
+
+      {related.length > 0 && (
+        <Box sx={{ width: "100%" }}>
+          <SectionTitle>More like this</SectionTitle>
+          <HorizontalRail
+            itemWidth={{ xs: "min(72vw, 220px)", sm: "220px", md: "240px" }}
+          >
+            {related.map((item) => (
+              <Box key={item.ratingKey}>
+                <MovieItem item={item} />
+              </Box>
+            ))}
+          </HorizontalRail>
+        </Box>
+      )}
+
+      {cast.length > 0 && (
+        <Box sx={{ width: "100%" }}>
+          <SectionTitle action={{ label: "Full cast", onClick: onShowDetails }}>
+            Cast
+          </SectionTitle>
+          <HorizontalRail itemWidth={{ xs: "220px", sm: "240px" }}>
+            {cast.map((role) => (
+              <Button
+                key={role.id}
+                onClick={() =>
+                  setSearchParams({
+                    bkey: `/library/sections/${data.librarySectionID}/actor/${role.id}`,
+                  })
+                }
+                sx={{
+                  width: "100%",
+                  minHeight: 72,
+                  justifyContent: "flex-start",
+                  gap: 1.5,
+                  px: 1.5,
+                  overflow: "hidden",
+                }}
+              >
+                <Avatar
+                  src={
+                    role.thumb
+                      ? getTranscodeImageURL(role.thumb, 120, 120)
+                      : undefined
+                  }
+                  alt=""
+                  sx={{ width: 48, height: 48, flexShrink: 0 }}
+                />
+                <Box sx={{ minWidth: 0, textAlign: "left" }}>
+                  <Typography noWrap sx={{ fontWeight: 600 }}>
+                    {role.tag}
+                  </Typography>
+                  <Typography noWrap variant="body2" color="text.secondary">
+                    {role.role}
+                  </Typography>
+                </Box>
+              </Button>
+            ))}
+          </HorizontalRail>
         </Box>
       )}
     </Box>

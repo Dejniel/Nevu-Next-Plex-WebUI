@@ -72,49 +72,6 @@ export default function TitleDetails({
         </Grid>
       </Box>
 
-      {(data.Role?.length ?? 0) > 0 && (
-        <Box sx={{ width: "100%" }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
-            Full cast
-          </Typography>
-          <Grid container spacing={1.5} sx={{ width: "100%" }}>
-            {data.Role?.map((role) => (
-              <Grid key={role.id} size={{ xs: 6, sm: 4, md: 3 }}>
-                <Button
-                  onClick={() =>
-                    setSearchParams({
-                      bkey: `/library/sections/${data.librarySectionID}/actor/${role.id}`,
-                    })
-                  }
-                  sx={{
-                    width: "100%",
-                    minHeight: 72,
-                    justifyContent: "flex-start",
-                    gap: 1.5,
-                    px: 1.5,
-                    overflow: "hidden",
-                  }}
-                >
-                  <Avatar
-                    src={role.thumb ? getTranscodeImageURL(role.thumb, 120, 120) : undefined}
-                    alt=""
-                    sx={{ width: 48, height: 48, flexShrink: 0 }}
-                  />
-                  <Box sx={{ minWidth: 0, textAlign: "left" }}>
-                    <Typography noWrap sx={{ fontWeight: 600 }}>
-                      {role.tag}
-                    </Typography>
-                    <Typography noWrap variant="body2" color="text.secondary">
-                      {role.role}
-                    </Typography>
-                  </Box>
-                </Button>
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      )}
-
       <Box sx={{ width: "100%" }}>
         <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
           More extras
@@ -162,6 +119,53 @@ export default function TitleDetails({
           </Grid>
         )}
       </Box>
+
+      {(data.Role?.length ?? 0) > 0 && (
+        <Box sx={{ width: "100%" }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
+            Full cast
+          </Typography>
+          <Grid container spacing={1.5} sx={{ width: "100%" }}>
+            {data.Role?.map((role) => (
+              <Grid key={role.id} size={{ xs: 6, sm: 4, md: 3 }}>
+                <Button
+                  onClick={() =>
+                    setSearchParams({
+                      bkey: `/library/sections/${data.librarySectionID}/actor/${role.id}`,
+                    })
+                  }
+                  sx={{
+                    width: "100%",
+                    minHeight: 72,
+                    justifyContent: "flex-start",
+                    gap: 1.5,
+                    px: 1.5,
+                    overflow: "hidden",
+                  }}
+                >
+                  <Avatar
+                    src={
+                      role.thumb
+                        ? getTranscodeImageURL(role.thumb, 120, 120)
+                        : undefined
+                    }
+                    alt=""
+                    sx={{ width: 48, height: 48, flexShrink: 0 }}
+                  />
+                  <Box sx={{ minWidth: 0, textAlign: "left" }}>
+                    <Typography noWrap sx={{ fontWeight: 600 }}>
+                      {role.tag}
+                    </Typography>
+                    <Typography noWrap variant="body2" color="text.secondary">
+                      {role.role}
+                    </Typography>
+                  </Box>
+                </Button>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      )}
     </Box>
   );
 }

@@ -36,7 +36,6 @@ import {
   CheckCircleRounded,
   CloseRounded,
   PlayArrowRounded,
-  TheatersRounded,
   CheckCircleOutlineRounded,
   StarRounded,
   StarOutlineRounded,
@@ -112,7 +111,8 @@ function MetaScreen() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSearchParams(new URLSearchParams());
+      if (e.key === "Escape" && !document.fullscreenElement)
+        setSearchParams(new URLSearchParams());
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -663,23 +663,6 @@ function MetaScreen() {
                     }E${data?.OnDeck.Metadata.index}`}
                 </Button>
 
-                {primaryTrailer && (
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    startIcon={<TheatersRounded />}
-                    sx={{
-                      height: "38px",
-                      fontWeight: "bold",
-                      letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                    }}
-                    onClick={() => setPlayingExtra(primaryTrailer)}
-                  >
-                    Trailer
-                  </Button>
-                )}
-
                 <Tooltip placement="top" arrow title="Watchlist">
                   <HeroWatchListButton item={data as Plex.Metadata} />
                 </Tooltip>
@@ -1017,6 +1000,7 @@ function MetaScreen() {
             {page === 0 && data && (
               <TitleOverview
                 data={data}
+                trailer={primaryTrailer}
                 onShowDetails={() => setPage(2)}
                 onShowReviews={() => setPage(3)}
               />

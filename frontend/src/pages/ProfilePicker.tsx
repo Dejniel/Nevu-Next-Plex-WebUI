@@ -166,8 +166,14 @@ export default function ProfilePicker() {
               sx={{
                 "& input": {
                   color: "transparent",
+                  WebkitTextFillColor: "transparent",
                   caretColor: "transparent",
+                  fontSize: 0,
                   textAlign: "center",
+                },
+                "& input.Mui-disabled": {
+                  color: "transparent",
+                  WebkitTextFillColor: "transparent",
                 },
               }}
             />
