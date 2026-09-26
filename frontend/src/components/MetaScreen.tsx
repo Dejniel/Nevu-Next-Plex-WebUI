@@ -330,8 +330,7 @@ function MetaScreen() {
           sx={{
             width: "100%",
             maxWidth: "100%",
-            height: { xs: "50vh", sm: "auto" },
-            aspectRatio: { xs: "auto", sm: "16/9" },
+            height: { xs: "50vh", sm: "clamp(420px, 70vh, 720px)" },
             backgroundImage: `url(${getTranscodeImageURL(
               data?.art as string,
               1920,
