@@ -21,6 +21,7 @@ import { getLibrary, getLibraryDir } from "../../plex";
 import MovieItem from "../../components/MovieItem";
 import { useInView } from "react-intersection-observer";
 import { useUserSettings } from "../../states/UserSettingsState";
+import { formatLibraryItemCount } from "../../plex/libraryItemCount";
 
 type LibraryCardLayout = "landscape" | "poster";
 
@@ -96,6 +97,7 @@ function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) 
   }, [settings.LIBRARY_CARD_LAYOUT, settings.LIBRARY_CARD_SIZE]);
 
   const cardWidth = getCardWidth(cardLayout, cardSize);
+  const itemCount = formatLibraryItemCount(items);
 
   useEffect(() => {
     if (!libraryID) return;
@@ -229,7 +231,7 @@ function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) 
           },
           gridTemplateColumns: {
             xs: "minmax(0, 1fr)",
-            lg: "minmax(0, 1fr) auto minmax(0, 1fr)",
+            lg: "max-content minmax(0, 1fr) max-content",
           },
           alignItems: "center",
           gap: { xs: 1.25, lg: 1 },
@@ -241,7 +243,7 @@ function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) 
             display: "flex",
             alignItems: "center",
             justifyContent: { xs: "space-evenly", lg: "flex-start" },
-            flexWrap: "wrap",
+            flexWrap: { xs: "wrap", lg: "nowrap" },
             gap: 1,
             "& > .MuiInputBase-root": {
               flex: { xs: "1 1 105px", lg: "0 0 auto" },
@@ -293,26 +295,63 @@ function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) 
             </Select>
           )}
 
-          <Select
-            value={sortBy}
-            onChange={(e) => {
-              setSortBy(e.target.value);
-              localStorage.setItem("sortBy", e.target.value);
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              minWidth: 0,
+              flex: { xs: "1 1 170px", lg: "0 0 auto" },
             }}
-            size="small"
           >
-            <MenuItem value={"title:asc"}>Title (A-Z)</MenuItem>
-            <MenuItem value={"title:desc"}>Title (Z-A)</MenuItem>
-            <Divider />
-            <MenuItem value={"addedAt:asc"}>Date Added (Oldest)</MenuItem>
-            <MenuItem value={"addedAt:desc"}>Date Added (Newest)</MenuItem>
-            <MenuItem value={"year:asc"}>Year (Oldest)</MenuItem>
-            <MenuItem value={"year:desc"}>Year (Newest)</MenuItem>
-            <MenuItem value={"updated:asc"}>Date Updated (Oldest)</MenuItem>
-            <MenuItem value={"updated:desc"}>Date Updated (Newest)</MenuItem>
-            <Divider />
-            <MenuItem value={"random:desc"}>Random</MenuItem>
-          </Select>
+            <Select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value);
+                localStorage.setItem("sortBy", e.target.value);
+              }}
+              size="small"
+              sx={{ minWidth: 0, flex: "1 1 auto" }}
+            >
+              <MenuItem value={"title:asc"}>Title (A-Z)</MenuItem>
+              <MenuItem value={"title:desc"}>Title (Z-A)</MenuItem>
+              <Divider />
+              <MenuItem value={"addedAt:asc"}>Date Added (Oldest)</MenuItem>
+              <MenuItem value={"addedAt:desc"}>Date Added (Newest)</MenuItem>
+              <MenuItem value={"year:asc"}>Year (Oldest)</MenuItem>
+              <MenuItem value={"year:desc"}>Year (Newest)</MenuItem>
+              <MenuItem value={"updated:asc"}>Date Updated (Oldest)</MenuItem>
+              <MenuItem value={"updated:desc"}>Date Updated (Newest)</MenuItem>
+              <Divider />
+              <MenuItem value={"random:desc"}>Random</MenuItem>
+            </Select>
+
+            <Box
+              sx={{
+                minWidth: 36,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-start",
+                flexShrink: 0,
+              }}
+            >
+              {isLoading ? (
+                <Skeleton width={32} />
+              ) : (
+                <Box
+                  component="span"
+                  sx={{
+                    color: "text.secondary",
+                    fontSize: "0.875rem",
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {itemCount}
+                </Box>
+              )}
+            </Box>
+          </Box>
         </Box>
 
         <Box
