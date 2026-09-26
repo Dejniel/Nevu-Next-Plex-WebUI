@@ -1,7 +1,7 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import express from 'express';
 import https from 'https';
-import { CheckPlexUser, hasPlexFeature } from './common/plex';
+import { canManagePlexServer, CheckPlexUser, isPlexServerOwner } from './common/plex';
 import { APP_VERSION } from './appVersion';
 
 const PLEX_TV_URL = 'https://plex.tv/api/v2';
@@ -185,7 +185,7 @@ export function createPlexSharingRouter({
             res.status(401).send({ error: 'The active Plex session has expired' });
             return null;
         }
-        if (user.restricted) {
+        if (!isPlexServerOwner(user)) {
             res.status(403).send({ error: 'Sharing requires the Plex Home owner account' });
             return null;
         }
@@ -195,7 +195,7 @@ export function createPlexSharingRouter({
                 `${plexServer}/media/providers`,
                 localRequestConfig(token, httpsAgent),
             );
-            if (!hasPlexFeature(providers.data, 'manage')) {
+            if (!canManagePlexServer(user, providers.data)) {
                 res.status(403).send({ error: 'This Plex session cannot manage the server' });
                 return null;
             }

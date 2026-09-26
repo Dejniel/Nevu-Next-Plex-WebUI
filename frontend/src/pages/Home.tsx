@@ -12,6 +12,7 @@ import HeroDisplay from "../components/HeroDisplay";
 import { useWatchListCache } from "../states/WatchListCache";
 import { useUserSettings } from "../states/UserSettingsState";
 import { normalizeLibraryNavigation } from "../plex/libraryNavigation";
+import { hasHeroArtwork, pickHeroCandidate } from "../plex/homeHero";
 
 export default function Home() {
   const [featured, setFeatured] = React.useState<
@@ -30,6 +31,7 @@ export default function Home() {
 
     async function fetchData() {
       setLoading(true);
+      setRandomItem(null);
       try {
         const librariesData = await getAllLibraries();
 
@@ -41,17 +43,12 @@ export default function Home() {
         const featuredData = await getRecommendations(filteredLibraries);
         setFeatured(featuredData);
 
-        let randomItemData = await getRandomItem(filteredLibraries);
-        let attempts = 0;
-        while (!randomItemData && attempts < 15) {
-          randomItemData = await getRandomItem(filteredLibraries);
-          attempts++;
-        }
+        const randomItemData = await getRandomItem(filteredLibraries);
 
         if (!randomItemData) return;
 
         const data = await getLibraryMeta(randomItemData?.ratingKey as string);
-        setRandomItem(data);
+        if (hasHeroArtwork(data)) setRandomItem(data);
       } catch (error) {
         console.error("Error fetching data", error);
       } finally {
@@ -164,19 +161,19 @@ async function getRecommendations(libraries: Plex.Directory[]) {
   return shuffleArray(genreSelection);
 }
 
-// get one completely random item from any library
 async function getRandomItem(libraries: Plex.Directory[]) {
-  try {
-    const library = libraries[Math.floor(Math.random() * libraries.length)];
-
-    const items = await getLibraryDir(`/library/sections/${library.key}/all`, {
-      sort: "random:desc",
-      limit: 1,
-    });
-
-    return items.Metadata?.[0] || null;
-  } catch (error) {
-    console.log("Error fetching random item", error);
-    return null;
+  for (const library of shuffleArray(libraries)) {
+    try {
+      const items = await getLibraryDir(`/library/sections/${library.key}/all`, {
+        sort: "random:desc",
+        limit: 20,
+      });
+      const candidate = pickHeroCandidate(items.Metadata);
+      if (candidate) return candidate;
+    } catch (error) {
+      console.log(`Error fetching a random item from library ${library.key}`, error);
+    }
   }
+
+  return null;
 }

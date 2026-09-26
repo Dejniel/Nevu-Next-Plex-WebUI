@@ -1,7 +1,15 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import express from 'express';
 import https from 'https';
-import { CheckPlexUser, hasPlexFeature } from './common/plex';
+import {
+    LIBRARY_PRESETS,
+    libraryKind,
+    libraryLanguage,
+    libraryLocations,
+    libraryName,
+    sectionId,
+} from './common/libraryRules';
+import { canManagePlexServer, CheckPlexUser, isPlexServerOwner } from './common/plex';
 
 interface LibrariesRouterOptions {
     plexServer: string;
@@ -38,16 +46,6 @@ interface PlexPreference {
     hidden?: boolean;
 }
 
-const LIBRARY_PRESETS = {
-    movie: { plexType: 1, scanner: 'Plex Movie', agent: 'tv.plex.agents.movie' },
-    show: { plexType: 2, scanner: 'Plex TV Series', agent: 'tv.plex.agents.series' },
-    artist: { plexType: 8, scanner: 'Plex Music', agent: 'tv.plex.agents.music' },
-    photo: { plexType: 13, scanner: 'Plex Photo Scanner', agent: 'com.plexapp.agents.none' },
-    video: { plexType: 1, scanner: 'Plex Video Files Scanner', agent: 'com.plexapp.agents.none' },
-} as const;
-
-type LibraryKind = keyof typeof LIBRARY_PRESETS;
-
 function plexErrorMessage(error: unknown) {
     if (!axios.isAxiosError(error)) return 'Plex library request failed';
     const data = error.response?.data;
@@ -64,38 +62,6 @@ function sendPlexError(res: express.Response, error: unknown) {
     const upstream = axios.isAxiosError(error) ? error.response?.status : undefined;
     const status = upstream && upstream >= 400 && upstream < 500 ? upstream : 502;
     res.status(status).send({ error: plexErrorMessage(error) });
-}
-
-function sectionId(value: string) {
-    return /^\d+$/.test(value) ? value : null;
-}
-
-function libraryName(value: unknown) {
-    if (typeof value !== 'string') return null;
-    const name = value.trim();
-    return name.length > 0 && name.length <= 100 ? name : null;
-}
-
-function libraryLanguage(value: unknown) {
-    if (typeof value !== 'string') return null;
-    const language = value.trim();
-    return /^[A-Za-z0-9_-]{2,16}$/.test(language) ? language : null;
-}
-
-function libraryLocations(value: unknown) {
-    if (!Array.isArray(value) || value.length === 0 || value.length > 20) return null;
-    const locations = value.map((entry) => typeof entry === 'string' ? entry.trim() : '');
-    if (locations.some((path) =>
-        !path || path.length > 2048 ||
-        (!path.startsWith('/') && !/^[A-Za-z]:[\\/]/.test(path) && !path.startsWith('\\\\'))
-    )) return null;
-    return [...new Set(locations)];
-}
-
-function libraryKind(value: unknown): LibraryKind | null {
-    return typeof value === 'string' && value in LIBRARY_PRESETS
-        ? value as LibraryKind
-        : null;
 }
 
 function mapLibrary(library: PlexLibrary) {
@@ -159,14 +125,14 @@ export function createPlexLibrariesRouter({
             res.status(401).send({ error: 'The active Plex session has expired' });
             return null;
         }
-        if (user.restricted) {
+        if (!isPlexServerOwner(user)) {
             res.status(403).send({ error: 'Library management requires the Plex Home owner' });
             return null;
         }
 
         try {
             const providers = await axios.get(`${plexServer}/media/providers`, requestConfig(token));
-            if (!hasPlexFeature(providers.data, 'manage')) {
+            if (!canManagePlexServer(user, providers.data)) {
                 res.status(403).send({ error: 'This Plex session cannot manage the server' });
                 return null;
             }

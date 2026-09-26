@@ -23,6 +23,7 @@
   "scripts": {
     "start": "./run.sh",
     "build": "tsc",
+    "test": "npm run build && node --test test/*.test.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push --skip-generate",
     "dev": "npm run build && node ."
