@@ -5,7 +5,6 @@ import { AuthStorage } from '../auth/AuthStorage';
 
 type UserSettingsOptions = 
 "DISABLE_WATCHSCREEN_DARKENING" |
-"DISABLE_HOME_SCREEN_LIBRARIES" |
 "AUTO_MATCH_TRACKS" |
 "AUTO_NEXT_EP" |
 string;
@@ -22,7 +21,6 @@ export interface UserSettingsState {
 
 const defaultSettings = {
     DISABLE_WATCHSCREEN_DARKENING: "false",
-    DISABLE_HOME_SCREEN_LIBRARIES: "false",
     AUTO_MATCH_TRACKS: "true",
     AUTO_NEXT_EP: "true",
 };

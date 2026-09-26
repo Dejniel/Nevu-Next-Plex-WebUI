@@ -1,4 +1,4 @@
-import { Typography, Box, Divider, CircularProgress } from "@mui/material";
+import { Typography, Box, CircularProgress } from "@mui/material";
 import React, { useEffect } from "react";
 import { getAllLibraries } from "../../plex";
 import CheckBoxOption from "../../components/settings/CheckBoxOption";
@@ -47,22 +47,6 @@ function SettingsLibraries() {
       />
 
       <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 2, width: "100%" }}>
-        <CheckBoxOption
-          title="Disable Home Libraries Section"
-          subtitle="Disables the section on the home screen where the libraries are displayed."
-          checked={settings.DISABLE_HOME_SCREEN_LIBRARIES === "true"}
-          onChange={() => {
-            setSetting(
-              "DISABLE_HOME_SCREEN_LIBRARIES",
-              settings["DISABLE_HOME_SCREEN_LIBRARIES"] === "true"
-                ? "false"
-                : "true"
-            );
-          }}
-        />
-
-        <Divider sx={{ my: 2 }} />
-
         {loading && (
           <CircularProgress
             sx={{ alignSelf: "center", mt: 2 }}
