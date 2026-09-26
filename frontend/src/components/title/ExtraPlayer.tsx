@@ -67,7 +67,11 @@ export default function ExtraPlayer({
           return;
         }
 
-        hls = new Hls();
+        hls = new Hls({
+          capLevelToPlayerSize: true,
+          abrEwmaDefaultEstimate: 5_000_000,
+          maxDevicePixelRatio: 2,
+        });
         let networkRetries = 0;
         let mediaRetries = 0;
 
