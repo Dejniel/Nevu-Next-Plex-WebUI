@@ -32,9 +32,10 @@ export default function ProfilePicker() {
     await selectProfile(profile);
   };
 
-  const unlockProfile = async () => {
-    if (!selectedProfile) return;
-    await selectProfile(selectedProfile, pin);
+  const unlockProfile = async (submittedPin = pin) => {
+    if (!selectedProfile || submittedPin.length !== 4) return;
+    const unlocked = await selectProfile(selectedProfile, submittedPin);
+    if (!unlocked) setPin("");
   };
 
   return (
@@ -140,33 +141,69 @@ export default function ProfilePicker() {
         <DialogTitle>{selectedProfile?.title}</DialogTitle>
         <DialogContent>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-          <TextField
-            autoFocus
-            fullWidth
-            type="password"
-            label="PIN"
-            value={pin}
-            disabled={unlocking}
-            inputProps={{ inputMode: "numeric", maxLength: 4 }}
-            onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 4))}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && pin) unlockProfile();
-            }}
-            sx={{ mt: 1 }}
-          />
+          <Box sx={{ position: "relative", mt: 1 }}>
+            <TextField
+              autoFocus
+              fullWidth
+              type="text"
+              value={pin}
+              disabled={unlocking}
+              autoComplete="one-time-code"
+              inputProps={{
+                "aria-label": "PIN",
+                inputMode: "numeric",
+                maxLength: 4,
+                pattern: "[0-9]*",
+                autoCorrect: "off",
+                spellCheck: false,
+              }}
+              onChange={(event) => {
+                const nextPin = event.target.value.replace(/\D/g, "").slice(0, 4);
+                setPin(nextPin);
+                if (nextPin.length === 4 && !unlocking)
+                  void unlockProfile(nextPin);
+              }}
+              sx={{
+                "& input": {
+                  color: "transparent",
+                  caretColor: "transparent",
+                  textAlign: "center",
+                },
+              }}
+            />
+            <Box
+              aria-hidden="true"
+              sx={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 1.5,
+                pointerEvents: "none",
+              }}
+            >
+              {[0, 1, 2, 3].map((index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    bgcolor: index < pin.length ? "text.primary" : "transparent",
+                    border: "1px solid",
+                    borderColor: "text.secondary",
+                  }}
+                />
+              ))}
+            </Box>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setSelectedProfile(null)} disabled={unlocking}>
             Cancel
           </Button>
-          <Button
-            variant="contained"
-            onClick={unlockProfile}
-            disabled={!pin || unlocking}
-            startIcon={unlocking ? <CircularProgress size={16} /> : <LockRounded />}
-          >
-            Unlock
-          </Button>
+          {unlocking && <CircularProgress size={20} sx={{ mx: 1 }} />}
         </DialogActions>
       </Dialog>
     </Box>
