@@ -34,93 +34,95 @@ Nevu Next currently targets Plex movie and TV libraries. It is not an official P
 
 ## Installation
 
-Docker Engine with the Compose plugin is the recommended way to run Nevu Next. Node.js is only required for local development.
+Paste one of the stacks below into Portainer or save it as `compose.yaml`, replace the example paths and addresses, then deploy it. Both examples build Nevu Next directly from this repository.
 
-### Plex and Nevu Next together
+### Plex + Nevu Next
 
-Use this option for a new server where Plex and Nevu Next should run in the same Docker Compose project.
+Use this stack for a complete installation:
 
-1. Clone the repository and enter it:
+```yaml
+name: nevu-next
 
-   ```bash
-   git clone https://github.com/Dejniel/Nevu-Next-Plex-WebUI.git
-   cd Nevu-Next-Plex-WebUI
-   ```
+services:
+  plex:
+    image: plexinc/pms-docker:latest
+    restart: unless-stopped
+    ports:
+      - "32400:32400"
+    environment:
+      TZ: Europe/Warsaw
+      PLEX_CLAIM: claim-REPLACE_ME
+      ADVERTISE_IP: http://192.168.1.10:32400/
+      PLEX_UID: 1000
+      PLEX_GID: 1000
+    volumes:
+      - /srv/plex/config:/config
+      - /srv/plex/transcode:/transcode
+      - /srv/media:/data:ro
 
-2. Create the environment file:
+  nevu-next:
+    image: nevu-next:local
+    build:
+      context: https://github.com/Dejniel/Nevu-Next-Plex-WebUI.git#main
+    restart: unless-stopped
+    depends_on:
+      - plex
+    ports:
+      - "3000:3000"
+      - "44201:44201/udp"
+    environment:
+      PLEX_SERVER: http://plex:32400
+      LISTEN_PORT: 3000
+      PORT: 3000
+    volumes:
+      - nevu-data:/app/data
 
-   ```bash
-   cp .env.plex.example .env
-   ```
-
-3. Edit `.env` and set at least:
-
-   - `SERVER_IP` to the LAN address of the Docker host.
-   - `PLEX_MEDIA_PATH` to the host directory containing your media.
-   - `PLEX_CLAIM` to a fresh token from [plex.tv/claim](https://www.plex.tv/claim) for the first start.
-   - `PLEX_UID` and `PLEX_GID` to the user and group that can read your media. Run `id` to find them.
-
-4. Build and start both services:
-
-   ```bash
-   docker compose -f compose.plex.yaml up -d --build
-   ```
-
-5. Open Plex at `http://SERVER_IP:32400/web`, finish its first-run setup, then open Nevu Next at `http://SERVER_IP:3000`.
-
-Plex configuration is stored in `./data/plex`, transcode data in `./data/transcode`, and Nevu Next state in the `nevu-data` Docker volume. The media directory is mounted read-only. After Plex is claimed successfully, `PLEX_CLAIM` is no longer needed. The bundled Nevu backend waits for Plex if Plex takes longer to start.
-
-The all-in-one file uses the official [`plexinc/pms-docker`](https://github.com/plexinc/pms-docker) image in bridge mode. Pin `PLEX_IMAGE` to a tested version instead of `latest` if you prefer controlled Plex upgrades. Intel Quick Sync users can uncomment the `/dev/dri` device mapping in `compose.plex.yaml` and enable hardware acceleration in Plex.
-
-### Connect to an existing Plex server
-
-Use the smaller default Compose project when Plex already runs on this host or elsewhere on the network:
-
-```bash
-git clone https://github.com/Dejniel/Nevu-Next-Plex-WebUI.git
-cd Nevu-Next-Plex-WebUI
-cp .env.example .env
+volumes:
+  nevu-data:
 ```
 
-Set `PLEX_SERVER` in `.env`. The URL must include `http://` or `https://` and must not end with `/`.
-
-```dotenv
-PLEX_SERVER=http://192.168.1.10:32400
-```
-
-Then build and start Nevu Next:
+Replace the server IP, storage paths, user/group IDs, and `PLEX_CLAIM` from [plex.tv/claim](https://www.plex.tv/claim), then deploy:
 
 ```bash
 docker compose up -d --build
 ```
 
-For Plex running directly on the same Linux Docker host, the default `http://host.docker.internal:32400` works through the included host-gateway mapping.
+Open Plex at `http://192.168.1.10:32400/web` and Nevu Next at `http://192.168.1.10:3000`. The claim token is only needed for Plex's first start.
 
-### Updating
+### Nevu Next with an existing Plex server
+
+Use this smaller standalone stack when Plex is already running:
+
+```yaml
+name: nevu-next
+
+services:
+  nevu-next:
+    image: nevu-next:local
+    build:
+      context: https://github.com/Dejniel/Nevu-Next-Plex-WebUI.git#main
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "44201:44201/udp"
+    environment:
+      PLEX_SERVER: http://192.168.1.10:32400
+      LISTEN_PORT: 3000
+      PORT: 3000
+    volumes:
+      - nevu-data:/app/data
+
+volumes:
+  nevu-data:
+```
+
+Replace `PLEX_SERVER` with the address of your server. It must include `http://` or `https://` and must not end with `/`, then deploy:
 
 ```bash
-git pull --ff-only
 docker compose up -d --build
 ```
 
-For the combined stack, add `-f compose.plex.yaml` to the Compose command. Review changes before updating a server you depend on, especially changes to Plex image versions or persistent-volume paths.
-
-### Configuration
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `PLEX_SERVER` | none | Plex base URL for the standalone Nevu Compose setup; no trailing slash. |
-| `NEVU_PORT` | `3000` | TCP port exposed for the Nevu Next web interface. |
-| `NEVU_DISCOVERY_PORT` | `44201` | UDP port used for Nevu discovery. |
-| `NEVU_IMAGE` | `local/nevu:dev` | Local image name assigned by Compose. |
-| `DISABLE_TLS_VERIFY` | `false` | Disable certificate verification between Nevu and Plex. Use only for a trusted self-signed server. |
-| `DISABLE_NEVU_SYNC` | `false` | Disable Watch Together / Nevu Sync. |
-| `DISABLE_REQUEST_LOGGING` | `false` | Disable backend request logging. |
-| `DISABLE_GLOBAL_REVIEWS` | `false` | Disable Nevu community reviews. |
-| `LISTEN_PORT` | `3000` | Internal backend listening port; normally leave unchanged in Docker. |
-| `PORT` | `3000` | Public port announced by Nevu discovery; Compose sets it from `NEVU_PORT`. |
-
-The combined Plex stack also uses the variables documented in `.env.plex.example` for media, configuration, timezone, ownership, claim token, and advertised server address.
+Open Nevu Next at `http://SERVER_IP:3000`. To build from a local checkout instead, replace the Git URL under `build.context` with `.`.
 
 ## Contributing
 
