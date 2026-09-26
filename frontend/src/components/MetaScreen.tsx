@@ -36,8 +36,7 @@ import {
   CheckCircleRounded,
   CloseRounded,
   PlayArrowRounded,
-  VolumeOffRounded,
-  VolumeUpRounded,
+  TheatersRounded,
   CheckCircleOutlineRounded,
   StarRounded,
   StarOutlineRounded,
@@ -45,28 +44,54 @@ import {
   CheckBoxRounded,
 } from "@mui/icons-material";
 import { durationToText } from "./MovieItemSlider";
-import ReactPlayer from "react-player";
-import { usePreviewPlayer } from "../states/PreviewPlayerState";
-import MovieItem from "./MovieItem";
 import { useBigReader } from "./BigReader";
-import { useInView } from "react-intersection-observer";
 import { HeroWatchListButton } from "./MovieItem";
 import { alpha } from "@mui/material/styles";
 import { AnimatePresence, motion } from "framer-motion";
 import { useConfirmModal } from "./ConfirmModal";
 import { PlexCommunity } from "../plex/plexCommunity";
 import moment from "moment";
-import { getBackendURL } from "../backendURL";
-import { queryBuilder } from "../plex/QuickFunctions";
 import AddReviewModal from "./modals/AddReviewModal";
 import { getNevuReviews } from "../common/NevuReviews";
-import { AuthStorage } from "../auth/AuthStorage";
+import TrailerDialog from "./title/TrailerDialog";
+import TitleOverview from "./title/TitleOverview";
+import TitleDetails from "./title/TitleDetails";
+import TitleMedia from "./title/TitleMedia";
+import {
+  fetchDiscoverExtras,
+  mergeTitleExtras,
+  selectPrimaryTrailer,
+  TitleExtra,
+  withoutExtra,
+} from "../plex/discover";
+
+function TitleScore({
+  label,
+  value,
+  image,
+}: {
+  label: string;
+  value?: number;
+  image?: string;
+}) {
+  if (value === undefined) return null;
+  const score = image?.toLowerCase().includes("rottentomatoes")
+    ? `${Math.round(value * 10)}%`
+    : `${value.toFixed(1)}/10`;
+
+  return (
+    <Box sx={{ display: "flex", alignItems: "baseline", gap: 0.5 }}>
+      <Typography variant="body2" color="text.secondary">
+        {label}
+      </Typography>
+      <Typography sx={{ fontWeight: 700 }}>{score}</Typography>
+    </Box>
+  );
+}
 
 function MetaScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { MetaScreenPlayerMuted, setMetaScreenPlayerMuted } =
-    usePreviewPlayer();
 
   const [loading, setLoading] = useState<boolean>(true);
   const [data, setData] = useState<Plex.Metadata | undefined>(undefined);
@@ -79,8 +104,9 @@ function MetaScreen() {
   const [languages, setLanguages] = useState<string[] | null>(null);
   const [subTitles, setSubTitles] = useState<string[] | null>(null);
 
-  const [previewVidURL, setPreviewVidURL] = useState<string | null>(null);
-  const [previewVidPlaying, setPreviewVidPlaying] = useState<boolean>(false);
+  const [extras, setExtras] = useState<TitleExtra[]>([]);
+  const [extrasLoading, setExtrasLoading] = useState(false);
+  const [playingExtra, setPlayingExtra] = useState<TitleExtra | null>(null);
 
   const mid = searchParams.get("mid");
 
@@ -102,8 +128,8 @@ function MetaScreen() {
     setSelectedSeason(0);
     setLanguages(null);
     setSubTitles(null);
-    setPreviewVidURL(null);
-    setPreviewVidPlaying(false);
+    setExtras([]);
+    setPlayingExtra(null);
     setPage(0);
 
     if (!mid) return;
@@ -126,33 +152,28 @@ function MetaScreen() {
   }, [mid]);
 
   useEffect(() => {
-    if (!data) return;
+    let active = true;
+    if (!data)
+      return () => {
+        active = false;
+      };
 
-    if (
-      !data?.Extras?.Metadata?.[0] ||
-      !data?.Extras?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.key
-    )
-      return;
+    const localExtras = data.Extras?.Metadata ?? [];
+    setExtras(mergeTitleExtras(localExtras));
+    setExtrasLoading(true);
 
-    setPreviewVidURL(
-      `${getBackendURL()}/dynproxy${
-        data?.Extras?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.key.split("?")[0]
-      }?${queryBuilder({
-        "X-Plex-Token": AuthStorage.getServerToken(),
-        ...Object.fromEntries(
-          new URL(
-            "http://localhost:3000" +
-              data?.Extras?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.key
-          ).searchParams.entries()
-        ),
-      })}`
-    );
+    fetchDiscoverExtras(data)
+      .catch(() => [])
+      .then((discoverExtras) => {
+        if (active) setExtras(mergeTitleExtras(localExtras, discoverExtras));
+      })
+      .finally(() => {
+        if (active) setExtrasLoading(false);
+      });
 
-    const timeout = setTimeout(() => {
-      setPreviewVidPlaying(true);
-    }, 3000);
-
-    return () => clearTimeout(timeout);
+    return () => {
+      active = false;
+    };
   }, [data]);
 
   useEffect(() => {
@@ -250,6 +271,9 @@ function MetaScreen() {
     }
   };
 
+  const primaryTrailer = selectPrimaryTrailer(extras, data?.primaryExtraKey);
+  const remainingExtras = withoutExtra(extras, primaryTrailer);
+
   if (!searchParams.has("mid")) return <></>;
 
   if (loading)
@@ -269,7 +293,12 @@ function MetaScreen() {
   // );
 
   return (
-    <Backdrop
+    <>
+      <TrailerDialog
+        extra={playingExtra}
+        onClose={() => setPlayingExtra(null)}
+      />
+      <Backdrop
       open={searchParams.has("mid")}
       sx={{
         overflowY: "scroll",
@@ -309,9 +338,6 @@ function MetaScreen() {
             top: 8,
             right: 8,
             display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 1,
             zIndex: 50,
           }}
         >
@@ -320,16 +346,6 @@ function MetaScreen() {
             onClick={() => setSearchParams(new URLSearchParams())}
           >
             <CloseRounded fontSize="medium" />
-          </IconButton>
-          <IconButton
-            sx={{
-              backgroundColor: "#000000BB",
-              opacity: previewVidURL ? 1 : 0,
-              transition: "all 1s ease",
-            }}
-            onClick={() => setMetaScreenPlayerMuted(!MetaScreenPlayerMuted)}
-          >
-            {MetaScreenPlayerMuted ? <VolumeOffRounded /> : <VolumeUpRounded />}
           </IconButton>
         </Box>
         <Box
@@ -362,58 +378,6 @@ function MetaScreen() {
             userSelect: "none",
           }}
         >
-          <Box
-            sx={{
-              position: "absolute",
-              // make it take up the full width of the parent
-              width: "100%",
-              height: "100%",
-              left: 0,
-              top: 0,
-              filter: "brightness(0.8)",
-              opacity: previewVidPlaying ? 1 : 0,
-              transition: "all 2s ease",
-              backgroundColor: previewVidPlaying ? "#000000" : "transparent",
-              pointerEvents: "none",
-
-              borderTopLeftRadius: { xs: 0, sm: "10px" },
-              borderTopRightRadius: { xs: 0, sm: "10px" },
-              overflow: "hidden",
-
-              "& video": {
-                objectFit: "cover",
-                width: "100%",
-                height: "100%",
-              },
-            }}
-          >
-            <ReactPlayer
-              url={previewVidURL ?? undefined}
-              controls={false}
-              width="100%"
-              height="100%"
-              autoplay={true}
-              playing={previewVidPlaying}
-              volume={MetaScreenPlayerMuted ? 0 : 0.5}
-              muted={MetaScreenPlayerMuted}
-              onEnded={() => {
-                setPreviewVidPlaying(false);
-              }}
-              style={{
-                width: "100%",
-                height: "100%"
-              }}
-              pip={false}
-              config={{
-                file: {
-                  attributes: {
-                    disablePictureInPicture: true,
-                    style: { objectFit: "cover" },
-                  },
-                },
-              }}
-            />
-          </Box>
         </Box>
 
         <Box
@@ -586,17 +550,6 @@ function MetaScreen() {
                     {data?.year}
                   </Typography>
                 )}
-                {data?.rating && (
-                  <Typography
-                    sx={{
-                      fontSize: "medium",
-                      fontWeight: "light",
-                      color: (theme) => theme.palette.text.secondary,
-                    }}
-                  >
-                    {data?.rating}
-                  </Typography>
-                )}
                 {data?.duration &&
                   ["episode", "movie"].includes(data?.type) && (
                     <Typography
@@ -626,6 +579,27 @@ function MetaScreen() {
                           }`}
                     </Typography>
                   )}
+              </Box>
+
+              <Box
+                sx={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  justifyContent: { xs: "center", sm: "flex-start" },
+                  gap: 2,
+                }}
+              >
+                <TitleScore
+                  label="Critics"
+                  value={data?.rating}
+                  image={data?.ratingImage}
+                />
+                <TitleScore
+                  label="Audience"
+                  value={data?.audienceRating}
+                  image={data?.audienceRatingImage}
+                />
+                <TitleScore label="You" value={data?.userRating} />
               </Box>
 
               <Box
@@ -688,6 +662,23 @@ function MetaScreen() {
                         : ""
                     }E${data?.OnDeck.Metadata.index}`}
                 </Button>
+
+                {primaryTrailer && (
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    startIcon={<TheatersRounded />}
+                    sx={{
+                      height: "38px",
+                      fontWeight: "bold",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                    }}
+                    onClick={() => setPlayingExtra(primaryTrailer)}
+                  >
+                    Trailer
+                  </Button>
+                )}
 
                 <Tooltip placement="top" arrow title="Watchlist">
                   <HeroWatchListButton item={data as Plex.Metadata} />
@@ -957,16 +948,16 @@ function MetaScreen() {
                 setPage(0);
               }}
               selected={page === 0}
-              text={data?.type === "movie" ? "Similar Movies" : "Episodes"}
+              text="Overview"
             />
 
-            {data?.type !== "movie" && (
+            {data?.type === "show" && (
               <TabButton
                 onClick={() => {
                   setPage(1);
                 }}
                 selected={page === 1}
-                text="Recommendations"
+                text="Episodes"
               />
             )}
 
@@ -975,7 +966,7 @@ function MetaScreen() {
                 setPage(2);
               }}
               selected={page === 2}
-              text="Info"
+              text="Details & Extras"
             />
 
             <TabButton
@@ -986,13 +977,21 @@ function MetaScreen() {
               text="Reviews"
             />
 
+            <TabButton
+              onClick={() => {
+                setPage(4);
+              }}
+              selected={page === 4}
+              text="Media"
+            />
+
             {data?.type === "show" &&
               data?.Children &&
               data?.Children.size > 1 && (
                 <Select
                   sx={{
                     ml: "auto",
-                    opacity: page === 0 ? 1 : 0,
+                    opacity: page === 1 ? 1 : 0,
                     transition: "all 0.5s ease",
                   }}
                   size="small"
@@ -1015,36 +1014,48 @@ function MetaScreen() {
           <Divider sx={{ mb: 2, width: "100%" }} />
 
           <AnimatePresence mode="wait">
-            {page === 0 && (
-              <MetaPage1
+            {page === 0 && data && (
+              <TitleOverview
                 data={data}
-                loading={loading}
+                onShowDetails={() => setPage(2)}
+                onShowReviews={() => setPage(3)}
+              />
+            )}
+            {page === 1 && data?.type === "show" && (
+              <EpisodesPage
+                data={data}
                 episodes={episodes}
                 refetchEpisodes={refetchEpisodes}
                 navigate={navigate}
               />
             )}
-            {page === 1 && MetaPage2(data)}
-            {page === 2 && MetaPage3(data)}
+            {page === 2 && data && (
+              <TitleDetails
+                data={data}
+                extras={remainingExtras}
+                loadingExtras={extrasLoading}
+                onPlayExtra={setPlayingExtra}
+              />
+            )}
             {page === 3 && <MetaPageReviews data={data} />}
+            {page === 4 && data && <TitleMedia data={data} />}
           </AnimatePresence>
         </Box>
       </Box>
-    </Backdrop>
+      </Backdrop>
+    </>
   );
 }
 
 export default MetaScreen;
 
-function MetaPage1({
+function EpisodesPage({
   data,
-  loading,
   episodes,
   refetchEpisodes,
   navigate,
 }: {
   data: Plex.Metadata | undefined;
-  loading: boolean;
   episodes: Plex.Metadata[] | null | undefined;
   refetchEpisodes: () => void;
   navigate: (path: string) => void;
@@ -1164,38 +1175,6 @@ function MetaPage1({
           </Button>
         </Box>
       </Collapse>
-      {data?.type === "movie" && !data && (
-        <Box
-          sx={{
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "flex-start",
-            mt: 10,
-          }}
-        >
-          <CircularProgress />
-        </Box>
-      )}
-
-      {data?.type === "movie" && data.Related?.Hub?.[0] && (
-        <Grid
-          container
-          spacing={2}
-          sx={{
-            width: "100%",
-          }}
-        >
-          {data.Related?.Hub?.[0]?.Metadata?.slice(0, 10).map((movie) => (
-            <Grid size={{ lg: 3, md: 4, sm: 6, xs: 12 }}>
-              <MovieItem item={movie} />
-            </Grid>
-          ))}
-        </Grid>
-      )}
-
       {data?.type === "show" && !episodes && (
         <Box
           sx={{
@@ -1264,111 +1243,6 @@ function MetaPage1({
         </Box>
       )}
     </>
-  );
-}
-
-function MetaPage2(data: Plex.Metadata | undefined) {
-  if (!data) return <></>;
-  if (data.Related?.Hub?.length === 0) return <>Nothing here</>;
-
-  return (
-    <Box
-      component={motion.div}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
-      sx={{
-        width: "100%",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "flex-start",
-        justifyContent: "flex-start",
-        gap: "60px",
-
-        userSelect: "none",
-      }}
-    >
-      {data.Related?.Hub?.map((hub) => (
-        <Box
-          sx={{
-            width: "100%",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            justifyContent: "flex-start",
-            gap: 1,
-          }}
-        >
-          <Typography
-            sx={{
-              fontSize: "1.5rem",
-              fontWeight: "bold",
-              color: "#FFFFFF",
-            }}
-          >
-            {hub.title}
-          </Typography>
-
-          <Grid container spacing={2} sx={{ width: "100%" }}>
-            {hub.Metadata?.map((item) => (
-              <Grid size={{ lg: 3, md: 4, sm: 6, xs: 12 }}>
-                <MovieItem item={item} />
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      ))}
-    </Box>
-  );
-}
-
-function MetaPage3(data: Plex.Metadata | undefined) {
-  return (
-    <Box
-      component={motion.div}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
-      sx={{
-        width: "100%",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "flex-start",
-        justifyContent: "flex-start",
-        gap: "60px",
-
-        userSelect: "none",
-      }}
-    >
-      <Box
-        sx={{
-          width: "100%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-start",
-          justifyContent: "flex-start",
-          gap: 1,
-        }}
-      >
-        <Typography
-          sx={{
-            fontSize: "1.5rem",
-            fontWeight: "bold",
-            color: "#FFFFFF",
-          }}
-        >
-          Cast
-        </Typography>
-
-        <Grid container spacing={2}>
-          {data?.Role?.map((role) => (
-            <ActorItem role={role} data={data} />
-          ))}
-        </Grid>
-      </Box>
-    </Box>
   );
 }
 
@@ -1573,6 +1447,7 @@ function MetaPageReviews({ data }: { data: Plex.Metadata | undefined }) {
   };
 
   const totalReviews =
+    (data?.Review?.length ?? 0) +
     (reviews?.topReviews?.nodes.length ?? 0) +
     (reviews?.friendReviews?.nodes.length ?? 0) +
     (reviews?.recentReviews?.nodes.length ?? 0) +
@@ -1597,6 +1472,35 @@ function MetaPageReviews({ data }: { data: Plex.Metadata | undefined }) {
     >
       {totalReviews === 0 && !loading && (
         <Typography>No one has reviewed this title yet.</Typography>
+      )}
+
+      {(data?.Review?.length ?? 0) > 0 && (
+        <Box sx={{ width: "100%" }}>
+          <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
+            Critic reviews
+          </Typography>
+          <Grid container spacing={3} sx={{ width: "100%" }}>
+            {data?.Review?.map((review) => (
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={review.id}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 2.5,
+                    bgcolor: (theme) =>
+                      alpha(theme.palette.background.paper, 0.4),
+                    height: "100%",
+                  }}
+                >
+                  <Typography fontWeight="bold">{review.tag}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {review.source}
+                  </Typography>
+                  <Typography sx={{ lineHeight: 1.6 }}>{review.text}</Typography>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
       )}
 
       {loading ? (
@@ -1628,7 +1532,7 @@ function MetaPageReviews({ data }: { data: Plex.Metadata | undefined }) {
             </Grid>
           ))}
         </Grid>
-      ) : !reviews ? (
+      ) : !reviews && (data?.Review?.length ?? 0) === 0 ? (
         <Box
           sx={{
             display: "flex",
@@ -1648,7 +1552,7 @@ function MetaPageReviews({ data }: { data: Plex.Metadata | undefined }) {
             No reviews available for this title yet
           </Typography>
         </Box>
-      ) : (
+      ) : reviews ? (
         <Box sx={{ width: "100%" }}>
           {renderReviewsSection(
             "NEVU Reviews",
@@ -1675,112 +1579,8 @@ function MetaPageReviews({ data }: { data: Plex.Metadata | undefined }) {
             !reviews.friendReviews?.nodes.length
           )}
         </Box>
-      )}
+      ) : null}
     </Box>
-  );
-}
-
-function ActorItem({
-  role,
-  data,
-}: {
-  role: Plex.Role;
-  data: Plex.Metadata;
-}): JSX.Element {
-  const { inView, ref } = useInView();
-  const [, setSearchParams] = useSearchParams();
-
-  return (
-    <Grid size={{ xl: 3, lg: 4, md: 6, sm: 6, xs: 6 }} ref={ref}>
-      {inView ? (
-        <Box
-          sx={{
-            width: "100%",
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "flex-start",
-            gap: { xs: "10px", sm: "20px" },
-            backgroundColor: (theme) =>
-              alpha(theme.palette.background.paper, 0.4),
-            padding: { xs: "5px 10px", sm: "10px 20px" },
-            borderRadius: "10px",
-            userSelect: "none",
-            cursor: "pointer",
-            transition: "transform 0.2s ease",
-
-            "&:hover": {
-              backgroundColor: (theme) =>
-                alpha(theme.palette.background.paper, 0.7),
-              transform: "translateY(-2px)",
-            },
-          }}
-          onClick={() => {
-            setSearchParams(
-              new URLSearchParams({
-                bkey: `/library/sections/${data.librarySectionID}/actor/${role.id}`,
-              })
-            );
-          }}
-        >
-          <Avatar
-            src={`${getTranscodeImageURL(role.thumb, 200, 200)}`}
-            sx={{
-              width: { xs: "35%", sm: "25%" },
-              height: "auto",
-              aspectRatio: "1/1",
-              borderRadius: "50%",
-            }}
-          />
-
-          <Box
-            sx={{
-              width: { xs: "65%", sm: "75%" },
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-start",
-              overflow: "hidden",
-            }}
-          >
-            <Typography
-              sx={{
-                fontSize: { xs: "0.85rem", sm: "1rem" },
-                color: (theme) => theme.palette.text.primary,
-                fontWeight: "medium",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                width: "100%",
-              }}
-            >
-              {role.tag}
-            </Typography>
-            <Typography
-              sx={{
-                fontSize: { xs: "0.65rem", sm: "0.75rem" },
-                color: (theme) => theme.palette.text.secondary,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                width: "100%",
-              }}
-            >
-              {role.role}
-            </Typography>
-          </Box>
-        </Box>
-      ) : (
-        <Box
-          sx={{
-            width: "100%",
-            height: "100px",
-            backgroundColor: (theme) =>
-              alpha(theme.palette.background.paper, 0.2),
-            borderRadius: "10px",
-          }}
-        />
-      )}
-    </Grid>
   );
 }
 

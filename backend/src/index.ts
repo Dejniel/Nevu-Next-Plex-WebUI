@@ -67,6 +67,25 @@ const noVerifyHttpsAgent = new https.Agent({
     rejectUnauthorized: false
 });
 
+const PLEX_DISCOVER_URL = 'https://discover.provider.plex.tv';
+const discoverExtrasPath = /^\/library\/metadata\/[a-f0-9]+\/extras$/i;
+const discoverStreamPath = /^\/library\/metadata\/[a-f0-9]+\/extras\/[a-f0-9]+\/parts\/hls\.m3u8$/i;
+
+function getDiscoverHeaders(req: express.Request) {
+    const token = req.headers['x-plex-token'];
+    if (typeof token !== 'string' || !token) return null;
+
+    return {
+        'Accept': 'application/json',
+        'X-Plex-Token': token,
+        'X-Plex-Product': 'NEVU',
+        'X-Plex-Version': '0.1.0',
+        'X-Plex-Client-Identifier': String(
+            req.headers['x-plex-client-identifier'] || 'nevu-web'
+        ),
+    };
+}
+
 (async () => {
     const packageJson = fs.readFileSync('package.json', 'utf-8');
     const packageJsonParsed = JSON.parse(packageJson);
@@ -199,6 +218,54 @@ app.get('/config', (req, res) => {
             DISABLE_NEVU_SYNC: process.env.DISABLE_NEVU_SYNC === 'true',
         }
     });
+});
+
+app.post('/discover/extras', async (req, res) => {
+    const headers = getDiscoverHeaders(req);
+    if (!headers) return res.status(401).send('Unauthorized');
+
+    const path = req.body?.path;
+    if (typeof path !== 'string' || !discoverExtrasPath.test(path))
+        return res.status(400).send('Invalid Discover extras path');
+
+    try {
+        const response = await axios.get(`${PLEX_DISCOVER_URL}${path}`, {
+            headers,
+            timeout: 10000,
+        });
+        res.status(response.status).send(response.data);
+    } catch (error: any) {
+        res.status(error.response?.status || 502).send(
+            error.response?.data || 'Plex Discover request failed'
+        );
+    }
+});
+
+app.post('/discover/stream', async (req, res) => {
+    const headers = getDiscoverHeaders(req);
+    if (!headers) return res.status(401).send('Unauthorized');
+
+    const path = req.body?.path;
+    if (typeof path !== 'string' || !discoverStreamPath.test(path))
+        return res.status(400).send('Invalid Discover stream path');
+
+    try {
+        const response = await axios.get(`${PLEX_DISCOVER_URL}${path}`, {
+            headers,
+            maxRedirects: 0,
+            timeout: 10000,
+            validateStatus: (code) => code >= 300 && code < 400,
+        });
+        const location = response.headers.location;
+        if (typeof location !== 'string' || new URL(location).protocol !== 'https:')
+            return res.status(502).send('Plex Discover did not return a stream');
+
+        res.send({ url: location });
+    } catch (error: any) {
+        res.status(error.response?.status || 502).send(
+            error.response?.data || 'Plex Discover stream request failed'
+        );
+    }
 });
 
 app.get('/user/options', async (req, res) => {

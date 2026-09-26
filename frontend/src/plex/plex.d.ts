@@ -172,6 +172,7 @@ declare namespace Plex {
         parentRatingKey?: string;
         grandparentRatingKey?: string;
         guid: string;
+        Guid?: { id: string }[];
         slug?: string;
         studio: string;
         type: LibaryType;
@@ -210,7 +211,9 @@ declare namespace Plex {
         updatedAt: number;
         audienceRatingImage: string;
         chapterSource?: string;
-        primaryExtraKey: string;
+        primaryExtraKey?: string;
+        extraType?: number;
+        subtype?: string;
         ratingImage?: string;
         Media?: Media[];
         Genre?: Tag[];
@@ -245,6 +248,7 @@ declare namespace Plex {
         Related?: {
             Hub?: Hub[];
         }
+        Review?: Review[];
     }
 
     interface Hub {
@@ -301,6 +305,7 @@ declare namespace Plex {
         videoFrameRate: string;
         audioProfile: string;
         videoProfile: string;
+        videoDynamicRange?: string;
         Part: Part[];
     }
 
@@ -352,6 +357,16 @@ declare namespace Plex {
         id: number;
         filter: string;
         tag: string;
+    }
+
+    interface Review {
+        id: number;
+        filter: string;
+        tag: string;
+        text: string;
+        image: string;
+        link: string;
+        source: string;
     }
 
     interface Location {
