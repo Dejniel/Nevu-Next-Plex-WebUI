@@ -8,6 +8,11 @@ import {
   VolumeOffRounded,
   VolumeUpRounded,
   StarRounded,
+  MovieOutlined,
+  TvRounded,
+  MusicNoteRounded,
+  PhotoOutlined,
+  VideoLibraryOutlined,
 } from "@mui/icons-material";
 import {
   Box,
@@ -21,6 +26,7 @@ import {
   Divider,
   ListItemIcon,
   IconButton,
+  Skeleton,
 } from "@mui/material";
 import React, { JSX, memo, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -45,6 +51,7 @@ import { getBackendURL } from "../backendURL";
 import { queryBuilder } from "../plex/QuickFunctions";
 import { AuthStorage } from "../auth/AuthStorage";
 import { mediaQualityBadge } from "../plex/mediaVersions";
+import { mediaArtworkPath } from "../plex/mediaArtwork";
 
 interface MovieItemPreviewPlaybackState {
   url: string;
@@ -134,6 +141,21 @@ function MovieItem({
       ]
         .filter(Boolean)
         .join(" · ");
+  const artworkPath = mediaArtworkPath(item, layout);
+  const artworkUrl = artworkPath
+    ? getTranscodeImageURL(
+        artworkPath,
+        layout === "poster" ? 600 : 1200,
+        layout === "poster" ? 900 : 680,
+      )
+    : null;
+  const [artworkStatus, setArtworkStatus] = React.useState<
+    "loading" | "loaded" | "missing"
+  >(artworkUrl ? "loading" : "missing");
+
+  useEffect(() => {
+    setArtworkStatus(artworkUrl ? "loading" : "missing");
+  }, [artworkUrl]);
 
   useEffect(() => {
     if (hovered && previewEnabled) {
@@ -488,23 +510,54 @@ function MovieItem({
             position: "relative",
             overflow: "hidden",
             flexShrink: 0,
+            backgroundColor: "#17191e",
+            boxShadow:
+              "inset 0 0 0 1px rgba(255,255,255,0.05), inset 0 -32px 56px rgba(0,0,0,0.24)",
           }}
         >
-          {/* Background image */}
-          <Box
-            sx={{
-              position: "absolute",
-              inset: 0,
-              backgroundImage:
-                layout === "poster"
-                  ? `url(${getTranscodeImageURL(item.thumb ?? item.art, 600, 900)})`
-                  : ["episode"].includes(item.type)
-                  ? `url(${getTranscodeImageURL(item.thumb, 1200, 680)})`
-                  : `url(${getTranscodeImageURL(item.art, 1200, 680)})`,
-              backgroundSize: "cover",
-              backgroundPosition: layout === "poster" ? "center top" : "center",
-            }}
-          />
+          {artworkUrl && artworkStatus !== "missing" && (
+            <Box
+              component="img"
+              src={artworkUrl}
+              alt=""
+              draggable={false}
+              onLoad={() => setArtworkStatus("loaded")}
+              onError={() => setArtworkStatus("missing")}
+              sx={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                objectPosition: layout === "poster" ? "center top" : "center",
+                opacity: artworkStatus === "loaded" ? 1 : 0,
+                transition: "opacity 0.25s ease",
+              }}
+            />
+          )}
+
+          {artworkStatus === "loading" && (
+            <Skeleton
+              variant="rectangular"
+              animation="wave"
+              sx={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+            />
+          )}
+
+          {artworkStatus === "missing" && (
+            <Box
+              sx={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "rgba(255,255,255,0.22)",
+              }}
+            >
+              <MediaTypePlaceholder type={item.type} />
+            </Box>
+          )}
 
           {/* Preview playback overlay */}
           {previewEnabled && (
@@ -820,6 +873,16 @@ function MovieItem({
 }
 
 export default memo(MovieItem);
+
+function MediaTypePlaceholder({ type }: { type: Plex.LibaryType }) {
+  const sx = { fontSize: "clamp(38px, 6vw, 72px)" };
+
+  if (["show", "season", "episode"].includes(type)) return <TvRounded sx={sx} />;
+  if (["artist", "album", "track"].includes(type)) return <MusicNoteRounded sx={sx} />;
+  if (type === "photo") return <PhotoOutlined sx={sx} />;
+  if (["movie", "video"].includes(type)) return <MovieOutlined sx={sx} />;
+  return <VideoLibraryOutlined sx={sx} />;
+}
 
 export function WatchListButton({ item }: { item: Plex.Metadata }) {
   const WatchList = useWatchListCache();

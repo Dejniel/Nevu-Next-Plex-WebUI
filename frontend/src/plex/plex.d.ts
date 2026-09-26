@@ -147,6 +147,8 @@ declare namespace Plex {
 
     interface MediaContainer {
         size: number;
+        totalSize?: number;
+        offset?: number;
         allowSync?: boolean;
         art?: string;
         content?: string;

@@ -1,4 +1,4 @@
-import { Box, CircularProgress } from "@mui/material";
+import { Box, Skeleton } from "@mui/material";
 import React, { useEffect } from "react";
 import {
   getAllLibraries,
@@ -12,7 +12,13 @@ import HeroDisplay from "../components/HeroDisplay";
 import { useWatchListCache } from "../states/WatchListCache";
 import { useUserSettings } from "../states/UserSettingsState";
 import { normalizeLibraryNavigation } from "../plex/libraryNavigation";
-import { hasHeroArtwork, pickHeroCandidate } from "../plex/homeHero";
+import {
+  hasHeroArtwork,
+  heroCandidates,
+  randomLibraryWindow,
+} from "../plex/homeHero";
+
+const HERO_WINDOW_SIZE = 8;
 
 export default function Home() {
   const [featured, setFeatured] = React.useState<
@@ -24,13 +30,13 @@ export default function Home() {
   const { watchListCache } = useWatchListCache();
   const { settings, loaded: settingsLoaded } = useUserSettings();
 
-  const [loading, setLoading] = React.useState(true);
+  const [heroLoading, setHeroLoading] = React.useState(true);
 
   useEffect(() => {
     if (!settingsLoaded) return;
 
     async function fetchData() {
-      setLoading(true);
+      setHeroLoading(true);
       setRandomItem(null);
       try {
         const librariesData = await getAllLibraries();
@@ -40,41 +46,23 @@ export default function Home() {
           settings,
         ).pinned.slice(0, 4);
 
-        const featuredData = await getRecommendations(filteredLibraries);
-        setFeatured(featuredData);
+        const featuredRequest = getRecommendations(filteredLibraries).then(
+          setFeatured,
+        );
+        const heroRequest = getRandomItem(filteredLibraries)
+          .then(setRandomItem)
+          .finally(() => setHeroLoading(false));
 
-        const randomItemData = await getRandomItem(filteredLibraries);
-
-        if (!randomItemData) return;
-
-        const data = await getLibraryMeta(randomItemData?.ratingKey as string);
-        if (hasHeroArtwork(data)) setRandomItem(data);
+        await Promise.all([featuredRequest, heroRequest]);
       } catch (error) {
         console.error("Error fetching data", error);
-      } finally {
-        setLoading(false);
+        setHeroLoading(false);
       }
     }
 
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);
-  if (loading)
-    return (
-      <Box
-        sx={{
-          width: "100vw",
-          height: "80vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
-
   return (
     <Box
       sx={{
@@ -87,7 +75,13 @@ export default function Home() {
         pt: "-64px",
       }}
     >
-      {randomItem && <HeroDisplay item={randomItem} />}
+      {heroLoading ? (
+        <HomeHeroSkeleton />
+      ) : (
+        randomItem && (
+          <HeroDisplay item={randomItem} onArtworkError={() => setRandomItem(null)} />
+        )
+      )}
       <Box
         sx={{
           width: "100%",
@@ -97,7 +91,7 @@ export default function Home() {
           justifyContent: "flex-start",
           gap: 8,
           pb: 8,
-          mt: randomItem ? "-20vh" : "80px",
+          mt: randomItem || heroLoading ? "-20vh" : "80px",
           zIndex: 1,
         }}
       >
@@ -164,16 +158,78 @@ async function getRecommendations(libraries: Plex.Directory[]) {
 async function getRandomItem(libraries: Plex.Directory[]) {
   for (const library of shuffleArray(libraries)) {
     try {
-      const items = await getLibraryDir(`/library/sections/${library.key}/all`, {
-        sort: "random:desc",
-        limit: 20,
+      const path = `/library/sections/${library.key}/all`;
+      const summary = await getLibraryDir(path, {
+        sort: "titleSort:asc",
+        "X-Plex-Container-Start": 0,
+        "X-Plex-Container-Size": 0,
       });
-      const candidate = pickHeroCandidate(items.Metadata);
-      if (candidate) return candidate;
+      const window = randomLibraryWindow(summary.totalSize ?? summary.size, HERO_WINDOW_SIZE);
+      if (!window) continue;
+
+      const first = await getLibraryDir(path, {
+        sort: "titleSort:asc",
+        "X-Plex-Container-Start": window.start,
+        "X-Plex-Container-Size": window.size,
+      });
+      let items = first.Metadata || [];
+
+      if (window.wrapSize) {
+        const wrapped = await getLibraryDir(path, {
+          sort: "titleSort:asc",
+          "X-Plex-Container-Start": 0,
+          "X-Plex-Container-Size": window.wrapSize,
+        });
+        items = [...items, ...(wrapped.Metadata || [])];
+      }
+
+      for (const candidate of heroCandidates(items)) {
+        const metadata = await getLibraryMeta(candidate.ratingKey);
+        if (hasHeroArtwork(metadata)) return metadata;
+      }
     } catch (error) {
       console.log(`Error fetching a random item from library ${library.key}`, error);
     }
   }
 
   return null;
+}
+
+function HomeHeroSkeleton() {
+  return (
+    <Box
+      aria-hidden="true"
+      sx={{
+        width: "100%",
+        height: "100vh",
+        position: "relative",
+        overflow: "hidden",
+        backgroundColor: "#15171b",
+        boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.04)",
+      }}
+    >
+      <Skeleton
+        variant="rectangular"
+        animation="wave"
+        sx={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+      />
+      <Box
+        sx={{
+          position: "absolute",
+          left: { xs: 2, sm: 5, md: 10 },
+          bottom: { xs: "30vh", sm: "25vh", md: "40vh" },
+          width: { xs: "75vw", sm: "50vw", md: "34vw" },
+        }}
+      >
+        <Skeleton width="22%" height={28} />
+        <Skeleton width="72%" height={58} />
+        <Skeleton width="100%" height={22} />
+        <Skeleton width="84%" height={22} />
+        <Box sx={{ display: "flex", gap: 2, mt: 3 }}>
+          <Skeleton variant="rounded" width={112} height={38} />
+          <Skeleton variant="rounded" width={46} height={38} />
+        </Box>
+      </Box>
+    </Box>
+  );
 }

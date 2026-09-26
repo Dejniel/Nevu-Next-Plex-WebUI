@@ -5,7 +5,7 @@ import {
   VolumeUpRounded,
   PauseRounded,
 } from "@mui/icons-material";
-import { Box, Typography, Button, IconButton } from "@mui/material";
+import { Box, Typography, Button, IconButton, Skeleton } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { usePreviewPlayer } from "../states/PreviewPlayerState";
@@ -17,7 +17,13 @@ import { queryBuilder } from "../plex/QuickFunctions";
 import { getTranscodeImageURL } from "../plex";
 import { AuthStorage } from "../auth/AuthStorage";
 
-function HeroDisplay({ item }: { item: Plex.Metadata }) {
+function HeroDisplay({
+  item,
+  onArtworkError,
+}: {
+  item: Plex.Metadata;
+  onArtworkError?: () => void;
+}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -34,6 +40,12 @@ function HeroDisplay({ item }: { item: Plex.Metadata }) {
     : null;
 
   const [previewVidPlaying, setPreviewVidPlaying] = useState<boolean>(false);
+  const [artworkLoaded, setArtworkLoaded] = useState(false);
+  const artworkUrl = getTranscodeImageURL(item.art, 1920, 1080);
+
+  useEffect(() => {
+    setArtworkLoaded(false);
+  }, [item.art]);
 
   useEffect(() => {
     setPreviewVidPlaying(false);
@@ -121,18 +133,48 @@ function HeroDisplay({ item }: { item: Plex.Metadata }) {
           flexDirection: "column",
           alignItems: "flex-start",
           justifyContent: "flex-end",
-          background: `linear-gradient(90deg, #000000AA, #000000AA), url(${getTranscodeImageURL(
-            item?.art,
-            1920,
-            1080
-          )})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
+          backgroundColor: "#15171b",
+          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.04)",
           zIndex: 0,
           position: "relative",
+          overflow: "hidden",
+          isolation: "isolate",
         }}
       >
+        <Box
+          component="img"
+          src={artworkUrl}
+          alt=""
+          onLoad={() => setArtworkLoaded(true)}
+          onError={onArtworkError}
+          sx={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            objectPosition: "center",
+            opacity: artworkLoaded ? 1 : 0,
+            transition: "opacity 0.35s ease",
+            zIndex: 0,
+          }}
+        />
+        {!artworkLoaded && (
+          <Skeleton
+            variant="rectangular"
+            animation="wave"
+            sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 0 }}
+          />
+        )}
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.67)",
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        />
         <Box
           sx={{
             position: "absolute",
@@ -148,7 +190,7 @@ function HeroDisplay({ item }: { item: Plex.Metadata }) {
             pointerEvents: "none",
 
             overflow: "hidden",
-            zIndex: 0,
+            zIndex: 1,
           }}
         >
           <ReactPlayer
@@ -185,7 +227,7 @@ function HeroDisplay({ item }: { item: Plex.Metadata }) {
           sx={{
             ml: { xs: 2, sm: 5, md: 10 },
             mb: { xs: "30vh", sm: "25vh", md: "40vh" },
-            zIndex: 1,
+            zIndex: 2,
             mr: { xs: 2, sm: 4, md: 0 },
           }}
         >

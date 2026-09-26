@@ -1,4 +1,8 @@
-import { hasHeroArtwork, pickHeroCandidate } from "./homeHero";
+import {
+  hasHeroArtwork,
+  heroCandidates,
+  randomLibraryWindow,
+} from "./homeHero";
 
 const candidates = [
   { ratingKey: "missing" },
@@ -14,13 +18,36 @@ it("recognizes only non-empty hero artwork", () => {
   expect(hasHeroArtwork({ art: "/art" })).toBe(true);
 });
 
-it("picks only items that have hero artwork", () => {
-  expect(pickHeroCandidate(candidates, () => 0)?.ratingKey).toBe("first");
-  expect(pickHeroCandidate(candidates, () => 0.99)?.ratingKey).toBe("second");
+it("keeps only items that have hero artwork and preserves their order", () => {
+  expect(heroCandidates(candidates).map((item) => item.ratingKey)).toEqual([
+    "first",
+    "second",
+  ]);
 });
 
-it("returns null when no item has hero artwork", () => {
-  expect(pickHeroCandidate([{ art: "" }, {}])).toBeNull();
-  expect(pickHeroCandidate([])).toBeNull();
-  expect(pickHeroCandidate(undefined)).toBeNull();
+it("returns an empty candidate list when no item has hero artwork", () => {
+  expect(heroCandidates([{ art: "" }, {}])).toEqual([]);
+  expect(heroCandidates(undefined)).toEqual([]);
+});
+
+it("creates an eight-item window from a random library offset", () => {
+  expect(randomLibraryWindow(100, 8, () => 0.42)).toEqual({
+    start: 42,
+    size: 8,
+    wrapSize: 0,
+  });
+});
+
+it("wraps the window at the end and handles small or empty libraries", () => {
+  expect(randomLibraryWindow(10, 8, () => 0.8)).toEqual({
+    start: 8,
+    size: 2,
+    wrapSize: 6,
+  });
+  expect(randomLibraryWindow(3, 8, () => 0.67)).toEqual({
+    start: 2,
+    size: 1,
+    wrapSize: 2,
+  });
+  expect(randomLibraryWindow(0)).toBeNull();
 });

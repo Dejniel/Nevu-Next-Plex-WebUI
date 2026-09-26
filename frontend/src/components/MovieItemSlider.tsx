@@ -1,4 +1,4 @@
-import { Box, Typography } from "@mui/material";
+import { Box, Skeleton, Typography } from "@mui/material";
 import React from "react";
 import { getLibraryDir } from "../plex";
 import { ArrowForwardIosRounded } from "@mui/icons-material";
@@ -96,7 +96,8 @@ function MovieItemSlider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, dir, filter, props, shuffle]);
 
-  if (!items) return <></>;
+  if (!items)
+    return <MovieItemSliderSkeleton title={title} itemsPerPage={itemsPerPage} />;
 
   const itemCount = items.slice(0, itemsPerPage * 5).length;
 
@@ -344,6 +345,55 @@ function MovieItemSlider({
         >
           <ArrowForwardIosRounded fontSize="large" />
         </Box>
+      </Box>
+    </Box>
+  );
+}
+
+function MovieItemSliderSkeleton({
+  title,
+  itemsPerPage,
+}: {
+  title: string;
+  itemsPerPage: number;
+}) {
+  return (
+    <Box aria-hidden="true" sx={{ width: "100%" }}>
+      <Typography
+        variant="h4"
+        sx={{
+          px: "2.5vw",
+          mb: "10px",
+          fontSize: { xs: "1.3rem", sm: "1.6rem", md: "2rem" },
+          fontWeight: "bold",
+        }}
+      >
+        {title}
+      </Typography>
+      <Box sx={{ display: "flex", gap: "10px", px: "2.5vw", overflow: "hidden" }}>
+        {Array.from({ length: itemsPerPage }, (_, index) => (
+          <Box
+            key={index}
+            sx={{
+              width: `calc((100vw / ${itemsPerPage}) - 10px - (5vw / ${itemsPerPage}))`,
+              minWidth: `calc((100vw / ${itemsPerPage}) - 10px - (5vw / ${itemsPerPage}))`,
+            }}
+          >
+            <Skeleton
+              variant="rounded"
+              animation="wave"
+              sx={{
+                width: "100%",
+                aspectRatio: "16/9",
+                height: "auto",
+                borderRadius: "8px",
+                boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.05)",
+              }}
+            />
+            <Skeleton width="68%" height={24} sx={{ mt: 1 }} />
+            <Skeleton width="42%" height={17} />
+          </Box>
+        ))}
       </Box>
     </Box>
   );
