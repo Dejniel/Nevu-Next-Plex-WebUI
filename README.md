@@ -30,6 +30,7 @@ Nevu Next is a modified fork of [Ipmake/NevuForPlex](https://github.com/Ipmake/N
 - **Plex Home and administration tools** for basic metadata editing and sharing libraries with Plex users.
 - **Original-file downloads** when the active Plex account is allowed to download media.
 - **Watch Together through Nevu Sync**, which can be disabled for a simpler local installation.
+- **Optional native HTTPS** with mounted PEM files or a persistent self-signed certificate.
 - **Self-hosted Docker deployment** with a reproducible image built from lockfiles.
 
 Nevu Next currently targets Plex movie and TV libraries. It is not an official Plex product and is not affiliated with Plex, Inc.
@@ -113,6 +114,18 @@ docker run -d \
 ```
 
 `PLEX_SERVER` must include `http://` or `https://` and must not end with `/`. Open Nevu Next at `http://SERVER_IP:3000`.
+
+### HTTPS
+
+For a persistent self-signed certificate, add these environment variables and keep `/app/data` on a volume:
+
+```yaml
+TLS_SELF_SIGNED: "true"
+TLS_COMMON_NAME: 192.168.1.10
+TLS_SUBJECT_ALT_NAME: IP:192.168.1.10
+```
+
+Nevu Next will then serve `https://SERVER_IP:3000`. The browser will require a one-time security exception. To use an existing certificate instead, mount its PEM files and set `TLS_CERT_PATH` and `TLS_KEY_PATH`; encrypted keys can additionally use `TLS_KEY_PASSPHRASE`.
 
 ## Contributing
 

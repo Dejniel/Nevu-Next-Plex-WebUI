@@ -1,5 +1,7 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import express from 'express';
+import fs from 'fs';
+import http from 'http';
 import https from 'https';
 import { Server as SocketIOServer } from 'socket.io';
 import { PerPlexed } from './types';
@@ -17,6 +19,7 @@ import { APP_VERSION } from './appVersion';
     * PORT: The port you published the docker container to, defaults to 3000 (For discovery)
     * LISTEN_PORT: The port the server will listen on, defaults to 3000
     * PLEX_SERVER: The URL of the Plex server that the frontend will connect to
+    * TLS_CERT_PATH and TLS_KEY_PATH?: Enable HTTPS with the provided PEM files
     * DISABLE_TLS_VERIFY?: If set to true, the proxy will not check any https ssl certificates
     * DISABLE_NEVU_SYNC?: If set to true, NEVU sync (watch together) will be disabled
     * DISABLE_REQUEST_LOGGING?: If set to true, the server will not log any requests
@@ -683,8 +686,27 @@ app.options('*', (req, res) => {
 
 app.use(express.static('www'));
 
-const server = app.listen(process.env.LISTEN_PORT || 3000, () => {
-    console.log(`Server started on http://localhost:${process.env.LISTEN_PORT || 3000}`);
+const listenPort = process.env.LISTEN_PORT || '3000';
+const tlsCertPath = process.env.TLS_CERT_PATH?.trim();
+const tlsKeyPath = process.env.TLS_KEY_PATH?.trim();
+
+if (Boolean(tlsCertPath) !== Boolean(tlsKeyPath)) {
+    throw new Error('TLS_CERT_PATH and TLS_KEY_PATH must be configured together');
+}
+
+const usesTls = Boolean(tlsCertPath && tlsKeyPath);
+const server = usesTls
+    ? https.createServer({
+        cert: fs.readFileSync(tlsCertPath as string),
+        key: fs.readFileSync(tlsKeyPath as string),
+        ...(process.env.TLS_KEY_PASSPHRASE && {
+            passphrase: process.env.TLS_KEY_PASSPHRASE,
+        }),
+    }, app)
+    : http.createServer(app);
+
+server.listen(listenPort, () => {
+    console.log(`Server started on ${usesTls ? 'https' : 'http'}://localhost:${listenPort}`);
 });
 
 let io = (process.env.DISABLE_NEVU_SYNC === 'true') ? null : new SocketIOServer(server, {

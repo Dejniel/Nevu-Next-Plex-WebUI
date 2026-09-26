@@ -53,6 +53,8 @@ EXPOSE 44201/udp
 VOLUME ["/app/data"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl --fail --silent "http://127.0.0.1:${LISTEN_PORT}/status" | grep --quiet '"ready":true' || exit 1
+    CMD scheme=http; \
+        if [ "${TLS_SELF_SIGNED:-false}" = "true" ] || [ -n "${TLS_CERT_PATH:-}" ]; then scheme=https; fi; \
+        curl --insecure --fail --silent "${scheme}://127.0.0.1:${LISTEN_PORT}/status" | grep --quiet '"ready":true' || exit 1
 
 CMD ["./run.sh"]
