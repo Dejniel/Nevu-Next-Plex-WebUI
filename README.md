@@ -34,9 +34,9 @@ Nevu Next currently targets Plex movie and TV libraries. It is not an official P
 
 ## Installation
 
-Paste one of the stacks below into Portainer or save it as `compose.yaml`, replace the example paths and addresses, then deploy it. Both examples build Nevu Next directly from this repository.
+For a complete installation, use the ready Portainer Stack / Docker Compose example. If Plex already exists, the two Docker commands in the second example are enough. Both variants build Nevu Next directly from this repository.
 
-### Plex + Nevu Next
+### Portainer Stack / Docker Compose: Plex + Nevu Next
 
 Use this stack for a complete installation:
 
@@ -89,40 +89,30 @@ docker compose up -d --build
 
 Open Plex at `http://192.168.1.10:32400/web` and Nevu Next at `http://192.168.1.10:3000`. The claim token is only needed for Plex's first start.
 
-### Nevu Next with an existing Plex server
+### Docker commands: Nevu Next with an existing Plex server
 
-Use this smaller standalone stack when Plex is already running:
-
-```yaml
-name: nevu-next
-
-services:
-  nevu-next:
-    image: nevu-next:local
-    build:
-      context: https://github.com/Dejniel/Nevu-Next-Plex-WebUI.git#main
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-      - "44201:44201/udp"
-    environment:
-      PLEX_SERVER: http://192.168.1.10:32400
-      LISTEN_PORT: 3000
-      PORT: 3000
-    volumes:
-      - nevu-data:/app/data
-
-volumes:
-  nevu-data:
-```
-
-Replace `PLEX_SERVER` with the address of your server. It must include `http://` or `https://` and must not end with `/`, then deploy:
+When Plex is already running, build Nevu Next directly from the repository:
 
 ```bash
-docker compose up -d --build
+docker build -t nevu-next:local "https://github.com/Dejniel/Nevu-Next-Plex-WebUI.git#main"
 ```
 
-Open Nevu Next at `http://SERVER_IP:3000`. To build from a local checkout instead, replace the Git URL under `build.context` with `.`.
+Then start the container, replacing `PLEX_SERVER` with your server address:
+
+```bash
+docker run -d \
+  --name nevu-next \
+  --restart unless-stopped \
+  -p 3000:3000 \
+  -p 44201:44201/udp \
+  -v nevu-next-data:/app/data \
+  -e PLEX_SERVER=http://192.168.1.10:32400 \
+  -e LISTEN_PORT=3000 \
+  -e PORT=3000 \
+  nevu-next:local
+```
+
+`PLEX_SERVER` must include `http://` or `https://` and must not end with `/`. Open Nevu Next at `http://SERVER_IP:3000`.
 
 ## Contributing
 
