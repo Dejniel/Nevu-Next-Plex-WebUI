@@ -1,20 +1,50 @@
-FROM node:22-bookworm-slim as runner
+ARG NODE_IMAGE=node:22.14.0-bookworm-slim@sha256:1c18d9ab3af4585870b92e4dbc5cac5a0dc77dd13df1a5905cea89fc720eb05b
 
+FROM ${NODE_IMAGE} AS frontend-build
+WORKDIR /build/frontend
+ENV CI=true \
+    GENERATE_SOURCEMAP=false
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+FROM ${NODE_IMAGE} AS backend-base
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM backend-base AS backend-build
+WORKDIR /build/backend
+
+COPY backend/package.json backend/package-lock.json ./
+COPY backend/prisma/ ./prisma/
+RUN npm ci
+COPY backend/ ./
+RUN npm run db:generate && npm run build
+
+FROM backend-base AS runtime
 WORKDIR /app
+ENV NODE_ENV=production \
+    LISTEN_PORT=3000
 
-COPY backend/* /app
+COPY backend/package.json backend/package-lock.json ./
+COPY backend/prisma/ ./prisma/
+RUN npm ci --omit=dev \
+    && npm run db:generate \
+    && npm cache clean --force
 
-RUN apt-get update -y && apt-get install -y openssl curl
-
-RUN npm install
-RUN npx prisma db push
-RUN npx tsc
-RUN chmod +x /app/run.sh
+COPY --from=backend-build /build/backend/dist/ ./dist/
+COPY --from=frontend-build /build/frontend/build/ ./www/
+COPY backend/run.sh ./run.sh
+RUN chmod +x ./run.sh
 
 EXPOSE 3000
 EXPOSE 44201/udp
-VOLUME /app/data
+VOLUME ["/app/data"]
 
-COPY frontend/build/ /app/www/
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl --fail --silent "http://127.0.0.1:${LISTEN_PORT}/status" | grep --quiet '"ready":true' || exit 1
 
-CMD ["npm", "start"]
+CMD ["./run.sh"]

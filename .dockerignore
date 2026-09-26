@@ -1,2 +1,9 @@
 **/node_modules
-/backend/data
+.git
+.gitignore
+**/build
+**/dist
+**/coverage
+**/*.log
+backend/data
+TODO.md

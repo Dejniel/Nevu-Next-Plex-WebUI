@@ -40,35 +40,22 @@ The easiest way to run Nevu is to use Docker. You can use the following command 
 
 ```bash
 docker volume create nevu_data
-docker run --name nevu -p 3000:3000 -p 44201:44201/udp -v nevu_data:/data -e PLEX_SERVER=http://your-plex-server:32400 ipmake/nevu
+docker run --name nevu -p 3000:3000 -p 44201:44201/udp -v nevu_data:/app/data -e PLEX_SERVER=http://your-plex-server:32400 ipmake/nevu
 ```
 
 ### Docker Compose
 
-Alternatively, you can use Docker Compose to run Nevu. Create a `docker-compose.yml` file with the following content:
+The repository contains a reproducible Compose configuration. Copy `.env.example`
+to `.env`, set `PLEX_SERVER`, then build and start it:
 
-```yaml
-services:
-  nevu:
-    image: ipmake/nevu
-    container_name: nevu
-    ports:
-      - "3000:3000"
-      - "44201:44201/udp"
-    volumes:
-      - nevu_data:/data
-    environment:
-      - PLEX_SERVER=http://your-plex-server:32400
-
-volumes:
-  nevu_data:
+```sh
+cp .env.example .env
+docker compose up --build -d
 ```
 
-Then run:
-
-```bash
-docker-compose up -d
-```
+The image builds both applications from their lockfiles with `npm ci`. The Node
+base image is pinned by version and digest; no prebuilt `frontend/build` folder
+is required in the build context.
 
 ### Environment Variables
 

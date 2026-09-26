@@ -1,5 +1,5 @@
-#!/bin/bash
+#!/bin/sh
+set -eu
 
-npx prisma db push
-# Run the Node.js application
-node .
+npm run db:push
+exec node dist/index.js
