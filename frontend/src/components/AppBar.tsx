@@ -326,7 +326,7 @@ S - Skip onscreen markers (intro, credits, etc)
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "flex-start",
-              gap: 4,
+              gap: { md: 4.5, xl: 5 },
               ml: 6,
               height: "100%",
             }}
@@ -1048,7 +1048,15 @@ function HeadLink({
 }): JSX.Element {
   const [, setSearchParams] = useSearchParams();
   return (
-    <Box sx={{ display: "flex", alignItems: "center", minWidth: 0, position: "relative" }}>
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        minWidth: 0,
+        position: "relative",
+        mr: library && onMenu ? 1 : 0,
+      }}
+    >
       <Link
         className={`head-link${active ? " head-link-active" : ""}`}
         to={to}
