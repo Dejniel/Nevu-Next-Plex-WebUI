@@ -37,6 +37,8 @@ Nevu Next currently targets Plex movie and TV libraries. It is not an official P
 
 For a complete installation, use the ready Portainer Stack / Docker Compose example. If Plex already exists, the two Docker commands in the second example are enough. Both variants use the published multi-platform image from GitHub Container Registry.
 
+For all supported environment variables, ports, persistent data, Plex connection options, and TLS mounts, see the [configuration reference](docs/configuration.md).
+
 ### Portainer Stack / Docker Compose: Plex + Nevu Next
 
 Use this stack for a complete installation:
@@ -107,15 +109,7 @@ docker run -d \
 
 ### HTTPS
 
-For a persistent self-signed certificate, add these environment variables and keep `/app/data` on a volume:
-
-```yaml
-TLS_SELF_SIGNED: "true"
-TLS_COMMON_NAME: 192.168.1.10
-TLS_SUBJECT_ALT_NAME: IP:192.168.1.10
-```
-
-Nevu Next will then serve `https://SERVER_IP:3000`. The browser will require a one-time security exception. To use an existing certificate instead, mount its PEM files and set `TLS_CERT_PATH` and `TLS_KEY_PATH`; encrypted keys can additionally use `TLS_KEY_PASSPHRASE`.
+Nevu Next can use its persistent self-signed certificate or existing mounted PEM files. See the [HTTPS configuration](docs/configuration.md#https) for the exact environment variables and volume mounts.
 
 ## Contributing
 
