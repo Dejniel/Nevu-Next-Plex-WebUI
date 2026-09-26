@@ -12,6 +12,7 @@ import { getAccessToken, getPin } from "../plex";
 import axios from "axios";
 import { ProxiedRequest } from "../backendURL";
 import { XMLParser } from "fast-xml-parser";
+import { buildPlexAuthUrl } from "../plex/auth";
 
 export default function Login() {
   const [query] = useSearchParams();
@@ -21,18 +22,20 @@ export default function Login() {
       (async () => {
         const res = await getPin();
 
-        console.log("Pin response:", res);
-
         if (!res.id || !res.code) return setError("Failed to get pin for login. Please try again.");
 
-        window.location.href = `https://app.plex.tv/auth/#!?clientID=${localStorage.getItem(
-          "clientID"
-        )}&context[device][product]=Plex%20Web&context[device][version]=4.118.0&context[device][platform]=Firefox&context[device][platformVersion]=122.0&context[device][device]=Linux&context[device][model]=bundled&context[device][screenResolution]=1920x945,1920x1080&context[device][layout]=desktop&context[device][protocol]=${window.location.protocol.replace(
-          ":",
-          ""
-        )}&forwardUrl=${window.location.protocol}//${
-          window.location.host
-        }/login?pinID=${res.id}&code=${res.code}&language=en`;
+        const clientIdentifier = localStorage.getItem("clientID");
+        if (!clientIdentifier)
+          return setError("Failed to identify this client. Please try again.");
+
+        const forwardUrl = new URL("/login", window.location.origin);
+        forwardUrl.searchParams.set("pinID", String(res.id));
+
+        window.location.href = buildPlexAuthUrl({
+          clientIdentifier,
+          pinCode: res.code,
+          forwardUrl: forwardUrl.toString(),
+        });
       })();
     }
 
@@ -43,8 +46,6 @@ export default function Login() {
 
           if (!res.authToken)
             return setError("Failed to log in. Please try again.");
-
-          console.log("1", res);
 
           // check token validity against the server
           // const tokenCheck = await ProxiedRequest(`/?${queryBuilder({ "X-Plex-Token": res.authToken })}`, "GET", {})
@@ -60,8 +61,6 @@ export default function Login() {
           const serverIdentity = await ProxiedRequest("/identity", "GET", {
             "X-Plex-Token": res.authToken,
           });
-
-          console.log("3", serverIdentity);
 
           if (!serverIdentity || !serverIdentity.data.MediaContainer)
             return setError(
@@ -87,7 +86,6 @@ export default function Login() {
           );
 
           const sharedServers = parser.parse(sharedServersXML.data);
-          console.log("4", sharedServers);
 
           let targetServer;
 

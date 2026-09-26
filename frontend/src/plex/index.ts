@@ -4,6 +4,8 @@ import './plex.d.ts'
 import { getBackendURL } from "../backendURL";
 import { platformCache } from "../common/DesktopApp";
 
+export { getAccessToken, getLoggedInUser, getPin } from "./auth";
+
 axios.defaults.headers.common['accept'] = 'application/json';
 
 export async function getAllLibraries(): Promise<Plex.LibarySection[]> {
@@ -229,71 +231,6 @@ export function getTranscodeImageURL(url: string, width: number, height: number)
         url,
         "X-Plex-Token": localStorage.getItem("accessToken") as string,
     })}`;
-}
-
-/**
- * Retrieves an access token from the Plex API using the provided PIN.
- *
- * @param {string} pin - The PIN code used to request the access token.
- * @returns {Promise<Plex.TokenData>} A promise that resolves to the token data.
- */
-export async function getAccessToken(pin: string): Promise<Plex.TokenData> {
-    const res = await axios.get(
-      `https://plex.tv/api/v2/pins/${pin}?${queryBuilder({
-        "X-Plex-Client-Identifier": localStorage.getItem("clientID"),
-      })}`,
-      {
-        headers: {
-          accept: "application/json",
-        },
-      },
-    );
-    return res.data;
-}
-
-/**
- * Retrieves a pin from the Plex API.
- *
- * This function sends a POST request to the Plex API to generate a pin.
- * The request includes the client identifier and product name as query parameters.
- *
- * @returns {Promise<Plex.TokenData>} A promise that resolves to the token data returned by the Plex API.
- *
- * @throws {Error} Throws an error if the request fails.
- */
-export async function getPin(): Promise<Plex.TokenData> {
-    const res = await axios.post(`https://plex.tv/api/v2/pins?${queryBuilder({
-        "X-Plex-Client-Identifier": localStorage.getItem("clientID"),
-        "X-Plex-Product": "NEVU"
-    })}`, undefined, {
-        headers: {
-            accept: "application/json",
-        },
-    });
-    return res.data;
-}
-
-/**
- * Fetches the logged-in user's data from the Plex API.
- *
- * @returns {Promise<Plex.UserData | null>} A promise that resolves to the user's data if the request is successful, or null if it fails.
- *
- * The function constructs a query string with the necessary headers and sends a GET request to the Plex API.
- * If the request fails, it logs the error and returns an object with the status and error message.
- * If the request is successful and returns a status of 200, it returns the user data.
- * Otherwise, it returns null.
- */
-export async function getLoggedInUser(): Promise<Plex.UserData | null> {
-    const res = await axios.get(`https://plex.tv/api/v2/user?${queryBuilder({
-        "X-Plex-Token": localStorage.getItem("accAccessToken") as string,
-        "X-Plex-Product": "NEVU",
-        "X-Plex-Client-Identifier": localStorage.getItem("clientID")
-    })}`).catch((err) => {
-        console.log(err);
-        return { status: err.response?.status || 500, data: err.response?.data || 'Internal server error' }
-    });
-    if (res.status === 200) return res.data;
-    else return null;
 }
 
 /**
