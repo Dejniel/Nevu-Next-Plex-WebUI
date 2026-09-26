@@ -59,10 +59,15 @@ function SettingsInfo() {
             }}
           >
             Dejniel
-          </a>{" "}
-          as a fork of{" "}
+          </a>, with contributions from its open-source community. It began as a
+          creative response to the lack of a reliable, complete alternative for
+          browsing and playing an existing Plex movie and TV library.
+        </Typography>
+
+        <Typography variant="body1" paragraph>
+          Nevu Next builds on the work of{" "}
           <a
-            href="https://github.com/Ipmake/NevuForPlex"
+            href="https://ipmake.dev"
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -71,15 +76,11 @@ function SettingsInfo() {
               fontWeight: "bold",
             }}
           >
-            Nevu for Plex
-          </a>, the original project created by Ipmake. It also builds on the work
-          of its open-source contributors.
-        </Typography>
-
-        <Typography variant="body1" paragraph>
-          We're on a mission to supercharge your media library with smart
-          features, beautiful interfaces, and thoughtful enhancements that make
-          managing and enjoying your content a breeze.
+            Ipmake
+          </a>{" "}
+          and the contributors to the original Nevu for Plex project. It carries
+          that foundation forward while keeping Plex as the media server and
+          source of truth.
         </Typography>
 
         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mt: 4, mb: 4 }}>
