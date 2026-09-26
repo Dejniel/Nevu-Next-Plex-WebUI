@@ -7,11 +7,12 @@ import {
   Typography,
 } from "@mui/material";
 import { PlayArrowRounded } from "@mui/icons-material";
-import React from "react";
+import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getTranscodeImageURL } from "../../plex";
 import { durationToText } from "../MovieItemSlider";
 import { extraTypeLabel, TitleExtra } from "../../plex/discover";
+import ExtraPlayer from "./ExtraPlayer";
 
 function Detail({ label, value }: { label: string; value?: React.ReactNode }) {
   if (!value) return null;
@@ -29,14 +30,13 @@ export default function TitleDetails({
   data,
   extras,
   loadingExtras,
-  onPlayExtra,
 }: {
   data: Plex.Metadata;
   extras: TitleExtra[];
   loadingExtras: boolean;
-  onPlayExtra: (extra: TitleExtra) => void;
 }) {
   const [, setSearchParams] = useSearchParams();
+  const [selectedExtra, setSelectedExtra] = useState<TitleExtra | null>(null);
 
   return (
     <Box sx={{ width: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
@@ -76,6 +76,31 @@ export default function TitleDetails({
         <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
           More extras
         </Typography>
+        {selectedExtra && (
+          <Box sx={{ mb: 3 }}>
+            <Typography sx={{ fontWeight: 700, mb: 1.5 }}>
+              {selectedExtra.metadata.title}
+            </Typography>
+            <Box
+              sx={{
+                width: "min(720px, 100%)",
+                aspectRatio: "16 / 9",
+                overflow: "hidden",
+                borderRadius: 1,
+                bgcolor: "#000",
+              }}
+            >
+              <ExtraPlayer
+                extra={selectedExtra}
+                poster={
+                  data.art
+                    ? getTranscodeImageURL(data.art, 1280, 720)
+                    : undefined
+                }
+              />
+            </Box>
+          </Box>
+        )}
         {loadingExtras && extras.length === 0 ? (
           <CircularProgress size={28} />
         ) : extras.length === 0 ? (
@@ -84,14 +109,20 @@ export default function TitleDetails({
           <Grid container spacing={1.5} sx={{ width: "100%" }}>
             {extras.map((extra) => {
               const media = extra.metadata.Media?.[0];
+              const selected =
+                selectedExtra?.source === extra.source &&
+                (selectedExtra.metadata.ratingKey || selectedExtra.metadata.key) ===
+                  (extra.metadata.ratingKey || extra.metadata.key);
               return (
                 <Grid
                   key={`${extra.source}:${extra.metadata.ratingKey || extra.metadata.key}`}
                   size={{ xs: 12, sm: 6, md: 4 }}
                 >
                   <Button
-                    onClick={() => onPlayExtra(extra)}
+                    onClick={() => setSelectedExtra(extra)}
                     startIcon={<PlayArrowRounded />}
+                    variant={selected ? "contained" : "text"}
+                    aria-pressed={selected}
                     sx={{
                       width: "100%",
                       minHeight: 76,

@@ -52,7 +52,6 @@ import { PlexCommunity } from "../plex/plexCommunity";
 import moment from "moment";
 import AddReviewModal from "./modals/AddReviewModal";
 import { getNevuReviews } from "../common/NevuReviews";
-import TrailerDialog from "./title/TrailerDialog";
 import TitleOverview from "./title/TitleOverview";
 import TitleDetails from "./title/TitleDetails";
 import TitleMedia from "./title/TitleMedia";
@@ -105,7 +104,6 @@ function MetaScreen() {
 
   const [extras, setExtras] = useState<TitleExtra[]>([]);
   const [extrasLoading, setExtrasLoading] = useState(false);
-  const [playingExtra, setPlayingExtra] = useState<TitleExtra | null>(null);
 
   const mid = searchParams.get("mid");
 
@@ -129,7 +127,6 @@ function MetaScreen() {
     setLanguages(null);
     setSubTitles(null);
     setExtras([]);
-    setPlayingExtra(null);
     setPage(0);
 
     if (!mid) return;
@@ -293,12 +290,7 @@ function MetaScreen() {
   // );
 
   return (
-    <>
-      <TrailerDialog
-        extra={playingExtra}
-        onClose={() => setPlayingExtra(null)}
-      />
-      <Backdrop
+    <Backdrop
       open={searchParams.has("mid")}
       sx={{
         overflowY: "scroll",
@@ -1018,7 +1010,6 @@ function MetaScreen() {
                 data={data}
                 extras={remainingExtras}
                 loadingExtras={extrasLoading}
-                onPlayExtra={setPlayingExtra}
               />
             )}
             {page === 3 && <MetaPageReviews data={data} />}
@@ -1026,8 +1017,7 @@ function MetaScreen() {
           </AnimatePresence>
         </Box>
       </Box>
-      </Backdrop>
-    </>
+    </Backdrop>
   );
 }
 
