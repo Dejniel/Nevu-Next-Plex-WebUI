@@ -4,6 +4,11 @@ import FavoriteIcon from "@mui/icons-material/Favorite";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import BugReportIcon from "@mui/icons-material/BugReport";
 import VolunteerActivismIcon from "@mui/icons-material/VolunteerActivism";
+import {
+  PROJECT_ISSUES,
+  PROJECT_REPOSITORY,
+  SPONSOR_URL,
+} from "../../projectLinks";
 
 function SettingsInfo() {
   return (
@@ -70,7 +75,7 @@ function SettingsInfo() {
             variant="contained"
             color="primary"
             startIcon={<GitHubIcon />}
-            href="https://github.com/Ipmake/Nevu"
+            href={PROJECT_REPOSITORY}
             target="_blank"
             rel="noopener noreferrer"
             sx={{ fontWeight: "bold" }}
@@ -82,7 +87,7 @@ function SettingsInfo() {
             variant="outlined"
             color="primary"
             startIcon={<BugReportIcon />}
-            href="https://github.com/Ipmake/Nevu/issues"
+            href={PROJECT_ISSUES}
             target="_blank"
             rel="noopener noreferrer"
             sx={{ fontWeight: "bold" }}
@@ -121,7 +126,7 @@ function SettingsInfo() {
             color="secondary"
             size="large"
             startIcon={<FavoriteIcon />}
-            href="https://g.ipmake.dev/perplexed"
+            href={SPONSOR_URL}
             target="_blank"
             rel="noopener noreferrer"
             sx={{ fontWeight: "bold", py: 1, px: 3 }}

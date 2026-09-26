@@ -52,6 +52,7 @@ import { config } from "..";
 import { useBigReader } from "./BigReader";
 import { useUserSettings } from "../states/UserSettingsState";
 import { useAuthSession } from "../states/AuthSessionState";
+import { SPONSOR_URL } from "../projectLinks";
 
 const BarSide: SxProps<Theme> = {
   display: "flex",
@@ -162,7 +163,7 @@ function Appbar() {
         <MenuItem
           onClick={() => {
             setAnchorEl(null);
-            window.open("https://g.ipmake.dev/perplexed", "_blank");
+            window.open(SPONSOR_URL, "_blank", "noopener,noreferrer");
           }}
         >
           <ListItemIcon>
