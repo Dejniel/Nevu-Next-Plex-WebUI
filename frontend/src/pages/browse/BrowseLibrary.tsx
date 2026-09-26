@@ -36,6 +36,19 @@ const normalizeCardSize = (value: string | undefined) => {
 const getCardWidth = (layout: LibraryCardLayout, size: number) =>
   Math.round(layout === "poster" ? 140 + size * 1.6 : 190 + size * 2.2);
 
+const viewGroupLabel = (viewGroup?: string) => {
+  switch (viewGroup) {
+    case "movie":
+      return "Movies";
+    case "show":
+      return "Shows";
+    case "episode":
+      return "Episodes";
+    default:
+      return "All types";
+  }
+};
+
 export const libTypeToNum = (type: string) => {
   switch (type) {
     case "movie":
@@ -63,9 +76,7 @@ function BrowseLibrary() {
     localStorage.getItem("primaryFilter") || "all"
   );
 
-  const [typeFilter, setTypeFilter] = React.useState<string>(
-    localStorage.getItem("typeFilter") || "any"
-  );
+  const [typeFilter, setTypeFilter] = React.useState("any");
 
   const [sortBy, setSortBy] = React.useState<string>(
     localStorage.getItem("sortBy") || "title:asc"
@@ -88,14 +99,45 @@ function BrowseLibrary() {
 
   useEffect(() => {
     if (!libraryID) return;
+    let cancelled = false;
+
+    setLibrary(null);
+    setItems(null);
+    setIsLoading(true);
+    setTypeFilter(
+      localStorage.getItem(`typeFilter:${libraryID}`) || "any"
+    );
+
     getLibrary(libraryID).then((data) => {
-      setLibrary(data);
+      if (!cancelled) setLibrary(data);
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [libraryID]);
 
   useEffect(() => {
+    if (
+      !library ||
+      !libraryID ||
+      library.librarySectionID.toString() !== libraryID
+    )
+      return;
+
     setItems(null);
     setIsLoading(true);
+
+    const availableTypes = new Set(
+      library.Type?.filter((entry) =>
+        ["movie", "show", "episode"].includes(entry.type)
+      ).map((entry) => entry.type) || []
+    );
+    if (typeFilter !== "any" && !availableTypes.has(typeFilter)) {
+      setTypeFilter("any");
+      localStorage.setItem(`typeFilter:${libraryID}`, "any");
+      return;
+    }
 
     let conEnd = "all";
     let extraProps = {};
@@ -121,7 +163,7 @@ function BrowseLibrary() {
         break;
     }
 
-    if (!library) return;
+    let cancelled = false;
     getLibraryDir(
       `/library/sections/${library.librarySectionID.toString()}/${conEnd}`,
       {
@@ -133,7 +175,7 @@ function BrowseLibrary() {
         sort: sortString,
       }
     ).then(async (media) => {
-      if (!media) return;
+      if (!media || cancelled) return;
 
       switch (sortBy) {
         case "updated:asc":
@@ -148,7 +190,11 @@ function BrowseLibrary() {
       setItems(media);
       setIsLoading(false);
     });
-  }, [library, primaryFilter, sortBy, typeFilter]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [library, libraryID, primaryFilter, sortBy, typeFilter]);
 
   return (
     <Box
@@ -207,15 +253,16 @@ function BrowseLibrary() {
             value={typeFilter}
             onChange={(e) => {
               setTypeFilter(e.target.value);
-              localStorage.setItem("typeFilter", e.target.value);
+              if (libraryID)
+                localStorage.setItem(
+                  `typeFilter:${libraryID}`,
+                  e.target.value
+                );
             }}
             size="small"
           >
             <MenuItem value="any">
-              {items?.viewGroup &&
-                `${items?.viewGroup
-                  .slice(0, 1)
-                  .toUpperCase()}${items?.viewGroup.slice(1)}s`}
+              {viewGroupLabel(items?.viewGroup || library?.viewGroup)}
             </MenuItem>
             <Divider />
             {library?.Type?.filter((e) =>
