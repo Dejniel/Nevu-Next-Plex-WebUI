@@ -291,8 +291,8 @@ function MetaScreen() {
     >
       <Box
         sx={{
-          width: { xs: "100vw", sm: "90vw", md: "130vh" },
-          maxWidth: "100vw",
+          width: { xs: "100vw", sm: "90vw" },
+          maxWidth: { xs: "100vw", sm: "1800px" },
           display: "flex",
           flexDirection: "column",
           alignItems: "flex-start",
