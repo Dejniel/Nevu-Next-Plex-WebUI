@@ -1,6 +1,6 @@
 # Nevu Next Plex WebUI
 
-Nevu Next Plex WebUI is a modern, self-hosted alternative web interface for Plex Media Server. It gives movie and TV libraries a faster, cleaner browser experience with Plex Home profiles, trailers, rich title details, multi-version playback, audio and subtitle selection, watchlists, recommendations, metadata editing, library sharing, and permission-aware original-file downloads. It runs in Docker and keeps Plex as the media server and source of truth.
+Nevu Next Plex WebUI is a modern, self-hosted alternative web interface for Plex Media Server. It gives movie and TV libraries a faster, cleaner browser experience with Plex Home profiles, adaptive trailers, configurable library views, rich title details, multi-version playback, ratings and reviews, and practical server administration. It runs in Docker and keeps Plex as the media server and source of truth.
 
 ![Nevu Next Plex WebUI showing a cinematic Plex home screen](assets/preview.jpg)
 
@@ -20,16 +20,22 @@ Nevu Next is a modified fork of [Ipmake/NevuForPlex](https://github.com/Ipmake/N
 
 - **A cinematic, responsive Plex interface** for desktop and mobile browsers.
 - **Plex-native authentication** with Plex Home profile selection, protected-profile PIN entry, and optional profile remembering.
-- **Movie and TV browsing** with search, Continue Watching, watchlists, library rows, and recommendations.
-- **Richer title pages** with trailers, ratings, reviews, cast, related titles, extras, media details, and technical information.
-- **Integrated playback** with quality selection, automatic audio and subtitle matching, seek previews, intro skipping, and resume support.
+- **Movie and TV discovery** with search, Continue Watching, watchlists, recommendations, recently added media, new releases, and related-title rows.
+- **Configurable library browsing** with watched-state and type filters, multiple sort orders, adjustable card sizes, and landscape or poster layouts saved per Plex Home profile.
+- **Personalized navigation** with library pinning, unpinning, and ordering for each profile.
+- **Richer title pages** with adaptive trailers, ratings, critic and community reviews, cast, related titles, extras, media details, and technical information.
+- **Ratings and reviews** with Plex ratings, Plex community and friend reviews, and editable local or global Nevu reviews with spoiler marking.
+- **Integrated playback** with quality selection, automatic audio and subtitle matching, seek previews, intro and credits skipping, resume support, and optional automatic next-episode playback.
 - **Multiple media versions** with combined audio and subtitle lists; choosing a track automatically switches to the file that contains it.
 - **Firefox-compatible trailer playback** with Plex Discover fallback when a local trailer is unavailable.
-- **Plex Home and administration tools** for basic metadata editing and sharing libraries with Plex users.
+- **Playback-state controls** for watchlists and marking movies, shows, seasons, or episodes as played or unplayed.
+- **Metadata administration** with title, sort title, original title, summary, tagline, studio, release date, year, and content-rating editing plus Plex field lock and unlock controls.
+- **Plex library administration** for server managers: create, edit, and delete libraries; browse server folders; scan files; refresh metadata; analyze media; and empty library trash.
+- **Library sharing management** for granting, updating, and removing another Plex user's access without leaving Nevu Next.
 - **Original-file downloads** when the active Plex account is allowed to download media.
 - **Watch Together through Nevu Sync**, which can be disabled for a simpler local installation.
 - **Optional native HTTPS** with mounted PEM files or a persistent self-signed certificate.
-- **Self-hosted Docker deployment** with a reproducible image built from lockfiles.
+- **Self-hosted Docker deployment** with reproducible multi-platform images built from lockfiles and published to GHCR.
 
 Nevu Next currently targets Plex movie and TV libraries. It is not an official Plex product and is not affiliated with Plex, Inc.
 
