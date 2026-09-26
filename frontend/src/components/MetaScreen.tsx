@@ -70,6 +70,17 @@ import {
   TitleExtra,
   withoutExtra,
 } from "../plex/discover";
+import { getTrackChoices } from "../plex/mediaVersions";
+
+function trackLanguages(data: Plex.Metadata, streamType: 2 | 3) {
+  return Array.from(
+    new Set(
+      getTrackChoices(data, streamType)
+        .map(({ stream }) => stream.language || stream.displayTitle)
+        .filter(Boolean),
+    ),
+  );
+}
 
 function TitleScore({
   label,
@@ -203,49 +214,15 @@ function MetaScreen() {
 
           // you need to request the full metadata for the episode to get the media info
           getLibraryMeta(firstEpisode.ratingKey).then((res) => {
-            if (!res.Media?.[0]?.Part?.[0]?.Stream) return;
-
-            const uniqueLanguages = Array.from(
-              new Set(
-                res.Media?.[0]?.Part?.[0]?.Stream?.filter(
-                  (stream) => stream.streamType === 2
-                ).map((stream) => stream.language ?? stream.displayTitle)
-              )
-            );
-            const uniqueSubTitles = Array.from(
-              new Set(
-                res.Media?.[0]?.Part?.[0]?.Stream?.filter(
-                  (stream) => stream.streamType === 3
-                ).map((stream) => stream.language)
-              )
-            );
-
-            setLanguages(uniqueLanguages);
-            setSubTitles(uniqueSubTitles);
+            setLanguages(trackLanguages(res, 2));
+            setSubTitles(trackLanguages(res, 3));
           });
         }
         break;
       case "movie":
         {
-          if (!data.Media?.[0]?.Part?.[0]?.Stream) return;
-
-          const uniqueLanguages = Array.from(
-            new Set(
-              data.Media?.[0]?.Part?.[0]?.Stream?.filter(
-                (stream) => stream.streamType === 2
-              ).map((stream) => stream.language ?? stream.displayTitle)
-            )
-          );
-          const uniqueSubTitles = Array.from(
-            new Set(
-              data.Media?.[0]?.Part?.[0]?.Stream?.filter(
-                (stream) => stream.streamType === 3
-              ).map((stream) => stream.language)
-            )
-          );
-
-          setLanguages(uniqueLanguages);
-          setSubTitles(uniqueSubTitles);
+          setLanguages(trackLanguages(data, 2));
+          setSubTitles(trackLanguages(data, 3));
         }
         break;
     }

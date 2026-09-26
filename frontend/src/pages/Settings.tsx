@@ -1,10 +1,9 @@
 import { Box, CircularProgress, Typography } from "@mui/material";
 import React from "react";
-import { Link, Route, Routes, useLocation } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import SettingsInfo from "./settings/SettingsInfo";
 import SettingsPlayback from "./settings/SettingsPlayback";
 import { useUserSettings } from "../states/UserSettingsState";
-import SettingsRecommendations from "./settings/SettingsRecommendations";
 import SettingsLibraries from "./settings/SettingsLibraries";
 import SettingsAccount from "./settings/SettingsAccount";
 import SettingsSharing from "./settings/SettingsSharing";
@@ -63,7 +62,6 @@ function Settings() {
         <SettingsItem title="About" link="/settings/info" />
         <SettingsDivider title="Experience" />
         <SettingsItem title="Playback" link="/settings/experience-playback" />
-        <SettingsItem title="Recommendations" link="/settings/experience-recommendations" />
         <SettingsItem title="Libraries" link="/settings/experience-libraries" />
       </Box>
 
@@ -90,7 +88,10 @@ function Settings() {
           <Route path="/sharing" element={<SettingsSharing />} />
 
           <Route path="/experience-playback" element={<SettingsPlayback />} />
-          <Route path="/experience-recommendations" element={<SettingsRecommendations />} />
+          <Route
+            path="/experience-recommendations"
+            element={<Navigate to="/settings/experience-playback" replace />}
+          />
           <Route path="/experience-libraries" element={<SettingsLibraries />} />
         </Routes>
       </Box>

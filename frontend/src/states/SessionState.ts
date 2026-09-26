@@ -6,7 +6,8 @@ type SessionState = {
     XPlexSessionID: string;
     PlexServer: Plex.ServerPreferences | null;
     generateSessionID: () => void;
-    fetchPlexServer: () => void;
+    fetchPlexServer: () => Promise<void>;
+    reset: () => void;
 };
 
 export const useSessionStore = create<SessionState>((set) => ({
@@ -26,4 +27,5 @@ export const useSessionStore = create<SessionState>((set) => ({
             console.log(err);
         }
     },
+    reset: () => set({ PlexServer: null }),
 }));

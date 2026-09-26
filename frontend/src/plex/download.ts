@@ -25,7 +25,9 @@ export function originalFilename(
 
 export function getOriginalDownloads(
   data: Plex.Metadata,
+  allowDownloads: boolean,
 ): OriginalDownload[] {
+  if (!allowDownloads) return [];
   const token = AuthStorage.getServerToken();
   if (!token) return [];
 

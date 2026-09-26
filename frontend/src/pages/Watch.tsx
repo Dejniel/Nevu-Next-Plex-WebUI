@@ -19,6 +19,7 @@ import {
   Backdrop,
   Box,
   Button,
+  Divider,
   Fade,
   IconButton,
   Paper,
@@ -63,6 +64,17 @@ import { useUserSettings } from "../states/UserSettingsState";
 import PlaybackNextEPButton from "../components/PlaybackNextEPButton";
 import { getBackendURL } from "../backendURL";
 import { platformCache } from "../common/DesktopApp";
+import {
+  chooseBestMediaVersion,
+  findPreferredStream,
+  getMediaVersions,
+  getTrackChoices,
+  MediaVersion,
+  mediaVersionDetails,
+  parseTrackPreference,
+  preferenceFromStream,
+  TrackPreference,
+} from "../plex/mediaVersions";
 
 let SessionID = "";
 export { SessionID };
@@ -70,15 +82,14 @@ export { SessionID };
 const getUrl = (
   data: Plex.Metadata,
   quality: { bitrate?: number; auto?: boolean },
+  version?: MediaVersion,
 ) => {
-  console.log("Metadata:", data);
+  const selected = version || getMediaVersions(data)[0];
   const bitrate = quality
     ? quality.bitrate
     : parseInt(localStorage.getItem("quality") ?? "10000");
-  if (bitrate === -1)
-    return `${getBackendURL()}/dynproxy${
-      data?.Media?.[0].Part[0].key
-    }?${queryBuilder({
+  if (bitrate === -1 && selected)
+    return `${getBackendURL()}/dynproxy${selected.part.key}?${queryBuilder({
       ...getXPlexProps(),
     })}`;
 
@@ -89,9 +100,39 @@ const getUrl = (
       ...(quality.bitrate && {
         maxVideoBitrate: bitrate,
       }),
+      mediaIndex: selected?.mediaIndex ?? 0,
+      partIndex: selected?.partIndex ?? 0,
     }),
   })}`;
 };
+
+function preferenceScope(data: Plex.Metadata) {
+  return data.grandparentRatingKey || data.ratingKey;
+}
+
+function storedTrackPreference(data: Plex.Metadata, kind: "AUDIO" | "SUBTITLE") {
+  return parseTrackPreference(
+    useUserSettings.getState().settings[
+      `MEDIA_PREF_${kind}-${preferenceScope(data)}`
+    ],
+  );
+}
+
+async function applyTrackPreferences(
+  version: MediaVersion,
+  audioPreference: TrackPreference | null,
+  subtitlePreference: TrackPreference | null,
+) {
+  const audio = findPreferredStream(version, 2, audioPreference);
+  if (audio) await putAudioStream(version.part.id, audio.id);
+
+  if (subtitlePreference?.index === -1) {
+    await putSubtitleStream(version.part.id, 0);
+    return;
+  }
+  const subtitle = findPreferredStream(version, 3, subtitlePreference);
+  if (subtitle) await putSubtitleStream(version.part.id, subtitle.id);
+}
 
 function Watch() {
   const { itemID } = useParams<{ itemID: string }>();
@@ -103,6 +144,8 @@ function Watch() {
   const { settings } = useUserSettings();
 
   const [metadata, setMetadata] = useState<Plex.Metadata | null>(null);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [activePartIndex, setActivePartIndex] = useState(0);
   const [showmetadata, setShowMetadata] = useState<Plex.Metadata | null>(null);
   const [playQueue, setPlayQueue] = useState<Plex.Metadata[] | null>(null); // [current, ...next]
   const player = useRef<ReactPlayer | null>(null);
@@ -114,6 +157,7 @@ function Watch() {
       bitrate: parseInt(localStorage.getItem("quality") ?? "10000"),
     }),
   });
+  const [url, setURL] = useState<string>("");
 
   const [volume, setVolume] = useState<number>(
     parseInt(localStorage.getItem("volume") ?? "100"),
@@ -152,45 +196,68 @@ function Watch() {
   }, [volumePopoverOpen, showTune]);
 
   const loadMetadata = async (itemID: string) => {
-    await getUniversalDecision(itemID, {
-      maxVideoBitrate: quality.bitrate,
-      autoAdjustQuality: quality.auto,
-    });
-
-    let Metadata: Plex.Metadata | null = null;
-    await getLibraryDir(`/library/metadata/${itemID}`, {
+    const mediacontainer = await getLibraryDir(`/library/metadata/${itemID}`, {
       ...getIncludeProps(),
-    }).then((mediacontainer) => {
-      Metadata = mediacontainer.Metadata?.[0] ?? null;
-      if (["movie", "episode"].includes(Metadata?.type as string)) {
-        setMetadata(Metadata);
-        if (Metadata?.type === "episode") {
-          getLibraryMeta(Metadata?.grandparentRatingKey as string).then(
-            (show) => {
-              setShowMetadata(show);
-            },
-          );
-        }
-      } else {
-        console.error("Invalid metadata type");
-      }
     });
+    const loadedMetadata = mediacontainer.Metadata?.[0] ?? null;
+    if (!["movie", "episode"].includes(loadedMetadata?.type as string)) {
+      console.error("Invalid metadata type");
+      return null;
+    }
 
-    if (!Metadata) return;
+    setMetadata(loadedMetadata);
+    if (loadedMetadata.type === "episode") {
+      getLibraryMeta(loadedMetadata.grandparentRatingKey as string).then((show) => {
+        setShowMetadata(show);
+      });
+    }
+
     const serverPreferences = await getServerPreferences();
 
     getPlayQueue(
       `server://${
         serverPreferences.machineIdentifier
       }/com.plexapp.plugins.library/library/metadata/${
-        (Metadata as Plex.Metadata).ratingKey
+        loadedMetadata.ratingKey
       }`,
     ).then((queue) => {
       setPlayQueue(queue);
     });
+    return loadedMetadata;
   };
 
-  const [url, setURL] = useState<string>("");
+  const restartPlayback = async (
+    version: MediaVersion,
+    nextQuality = quality,
+    configure?: () => Promise<void>,
+  ) => {
+    if (!itemID || !metadata) return;
+    const currentTime = player.current?.getCurrentTime() ?? 0;
+    if (configure) await configure();
+
+    setActiveMediaIndex(version.mediaIndex);
+    setActivePartIndex(version.partIndex);
+    await getUniversalDecision(itemID, {
+      maxVideoBitrate: nextQuality.bitrate,
+      autoAdjustQuality: nextQuality.auto,
+      mediaIndex: version.mediaIndex,
+      partIndex: version.partIndex,
+    });
+    const refreshed = await loadMetadata(itemID);
+    const refreshedVersion = refreshed
+      ? getMediaVersions(refreshed).find(
+          (candidate) =>
+            candidate.mediaIndex === version.mediaIndex &&
+            candidate.partIndex === version.partIndex,
+        )
+      : undefined;
+
+    seekToAfterLoad.current = currentTime;
+    setURL("");
+    setTimeout(() => {
+      setURL(getUrl(refreshed || metadata, nextQuality, refreshedVersion || version));
+    }, 100);
+  };
 
   const [showControls, setShowControls] = useState(true);
   useEffect(() => {
@@ -346,7 +413,7 @@ function Watch() {
   }, [buffering, itemID, playing, socket]);
 
   useEffect(() => {
-    // set css style for .ui-video-seek-slider .track .main .connect
+    let active = true;
     const style = document.createElement("style");
     style.innerHTML = `
       .ui-video-seek-slider .track .main .connect {
@@ -363,99 +430,52 @@ function Watch() {
 
       if (!itemID) return;
 
-      const metadata = await getLibraryMeta(itemID);
+      const initialMetadata = await getLibraryMeta(itemID);
 
       const autoMatchTracks =
         useUserSettings.getState().settings["AUTO_MATCH_TRACKS"] === "true";
-
-      const audioTrackPref =
-        useUserSettings.getState().settings[
-          `MEDIA_PREF_AUDIO-${metadata.grandparentRatingKey}`
-        ];
-      const subtitleTrackPref =
-        useUserSettings.getState().settings[
-          `MEDIA_PREF_SUBTITLE-${metadata.grandparentRatingKey}`
-        ];
-
-      // Match audio track and subtitle track with the preferences
-      if (audioTrackPref && autoMatchTracks) {
-        const audioTrackPrefParsed: {
-          index: number;
-          title: string;
-        } = JSON.parse(audioTrackPref);
-
-        console.log(
-          `Preferred Audio Track - Index: ${audioTrackPrefParsed.index}, Title: ${audioTrackPrefParsed.title}`,
-        );
-
-        const audioTrack = metadata.Media?.[0].Part[0].Stream.sort((a, b) => {
-          return (
-            Math.abs(a.index - audioTrackPrefParsed.index) -
-            Math.abs(b.index - audioTrackPrefParsed.index)
-          );
-        }).find((stream) => {
-          return (
-            stream.streamType === 2 &&
-            stream.extendedDisplayTitle === audioTrackPrefParsed.title
-          );
-        });
-
-        if (audioTrack) {
-          console.log(
-            `Selected Audio Track - Index: ${audioTrack.index}, Title: ${audioTrack.extendedDisplayTitle}`,
-          );
-          await putAudioStream(
-            metadata.Media?.[0].Part[0].id ?? 0,
-            audioTrack.id,
-          );
-        }
+      const audioPreference = autoMatchTracks
+        ? storedTrackPreference(initialMetadata, "AUDIO")
+        : null;
+      const subtitlePreference = autoMatchTracks
+        ? storedTrackPreference(initialMetadata, "SUBTITLE")
+        : null;
+      const version = chooseBestMediaVersion(
+        initialMetadata,
+        audioPreference,
+        subtitlePreference,
+      );
+      if (!version) {
+        setShowError("No playable media version is available.");
+        return;
       }
 
-      if (subtitleTrackPref && autoMatchTracks) {
-        const subtitleTrackPrefParsed: {
-          index: number;
-          title: string;
-        } = JSON.parse(subtitleTrackPref);
+      if (autoMatchTracks)
+        await applyTrackPreferences(version, audioPreference, subtitlePreference);
 
-        console.log(
-          `Preferred Subtitle Track - Index: ${subtitleTrackPrefParsed.index}, Title: ${subtitleTrackPrefParsed.title}`,
-        );
+      await getUniversalDecision(itemID, {
+        maxVideoBitrate: quality.bitrate,
+        autoAdjustQuality: quality.auto,
+        mediaIndex: version.mediaIndex,
+        partIndex: version.partIndex,
+      });
+      const loadedMetadata = await loadMetadata(itemID);
+      if (!active || !loadedMetadata) return;
 
-        if (subtitleTrackPrefParsed.index === -1) {
-          await putSubtitleStream(metadata.Media?.[0].Part[0].id ?? 0, 0);
-        } else {
-          const subtitleTrack = metadata.Media?.[0].Part[0].Stream.sort(
-            (a, b) => {
-              return (
-                Math.abs(a.index - subtitleTrackPrefParsed.index) -
-                Math.abs(b.index - subtitleTrackPrefParsed.index)
-              );
-            },
-          ).find((stream) => {
-            return (
-              stream.streamType === 3 &&
-              stream.extendedDisplayTitle === subtitleTrackPrefParsed.title
-            );
-          });
-
-          if (subtitleTrack) {
-            console.log(
-              `Selected Subtitle Track - Index: ${subtitleTrack.index}, Title: ${subtitleTrack.extendedDisplayTitle}`,
-            );
-            await putSubtitleStream(
-              metadata.Media?.[0].Part[0].id ?? 0,
-              subtitleTrack.id,
-            );
-          }
-        }
-      }
-
-      console.log(`Setting URL: ${getUrl(metadata, quality)}`);
-
-      await loadMetadata(itemID);
-      setURL(getUrl(metadata, quality));
+      const loadedVersion =
+        getMediaVersions(loadedMetadata).find(
+          (candidate) => candidate.mediaIndex === version.mediaIndex,
+        ) || version;
+      setActiveMediaIndex(version.mediaIndex);
+      setActivePartIndex(version.partIndex);
+      setURL(getUrl(loadedMetadata, quality, loadedVersion));
       setShowError(false);
     })();
+
+    return () => {
+      active = false;
+      style.remove();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemID, theme.palette.primary.main]);
 
@@ -588,6 +608,81 @@ function Watch() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [metadata, navigate, playQueue, socket]);
+
+  const mediaVersions = metadata ? getMediaVersions(metadata) : [];
+  const activeVersion =
+    mediaVersions.find(
+      (version) =>
+        version.mediaIndex === activeMediaIndex &&
+        version.partIndex === activePartIndex,
+    ) || mediaVersions[0];
+  const audioChoices = metadata ? getTrackChoices(metadata, 2) : [];
+  const subtitleChoices = metadata ? getTrackChoices(metadata, 3) : [];
+
+  const selectedPreference = (streamType: 2 | 3) => {
+    const stream = activeVersion?.part.Stream?.find(
+      (candidate) => candidate.streamType === streamType && candidate.selected,
+    );
+    if (stream) return preferenceFromStream(stream);
+    return streamType === 3
+      ? ({ index: -1, title: "None" } satisfies TrackPreference)
+      : null;
+  };
+
+  const selectMediaVersion = async (version: MediaVersion) => {
+    const autoMatch = settings.AUTO_MATCH_TRACKS === "true";
+    await restartPlayback(version, quality, async () => {
+      if (!metadata || !autoMatch) return;
+      await applyTrackPreferences(
+        version,
+        storedTrackPreference(metadata, "AUDIO"),
+        storedTrackPreference(metadata, "SUBTITLE"),
+      );
+    });
+  };
+
+  const selectAudioTrack = async (choice: (typeof audioChoices)[number]) => {
+    if (!metadata) return;
+    const preference = preferenceFromStream(choice.stream);
+    void useUserSettings.getState().setSetting(
+      `MEDIA_PREF_AUDIO-${preferenceScope(metadata)}`,
+      JSON.stringify(preference),
+    );
+    const subtitlePreference = selectedPreference(3);
+    await restartPlayback(choice, quality, async () => {
+      await putAudioStream(choice.part.id, choice.stream.id);
+      if (subtitlePreference)
+        await applyTrackPreferences(choice, null, subtitlePreference);
+    });
+  };
+
+  const selectSubtitleTrack = async (
+    choice: (typeof subtitleChoices)[number],
+  ) => {
+    if (!metadata) return;
+    const preference = preferenceFromStream(choice.stream);
+    void useUserSettings.getState().setSetting(
+      `MEDIA_PREF_SUBTITLE-${preferenceScope(metadata)}`,
+      JSON.stringify(preference),
+    );
+    const audioPreference = selectedPreference(2);
+    await restartPlayback(choice, quality, async () => {
+      await putSubtitleStream(choice.part.id, choice.stream.id);
+      if (audioPreference)
+        await applyTrackPreferences(choice, audioPreference, null);
+    });
+  };
+
+  const disableSubtitles = async () => {
+    if (!metadata || !activeVersion) return;
+    void useUserSettings.getState().setSetting(
+      `MEDIA_PREF_SUBTITLE-${preferenceScope(metadata)}`,
+      JSON.stringify({ index: -1, title: "None" } satisfies TrackPreference),
+    );
+    await restartPlayback(activeVersion, quality, () =>
+      putSubtitleStream(activeVersion.part.id, 0),
+    );
+  };
 
   return (
     <>
@@ -1040,8 +1135,8 @@ function Watch() {
           <Paper
             sx={{
               width: 350,
-              height: "auto",
-              overflow: "hidden",
+              maxHeight: "min(70vh, 600px)",
+              overflowY: "auto",
               userSelect: "none",
               backdropFilter: "blur(20px)",
               border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
@@ -1064,50 +1159,49 @@ function Watch() {
               </>
             )}
 
-            {tunePage === 1 && metadata?.Media && (
+            {tunePage === 1 && activeVersion && (
               <>
                 {TuneSettingTab(theme, setTunePage, {
                   pageNum: 0,
                   text: "Back",
                 })}
-
+                {mediaVersions.length > 1 && (
+                  <>
+                    <TuneSectionLabel>Source</TuneSectionLabel>
+                    {mediaVersions.map((version) => (
+                      <TuneOption
+                        key={version.media.id || version.mediaIndex}
+                        selected={version.mediaIndex === activeMediaIndex}
+                        primary={`Version ${version.mediaIndex + 1}`}
+                        secondary={mediaVersionDetails(version)}
+                        onClick={async () => {
+                          setTunePage(0);
+                          await selectMediaVersion(version);
+                        }}
+                      />
+                    ))}
+                    <Divider />
+                  </>
+                )}
+                <TuneSectionLabel>Streaming quality</TuneSectionLabel>
                 {getCurrentVideoLevels(
-                  metadata.Media[0].videoResolution,
-                  `${Math.floor(metadata.Media[0].bitrate / 1000)}Mbps`,
+                  activeVersion.media.videoResolution,
+                  `${Math.floor(activeVersion.media.bitrate / 1000)}Mbps`,
                 ).map((qualityOption) => (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "flex-end",
-                      width: "100%",
-                      height: 50,
-                      px: 2,
-                      userSelect: "none",
-                      cursor: "pointer",
-                      transition: "all 0.3s ease-in-out",
-                      backgroundColor: "#00000088",
-                      "&:hover": {
-                        transition: "all 0s ease-in-out",
-                        backgroundColor: "#000000ee",
-                      },
-                    }}
+                  <TuneOption
+                    key={`${qualityOption.title}:${qualityOption.bitrate}`}
+                    selected={qualityOption.bitrate === quality.bitrate}
+                    primary={qualityOption.title}
+                    secondary={qualityOption.extra}
                     onClick={async () => {
-                      if (!metadata.Media || !itemID) return;
                       setTunePage(0);
-                      await loadMetadata(itemID);
-                      await getUniversalDecision(itemID, {
-                        maxVideoBitrate: qualityOption.bitrate,
-                        autoAdjustQuality: quality.auto,
-                      });
-                      setQuality({
+                      const nextQuality = {
                         bitrate: qualityOption.original
                           ? undefined
                           : qualityOption.bitrate,
                         auto: undefined,
-                      });
-
+                      };
+                      setQuality(nextQuality);
                       if (qualityOption.original)
                         localStorage.removeItem("quality");
                       else if (qualityOption.bitrate)
@@ -1115,278 +1209,85 @@ function Watch() {
                           "quality",
                           qualityOption.bitrate.toString(),
                         );
-
-                      const progress = player.current?.getCurrentTime() ?? 0;
-
-                      if (!seekToAfterLoad.current)
-                        seekToAfterLoad.current = progress;
-                      setURL("");
-                      setTimeout(() => {
-                        setURL(getUrl(metadata, quality));
-                      }, 100);
+                      await restartPlayback(activeVersion, nextQuality);
                     }}
-                  >
-                    {qualityOption.bitrate === quality.bitrate && (
-                      <CheckRounded
-                        sx={{
-                          mr: "auto",
-                          color: "primary.main",
-                        }}
-                        fontSize="small"
-                      />
-                    )}
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Box
-                        component="span"
-                        sx={{
-                          opacity: 0.6,
-                          mr: 0.5,
-                        }}
-                      >
-                        {qualityOption.extra}
-                      </Box>
-                      {qualityOption.title}
-                    </Typography>
-                  </Box>
+                  />
                 ))}
               </>
             )}
 
-            {tunePage === 2 && metadata?.Media && (
+            {tunePage === 2 && activeVersion && (
               <>
                 {TuneSettingTab(theme, setTunePage, {
                   pageNum: 0,
                   text: "Back",
                 })}
-
-                {metadata?.Media[0].Part[0].Stream.filter(
-                  (stream) => stream.streamType === 2, // Audio
-                ).map((stream) => (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "flex-end",
-                      width: "100%",
-                      height: 50,
-                      px: 2,
-                      userSelect: "none",
-                      cursor: "pointer",
-                      transition: "all 0.3s ease-in-out",
-                      backgroundColor: "#00000088",
-                      "&:hover": {
-                        transition: "all 0s ease-in-out",
-                        backgroundColor: "#000000ee",
-                      },
-                    }}
+                {audioChoices.map((choice) => (
+                  <TuneOption
+                    key={`${choice.mediaIndex}:${choice.part.id}:${choice.stream.id}`}
+                    selected={
+                      choice.mediaIndex === activeMediaIndex &&
+                      Boolean(choice.stream.selected)
+                    }
+                    primary={
+                      choice.stream.extendedDisplayTitle ||
+                      choice.stream.displayTitle ||
+                      `Audio ${choice.stream.index + 1}`
+                    }
+                    secondary={
+                      mediaVersions.length > 1
+                        ? `Version ${choice.mediaIndex + 1} · ${mediaVersionDetails(choice)}`
+                        : undefined
+                    }
                     onClick={async () => {
-                      if (!metadata.Media || !itemID) return;
                       setTunePage(0);
-                      await putAudioStream(
-                        metadata.Media?.[0].Part[0].id ?? 0,
-                        stream.id,
-                      );
-
-                      await loadMetadata(itemID);
-                      await getUniversalDecision(itemID, {
-                        maxVideoBitrate: quality.bitrate,
-                        autoAdjustQuality: quality.auto,
-                      });
-
-                      useUserSettings.getState().setSetting(
-                        `MEDIA_PREF_AUDIO-${metadata.grandparentRatingKey}`,
-                        JSON.stringify({
-                          index: stream.index,
-                          title: stream.extendedDisplayTitle,
-                        }),
-                      );
-
-                      const progress = player.current?.getCurrentTime() ?? 0;
-
-                      if (!seekToAfterLoad.current)
-                        seekToAfterLoad.current = progress;
-                      setURL("");
-                      setTimeout(() => {
-                        setURL(getUrl(metadata, quality));
-                      }, 100);
+                      await selectAudioTrack(choice);
                     }}
-                  >
-                    <CheckRounded
-                      sx={{
-                        mr: "auto",
-                        opacity: stream.selected ? 1 : 0,
-                        color: "primary.main",
-                      }}
-                      fontSize="small"
-                    />
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        textOverflow: "ellipsis",
-                        overflow: "hidden",
-                        whiteSpace: "nowrap",
-                        maxWidth: "calc(100% - 40px)",
-                      }}
-                    >
-                      {stream.extendedDisplayTitle}
-                    </Typography>
-                  </Box>
+                  />
                 ))}
               </>
             )}
 
-            {tunePage === 3 && metadata?.Media && (
+            {tunePage === 3 && activeVersion && (
               <>
                 {TuneSettingTab(theme, setTunePage, {
                   pageNum: 0,
                   text: "Back",
                 })}
-
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "flex-end",
-                    width: "100%",
-                    height: 50,
-                    px: 2,
-                    userSelect: "none",
-                    cursor: "pointer",
-                    transition: "all 0.3s ease-in-out",
-                    backgroundColor: "#00000088",
-                    "&:hover": {
-                      transition: "all 0s ease-in-out",
-                      backgroundColor: "#000000ee",
-                    },
-                  }}
+                <TuneOption
+                  selected={
+                    !activeVersion.part.Stream?.some(
+                      (stream) => stream.streamType === 3 && stream.selected,
+                    )
+                  }
+                  primary="None"
                   onClick={async () => {
-                    if (!metadata.Media || !itemID) return;
                     setTunePage(0);
-                    await putSubtitleStream(
-                      metadata.Media?.[0].Part[0].id ?? 0,
-                      0,
-                    );
-                    await loadMetadata(itemID);
-                    await getUniversalDecision(itemID, {
-                      maxVideoBitrate: quality.bitrate,
-                      autoAdjustQuality: quality.auto,
-                    });
-
-                    useUserSettings.getState().setSetting(
-                      `MEDIA_PREF_SUBTITLE-${metadata.grandparentRatingKey}`,
-                      JSON.stringify({
-                        index: -1,
-                        title: "None",
-                      }),
-                    );
-
-                    const progress = player.current?.getCurrentTime() ?? 0;
-
-                    if (!seekToAfterLoad.current)
-                      seekToAfterLoad.current = progress;
-                    setURL("");
-                    setTimeout(() => {
-                      setURL(getUrl(metadata, quality));
-                    }, 100);
+                    await disableSubtitles();
                   }}
-                >
-                  {metadata?.Media[0].Part[0].Stream.filter(
-                    (stream) => stream.selected && stream.streamType === 3, // Subtitle
-                  ).length === 0 && (
-                    <CheckRounded
-                      sx={{
-                        mr: "auto",
-                        color: "primary.main",
-                      }}
-                      fontSize="small"
-                    />
-                  )}
-                  <Typography variant="body2">None</Typography>
-                </Box>
-
-                {metadata?.Media[0].Part[0].Stream.filter(
-                  (stream) => stream.streamType === 3,
-                ).map((stream) => (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      width: "100%",
-                      height: 50,
-                      px: 2,
-                      userSelect: "none",
-                      cursor: "pointer",
-                      transition: "all 0.3s ease-in-out",
-                      backgroundColor: "#00000088",
-                      "&:hover": {
-                        transition: "all 0s ease-in-out",
-                        backgroundColor: "#000000ee",
-                      },
-                    }}
+                />
+                {subtitleChoices.map((choice) => (
+                  <TuneOption
+                    key={`${choice.mediaIndex}:${choice.part.id}:${choice.stream.id}`}
+                    selected={
+                      choice.mediaIndex === activeMediaIndex &&
+                      Boolean(choice.stream.selected)
+                    }
+                    primary={
+                      choice.stream.extendedDisplayTitle ||
+                      choice.stream.displayTitle ||
+                      `Subtitle ${choice.stream.index + 1}`
+                    }
+                    secondary={
+                      mediaVersions.length > 1
+                        ? `Version ${choice.mediaIndex + 1} · ${mediaVersionDetails(choice)}`
+                        : undefined
+                    }
                     onClick={async () => {
-                      if (!metadata.Media || !itemID) return;
                       setTunePage(0);
-                      await putSubtitleStream(
-                        metadata.Media?.[0].Part[0].id ?? 0,
-                        stream.id,
-                      );
-
-                      await loadMetadata(itemID);
-                      await getUniversalDecision(itemID, {
-                        maxVideoBitrate: quality.bitrate,
-                        autoAdjustQuality: quality.auto,
-                      });
-
-                      useUserSettings.getState().setSetting(
-                        `MEDIA_PREF_SUBTITLE-${metadata.grandparentRatingKey}`,
-                        JSON.stringify({
-                          index: stream.index,
-                          title: stream.extendedDisplayTitle,
-                        }),
-                      );
-
-                      const progress = player.current?.getCurrentTime() ?? 0;
-
-                      if (!seekToAfterLoad.current)
-                        seekToAfterLoad.current = progress;
-                      setURL("");
-                      setTimeout(() => {
-                        setURL(getUrl(metadata, quality));
-                      }, 100);
+                      await selectSubtitleTrack(choice);
                     }}
-                  >
-                    <CheckRounded
-                      sx={{
-                        opacity: stream.selected ? 1 : 0,
-                        color: "primary.main",
-                      }}
-                      fontSize="small"
-                    />
-
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        ml: 1,
-                        flex: 1,
-                        textAlign: "right",
-                        textOverflow: "ellipsis",
-                        overflow: "hidden",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {stream.extendedDisplayTitle}
-                    </Typography>
-                  </Box>
+                  />
                 ))}
               </>
             )}
@@ -1768,13 +1669,9 @@ function Watch() {
                             socket?.emit("EVNT_SYNC_SEEK", value / 1000);
                           }}
                           getPreviewScreenUrl={(value) => {
-                            if (
-                              !metadata.Media ||
-                              !metadata.Media[0].Part[0].indexes
-                            )
-                              return "";
+                            if (!activeVersion?.part.indexes) return "";
                             return getTranscodeImageURL(
-                              `/library/parts/${metadata.Media[0].Part[0].id}/indexes/sd/${value}`,
+                              `/library/parts/${activeVersion.part.id}/indexes/sd/${value}`,
                               240,
                               135,
                             );
@@ -2323,6 +2220,62 @@ function NextEPButton({ queue }: { queue?: Plex.Metadata[] }) {
         </IconButton>
       )}
     </>
+  );
+}
+
+function TuneSectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography
+      variant="caption"
+      color="text.secondary"
+      sx={{ display: "block", px: 2, pt: 1.5, pb: 0.5 }}
+    >
+      {children}
+    </Typography>
+  );
+}
+
+function TuneOption({
+  selected,
+  primary,
+  secondary,
+  onClick,
+}: {
+  selected: boolean;
+  primary: string;
+  secondary?: string;
+  onClick: () => void;
+}) {
+  return (
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns: "24px minmax(0, 1fr)",
+        alignItems: "center",
+        gap: 1,
+        width: "100%",
+        minHeight: 50,
+        px: 2,
+        py: 1,
+        cursor: "pointer",
+        backgroundColor: "#00000088",
+        "&:hover": { backgroundColor: "#000000ee" },
+      }}
+      onClick={onClick}
+    >
+      <CheckRounded
+        sx={{ opacity: selected ? 1 : 0, color: "primary.main" }}
+        fontSize="small"
+      />
+      <Box sx={{ minWidth: 0, textAlign: "right" }}>
+        <Typography variant="body2" noWrap>{primary}</Typography>
+        {secondary && (
+          <Typography variant="caption" color="text.secondary" noWrap display="block">
+            {secondary}
+          </Typography>
+        )}
+      </Box>
+    </Box>
   );
 }
 

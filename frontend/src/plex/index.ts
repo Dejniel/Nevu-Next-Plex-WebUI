@@ -81,10 +81,14 @@ export async function getSimilar(id: string): Promise<Plex.Metadata[]> {
     return res.MediaContainer.Metadata;
 }
 
-export async function getUniversalDecision(id: string, limitation: {
+export interface StreamLimitations {
     autoAdjustQuality?: boolean,
     maxVideoBitrate?: number,
-}): Promise<void> {
+    mediaIndex?: number,
+    partIndex?: number,
+}
+
+export async function getUniversalDecision(id: string, limitation: StreamLimitations): Promise<void> {
     await authedGet(`/video/:/transcode/universal/decision?${queryBuilder({
         ...getStreamProps(id, limitation),
     })}`);
@@ -107,10 +111,7 @@ export async function sendUniversalPing() {
  * @param limitation.maxVideoBitrate - The maximum video bitrate for the stream.
  * @returns An object containing the stream properties.
  */
-export function getStreamProps(key: string, limitation: {
-    autoAdjustQuality?: boolean,
-    maxVideoBitrate?: number,
-}) {
+export function getStreamProps(key: string, limitation: StreamLimitations) {
     return {
         audioBoost: 700,
         autoAdjustQuality: limitation.autoAdjustQuality ? 1 : 0,
@@ -122,8 +123,8 @@ export function getStreamProps(key: string, limitation: {
         hasMDE: 1,
         location: "lan",
         mediaBufferSize: 102400,
-        mediaIndex: 0,
-        partIndex: 0,
+        mediaIndex: limitation.mediaIndex ?? 0,
+        partIndex: limitation.partIndex ?? 0,
         path: "/library/metadata/" + key,
         protocol: platformCache.isDesktop ? "hls" : "dash",
         addDebugOverlay: 0,

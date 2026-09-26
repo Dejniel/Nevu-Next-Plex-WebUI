@@ -35,7 +35,7 @@ it("builds an authenticated URL for the original file", () => {
     serverToken: "server token",
   });
 
-  const [download] = getOriginalDownloads(metadata());
+  const [download] = getOriginalDownloads(metadata(), true);
   const url = new URL(download.href, "http://nevu.local");
 
   expect(url.pathname).toBe(
@@ -48,7 +48,17 @@ it("builds an authenticated URL for the original file", () => {
 });
 
 it("does not expose a download without an active server token", () => {
-  expect(getOriginalDownloads(metadata())).toEqual([]);
+  expect(getOriginalDownloads(metadata(), true)).toEqual([]);
+});
+
+it("does not expose a download when the server denies downloads", () => {
+  AuthStorage.saveActiveSession({
+    profile: null,
+    accountToken: "account-token",
+    serverToken: "server-token",
+  });
+
+  expect(getOriginalDownloads(metadata(), false)).toEqual([]);
 });
 
 it("creates a safe fallback filename", () => {

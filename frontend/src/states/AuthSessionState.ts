@@ -15,6 +15,7 @@ import { useSyncSessionState } from "./SyncSessionState";
 import { useUserSessionStore } from "./UserSession";
 import { useUserSettings } from "./UserSettingsState";
 import { useWatchListCache } from "./WatchListCache";
+import { useSessionStore } from "./SessionState";
 
 export type AuthStatus =
   | "initializing"
@@ -45,6 +46,7 @@ function resetProfileState() {
   useUserSessionStore.getState().reset();
   useUserSettings.getState().reset();
   useWatchListCache.getState().reset();
+  useSessionStore.getState().reset();
 }
 
 function profileFromUser(
@@ -184,6 +186,7 @@ export const useAuthSession = create<AuthSessionState>((set, get) => ({
       const serverToken = await resolveServerToken(accountToken);
       AuthStorage.saveActiveSession({ profile, accountToken, serverToken });
       resetProfileState();
+      void useSessionStore.getState().fetchPlexServer();
       set({ status: "ready", activeProfile: profile, error: null });
       return true;
     } catch (error) {
