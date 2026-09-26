@@ -19,6 +19,7 @@ import {
   Rating,
   Select,
   Skeleton,
+  Snackbar,
   Stack,
   Tooltip,
   Typography,
@@ -41,6 +42,7 @@ import {
   StarOutlineRounded,
   CheckBoxOutlineBlankRounded,
   CheckBoxRounded,
+  EditRounded,
 } from "@mui/icons-material";
 import { durationToText } from "./MovieItemSlider";
 import { useBigReader } from "./BigReader";
@@ -55,6 +57,11 @@ import { getNevuReviews } from "../common/NevuReviews";
 import TitleOverview from "./title/TitleOverview";
 import TitleDetails from "./title/TitleDetails";
 import TitleMedia from "./title/TitleMedia";
+import EditMetadataDialog from "./title/EditMetadataDialog";
+import {
+  applyMetadataUpdate,
+  MetadataUpdate,
+} from "../plex/metadata";
 import {
   fetchDiscoverExtras,
   mergeTitleExtras,
@@ -104,12 +111,18 @@ function MetaScreen() {
 
   const [extras, setExtras] = useState<TitleExtra[]>([]);
   const [extrasLoading, setExtrasLoading] = useState(false);
+  const [editMetadataOpen, setEditMetadataOpen] = useState(false);
+  const [metadataSaved, setMetadataSaved] = useState(false);
 
   const mid = searchParams.get("mid");
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !document.fullscreenElement)
+      if (
+        e.key === "Escape" &&
+        !document.fullscreenElement &&
+        !document.querySelector('[role="dialog"]')
+      )
         setSearchParams(new URLSearchParams());
     };
 
@@ -128,6 +141,8 @@ function MetaScreen() {
     setSubTitles(null);
     setExtras([]);
     setPage(0);
+    setEditMetadataOpen(false);
+    setMetadataSaved(false);
 
     if (!mid) return;
     getLibraryMeta(mid).then((res) => {
@@ -270,6 +285,18 @@ function MetaScreen() {
 
   const primaryTrailer = selectPrimaryTrailer(extras, data?.primaryExtraKey);
   const remainingExtras = withoutExtra(extras, primaryTrailer);
+
+  const metadataWasSaved = (changes: MetadataUpdate) => {
+    setData((current) =>
+      current ? applyMetadataUpdate(current, changes) : current,
+    );
+    setMetadataSaved(true);
+
+    if (mid)
+      void getLibraryMeta(mid)
+        .then((metadata) => setData(metadata))
+        .catch(() => undefined);
+  };
 
   if (!searchParams.has("mid")) return <></>;
 
@@ -659,6 +686,22 @@ function MetaScreen() {
                   <HeroWatchListButton item={data as Plex.Metadata} />
                 </Tooltip>
 
+                <Tooltip placement="top" arrow title="Edit metadata">
+                  <IconButton
+                    aria-label="Edit metadata"
+                    onClick={() => setEditMetadataOpen(true)}
+                    sx={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 1,
+                      bgcolor: "rgba(18, 25, 39, 0.8)",
+                      border: "1px solid rgba(255,255,255,0.2)",
+                    }}
+                  >
+                    <EditRounded fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+
                 {data && <RatingButton item={data} />}
 
                 <Tooltip
@@ -1016,6 +1059,20 @@ function MetaScreen() {
             {page === 4 && data && <TitleMedia data={data} />}
           </AnimatePresence>
         </Box>
+        {data && (
+          <EditMetadataDialog
+            data={data}
+            open={editMetadataOpen}
+            onClose={() => setEditMetadataOpen(false)}
+            onSaved={metadataWasSaved}
+          />
+        )}
+        <Snackbar
+          open={metadataSaved}
+          autoHideDuration={4000}
+          onClose={() => setMetadataSaved(false)}
+          message="Metadata saved"
+        />
       </Box>
     </Backdrop>
   );
