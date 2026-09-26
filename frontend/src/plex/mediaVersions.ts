@@ -84,15 +84,45 @@ export function findPreferredStream(
     : streams.find((stream) => stream.index === preference.index);
 }
 
-function qualityScore(version: MediaVersion) {
-  const resolution = version.media.videoResolution?.toLowerCase();
+function mediaQualityScore(media: Plex.Media) {
+  const resolution = media.videoResolution?.toLowerCase();
   const resolutionHeight = resolution === "4k"
     ? 2160
-    : Number.parseInt(resolution || "", 10) || version.media.height || 0;
-  const pixels = (version.media.width || 0) * (version.media.height || 0);
+    : Number.parseInt(resolution || "", 10) || media.height || 0;
+  const pixels = (media.width || 0) * (media.height || 0);
   return resolutionHeight * 1_000_000_000 +
-    (version.media.bitrate || 0) * 1_000 +
+    (media.bitrate || 0) * 1_000 +
     pixels / 1_000_000;
+}
+
+function qualityScore(version: MediaVersion) {
+  return mediaQualityScore(version.media);
+}
+
+export function mediaQualityBadge(data: Plex.Metadata): string | null {
+  if (!data.Media?.length) return null;
+
+  const media = data.Media.reduce((best, candidate) =>
+    mediaQualityScore(candidate) > mediaQualityScore(best) ? candidate : best,
+  );
+  const rawResolution = media.videoResolution?.trim();
+  const resolution = rawResolution?.toLowerCase() === "4k"
+    ? "4K"
+    : rawResolution
+      ? /^\d+$/.test(rawResolution)
+        ? `${rawResolution}p`
+        : rawResolution.toUpperCase()
+      : media.height
+        ? `${media.height}p`
+        : null;
+  const rawDynamicRange = media.videoDynamicRange?.trim();
+  const dynamicRange = !rawDynamicRange || rawDynamicRange.toLowerCase() === "sdr"
+    ? null
+    : /^(dolby vision|dovi|dv)$/i.test(rawDynamicRange)
+      ? "DV"
+      : rawDynamicRange.toUpperCase();
+
+  return [resolution, dynamicRange].filter(Boolean).join(" ") || null;
 }
 
 export function chooseBestMediaVersion(

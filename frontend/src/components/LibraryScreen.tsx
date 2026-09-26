@@ -234,7 +234,7 @@ function Element({ item, plexTv }: { item: Plex.Metadata; plexTv?: boolean }) {
       {!inView && (
         <Box style={{ width: "100%" }}>
           <Box sx={{ width: "100%", height: "auto", aspectRatio: "16/9" }} />
-          <Box sx={{ width: "100%", height: "104px" }} />
+          <Box sx={{ width: "100%", height: "60px" }} />
         </Box>
       )}
     </div>

@@ -374,7 +374,7 @@ function BrowseLibrary() {
                         borderRadius: "10px",
                       }}
                     />
-                    <Box sx={{ height: "104px" }} />
+                    <Box sx={{ height: "60px" }} />
                   </Box>
                 ))}
             {items &&
@@ -426,7 +426,7 @@ function DisplayMovieItem({
               aspectRatio: layout === "poster" ? "2/3" : "16/9",
             }}
           />
-          <Box sx={{ width: "100%", height: "104px" }} />
+          <Box sx={{ width: "100%", height: "60px" }} />
         </Box>
       )}
     </div>

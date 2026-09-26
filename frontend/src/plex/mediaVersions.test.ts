@@ -1,6 +1,7 @@
 import {
   chooseBestMediaVersion,
   getTrackChoices,
+  mediaQualityBadge,
   mediaVersionDetails,
   parseTrackPreference,
   preferenceFromStream,
@@ -42,6 +43,7 @@ function metadata(): Plex.Metadata {
         height: 2160,
         bitrate: 30000,
         videoResolution: "4k",
+        videoDynamicRange: "HDR10",
         videoCodec: "hevc",
         Part: [
           {
@@ -85,4 +87,9 @@ it("round-trips a stored track preference", () => {
 it("formats a concise version description", () => {
   const version = chooseBestMediaVersion(metadata());
   expect(version && mediaVersionDetails(version)).toBe("4k · HEVC · 30.0 Mb/s");
+});
+
+it("formats a compact badge from the best available media version", () => {
+  expect(mediaQualityBadge(metadata())).toBe("4K HDR10");
+  expect(mediaQualityBadge({ ratingKey: "2" } as Plex.Metadata)).toBeNull();
 });

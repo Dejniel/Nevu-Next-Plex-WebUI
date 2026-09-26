@@ -44,6 +44,7 @@ import { useConfirmModal } from "./ConfirmModal";
 import { getBackendURL } from "../backendURL";
 import { queryBuilder } from "../plex/QuickFunctions";
 import { AuthStorage } from "../auth/AuthStorage";
+import { mediaQualityBadge } from "../plex/mediaVersions";
 
 interface MovieItemPreviewPlaybackState {
   url: string;
@@ -97,6 +98,42 @@ function MovieItem({
     null
   );
   const previewEnabled = layout === "landscape";
+  const isEpisode = item.type === "episode";
+  const displayRating = item.audienceRating ?? item.rating;
+  const qualityLabel = mediaQualityBadge(item);
+  const cardTitle = isEpisode
+    ? item.grandparentTitle || item.parentTitle || item.title
+    : item.title;
+  const episodeCode = [
+    item.parentIndex !== undefined
+      ? `S${String(item.parentIndex).padStart(2, "0")}`
+      : null,
+    item.index !== undefined
+      ? `E${String(item.index).padStart(2, "0")}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const secondaryText = isEpisode
+    ? [episodeCode, cardTitle !== item.title ? item.title : null]
+        .filter(Boolean)
+        .join(" · ")
+    : [
+        item.year || null,
+        item.type === "movie" && item.duration
+          ? durationToText(item.duration)
+          : null,
+        item.type === "show" && (item.seasonCount ?? item.childCount)
+          ? `${item.seasonCount ?? item.childCount} ${
+              (item.seasonCount ?? item.childCount) === 1 ? "Season" : "Seasons"
+            }`
+          : null,
+        item.Genre?.slice(0, layout === "landscape" ? 2 : 1)
+          .map((genre) => genre.tag)
+          .join(", ") || null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
 
   useEffect(() => {
     if (hovered && previewEnabled) {
@@ -644,8 +681,8 @@ function MovieItem({
             </Box>
           )}
 
-          {/* Content rating badge on thumbnail */}
-          {item.contentRating && (
+          {/* Audience score */}
+          {typeof displayRating === "number" && (
             <Box
               sx={{
                 position: "absolute",
@@ -657,18 +694,22 @@ function MovieItem({
                 border: "1px solid rgba(255,255,255,0.15)",
                 borderRadius: "4px",
                 padding: "1px 6px",
+                display: "flex",
+                alignItems: "center",
+                gap: "3px",
                 zIndex: 10,
               }}
             >
+              <StarRounded sx={{ fontSize: "13px", color: "#f5c518" }} />
               <Typography
                 sx={{
-                  fontSize: "10px",
-                  fontWeight: "700",
-                  letterSpacing: "0.05em",
+                  fontSize: "11px",
+                  fontWeight: "600",
                   color: "rgba(255,255,255,0.9)",
+                  lineHeight: 1.4,
                 }}
               >
-                {item.contentRating}
+                {displayRating.toFixed(1)}
               </Typography>
             </Box>
           )}
@@ -700,68 +741,14 @@ function MovieItem({
             flexDirection: "column",
             alignItems: "flex-start",
             justifyContent: "flex-start",
-            padding: "10px 12px 12px",
+            padding: "9px 11px 10px",
+            minHeight: "60px",
             userSelect: "none",
             position: "relative",
             zIndex: 5,
-            gap: "2px",
+            gap: "3px",
           }}
         >
-          {/* Type label & rating row */}
-          <Box
-            sx={{
-              width: "100%",
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              mb: "2px",
-            }}
-          >
-            <Typography
-              sx={{
-                fontSize: "10px",
-                fontWeight: "700",
-                letterSpacing: "0.1em",
-                color: (theme) => theme.palette.primary.light,
-                textTransform: "uppercase",
-                opacity: 0.9,
-                lineHeight: 1,
-              }}
-            >
-              {item.type === "episode"
-                ? `S${item.parentIndex} · E${item.index}`
-                : item.type}
-            </Typography>
-
-            {item.audienceRating && (
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "2px",
-                }}
-              >
-                <StarRounded
-                  sx={{
-                    fontSize: "13px",
-                    color: "#f5c518",
-                  }}
-                />
-                <Typography
-                  sx={{
-                    fontSize: "11px",
-                    fontWeight: "600",
-                    color: "rgba(255,255,255,0.8)",
-                    lineHeight: 1,
-                  }}
-                >
-                  {item.audienceRating.toFixed(1)}
-                </Typography>
-              </Box>
-            )}
-          </Box>
-
           {/* Title */}
           <Typography
             sx={{
@@ -778,140 +765,52 @@ function MovieItem({
               },
             }}
           >
-            {item.title}
+            {cardTitle}
           </Typography>
 
-          {/* Show title for episodes */}
-          {["episode"].includes(item.type) && item.grandparentTitle && (
-            <Typography
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!item.grandparentKey?.toString()) return;
-                setSearchParams({
-                  mid: (item.grandparentRatingKey as string).toString(),
-                });
-              }}
-              sx={{
-                fontSize: "0.8rem",
-                fontWeight: "500",
-                color: (theme) => theme.palette.text.secondary,
-                opacity: 0.7,
-                transition: "all 0.3s ease",
-                cursor: "pointer",
-                "&:hover": {
-                  opacity: 1,
-                  color: (theme) => theme.palette.primary.light,
-                },
-                textOverflow: "ellipsis",
-                overflow: "hidden",
-                whiteSpace: "nowrap",
-                width: "100%",
-              }}
-            >
-              {item.grandparentTitle}
-            </Typography>
-          )}
-
-          {/* Metadata row */}
           <Box
             sx={{
               width: "100%",
               display: "flex",
-              flexDirection: "row",
               alignItems: "center",
-              flexWrap: "nowrap",
-              mt: "4px",
-              gap: 0.75,
-              overflow: "hidden",
+              justifyContent: "space-between",
+              gap: 1,
+              minWidth: 0,
             }}
           >
-            {item.year && (
-              <Typography
-                sx={{
-                  fontSize: "11px",
-                  fontWeight: "500",
-                  color: (theme) => theme.palette.text.secondary,
-                  opacity: 0.7,
-                  flexShrink: 0,
-                }}
-              >
-                {item.year}
-              </Typography>
-            )}
-            {item.year &&
-              ((item.duration && ["episode", "movie"].includes(item.type)) ||
-                (item.type === "show" &&
-                  item.leafCount &&
-                  (item.seasonCount ?? item.childCount))) && (
-                <Typography
-                  sx={{
-                    fontSize: "11px",
-                    color: "rgba(255,255,255,0.25)",
-                    flexShrink: 0,
-                    lineHeight: 1,
-                  }}
-                >
-                  ·
-                </Typography>
-              )}
-            {item.duration && ["episode", "movie"].includes(item.type) && (
-              <Typography
-                sx={{
-                  fontSize: "11px",
-                  fontWeight: "500",
-                  color: (theme) => theme.palette.text.secondary,
-                  opacity: 0.7,
-                  flexShrink: 0,
-                }}
-              >
-                {durationToText(item.duration)}
-              </Typography>
-            )}
-            {item.type === "show" &&
-              item.leafCount &&
-              (item.seasonCount ?? item.childCount) && (
-                <Typography
-                  sx={{
-                    fontSize: "11px",
-                    fontWeight: "500",
-                    color: (theme) => theme.palette.text.secondary,
-                    opacity: 0.7,
-                    flexShrink: 0,
-                  }}
-                >
-                  {(item.seasonCount ?? item.childCount ?? 1) > 1
-                    ? `${item.childCount} Seasons`
-                    : `${item.leafCount} Ep${item.leafCount > 1 ? "s" : ""}`}
-                </Typography>
-              )}
+            <Typography
+              sx={{
+                fontSize: "11px",
+                fontWeight: "500",
+                color: (theme) => theme.palette.text.secondary,
+                opacity: 0.7,
+                textOverflow: "ellipsis",
+                overflow: "hidden",
+                whiteSpace: "nowrap",
+                minWidth: 0,
+              }}
+            >
+              {secondaryText}
+            </Typography>
 
-            {item.Genre && item.Genre.length > 0 && (
-              <>
-                <Typography
-                  sx={{
-                    fontSize: "11px",
-                    color: "rgba(255,255,255,0.25)",
-                    flexShrink: 0,
-                    lineHeight: 1,
-                  }}
-                >
-                  ·
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: "11px",
-                    fontWeight: "500",
-                    color: (theme) => theme.palette.text.secondary,
-                    opacity: 0.7,
-                    textOverflow: "ellipsis",
-                    overflow: "hidden",
-                    whiteSpace: "nowrap",
-                    minWidth: 0,
-                  }}
-                >
-                  {item.Genre[0].tag}
-                </Typography>
-              </>
+            {layout === "landscape" && qualityLabel && (
+              <Typography
+                title={qualityLabel}
+                sx={{
+                  fontSize: "9px",
+                  fontWeight: "700",
+                  lineHeight: 1,
+                  color: "rgba(255,255,255,0.72)",
+                  backgroundColor: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: "3px",
+                  px: "4px",
+                  py: "3px",
+                  flexShrink: 0,
+                }}
+              >
+                {qualityLabel}
+              </Typography>
             )}
           </Box>
         </Box>

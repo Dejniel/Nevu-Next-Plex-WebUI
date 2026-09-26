@@ -307,7 +307,7 @@ function MovieItemSlider({
                   <Box
                     sx={{ width: "100%", height: "auto", aspectRatio: "16/9" }}
                   />
-                  <Box sx={{ width: "100%", height: "104px" }} />
+                  <Box sx={{ width: "100%", height: "60px" }} />
                 </Box>
               );
             }
