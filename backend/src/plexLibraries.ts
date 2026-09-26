@@ -1,7 +1,7 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import express from 'express';
 import https from 'https';
-import { CheckPlexUser } from './common/plex';
+import { CheckPlexUser, hasPlexFeature } from './common/plex';
 
 interface LibrariesRouterOptions {
     plexServer: string;
@@ -64,14 +64,6 @@ function sendPlexError(res: express.Response, error: unknown) {
     const upstream = axios.isAxiosError(error) ? error.response?.status : undefined;
     const status = upstream && upstream >= 400 && upstream < 500 ? upstream : 502;
     res.status(status).send({ error: plexErrorMessage(error) });
-}
-
-function hasManageFeature(value: unknown): boolean {
-    if (!value || typeof value !== 'object') return false;
-    if (Array.isArray(value)) return value.some(hasManageFeature);
-    const object = value as Record<string, unknown>;
-    if (object.type === 'manage') return true;
-    return Object.values(object).some(hasManageFeature);
 }
 
 function sectionId(value: string) {
@@ -158,13 +150,13 @@ export function createPlexLibrariesRouter({
     async function authenticate(req: express.Request, res: express.Response) {
         const token = req.headers['x-plex-token'];
         if (typeof token !== 'string' || !token) {
-            res.status(401).send({ error: 'Plex owner session is missing' });
+            res.status(401).send({ error: 'The active Plex session is missing' });
             return null;
         }
 
         const user = await CheckPlexUser(token);
         if (!user) {
-            res.status(401).send({ error: 'Plex owner session has expired' });
+            res.status(401).send({ error: 'The active Plex session has expired' });
             return null;
         }
         if (user.restricted) {
@@ -174,7 +166,7 @@ export function createPlexLibrariesRouter({
 
         try {
             const providers = await axios.get(`${plexServer}/media/providers`, requestConfig(token));
-            if (!hasManageFeature(providers.data)) {
+            if (!hasPlexFeature(providers.data, 'manage')) {
                 res.status(403).send({ error: 'This Plex session cannot manage the server' });
                 return null;
             }

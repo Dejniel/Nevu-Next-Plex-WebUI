@@ -7,11 +7,11 @@ import { useUserSettings } from "../states/UserSettingsState";
 import SettingsAccount from "./settings/SettingsAccount";
 import SettingsSharing from "./settings/SettingsSharing";
 import SettingsLibrariesAdmin from "./settings/SettingsLibrariesAdmin";
-import { useAuthSession } from "../states/AuthSessionState";
+import { useCanManageServer } from "../states/ServerAccess";
 
 function Settings() {
   const { loaded } = useUserSettings();
-  const { activeProfile } = useAuthSession();
+  const canManageServer = useCanManageServer();
 
   if (!loaded)
     return (
@@ -59,7 +59,7 @@ function Settings() {
         <SettingsItem title="About" link="/settings/info" />
         <SettingsDivider title="Experience" />
         <SettingsItem title="Playback" link="/settings/experience-playback" />
-        {activeProfile?.isOwner && (
+        {canManageServer && (
           <>
             <SettingsDivider title="Manage" />
             <SettingsItem title="Libraries" link="/settings/manage-libraries" />

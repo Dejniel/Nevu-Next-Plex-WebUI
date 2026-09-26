@@ -26,6 +26,14 @@ jest.mock("./UserSettingsState", () => ({
 jest.mock("./WatchListCache", () => ({
   useWatchListCache: { getState: () => ({ reset: jest.fn() }) },
 }));
+jest.mock("./SessionState", () => ({
+  useSessionStore: {
+    getState: () => ({ reset: jest.fn(), fetchPlexServer: jest.fn() }),
+  },
+}));
+jest.mock("./LibrariesState", () => ({
+  useLibraries: { getState: () => ({ reset: jest.fn() }) },
+}));
 
 const owner = {
   id: 1,

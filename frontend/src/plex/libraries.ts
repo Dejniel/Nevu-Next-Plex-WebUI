@@ -57,10 +57,10 @@ export class LibraryManagementError extends Error {
 }
 
 function headers() {
-  const token = AuthStorage.getOwnerToken();
+  const token = AuthStorage.getProfileAccountToken();
   if (!token)
     throw new LibraryManagementError(
-      "The Plex owner session has expired. Sign in again.",
+      "The active Plex manager session has expired. Sign in again.",
       401,
     );
 

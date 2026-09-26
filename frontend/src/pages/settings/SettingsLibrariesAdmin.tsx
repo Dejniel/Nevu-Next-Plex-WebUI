@@ -59,8 +59,8 @@ import {
   runLibraryAction,
   updateLibrary,
 } from "../../plex/libraries";
-import { useAuthSession } from "../../states/AuthSessionState";
 import { notifyLibrariesChanged } from "../../states/LibrariesState";
+import { useCanManageServer } from "../../states/ServerAccess";
 
 const ROOT_BROWSE_KEY = "/services/browse/Lw==";
 const LIBRARY_TYPES: Array<{ value: ManagedLibraryType; label: string }> = [
@@ -381,7 +381,7 @@ function LibraryEditor({
 }
 
 export default function SettingsLibrariesAdmin() {
-  const { activeProfile } = useAuthSession();
+  const canManageServer = useCanManageServer();
   const [searchParams, setSearchParams] = useSearchParams();
   const [libraries, setLibraries] = useState<ManagedLibrary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -407,11 +407,11 @@ export default function SettingsLibrariesAdmin() {
   }, []);
 
   useEffect(() => {
-    if (activeProfile?.isOwner) void load();
-  }, [activeProfile?.isOwner, load]);
+    if (canManageServer) void load();
+  }, [canManageServer, load]);
   const deleteTarget = useMemo(() => libraries.find((library) => library.id === deleting) || null, [deleting, libraries]);
 
-  if (!activeProfile?.isOwner) return <Navigate to="/settings/account" replace />;
+  if (!canManageServer) return <Navigate to="/settings/account" replace />;
 
   const closeEditor = () => setSearchParams({});
   const changed = async (message: string) => {

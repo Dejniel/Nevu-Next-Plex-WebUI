@@ -41,9 +41,9 @@ export class SharingError extends Error {
 }
 
 function headers() {
-  const token = AuthStorage.getOwnerToken();
+  const token = AuthStorage.getProfileAccountToken();
   if (!token)
-    throw new SharingError("The Plex owner session has expired. Sign in again.", 401);
+    throw new SharingError("The active Plex manager session has expired. Sign in again.", 401);
 
   return {
     "X-Plex-Token": token,

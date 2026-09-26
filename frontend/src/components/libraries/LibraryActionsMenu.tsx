@@ -32,8 +32,8 @@ import {
   normalizeLibraryNavigation,
   serializeLibraryNavigation,
 } from "../../plex/libraryNavigation";
-import { useAuthSession } from "../../states/AuthSessionState";
 import { useUserSettings } from "../../states/UserSettingsState";
+import { useCanManageServer } from "../../states/ServerAccess";
 import LibraryOrderDialog from "./LibraryOrderDialog";
 
 interface Props {
@@ -45,7 +45,7 @@ interface Props {
 
 export default function LibraryActionsMenu({ anchorEl, library, libraries, onClose }: Props) {
   const navigate = useNavigate();
-  const { activeProfile } = useAuthSession();
+  const canManageServer = useCanManageServer();
   const { settings, setSetting } = useUserSettings();
   const [orderOpen, setOrderOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"refresh-metadata" | "empty-trash" | null>(null);
@@ -98,7 +98,7 @@ export default function LibraryActionsMenu({ anchorEl, library, libraries, onClo
           <ListItemText>Reorder libraries</ListItemText>
         </MenuItem>
 
-        {activeProfile?.isOwner && library && (
+        {canManageServer && library && (
           <>
             <Divider />
             <MenuItem onClick={() => closeAnd(() => navigate(`/settings/manage-libraries?edit=${library.key}`))}>

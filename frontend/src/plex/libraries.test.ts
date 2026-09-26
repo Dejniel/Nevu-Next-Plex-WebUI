@@ -19,7 +19,11 @@ beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
   jest.clearAllMocks();
-  AuthStorage.setOwnerToken("owner-token");
+  AuthStorage.saveActiveSession({
+    profile: null,
+    accountToken: "manager-token",
+    serverToken: "server-token",
+  });
 });
 
 it("loads libraries and browses folders through the owner-only backend", async () => {

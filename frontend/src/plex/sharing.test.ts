@@ -16,11 +16,15 @@ beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
   jest.clearAllMocks();
-  AuthStorage.setOwnerToken("owner-token");
+  AuthStorage.saveActiveSession({
+    profile: null,
+    accountToken: "manager-token",
+    serverToken: "server-token",
+  });
   localStorage.setItem("clientID", "client-id");
 });
 
-it("loads shares with the owner token in headers", async () => {
+it("loads shares with the active manager token in headers", async () => {
   mockedAxios.get.mockResolvedValue({ data: { libraries: [], shares: [] } });
 
   await expect(getSharingOverview()).resolves.toEqual({ libraries: [], shares: [] });
@@ -28,7 +32,7 @@ it("loads shares with the owner token in headers", async () => {
     expect.stringMatching(/\/sharing$/),
     {
       headers: {
-        "X-Plex-Token": "owner-token",
+        "X-Plex-Token": "manager-token",
         "X-Plex-Client-Identifier": "client-id",
       },
     },
@@ -61,7 +65,7 @@ it("creates, updates and removes a share through the Nevu backend", async () => 
   );
 });
 
-it("fails before a request when the owner token is missing", async () => {
+it("fails before a request when the active manager token is missing", async () => {
   localStorage.clear();
 
   await expect(getSharingOverview()).rejects.toBeInstanceOf(SharingError);

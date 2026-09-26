@@ -72,6 +72,7 @@ import {
   withoutExtra,
 } from "../plex/discover";
 import { getTrackChoices } from "../plex/mediaVersions";
+import { useCanManageServer } from "../states/ServerAccess";
 
 function trackLanguages(data: Plex.Metadata, streamType: 2 | 3) {
   return Array.from(
@@ -110,6 +111,7 @@ function TitleScore({
 function MetaScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const canManageServer = useCanManageServer();
 
   const [loading, setLoading] = useState<boolean>(true);
   const [data, setData] = useState<Plex.Metadata | undefined>(undefined);
@@ -670,21 +672,23 @@ function MetaScreen() {
                   <HeroWatchListButton item={data as Plex.Metadata} />
                 </Tooltip>
 
-                <Tooltip placement="top" arrow title="Edit metadata">
-                  <IconButton
-                    aria-label="Edit metadata"
-                    onClick={() => setEditMetadataOpen(true)}
-                    sx={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: 1,
-                      bgcolor: "rgba(18, 25, 39, 0.8)",
-                      border: "1px solid rgba(255,255,255,0.2)",
-                    }}
-                  >
-                    <EditRounded fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                {canManageServer && (
+                  <Tooltip placement="top" arrow title="Edit metadata">
+                    <IconButton
+                      aria-label="Edit metadata"
+                      onClick={() => setEditMetadataOpen(true)}
+                      sx={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 1,
+                        bgcolor: "rgba(18, 25, 39, 0.8)",
+                        border: "1px solid rgba(255,255,255,0.2)",
+                      }}
+                    >
+                      <EditRounded fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
 
                 {data && <RatingButton item={data} />}
 
@@ -1043,7 +1047,7 @@ function MetaScreen() {
             {page === 4 && data && <TitleMedia data={data} />}
           </AnimatePresence>
         </Box>
-        {data && (
+        {data && canManageServer && (
           <EditMetadataDialog
             data={data}
             open={editMetadataOpen}

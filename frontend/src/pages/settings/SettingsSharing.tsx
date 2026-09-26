@@ -34,7 +34,7 @@ import {
   SharingLibrary,
   updateShare,
 } from "../../plex/sharing";
-import { useAuthSession } from "../../states/AuthSessionState";
+import { useCanManageServer } from "../../states/ServerAccess";
 
 interface ShareEditorProps {
   open: boolean;
@@ -174,7 +174,7 @@ function ShareEditor({ open, share, libraries, onClose, onSaved }: ShareEditorPr
 }
 
 export default function SettingsSharing() {
-  const { activeProfile } = useAuthSession();
+  const canManageServer = useCanManageServer();
   const [libraries, setLibraries] = useState<SharingLibrary[]>([]);
   const [shares, setShares] = useState<PlexShare[]>([]);
   const [loading, setLoading] = useState(true);
@@ -185,9 +185,8 @@ export default function SettingsSharing() {
   const [removing, setRemoving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const isOwner = Boolean(activeProfile?.isOwner);
   const load = useCallback(async () => {
-    if (!isOwner) {
+    if (!canManageServer) {
       setLoading(false);
       return;
     }
@@ -202,7 +201,7 @@ export default function SettingsSharing() {
     } finally {
       setLoading(false);
     }
-  }, [isOwner]);
+  }, [canManageServer]);
 
   useEffect(() => {
     load();
@@ -244,12 +243,12 @@ export default function SettingsSharing() {
     }
   };
 
-  if (!isOwner) {
+  if (!canManageServer) {
     return (
       <>
         <Typography variant="h4">Sharing</Typography>
         <Alert severity="info" sx={{ mt: 3 }}>
-          Switch to the Plex Home owner profile to manage library sharing.
+          The active Plex profile cannot manage sharing on this server.
         </Alert>
       </>
     );
