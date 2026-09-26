@@ -9,6 +9,7 @@ import { CheckPlexUser } from './common/plex';
 import fs from 'fs';
 import { Discovery } from 'udp-discovery';
 import httpProxy from 'http-proxy';
+import { createPlexSharingRouter } from './plexSharing';
 
 /* 
  * ENVIRONMENT VARIABLES
@@ -219,6 +220,11 @@ app.get('/config', (req, res) => {
         }
     });
 });
+
+app.use('/sharing', createPlexSharingRouter({
+    plexServer: process.env.PLEX_SERVER || 'http://localhost:32400',
+    httpsAgent: process.env.DISABLE_TLS_VERIFY === 'true' ? noVerifyHttpsAgent : undefined,
+}));
 
 app.post('/discover/extras', async (req, res) => {
     const headers = getDiscoverHeaders(req);

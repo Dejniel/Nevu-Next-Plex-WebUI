@@ -7,9 +7,12 @@ import { useUserSettings } from "../states/UserSettingsState";
 import SettingsRecommendations from "./settings/SettingsRecommendations";
 import SettingsLibraries from "./settings/SettingsLibraries";
 import SettingsAccount from "./settings/SettingsAccount";
+import SettingsSharing from "./settings/SettingsSharing";
+import { useAuthSession } from "../states/AuthSessionState";
 
 function Settings() {
   const { loaded } = useUserSettings();
+  const { activeProfile } = useAuthSession();
 
   if (!loaded)
     return (
@@ -30,10 +33,10 @@ function Settings() {
     <Box
       sx={{
         display: "flex",
-        flexDirection: "row",
+        flexDirection: { xs: "column", md: "row" },
         alignItems: "flex-start",
         justifyContent: "flex-start",
-        height: "100vh",
+        minHeight: "100vh",
         width: "100vw",
         overflow: "auto",
         pt: "64px",
@@ -43,8 +46,8 @@ function Settings() {
     >
       <Box
         sx={{
-          width: "300px",
-          height: "100%",
+          width: { xs: "100%", md: "260px" },
+          flexShrink: 0,
           display: "flex",
           flexDirection: "column",
           backgroundColor: "#181818",
@@ -54,6 +57,9 @@ function Settings() {
       >
         <SettingsDivider title="General" />
         <SettingsItem title="Account" link="/settings/account" />
+        {activeProfile?.isOwner && (
+          <SettingsItem title="Sharing" link="/settings/sharing" />
+        )}
         <SettingsItem title="About" link="/settings/info" />
         <SettingsDivider title="Experience" />
         <SettingsItem title="Playback" link="/settings/experience-playback" />
@@ -63,8 +69,9 @@ function Settings() {
 
       <Box
         sx={{
-          width: "50vw",
-          height: "100%",
+          width: "100%",
+          maxWidth: "900px",
+          minHeight: { xs: "auto", md: "calc(100vh - 84px)" },
           display: "flex",
           flexDirection: "column",
           alignItems: "flex-start",
@@ -72,13 +79,15 @@ function Settings() {
           backgroundColor: "#18181855",
           padding: "20px",
           borderRadius: "10px",
-          ml: "auto",
+          ml: { xs: 0, md: "auto" },
           mr: "auto",
+          mt: { xs: 2, md: 0 },
         }}
       >
         <Routes>
           <Route path="/info" element={<SettingsInfo />} />
           <Route path="/account" element={<SettingsAccount />} />
+          <Route path="/sharing" element={<SettingsSharing />} />
 
           <Route path="/experience-playback" element={<SettingsPlayback />} />
           <Route path="/experience-recommendations" element={<SettingsRecommendations />} />
