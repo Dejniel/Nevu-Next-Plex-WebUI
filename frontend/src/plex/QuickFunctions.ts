@@ -2,6 +2,7 @@ import { ProxiedRequest } from "../backendURL";
 import { platformCache } from "../common/DesktopApp";
 import { useSessionStore } from "../states/SessionState";
 import { AuthStorage } from "../auth/AuthStorage";
+import { APP_VERSION } from "../appVersion";
 
 export async function authedGet(url: string) {
     const res = await ProxiedRequest(url, "GET", {
@@ -52,7 +53,7 @@ export function getXPlexProps() {
     return {
         "X-Incomplete-Segments": "1",
         "X-Plex-Product": platformCache.platform?.platform ? "Nevu Desktop" : "Nevu Web",
-        "X-Plex-Version": "10.26.0.2578",
+        "X-Plex-Version": APP_VERSION,
         "X-Plex-Client-Identifier": localStorage.getItem("clientID"),
         "X-Plex-Platform": platformCache.platform?.platform ?? getBrowserName(),
         "X-Plex-Platform-Version": platformCache.platform?.version ?? getBrowserVersion(),

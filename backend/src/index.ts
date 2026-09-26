@@ -6,10 +6,10 @@ import { PerPlexed } from './types';
 import { randomBytes } from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import { CheckPlexUser } from './common/plex';
-import fs from 'fs';
 import { Discovery } from 'udp-discovery';
 import httpProxy from 'http-proxy';
 import { createPlexSharingRouter } from './plexSharing';
+import { APP_VERSION } from './appVersion';
 
 /* 
  * ENVIRONMENT VARIABLES
@@ -44,7 +44,7 @@ discovery.announce("Nevu", {
     protocol: 'tcp',
     txt: {
         deploymentID,
-        version: '1.0.0',
+        version: APP_VERSION,
         plexServer: process.env.PLEX_SERVER,
     }
 }, 500, true);
@@ -80,7 +80,7 @@ function getDiscoverHeaders(req: express.Request) {
         'Accept': 'application/json',
         'X-Plex-Token': token,
         'X-Plex-Product': 'NEVU',
-        'X-Plex-Version': '0.1.0',
+        'X-Plex-Version': APP_VERSION,
         'X-Plex-Client-Identifier': String(
             req.headers['x-plex-client-identifier'] || 'nevu-web'
         ),
@@ -88,16 +88,6 @@ function getDiscoverHeaders(req: express.Request) {
 }
 
 (async () => {
-    const packageJson = fs.readFileSync('package.json', 'utf-8');
-    const packageJsonParsed = JSON.parse(packageJson);
-
-    if (packageJsonParsed.version !== "1.0.0") {
-        status.error = true;
-        status.message = 'PerPlexed is now NEVU! \nPlease change the docker image from "ipmake/perplexed" to "ipmake/nevu"';
-        console.error('PerPlexed is now NEVU! \nPlease change the docker image from "ipmake/perplexed" to "ipmake/nevu"');
-        return
-    }
-
     if (process.env.PROXY_PLEX_SERVER) {
         status.error = true;
         status.message = 'PROXY_PLEX_SERVER environment variable is deprecated. \nPlease use PLEX_SERVER instead';

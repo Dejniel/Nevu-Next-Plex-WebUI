@@ -2,6 +2,7 @@ import axios from "axios";
 import { XMLParser } from "fast-xml-parser";
 import { AuthStorage, HomeProfile } from "../auth/AuthStorage";
 import { ProxiedRequest } from "../backendURL";
+import { APP_VERSION } from "../appVersion";
 
 const xmlParser = new XMLParser({
   attributeNamePrefix: "",
@@ -24,7 +25,7 @@ function plexHeaders(token?: string, accept = "application/json") {
   return {
     Accept: accept,
     "X-Plex-Product": "NEVU",
-    "X-Plex-Version": "0.1.0",
+    "X-Plex-Version": APP_VERSION,
     "X-Plex-Client-Identifier": getClientIdentifier(),
     ...(token ? { "X-Plex-Token": token } : {}),
   };

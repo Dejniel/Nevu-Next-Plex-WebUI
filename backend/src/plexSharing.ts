@@ -2,6 +2,7 @@ import axios, { AxiosRequestConfig } from 'axios';
 import express from 'express';
 import https from 'https';
 import { CheckPlexUser } from './common/plex';
+import { APP_VERSION } from './appVersion';
 
 const PLEX_TV_URL = 'https://plex.tv/api/v2';
 
@@ -62,7 +63,7 @@ function cloudHeaders(req: express.Request, token: string) {
         'Content-Type': 'application/json',
         'X-Plex-Token': token,
         'X-Plex-Product': 'NEVU',
-        'X-Plex-Version': '0.1.0',
+        'X-Plex-Version': APP_VERSION,
         'X-Plex-Client-Identifier': clientIdentifier(req),
     };
 }

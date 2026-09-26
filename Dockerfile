@@ -1,9 +1,12 @@
 ARG NODE_IMAGE=node:22.14.0-bookworm-slim@sha256:1c18d9ab3af4585870b92e4dbc5cac5a0dc77dd13df1a5905cea89fc720eb05b
+ARG APP_VERSION=dev
 
 FROM ${NODE_IMAGE} AS frontend-build
+ARG APP_VERSION
 WORKDIR /build/frontend
 ENV CI=true \
-    GENERATE_SOURCEMAP=false
+    GENERATE_SOURCEMAP=false \
+    REACT_APP_VERSION=${APP_VERSION}
 
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
@@ -25,9 +28,11 @@ COPY backend/ ./
 RUN npm run db:generate && npm run build
 
 FROM backend-base AS runtime
+ARG APP_VERSION
 WORKDIR /app
 ENV NODE_ENV=production \
-    LISTEN_PORT=3000
+    LISTEN_PORT=3000 \
+    APP_VERSION=${APP_VERSION}
 LABEL org.opencontainers.image.source="https://github.com/Dejniel/Nevu-Next-Plex-WebUI" \
       org.opencontainers.image.title="Nevu Next Plex WebUI" \
       org.opencontainers.image.licenses="GPL-3.0"
