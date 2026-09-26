@@ -9,13 +9,11 @@ import { Box, Typography, Button, IconButton, Skeleton } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { usePreviewPlayer } from "../states/PreviewPlayerState";
-import ReactPlayer from "react-player";
 import { useBigReader } from "./BigReader";
 import { HeroWatchListButton } from "./MovieItem";
-import { getBackendURL } from "../backendURL";
-import { queryBuilder } from "../plex/QuickFunctions";
 import { getTranscodeImageURL } from "../plex";
-import { AuthStorage } from "../auth/AuthStorage";
+import ExtraPlayer from "./title/ExtraPlayer";
+import { useTitleExtras } from "../hooks/useTitleExtras";
 
 function HeroDisplay({
   item,
@@ -29,15 +27,7 @@ function HeroDisplay({
 
   const { MetaScreenPlayerMuted, setMetaScreenPlayerMuted } =
     usePreviewPlayer();
-
-  const previewVidURL = item?.Extras?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.key
-    ? `${getBackendURL()}/dynproxy${item?.Extras?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.key.split("?")[0]}?${
-        queryBuilder({
-          "X-Plex-Token": AuthStorage.getServerToken(),
-          ...Object.fromEntries(new URL("http://localhost:3000" + item?.Extras?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.key).searchParams.entries()),
-        })
-      }`
-    : null;
+  const { primaryTrailer } = useTitleExtras(item);
 
   const [previewVidPlaying, setPreviewVidPlaying] = useState<boolean>(false);
   const [artworkLoaded, setArtworkLoaded] = useState(false);
@@ -50,12 +40,10 @@ function HeroDisplay({
   useEffect(() => {
     setPreviewVidPlaying(false);
 
-    if (!previewVidURL) return;
+    if (!primaryTrailer || searchParams.has("mid")) return;
 
     const timeout = setTimeout(() => {
       if (window.scrollY > 100) return;
-      if (searchParams.has("mid")) return;
-      if (document.location.href.includes("mid=")) return;
       setPreviewVidPlaying(true);
     }, 3000);
 
@@ -70,8 +58,7 @@ function HeroDisplay({
       clearTimeout(timeout);
       window.removeEventListener("scroll", onScroll);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [primaryTrailer, searchParams]);
 
   return (
     <Box
@@ -89,7 +76,7 @@ function HeroDisplay({
           position: "absolute",
           right: "2vw",
           bottom: { xs: "20vh", sm: "15vh", md: "20vh" },
-          opacity: previewVidURL ? 1 : 0,
+          opacity: primaryTrailer ? 1 : 0,
           transition: "all 1s ease",
           zIndex: 2,
           cursor: "pointer",
@@ -103,6 +90,7 @@ function HeroDisplay({
         }}
       >
         <IconButton
+          aria-label={previewVidPlaying ? "Pause trailer" : "Play trailer"}
           sx={{
             backgroundColor: "#00000088",
           }}
@@ -114,6 +102,7 @@ function HeroDisplay({
         </IconButton>
 
         <IconButton
+          aria-label={MetaScreenPlayerMuted ? "Unmute trailer" : "Mute trailer"}
           sx={{
             backgroundColor: "#00000088",
           }}
@@ -193,34 +182,20 @@ function HeroDisplay({
             zIndex: 1,
           }}
         >
-          <ReactPlayer
-            url={previewVidURL ?? undefined}
-            controls={false}
-            width="100%"
-            height="100%"
-            playing={previewVidPlaying}
-            volume={MetaScreenPlayerMuted ? 0 : 0.5}
-            muted={MetaScreenPlayerMuted}
-            onEnded={() => {
-              setPreviewVidPlaying(false);
-            }}
-            pip={false}
-            config={{
-              file: {
-                attributes: {
-                  controlsList: "nodownload",
-                  disablePictureInPicture: true,
-                  disableRemotePlayback: true,
-                  style: {
-                    objectFit: "cover",
-                    width: "100%",
-                    height: "100%",
-                    zIndex: -1,
-                  }
-                },
-              },
-            }}
-          />
+          {primaryTrailer && (
+            <ExtraPlayer
+              extra={primaryTrailer}
+              autoPlay={previewVidPlaying}
+              playing={previewVidPlaying}
+              muted={MetaScreenPlayerMuted}
+              volume={0.5}
+              controls={false}
+              objectFit="cover"
+              showErrors={false}
+              onEnded={() => setPreviewVidPlaying(false)}
+              onPlaybackError={() => setPreviewVidPlaying(false)}
+            />
+          )}
         </Box>
 
         <Box

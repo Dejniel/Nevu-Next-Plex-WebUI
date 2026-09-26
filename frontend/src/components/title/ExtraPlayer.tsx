@@ -5,17 +5,36 @@ import { resolveExtraURL, TitleExtra } from "../../plex/discover";
 export default function ExtraPlayer({
   extra,
   autoPlay = false,
+  muted = false,
+  controls = true,
+  objectFit = "contain",
+  showErrors = true,
+  playing,
+  volume = 1,
   poster,
   onEnded,
+  onPlaybackError,
 }: {
   extra: TitleExtra;
   autoPlay?: boolean;
+  muted?: boolean;
+  controls?: boolean;
+  objectFit?: React.CSSProperties["objectFit"];
+  showErrors?: boolean;
+  playing?: boolean;
+  volume?: number;
   poster?: string;
   onEnded?: () => void;
+  onPlaybackError?: (message: string) => void;
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const shouldPlayRef = useRef(autoPlay || Boolean(playing));
+
+  useEffect(() => {
+    shouldPlayRef.current = autoPlay || Boolean(playing);
+  }, [autoPlay, playing]);
 
   useEffect(() => {
     let active = true;
@@ -26,9 +45,10 @@ export default function ExtraPlayer({
       .then((resolvedURL) => active && setUrl(resolvedURL))
       .catch((reason) => {
         if (!active) return;
-        setError(
-          reason instanceof Error ? reason.message : "Unable to play this extra.",
-        );
+        const message =
+          reason instanceof Error ? reason.message : "Unable to play this extra.";
+        setError(message);
+        onPlaybackError?.(message);
       });
 
     return () => {
@@ -63,7 +83,9 @@ export default function ExtraPlayer({
       .then(({ default: Hls }) => {
         if (!active) return;
         if (!Hls.isSupported()) {
-          setError("This browser cannot play HLS video.");
+          const message = "This browser cannot play HLS video.";
+          setError(message);
+          onPlaybackError?.(message);
           return;
         }
 
@@ -93,14 +115,24 @@ export default function ExtraPlayer({
             return;
           }
 
-          setError(`Unable to play this HLS stream (${data.details}).`);
+          const message = `Unable to play this HLS stream (${data.details}).`;
+          setError(message);
+          onPlaybackError?.(message);
+        });
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          if (shouldPlayRef.current)
+            void video.play().catch(() => undefined);
         });
 
         hls.loadSource(url);
         hls.attachMedia(video);
       })
       .catch(() => {
-        if (active) setError("Unable to load the HLS player.");
+        if (!active) return;
+        const message = "Unable to load the HLS player.";
+        setError(message);
+        onPlaybackError?.(message);
       });
 
     return () => {
@@ -108,6 +140,18 @@ export default function ExtraPlayer({
       hls?.destroy();
     };
   }, [extra.source, url]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!url || !video || playing === undefined) return;
+
+    if (playing) void video.play().catch(() => undefined);
+    else video.pause();
+  }, [playing, url]);
+
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.volume = volume;
+  }, [volume, url]);
 
   return (
     <Box
@@ -121,21 +165,25 @@ export default function ExtraPlayer({
       }}
     >
       {!url && !error && <CircularProgress />}
-      {error && <Alert severity="error">{error}</Alert>}
+      {error && showErrors && <Alert severity="error">{error}</Alert>}
       {url && !error && (
         <video
           ref={videoRef}
           autoPlay={autoPlay}
-          controls
+          muted={muted}
+          controls={controls}
           playsInline
           poster={poster}
-          preload="metadata"
+          preload={autoPlay ? "auto" : "metadata"}
+          controlsList="nodownload"
+          disablePictureInPicture
           onEnded={onEnded}
           onError={() => {
-            if (extra.source !== "discover")
-              setError("Unable to play this video file.");
+            const message = "Unable to play this video stream.";
+            setError(message);
+            onPlaybackError?.(message);
           }}
-          style={{ objectFit: "contain", width: "100%", height: "100%" }}
+          style={{ objectFit, width: "100%", height: "100%" }}
         />
       )}
     </Box>

@@ -65,14 +65,11 @@ import {
   MetadataUpdate,
 } from "../plex/metadata";
 import {
-  fetchDiscoverExtras,
-  mergeTitleExtras,
-  selectPrimaryTrailer,
-  TitleExtra,
   withoutExtra,
 } from "../plex/discover";
 import { getTrackChoices } from "../plex/mediaVersions";
 import { useCanManageServer } from "../states/ServerAccess";
+import { useTitleExtras } from "../hooks/useTitleExtras";
 
 function trackLanguages(data: Plex.Metadata, streamType: 2 | 3) {
   return Array.from(
@@ -124,10 +121,13 @@ function MetaScreen() {
   const [languages, setLanguages] = useState<string[] | null>(null);
   const [subTitles, setSubTitles] = useState<string[] | null>(null);
 
-  const [extras, setExtras] = useState<TitleExtra[]>([]);
-  const [extrasLoading, setExtrasLoading] = useState(false);
   const [editMetadataOpen, setEditMetadataOpen] = useState(false);
   const [metadataSaved, setMetadataSaved] = useState(false);
+  const {
+    extras,
+    loading: extrasLoading,
+    primaryTrailer,
+  } = useTitleExtras(data);
 
   const mid = searchParams.get("mid");
 
@@ -154,7 +154,6 @@ function MetaScreen() {
     setSelectedSeason(0);
     setLanguages(null);
     setSubTitles(null);
-    setExtras([]);
     setPage(0);
     setEditMetadataOpen(false);
     setMetadataSaved(false);
@@ -177,31 +176,6 @@ function MetaScreen() {
       setLoading(false);
     });
   }, [mid]);
-
-  useEffect(() => {
-    let active = true;
-    if (!data)
-      return () => {
-        active = false;
-      };
-
-    const localExtras = data.Extras?.Metadata ?? [];
-    setExtras(mergeTitleExtras(localExtras));
-    setExtrasLoading(true);
-
-    fetchDiscoverExtras(data)
-      .catch(() => [])
-      .then((discoverExtras) => {
-        if (active) setExtras(mergeTitleExtras(localExtras, discoverExtras));
-      })
-      .finally(() => {
-        if (active) setExtrasLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [data]);
 
   useEffect(() => {
     if (languages || subTitles) return;
@@ -264,7 +238,6 @@ function MetaScreen() {
     }
   };
 
-  const primaryTrailer = selectPrimaryTrailer(extras, data?.primaryExtraKey);
   const remainingExtras = withoutExtra(extras, primaryTrailer);
 
   const metadataWasSaved = (
