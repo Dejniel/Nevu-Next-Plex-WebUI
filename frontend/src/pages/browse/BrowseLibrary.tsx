@@ -8,13 +8,11 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
-  IconButton,
 } from "@mui/material";
 import {
   CropLandscapeRounded,
   CropPortraitRounded,
   GridViewRounded,
-  MoreVertRounded,
 } from "@mui/icons-material";
 import { AnimatePresence, motion } from "framer-motion";
 import React, { useEffect } from "react";
@@ -23,8 +21,6 @@ import { getLibrary, getLibraryDir } from "../../plex";
 import MovieItem from "../../components/MovieItem";
 import { useInView } from "react-intersection-observer";
 import { useUserSettings } from "../../states/UserSettingsState";
-import { useLibraries } from "../../states/LibrariesState";
-import LibraryActionsMenu from "../../components/libraries/LibraryActionsMenu";
 
 type LibraryCardLayout = "landscape" | "poster";
 
@@ -69,8 +65,6 @@ export const libTypeToNum = (type: string) => {
 function BrowseLibrary() {
   const { libraryID } = useParams<{ libraryID: string }>();
   const { settings, setSetting } = useUserSettings();
-  const { libraries } = useLibraries();
-  const [libraryMenuAnchor, setLibraryMenuAnchor] = React.useState<HTMLElement | null>(null);
   const [library, setLibrary] = React.useState<Plex.MediaContainer | null>(
     null
   );
@@ -102,8 +96,6 @@ function BrowseLibrary() {
   }, [settings.LIBRARY_CARD_LAYOUT, settings.LIBRARY_CARD_SIZE]);
 
   const cardWidth = getCardWidth(cardLayout, cardSize);
-  const navigationLibraries = (libraries || []).filter((entry) => ["movie", "show"].includes(entry.type));
-  const navigationLibrary = navigationLibraries.find((entry) => entry.key === libraryID) || null;
 
   useEffect(() => {
     if (!libraryID) return;
@@ -303,21 +295,6 @@ function BrowseLibrary() {
           <Divider />
           <MenuItem value={"random:desc"}>Random</MenuItem>
         </Select>
-
-        {navigationLibrary && (
-          <Tooltip title="Library actions">
-            <IconButton onClick={(event) => setLibraryMenuAnchor(event.currentTarget)} aria-label="Library actions">
-              <MoreVertRounded />
-            </IconButton>
-          </Tooltip>
-        )}
-
-        <LibraryActionsMenu
-          anchorEl={libraryMenuAnchor}
-          library={navigationLibrary}
-          libraries={navigationLibraries}
-          onClose={() => setLibraryMenuAnchor(null)}
-        />
 
         <Box
           sx={{

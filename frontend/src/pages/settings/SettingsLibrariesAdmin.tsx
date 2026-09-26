@@ -70,6 +70,53 @@ const LIBRARY_TYPES: Array<{ value: ManagedLibraryType; label: string }> = [
   { value: "photo", label: "Photos" },
   { value: "video", label: "Other videos" },
 ];
+const LIBRARY_LANGUAGES = [
+  ["ar-SA", "Arabic"],
+  ["bg-BG", "Bulgarian"],
+  ["ca-ES", "Catalan"],
+  ["zh-CN", "Chinese (Simplified)"],
+  ["zh-TW", "Chinese (Traditional)"],
+  ["cs-CZ", "Czech"],
+  ["da-DK", "Danish"],
+  ["nl-NL", "Dutch"],
+  ["en-US", "English"],
+  ["fi-FI", "Finnish"],
+  ["fr-FR", "French"],
+  ["de-DE", "German"],
+  ["el-GR", "Greek"],
+  ["he-IL", "Hebrew"],
+  ["hu-HU", "Hungarian"],
+  ["id-ID", "Indonesian"],
+  ["it-IT", "Italian"],
+  ["ja-JP", "Japanese"],
+  ["ko-KR", "Korean"],
+  ["no-NO", "Norwegian"],
+  ["fa-IR", "Persian"],
+  ["pl-PL", "Polish"],
+  ["pt-BR", "Portuguese (Brazil)"],
+  ["pt-PT", "Portuguese (Portugal)"],
+  ["ro-RO", "Romanian"],
+  ["ru-RU", "Russian"],
+  ["sk-SK", "Slovak"],
+  ["es-ES", "Spanish"],
+  ["sv-SE", "Swedish"],
+  ["th-TH", "Thai"],
+  ["tr-TR", "Turkish"],
+  ["uk-UA", "Ukrainian"],
+  ["vi-VN", "Vietnamese"],
+] as const;
+
+const menuDotsSx = {
+  color: "text.secondary",
+  opacity: 0.58,
+  transition: "none",
+  "&:hover": {
+    color: "text.primary",
+    opacity: 0.82,
+    backgroundColor: "transparent",
+    transform: "none",
+  },
+};
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Plex library request failed.";
@@ -325,7 +372,22 @@ function LibraryEditor({
                     </FormControl>
                   )}
                   <TextField label="Name" value={name} onChange={(event) => setName(event.target.value)} fullWidth autoFocus />
-                  <TextField label="Language" value={language} onChange={(event) => setLanguage(event.target.value)} fullWidth helperText="Plex language code, for example en-US or pl-PL." />
+                  <FormControl fullWidth>
+                    <InputLabel id="library-language-label">Language</InputLabel>
+                    <Select
+                      labelId="library-language-label"
+                      label="Language"
+                      value={language}
+                      onChange={(event) => setLanguage(String(event.target.value))}
+                    >
+                      {!LIBRARY_LANGUAGES.some(([code]) => code === language) && (
+                        <MenuItem value={language}>{language}</MenuItem>
+                      )}
+                      {LIBRARY_LANGUAGES.map(([code, label]) => (
+                        <MenuItem key={code} value={code}>{label}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </Box>
               )}
               {tab === 1 && (
@@ -453,7 +515,7 @@ export default function SettingsLibrariesAdmin() {
               secondaryAction={
                 <Box sx={{ display: "flex", alignItems: "center" }}>
                   <Tooltip title="Edit library"><IconButton onClick={() => setSearchParams({ edit: library.id })}><EditRounded /></IconButton></Tooltip>
-                  <Tooltip title="Library actions"><IconButton onClick={(event) => { setMenuLibrary(library); setMenuAnchor(event.currentTarget); }}><MoreVertRounded /></IconButton></Tooltip>
+                  <Tooltip title="Library actions"><IconButton sx={menuDotsSx} onClick={(event) => { setMenuLibrary(library); setMenuAnchor(event.currentTarget); }}><MoreVertRounded /></IconButton></Tooltip>
                 </Box>
               }
               sx={{ minHeight: 72, pr: 12 }}

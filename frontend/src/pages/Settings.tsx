@@ -56,9 +56,8 @@ function Settings() {
       >
         <SettingsDivider title="General" />
         <SettingsItem title="Account" link="/settings/account" />
-        <SettingsItem title="About" link="/settings/info" />
-        <SettingsDivider title="Experience" />
         <SettingsItem title="Playback" link="/settings/experience-playback" />
+        <SettingsItem title="About" link="/settings/info" />
         {canManageServer && (
           <>
             <SettingsDivider title="Manage" />

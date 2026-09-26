@@ -65,6 +65,18 @@ const BarSide: SxProps<Theme> = {
   height: "100%",
 };
 
+const menuDotsSx = {
+  color: "text.secondary",
+  opacity: 0.58,
+  transition: "none",
+  "&:hover": {
+    color: "text.primary",
+    opacity: 0.82,
+    backgroundColor: "transparent",
+    transform: "none",
+  },
+};
+
 function Appbar() {
   const [scrollAtTop, setScrollAtTop] = useState(true);
   const location = useLocation();
@@ -450,6 +462,7 @@ S - Skip onscreen markers (intro, credits, etc)
                     edge="end"
                     onClick={(event) => openLibraryMenu(event.currentTarget, library)}
                     aria-label={`Actions for ${library.title}`}
+                    sx={menuDotsSx}
                   >
                     <MoreVertRounded />
                   </IconButton>
@@ -478,6 +491,7 @@ S - Skip onscreen markers (intro, credits, etc)
                         edge="end"
                         onClick={(event) => openLibraryMenu(event.currentTarget, library)}
                         aria-label={`Actions for ${library.title}`}
+                        sx={menuDotsSx}
                       >
                         <MoreVertRounded />
                       </IconButton>
@@ -1004,6 +1018,7 @@ function LibrariesDropdown({
                         setLibrariesAnchorEl(null);
                       }}
                       aria-label={`Actions for ${library.title}`}
+                      sx={{ ...menuDotsSx, width: 32, height: 32 }}
                     >
                       <MoreVertRounded fontSize="small" />
                     </IconButton>
@@ -1033,7 +1048,7 @@ function HeadLink({
 }): JSX.Element {
   const [, setSearchParams] = useSearchParams();
   return (
-    <Box sx={{ display: "flex", alignItems: "center", minWidth: 0, "& .library-menu": { opacity: 0 }, "&:hover .library-menu, &:focus-within .library-menu": { opacity: 1 } }}>
+    <Box sx={{ display: "flex", alignItems: "center", minWidth: 0, position: "relative" }}>
       <Link
         className={`head-link${active ? " head-link-active" : ""}`}
         to={to}
@@ -1065,7 +1080,15 @@ function HeadLink({
             onMenu(event.currentTarget, library);
           }}
           aria-label={`Actions for ${library.title}`}
-          sx={{ ml: 0.25, transition: "opacity 0.2s" }}
+          sx={{
+            ...menuDotsSx,
+            position: "absolute",
+            left: "calc(100% + 2px)",
+            top: "calc(50% - 12px)",
+            width: 24,
+            height: 24,
+            p: 0,
+          }}
         >
           <MoreVertRounded fontSize="small" />
         </IconButton>
