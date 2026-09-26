@@ -1,0 +1,54 @@
+name: nevu-next
+
+services:
+  plex:
+    image: ${PLEX_IMAGE:-plexinc/pms-docker:latest}
+    container_name: plex
+    hostname: ${PLEX_HOSTNAME:-plex}
+    restart: unless-stopped
+    ports:
+      - "32400:32400/tcp"
+      - "8324:8324/tcp"
+      - "32469:32469/tcp"
+      - "1900:1900/udp"
+      - "32410:32410/udp"
+      - "32412:32412/udp"
+      - "32413:32413/udp"
+      - "32414:32414/udp"
+    environment:
+      TZ: ${TZ:-Etc/UTC}
+      PLEX_CLAIM: ${PLEX_CLAIM:-}
+      ADVERTISE_IP: http://${SERVER_IP:?Set SERVER_IP in .env}:32400/
+      PLEX_UID: ${PLEX_UID:-1000}
+      PLEX_GID: ${PLEX_GID:-1000}
+    volumes:
+      - ${PLEX_CONFIG_PATH:-./data/plex}:/config
+      - ${PLEX_TRANSCODE_PATH:-./data/transcode}:/transcode
+      - ${PLEX_MEDIA_PATH:?Set PLEX_MEDIA_PATH in .env}:/data:ro
+    # Uncomment for Intel Quick Sync hardware transcoding on Linux.
+    # devices:
+    #   - /dev/dri:/dev/dri
+
+  nevu:
+    image: ${NEVU_IMAGE:-local/nevu-next:dev}
+    build:
+      context: .
+    restart: unless-stopped
+    depends_on:
+      - plex
+    ports:
+      - "${NEVU_PORT:-3000}:3000"
+      - "${NEVU_DISCOVERY_PORT:-44201}:44201/udp"
+    volumes:
+      - nevu-data:/app/data
+    environment:
+      PLEX_SERVER: http://plex:32400
+      PORT: ${NEVU_PORT:-3000}
+      LISTEN_PORT: 3000
+      DISABLE_TLS_VERIFY: "false"
+      DISABLE_NEVU_SYNC: ${DISABLE_NEVU_SYNC:-false}
+      DISABLE_REQUEST_LOGGING: ${DISABLE_REQUEST_LOGGING:-false}
+      DISABLE_GLOBAL_REVIEWS: ${DISABLE_GLOBAL_REVIEWS:-false}
+
+volumes:
+  nevu-data:
