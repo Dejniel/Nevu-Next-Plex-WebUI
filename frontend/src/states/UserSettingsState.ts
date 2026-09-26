@@ -23,6 +23,8 @@ const defaultSettings = {
     DISABLE_WATCHSCREEN_DARKENING: "false",
     AUTO_MATCH_TRACKS: "true",
     AUTO_NEXT_EP: "true",
+    LIBRARY_CARD_LAYOUT: "landscape",
+    LIBRARY_CARD_SIZE: "40",
 };
 
 export const useUserSettings = create<UserSettingsState>((set) => ({

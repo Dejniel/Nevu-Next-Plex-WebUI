@@ -68,12 +68,14 @@ function MovieItem({
   index,
   PlexTvSource,
   refetchData,
+  layout = "landscape",
 }: {
   item: Plex.Metadata;
   itemsPerPage?: number;
   index?: number;
   PlexTvSource?: boolean;
   refetchData?: () => void;
+  layout?: "landscape" | "poster";
 }): JSX.Element {
   const [, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -94,9 +96,10 @@ function MovieItem({
   const hoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const previewEnabled = layout === "landscape";
 
   useEffect(() => {
-    if (hovered) {
+    if (hovered && previewEnabled) {
       hoverTimerRef.current = setTimeout(async () => {
         const data = await getLibraryMeta(item.ratingKey);
         if (!data) return;
@@ -131,7 +134,7 @@ function MovieItem({
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hovered]);
+  }, [hovered, previewEnabled]);
 
   useEffect(() => {
     hoveredRef.current = hovered;
@@ -392,7 +395,7 @@ function MovieItem({
           cursor: "pointer",
 
           "&:hover": {
-            transform: "scale(1.15)",
+            transform: layout === "poster" ? "scale(1.08)" : "scale(1.15)",
             zIndex: 10,
             boxShadow: "0px 8px 24px rgba(0, 0, 0, 0.5)",
             border: "1px solid rgba(255,255,255,0.15)",
@@ -444,7 +447,7 @@ function MovieItem({
         <Box
           sx={{
             width: "100%",
-            aspectRatio: "16/9",
+            aspectRatio: layout === "poster" ? "2/3" : "16/9",
             position: "relative",
             overflow: "hidden",
             flexShrink: 0,
@@ -455,51 +458,56 @@ function MovieItem({
             sx={{
               position: "absolute",
               inset: 0,
-              backgroundImage: ["episode"].includes(item.type)
-                ? `url(${getTranscodeImageURL(item.thumb, 1200, 680)})`
-                : `url(${getTranscodeImageURL(item.art, 1200, 680)})`,
+              backgroundImage:
+                layout === "poster"
+                  ? `url(${getTranscodeImageURL(item.thumb ?? item.art, 600, 900)})`
+                  : ["episode"].includes(item.type)
+                  ? `url(${getTranscodeImageURL(item.thumb, 1200, 680)})`
+                  : `url(${getTranscodeImageURL(item.art, 1200, 680)})`,
               backgroundSize: "cover",
-              backgroundPosition: "center",
+              backgroundPosition: layout === "poster" ? "center top" : "center",
             }}
           />
 
           {/* Preview playback overlay */}
-          <Box
-            sx={{
-              position: "absolute",
-              inset: 0,
-              opacity: previewPlaybackState.playing ? 1 : 0,
-              transition: "opacity 2s cubic-bezier(0.25,0.10,0.25,1.00)",
-              backgroundColor: previewPlaybackState.playing
-                ? "rgba(18, 25, 39, 0.95)"
-                : "transparent",
-              pointerEvents: "none",
-              overflow: "hidden",
-            }}
-          >
-            <ReactPlayer
-              url={previewPlaybackState.url ?? undefined}
-              controls={false}
-              width="100%"
-              height="100%"
-              autoplay={true}
-              playing={previewPlaybackState.playing}
-              volume={MetaScreenPlayerMuted ? 0 : 0.5}
-              muted={MetaScreenPlayerMuted}
-              onEnded={() => {
-                setPreviewPlaybackState({
-                  url: "",
-                  playing: false,
-                });
+          {previewEnabled && (
+            <Box
+              sx={{
+                position: "absolute",
+                inset: 0,
+                opacity: previewPlaybackState.playing ? 1 : 0,
+                transition: "opacity 2s cubic-bezier(0.25,0.10,0.25,1.00)",
+                backgroundColor: previewPlaybackState.playing
+                  ? "rgba(18, 25, 39, 0.95)"
+                  : "transparent",
+                pointerEvents: "none",
+                overflow: "hidden",
               }}
-              pip={false}
-              config={{
-                file: {
-                  attributes: { disablePictureInPicture: true },
-                },
-              }}
-            />
-          </Box>
+            >
+              <ReactPlayer
+                url={previewPlaybackState.url ?? undefined}
+                controls={false}
+                width="100%"
+                height="100%"
+                autoplay={true}
+                playing={previewPlaybackState.playing}
+                volume={MetaScreenPlayerMuted ? 0 : 0.5}
+                muted={MetaScreenPlayerMuted}
+                onEnded={() => {
+                  setPreviewPlaybackState({
+                    url: "",
+                    playing: false,
+                  });
+                }}
+                pip={false}
+                config={{
+                  file: {
+                    attributes: { disablePictureInPicture: true },
+                  },
+                }}
+              />
+            </Box>
+          )}
 
           {/* Hover overlay with buttons */}
           <Box
@@ -553,41 +561,43 @@ function MovieItem({
           </Box>
 
           {/* Mute button for preview */}
-          <IconButton
-            size="small"
-            sx={{
-              backgroundColor: "rgba(18, 25, 39, 0.55)",
-              backdropFilter: "blur(12px)",
-              border: "1px solid rgba(255,255,255,0.15)",
-              opacity: previewPlaybackState.url ? 1 : 0,
-              transition: "opacity 0.4s ease, background-color 0.2s ease",
-              position: "absolute",
-              top: "8px",
-              left: "8px",
-              zIndex: 10,
-              padding: "1px",
-              "&:hover": {
-                backgroundColor: "rgba(18, 25, 39, 0.8)",
-              },
-              width: "28px",
-              height: "28px",
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              if (!item) return;
+          {previewEnabled && (
+            <IconButton
+              size="small"
+              sx={{
+                backgroundColor: "rgba(18, 25, 39, 0.55)",
+                backdropFilter: "blur(12px)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                opacity: previewPlaybackState.url ? 1 : 0,
+                transition: "opacity 0.4s ease, background-color 0.2s ease",
+                position: "absolute",
+                top: "8px",
+                left: "8px",
+                zIndex: 10,
+                padding: "1px",
+                "&:hover": {
+                  backgroundColor: "rgba(18, 25, 39, 0.8)",
+                },
+                width: "28px",
+                height: "28px",
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                if (!item) return;
 
-              usePreviewPlayer.setState((state) => ({
-                MetaScreenPlayerMuted: !state.MetaScreenPlayerMuted,
-              }));
-            }}
-          >
-            {MetaScreenPlayerMuted ? (
-              <VolumeOffRounded sx={{ fontSize: "12px" }} />
-            ) : (
-              <VolumeUpRounded sx={{ fontSize: "12px" }} />
-            )}
-          </IconButton>
+                usePreviewPlayer.setState((state) => ({
+                  MetaScreenPlayerMuted: !state.MetaScreenPlayerMuted,
+                }));
+              }}
+            >
+              {MetaScreenPlayerMuted ? (
+                <VolumeOffRounded sx={{ fontSize: "12px" }} />
+              ) : (
+                <VolumeUpRounded sx={{ fontSize: "12px" }} />
+              )}
+            </IconButton>
+          )}
 
           {/* Watched badge */}
           {((item.type === "show" && item.leafCount === item.viewedLeafCount) ||

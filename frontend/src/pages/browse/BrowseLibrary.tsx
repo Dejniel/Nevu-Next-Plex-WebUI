@@ -1,17 +1,40 @@
 import {
   Box,
   Divider,
-  Grid,
   MenuItem,
   Select,
   Skeleton,
+  Slider,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
 } from "@mui/material";
+import {
+  CropLandscapeRounded,
+  CropPortraitRounded,
+  GridViewRounded,
+} from "@mui/icons-material";
 import { AnimatePresence, motion } from "framer-motion";
 import React, { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { getLibrary, getLibraryDir } from "../../plex";
 import MovieItem from "../../components/MovieItem";
 import { useInView } from "react-intersection-observer";
+import { useUserSettings } from "../../states/UserSettingsState";
+
+type LibraryCardLayout = "landscape" | "poster";
+
+const DEFAULT_CARD_SIZE = 40;
+
+const normalizeCardSize = (value: string | undefined) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed)
+    ? Math.min(100, Math.max(0, parsed))
+    : DEFAULT_CARD_SIZE;
+};
+
+const getCardWidth = (layout: LibraryCardLayout, size: number) =>
+  Math.round(layout === "poster" ? 140 + size * 1.6 : 190 + size * 2.2);
 
 export const libTypeToNum = (type: string) => {
   switch (type) {
@@ -28,6 +51,7 @@ export const libTypeToNum = (type: string) => {
 
 function BrowseLibrary() {
   const { libraryID } = useParams<{ libraryID: string }>();
+  const { settings, setSetting } = useUserSettings();
   const [library, setLibrary] = React.useState<Plex.MediaContainer | null>(
     null
   );
@@ -46,6 +70,21 @@ function BrowseLibrary() {
   const [sortBy, setSortBy] = React.useState<string>(
     localStorage.getItem("sortBy") || "title:asc"
   );
+  const [cardLayout, setCardLayout] = React.useState<LibraryCardLayout>(
+    settings.LIBRARY_CARD_LAYOUT === "poster" ? "poster" : "landscape"
+  );
+  const [cardSize, setCardSize] = React.useState(() =>
+    normalizeCardSize(settings.LIBRARY_CARD_SIZE)
+  );
+
+  useEffect(() => {
+    setCardLayout(
+      settings.LIBRARY_CARD_LAYOUT === "poster" ? "poster" : "landscape"
+    );
+    setCardSize(normalizeCardSize(settings.LIBRARY_CARD_SIZE));
+  }, [settings.LIBRARY_CARD_LAYOUT, settings.LIBRARY_CARD_SIZE]);
+
+  const cardWidth = getCardWidth(cardLayout, cardSize);
 
   useEffect(() => {
     if (!libraryID) return;
@@ -132,9 +171,11 @@ function BrowseLibrary() {
       <Box
         sx={{
           zIndex: 10,
-          left: { xs: "8px", md: "48px" },
-          top: { xs: "112px", md: "64px" },
-          position: "absolute",
+          width: "100%",
+          px: { xs: 1, md: 6 },
+          pt: { xs: 6, md: 0.5 },
+          pb: 1,
+          pr: { md: "350px" },
           display: "flex",
           flexDirection: "row",
           alignItems: "center",
@@ -206,6 +247,56 @@ function BrowseLibrary() {
           <Divider />
           <MenuItem value={"random:desc"}>Random</MenuItem>
         </Select>
+
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 0.75,
+            minWidth: { xs: "150px", sm: "180px" },
+          }}
+        >
+          <GridViewRounded sx={{ fontSize: 17, opacity: 0.65 }} />
+          <Slider
+            aria-label="Library card size"
+            min={0}
+            max={100}
+            step={1}
+            value={cardSize}
+            onChange={(_, value) => setCardSize(value as number)}
+            onChangeCommitted={(_, value) =>
+              setSetting("LIBRARY_CARD_SIZE", String(value as number))
+            }
+            size="small"
+            sx={{ minWidth: 90, maxWidth: 150 }}
+          />
+          <GridViewRounded sx={{ fontSize: 24, opacity: 0.8 }} />
+        </Box>
+
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={cardLayout}
+          onChange={(_, value: LibraryCardLayout | null) => {
+            if (!value) return;
+            setCardLayout(value);
+            setSetting("LIBRARY_CARD_LAYOUT", value);
+          }}
+          aria-label="Library card layout"
+        >
+          <Tooltip title="Landscape cards">
+            <ToggleButton value="landscape" aria-label="Landscape cards">
+              <CropLandscapeRounded fontSize="small" />
+            </ToggleButton>
+          </Tooltip>
+          <Tooltip title="Poster cards">
+            <ToggleButton value="poster" aria-label="Poster cards">
+              <CropPortraitRounded fontSize="small" />
+            </ToggleButton>
+          </Tooltip>
+        </ToggleButtonGroup>
       </Box>
 
       {/* {isLoading && (
@@ -231,21 +322,29 @@ function BrowseLibrary() {
           width: "100%",
           height: "fit-content",
           px: { xs: 1, md: 6 },
-          pt: { xs: "96px", md: "46px" },
           pb: 2,
         }}
       >
         <AnimatePresence>
-          <Grid container spacing={2} sx={{ mt: 2, width: "100%" }}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${cardWidth}px), 1fr))`,
+              gap: 2,
+              mt: 2,
+              width: "100%",
+              "& > *": {
+                width: `min(100%, ${cardWidth}px)`,
+                justifySelf: "center",
+              },
+            }}
+          >
             {isLoading &&
               "1"
                 .repeat(50)
                 .split("")
                 .map((_, index) => (
-                  <Grid
-                    key={index}
-                    size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2 }}
-                  >
+                  <Box key={index}>
                     <Skeleton
                       variant="rounded"
                       width="100%"
@@ -253,23 +352,23 @@ function BrowseLibrary() {
                       sx={{
                         width: "100%",
                         height: "auto",
-                        aspectRatio: "16/9",
+                        aspectRatio: cardLayout === "poster" ? "2/3" : "16/9",
                         borderRadius: "10px",
                       }}
                     />
-                  </Grid>
+                    <Box sx={{ height: "104px" }} />
+                  </Box>
                 ))}
             {items &&
               !isLoading &&
               items.Metadata?.map((item) => (
-                <Grid
+                <DisplayMovieItem
                   key={item.ratingKey}
-                  size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2 }}
-                >
-                  <DisplayMovieItem item={item} />
-                </Grid>
+                  item={item}
+                  layout={cardLayout}
+                />
               ))}
-          </Grid>
+          </Box>
         </AnimatePresence>
       </Box>
     </Box>
@@ -278,7 +377,13 @@ function BrowseLibrary() {
 
 export default BrowseLibrary;
 
-function DisplayMovieItem({ item }: { item: Plex.Metadata }) {
+function DisplayMovieItem({
+  item,
+  layout,
+}: {
+  item: Plex.Metadata;
+  layout: LibraryCardLayout;
+}) {
   const { inView, ref } = useInView({
     triggerOnce: true,
     rootMargin: "200px 0px",
@@ -293,10 +398,16 @@ function DisplayMovieItem({ item }: { item: Plex.Metadata }) {
       }}
     >
       {inView ? (
-        <MovieItem item={item} />
+        <MovieItem item={item} layout={layout} />
       ) : (
         <Box style={{ width: "100%" }}>
-          <Box sx={{ width: "100%", height: "auto", aspectRatio: "16/9" }} />
+          <Box
+            sx={{
+              width: "100%",
+              height: "auto",
+              aspectRatio: layout === "poster" ? "2/3" : "16/9",
+            }}
+          />
           <Box sx={{ width: "100%", height: "104px" }} />
         </Box>
       )}
