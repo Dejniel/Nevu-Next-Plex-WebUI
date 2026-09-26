@@ -58,6 +58,7 @@ import TitleOverview from "./title/TitleOverview";
 import TitleDetails from "./title/TitleDetails";
 import TitleMedia from "./title/TitleMedia";
 import EditMetadataDialog from "./title/EditMetadataDialog";
+import OriginalDownloadButton from "./title/OriginalDownloadButton";
 import {
   applyMetadataUpdate,
   MetadataUpdate,
@@ -681,6 +682,8 @@ function MetaScreen() {
                         : ""
                     }E${data?.OnDeck.Metadata.index}`}
                 </Button>
+
+                {data && <OriginalDownloadButton data={data} />}
 
                 <Tooltip placement="top" arrow title="Watchlist">
                   <HeroWatchListButton item={data as Plex.Metadata} />
