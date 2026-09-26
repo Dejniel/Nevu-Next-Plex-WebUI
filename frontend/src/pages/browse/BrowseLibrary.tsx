@@ -176,6 +176,7 @@ function BrowseLibrary() {
           pt: { xs: 6, md: 0.5 },
           pb: 1,
           pr: { md: "350px" },
+          position: "relative",
           display: "flex",
           flexDirection: "row",
           alignItems: "center",
@@ -248,55 +249,72 @@ function BrowseLibrary() {
           <MenuItem value={"random:desc"}>Random</MenuItem>
         </Select>
 
-        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-
         <Box
           sx={{
             display: "flex",
             alignItems: "center",
-            gap: 0.75,
-            minWidth: { xs: "150px", sm: "180px" },
+            gap: { xs: 1.25, lg: 2 },
+            position: { lg: "absolute" },
+            top: { lg: 4 },
+            left: { lg: "50%" },
+            transform: { lg: "translateX(-50%)" },
           }}
         >
-          <GridViewRounded sx={{ fontSize: 17, opacity: 0.65 }} />
-          <Slider
-            aria-label="Library card size"
-            min={0}
-            max={100}
-            step={1}
-            value={cardSize}
-            onChange={(_, value) => setCardSize(value as number)}
-            onChangeCommitted={(_, value) =>
-              setSetting("LIBRARY_CARD_SIZE", String(value as number))
-            }
-            size="small"
-            sx={{ minWidth: 90, maxWidth: 150 }}
-          />
-          <GridViewRounded sx={{ fontSize: 24, opacity: 0.8 }} />
-        </Box>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0.75,
+              minWidth: { xs: "150px", sm: "180px" },
+            }}
+          >
+            <GridViewRounded sx={{ fontSize: 17, opacity: 0.65 }} />
+            <Slider
+              aria-label="Library card size"
+              min={0}
+              max={100}
+              step={1}
+              value={cardSize}
+              onChange={(_, value) => setCardSize(value as number)}
+              onChangeCommitted={(_, value) =>
+                setSetting("LIBRARY_CARD_SIZE", String(value as number))
+              }
+              size="small"
+              sx={{
+                minWidth: 90,
+                maxWidth: 150,
+                "& .MuiSlider-rail": {
+                  backgroundColor: "rgba(255,255,255,0.42)",
+                  opacity: 1,
+                },
+              }}
+            />
+            <GridViewRounded sx={{ fontSize: 24, opacity: 0.8 }} />
+          </Box>
 
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          value={cardLayout}
-          onChange={(_, value: LibraryCardLayout | null) => {
-            if (!value) return;
-            setCardLayout(value);
-            setSetting("LIBRARY_CARD_LAYOUT", value);
-          }}
-          aria-label="Library card layout"
-        >
-          <Tooltip title="Landscape cards">
-            <ToggleButton value="landscape" aria-label="Landscape cards">
-              <CropLandscapeRounded fontSize="small" />
-            </ToggleButton>
-          </Tooltip>
-          <Tooltip title="Poster cards">
-            <ToggleButton value="poster" aria-label="Poster cards">
-              <CropPortraitRounded fontSize="small" />
-            </ToggleButton>
-          </Tooltip>
-        </ToggleButtonGroup>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={cardLayout}
+            onChange={(_, value: LibraryCardLayout | null) => {
+              if (!value) return;
+              setCardLayout(value);
+              setSetting("LIBRARY_CARD_LAYOUT", value);
+            }}
+            aria-label="Library card layout"
+          >
+            <Tooltip title="Landscape cards">
+              <ToggleButton value="landscape" aria-label="Landscape cards">
+                <CropLandscapeRounded fontSize="small" />
+              </ToggleButton>
+            </Tooltip>
+            <Tooltip title="Poster cards">
+              <ToggleButton value="poster" aria-label="Poster cards">
+                <CropPortraitRounded fontSize="small" />
+              </ToggleButton>
+            </Tooltip>
+          </ToggleButtonGroup>
+        </Box>
       </Box>
 
       {/* {isLoading && (
