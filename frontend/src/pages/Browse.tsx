@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Button, ButtonGroup } from "@mui/material";
+import { Box, Button, ButtonGroup, MenuItem, Select } from "@mui/material";
 import { create } from "zustand";
 import { AnimatePresence } from "framer-motion";
 import BrowseRecommendations from "./browse/BrowseRecommendations";
@@ -21,8 +21,71 @@ const useBrowsePageOptions = create<BrowsePageOptionsState>((set) => ({
   },
 }));
 
+function BrowsePageSelector({
+  page,
+  setPage,
+}: {
+  page: BrowsePages;
+  setPage: (page: BrowsePages) => void;
+}) {
+  return (
+    <>
+      <Select
+        value={page}
+        onChange={(event) => setPage(event.target.value as BrowsePages)}
+        size="small"
+        aria-label="Library view"
+        sx={{
+          display: { xs: "flex", lg: "none" },
+          width: 118,
+          flexShrink: 0,
+          "& .MuiSelect-select": {
+            px: 1,
+            pr: "28px !important",
+            fontSize: "0.8rem",
+            fontWeight: 700,
+          },
+        }}
+      >
+        <MenuItem value="recommendations">Recommended</MenuItem>
+        <MenuItem value="browse">Browse</MenuItem>
+      </Select>
+
+      <ButtonGroup
+        variant="outlined"
+        sx={{
+          display: { xs: "none", lg: "inline-flex" },
+          opacity: 0.7,
+          filter: "brightness(0.7)",
+          transition: "opacity 0.4s ease, filter 0.4s ease",
+          "&:hover": {
+            opacity: 1,
+            filter: "brightness(1)",
+          },
+        }}
+      >
+        <Button
+          variant={page === "recommendations" ? "contained" : "outlined"}
+          sx={{ fontWeight: "bold", textTransform: "uppercase" }}
+          onClick={() => setPage("recommendations")}
+        >
+          Recommended
+        </Button>
+        <Button
+          variant={page === "browse" ? "contained" : "outlined"}
+          sx={{ fontWeight: "bold", textTransform: "uppercase" }}
+          onClick={() => setPage("browse")}
+        >
+          Browse
+        </Button>
+      </ButtonGroup>
+    </>
+  );
+}
+
 function Library() {
   const { page, setPage } = useBrowsePageOptions();
+  const pageSelector = <BrowsePageSelector page={page} setPage={setPage} />;
 
   return (
     <Box
@@ -34,56 +97,24 @@ function Library() {
         width: "100%",
       }}
     >
-      <ButtonGroup
-        variant="outlined"
-        sx={{
-          zIndex: 5,
-          mb: 2,
-          right: { xs: "8px", sm: "24px", md: "48px" },
-          top: "64px",
-          position: "absolute",
-          opacity: 0.7,
-          filter: "brightness(0.7)",
-
-          "&:hover": {
-            opacity: 1,
-            filter: "brightness(1)",
-            transition: "all 0.4s ease",
-          },
-          transition: "all 1s ease",
-        }}
-      >
-        <Button
-          variant={page === "recommendations" ? "contained" : "outlined"}
+      {page === "recommendations" && (
+        <Box
           sx={{
-            fontWeight: "bold",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            gap: "10px",
-            transition: "all 0.2s ease-in-out",
+            zIndex: 5,
+            right: { xs: 1, sm: 3, md: 6 },
+            top: "68px",
+            position: "absolute",
           }}
-          onClick={() => setPage("recommendations")}
         >
-          Recommendations
-        </Button>
-        <Button
-          variant={page === "browse" ? "contained" : "outlined"}
-          sx={{
-            fontWeight: "bold",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            gap: "10px",
-            transition: "all 0.2s ease-in-out",
-          }}
-          onClick={() => setPage("browse")}
-        >
-          Browse
-        </Button>
-      </ButtonGroup>
+          {pageSelector}
+        </Box>
+      )}
 
       <AnimatePresence mode="wait">
         {page === "recommendations" && <BrowseRecommendations />}
-        {page === "browse" && <BrowseLibrary />}
+        {page === "browse" && (
+          <BrowseLibrary pageNavigation={pageSelector} />
+        )}
       </AnimatePresence>
     </Box>
   );

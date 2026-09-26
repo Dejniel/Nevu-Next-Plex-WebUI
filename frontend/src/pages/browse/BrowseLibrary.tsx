@@ -62,7 +62,7 @@ export const libTypeToNum = (type: string) => {
   }
 };
 
-function BrowseLibrary() {
+function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) {
   const { libraryID } = useParams<{ libraryID: string }>();
   const { settings, setSetting } = useUserSettings();
   const [library, setLibrary] = React.useState<Plex.MediaContainer | null>(
@@ -219,25 +219,32 @@ function BrowseLibrary() {
           zIndex: 10,
           width: "100%",
           px: { xs: 1, md: 6 },
-          pt: { xs: 6, md: 0.5 },
+          pt: { xs: 1, md: 0.5 },
           pb: 1,
           position: "relative",
-          display: "flex",
-          flexDirection: { xs: "column", md: "row" },
-          alignItems: { xs: "stretch", md: "center" },
-          gap: { xs: 1.5, md: 1 },
+          display: "grid",
+          gridTemplateAreas: {
+            xs: '"actions" "filters"',
+            lg: '"filters controls pages"',
+          },
+          gridTemplateColumns: {
+            xs: "minmax(0, 1fr)",
+            lg: "minmax(0, 1fr) auto minmax(0, 1fr)",
+          },
+          alignItems: "center",
+          gap: { xs: 1.25, lg: 1 },
         }}
       >
         <Box
           sx={{
+            gridArea: "filters",
             display: "flex",
             alignItems: "center",
-            justifyContent: { xs: "space-evenly", md: "flex-start" },
-            flex: "1 1 auto",
+            justifyContent: { xs: "space-evenly", lg: "flex-start" },
             flexWrap: "wrap",
             gap: 1,
             "& > .MuiInputBase-root": {
-              flex: { xs: "1 1 105px", md: "0 0 auto" },
+              flex: { xs: "1 1 105px", lg: "0 0 auto" },
               minWidth: 0,
             },
           }}
@@ -310,72 +317,93 @@ function BrowseLibrary() {
 
         <Box
           sx={{
-            display: "flex",
+            gridArea: { xs: "actions", lg: "auto" },
+            display: { xs: "flex", lg: "contents" },
             alignItems: "center",
-            justifyContent: { xs: "space-evenly", md: "flex-end", lg: "center" },
-            gap: { xs: 1.25, lg: 2 },
-            width: { xs: "100%", md: "auto" },
-            ml: { md: "auto", lg: 0 },
-            position: { lg: "absolute" },
-            top: { lg: 4 },
-            left: { lg: "50%" },
-            transform: { lg: "translateX(-50%)" },
+            justifyContent: "space-between",
+            gap: 0.5,
+            minWidth: 0,
           }}
         >
           <Box
             sx={{
+              gridArea: { lg: "controls" },
               display: "flex",
               alignItems: "center",
-              gap: 0.75,
-              minWidth: { xs: "150px", sm: "180px" },
+              justifyContent: "center",
+              gap: { xs: 0.75, sm: 1.25 },
+              minWidth: 0,
+              flex: { xs: "1 1 auto", lg: "0 0 auto" },
             }}
           >
-            <GridViewRounded sx={{ fontSize: 17, opacity: 0.65 }} />
-            <Slider
-              aria-label="Library card size"
-              min={0}
-              max={100}
-              step={1}
-              value={cardSize}
-              onChange={(_, value) => setCardSize(value as number)}
-              onChangeCommitted={(_, value) =>
-                setSetting("LIBRARY_CARD_SIZE", String(value as number))
-              }
-              size="small"
+            <Box
               sx={{
-                minWidth: 90,
-                maxWidth: 150,
-                "& .MuiSlider-rail": {
-                  backgroundColor: "rgba(255,255,255,0.42)",
-                  opacity: 1,
-                },
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+                minWidth: { xs: 94, sm: 180 },
+                maxWidth: 210,
+                flex: "1 1 auto",
               }}
-            />
-            <GridViewRounded sx={{ fontSize: 24, opacity: 0.8 }} />
+            >
+              <GridViewRounded sx={{ fontSize: 16, opacity: 0.65 }} />
+              <Slider
+                aria-label="Library card size"
+                min={0}
+                max={100}
+                step={1}
+                value={cardSize}
+                onChange={(_, value) => setCardSize(value as number)}
+                onChangeCommitted={(_, value) =>
+                  setSetting("LIBRARY_CARD_SIZE", String(value as number))
+                }
+                size="small"
+                sx={{
+                  minWidth: { xs: 48, sm: 90 },
+                  maxWidth: 150,
+                  "& .MuiSlider-rail": {
+                    backgroundColor: "rgba(255,255,255,0.42)",
+                    opacity: 1,
+                  },
+                }}
+              />
+              <GridViewRounded sx={{ fontSize: 22, opacity: 0.8 }} />
+            </Box>
+
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={cardLayout}
+              onChange={(_, value: LibraryCardLayout | null) => {
+                if (!value) return;
+                setCardLayout(value);
+                setSetting("LIBRARY_CARD_LAYOUT", value);
+              }}
+              aria-label="Library card layout"
+            >
+              <Tooltip title="Landscape cards">
+                <ToggleButton value="landscape" aria-label="Landscape cards">
+                  <CropLandscapeRounded fontSize="small" />
+                </ToggleButton>
+              </Tooltip>
+              <Tooltip title="Poster cards">
+                <ToggleButton value="poster" aria-label="Poster cards">
+                  <CropPortraitRounded fontSize="small" />
+                </ToggleButton>
+              </Tooltip>
+            </ToggleButtonGroup>
           </Box>
 
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={cardLayout}
-            onChange={(_, value: LibraryCardLayout | null) => {
-              if (!value) return;
-              setCardLayout(value);
-              setSetting("LIBRARY_CARD_LAYOUT", value);
+          <Box
+            sx={{
+              gridArea: { lg: "pages" },
+              display: "flex",
+              justifyContent: "flex-end",
+              flexShrink: 0,
             }}
-            aria-label="Library card layout"
           >
-            <Tooltip title="Landscape cards">
-              <ToggleButton value="landscape" aria-label="Landscape cards">
-                <CropLandscapeRounded fontSize="small" />
-              </ToggleButton>
-            </Tooltip>
-            <Tooltip title="Poster cards">
-              <ToggleButton value="poster" aria-label="Poster cards">
-                <CropPortraitRounded fontSize="small" />
-              </ToggleButton>
-            </Tooltip>
-          </ToggleButtonGroup>
+            {pageNavigation}
+          </Box>
         </Box>
       </Box>
 
