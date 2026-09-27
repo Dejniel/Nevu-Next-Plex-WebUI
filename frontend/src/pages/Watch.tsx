@@ -44,6 +44,7 @@ import {
   PauseRounded,
   PeopleRounded,
   PlayArrowRounded,
+  SearchRounded,
   SkipNext,
   SkipNextRounded,
   TuneRounded,
@@ -75,6 +76,12 @@ import {
   preferenceFromStream,
   TrackPreference,
 } from "../plex/mediaVersions";
+import SubtitleSearchPanel from "../components/SubtitleSearchPanel";
+import {
+  downloadSubtitle,
+  findAttachedSubtitle,
+  SubtitleSearchResult,
+} from "../plex/subtitles";
 
 let SessionID = "";
 export { SessionID };
@@ -177,7 +184,7 @@ function Watch() {
   const volumePopoverOpen = Boolean(volumePopoverAnchor);
 
   const [showTune, setShowTune] = useState(false);
-  const [tunePage, setTunePage] = useState<number>(0); // 0: menu, 1: video, 2: audio, 3: subtitles
+  const [tunePage, setTunePage] = useState<number>(0); // 0: menu, 1: video, 2: audio, 3: subtitles, 4: subtitle search
   const tuneButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const playbackBarRef = useRef<HTMLDivElement | null>(null);
@@ -684,6 +691,38 @@ function Watch() {
     );
   };
 
+  const downloadOnDemandSubtitle = async (subtitle: SubtitleSearchResult) => {
+    if (!itemID || !metadata || !activeVersion)
+      throw new Error("No active media file is available.");
+
+    await downloadSubtitle(
+      metadata.ratingKey,
+      activeVersion.media.id,
+      subtitle,
+    );
+
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      if (attempt > 0)
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
+
+      const refreshed = await getLibraryMeta(itemID);
+      const choice = findAttachedSubtitle(
+        refreshed,
+        activeVersion.media.id,
+        subtitle,
+      );
+      if (!choice) continue;
+
+      await selectSubtitleTrack(choice);
+      setTunePage(3);
+      return;
+    }
+
+    throw new Error(
+      "Plex accepted the download, but the subtitle did not become available in time.",
+    );
+  };
+
   return (
     <>
       <Backdrop
@@ -1134,7 +1173,11 @@ function Watch() {
         >
           <Paper
             sx={{
-              width: 350,
+              width:
+                tunePage === 4
+                  ? { xs: "calc(100vw - 24px)", sm: 520 }
+                  : 350,
+              maxWidth: "calc(100vw - 24px)",
               maxHeight: "min(70vh, 600px)",
               overflowY: "auto",
               userSelect: "none",
@@ -1289,6 +1332,28 @@ function Watch() {
                     }}
                   />
                 ))}
+                <Divider />
+                <TuneAction
+                  icon={<SearchRounded fontSize="small" />}
+                  primary="Find subtitles…"
+                  secondary="Search Plex subtitle providers"
+                  onClick={() => setTunePage(4)}
+                />
+              </>
+            )}
+
+            {tunePage === 4 && activeVersion && metadata && (
+              <>
+                {TuneSettingTab(theme, setTunePage, {
+                  pageNum: 3,
+                  text: "Find subtitles",
+                })}
+                <SubtitleSearchPanel
+                  key={`${metadata.ratingKey}:${activeVersion.media.id}:${activeVersion.part.id}`}
+                  metadata={metadata}
+                  version={activeVersion}
+                  onDownload={downloadOnDemandSubtitle}
+                />
               </>
             )}
           </Paper>
@@ -2267,6 +2332,51 @@ function TuneOption({
         sx={{ opacity: selected ? 1 : 0, color: "primary.main" }}
         fontSize="small"
       />
+      <Box sx={{ minWidth: 0, textAlign: "right" }}>
+        <Typography variant="body2" noWrap>{primary}</Typography>
+        {secondary && (
+          <Typography variant="caption" color="text.secondary" noWrap display="block">
+            {secondary}
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+function TuneAction({
+  icon,
+  primary,
+  secondary,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  primary: string;
+  secondary?: string;
+  onClick: () => void;
+}) {
+  return (
+    <Box
+      component="button"
+      type="button"
+      sx={{
+        display: "grid",
+        gridTemplateColumns: "24px minmax(0, 1fr)",
+        alignItems: "center",
+        gap: 1,
+        width: "100%",
+        minHeight: 50,
+        px: 2,
+        py: 1,
+        border: 0,
+        color: "text.primary",
+        cursor: "pointer",
+        backgroundColor: "#00000088",
+        "&:hover": { backgroundColor: "#000000ee" },
+      }}
+      onClick={onClick}
+    >
+      <Box sx={{ display: "flex", color: "primary.main" }}>{icon}</Box>
       <Box sx={{ minWidth: 0, textAlign: "right" }}>
         <Typography variant="body2" noWrap>{primary}</Typography>
         {secondary && (
