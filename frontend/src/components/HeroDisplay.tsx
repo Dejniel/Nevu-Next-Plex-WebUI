@@ -90,7 +90,7 @@ function HeroDisplay({
         sx={{
           position: "absolute",
           left: HOME_CONTENT_GUTTER,
-          bottom: "20vh",
+          bottom: "calc(20vh + 12px)",
           opacity: primaryTrailer ? 1 : 0,
           transition: "opacity 0.3s ease",
           zIndex: 2,
