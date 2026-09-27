@@ -13,6 +13,8 @@ export default function ExtraPlayer({
   volume = 1,
   poster,
   onEnded,
+  onPlaying,
+  onPlayRejected,
   onPlaybackError,
 }: {
   extra: TitleExtra;
@@ -25,12 +27,15 @@ export default function ExtraPlayer({
   volume?: number;
   poster?: string;
   onEnded?: () => void;
+  onPlaying?: () => void;
+  onPlayRejected?: () => void;
   onPlaybackError?: (message: string) => void;
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const shouldPlayRef = useRef(autoPlay || Boolean(playing));
+  const sourceReadyRef = useRef(false);
 
   useEffect(() => {
     shouldPlayRef.current = autoPlay || Boolean(playing);
@@ -38,6 +43,7 @@ export default function ExtraPlayer({
 
   useEffect(() => {
     let active = true;
+    sourceReadyRef.current = false;
     setUrl(null);
     setError(null);
 
@@ -62,7 +68,9 @@ export default function ExtraPlayer({
 
     if (extra.source !== "discover") {
       video.src = url;
+      sourceReadyRef.current = true;
       return () => {
+        sourceReadyRef.current = false;
         video.removeAttribute("src");
         video.load();
       };
@@ -70,7 +78,9 @@ export default function ExtraPlayer({
 
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = url;
+      sourceReadyRef.current = true;
       return () => {
+        sourceReadyRef.current = false;
         video.removeAttribute("src");
         video.load();
       };
@@ -121,11 +131,14 @@ export default function ExtraPlayer({
         });
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          sourceReadyRef.current = true;
           if (shouldPlayRef.current)
             void video.play().catch(() => undefined);
         });
 
-        hls.loadSource(url);
+        hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+          hls?.loadSource(url);
+        });
         hls.attachMedia(video);
       })
       .catch(() => {
@@ -137,6 +150,7 @@ export default function ExtraPlayer({
 
     return () => {
       active = false;
+      sourceReadyRef.current = false;
       hls?.destroy();
     };
   }, [extra.source, url]);
@@ -145,7 +159,11 @@ export default function ExtraPlayer({
     const video = videoRef.current;
     if (!url || !video || playing === undefined) return;
 
-    if (playing) void video.play().catch(() => undefined);
+    if (playing && sourceReadyRef.current)
+      void video.play().catch(() => {
+        if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA)
+          onPlayRejected?.();
+      });
     else video.pause();
   }, [playing, url]);
 
@@ -178,6 +196,15 @@ export default function ExtraPlayer({
           controlsList="nodownload"
           disablePictureInPicture
           onEnded={onEnded}
+          onCanPlay={() => {
+            sourceReadyRef.current = true;
+            const video = videoRef.current;
+            if (video && shouldPlayRef.current)
+              void video.play().catch(() => onPlayRejected?.());
+          }}
+          onPlaying={() => {
+            requestAnimationFrame(() => onPlaying?.());
+          }}
           onError={() => {
             const message = "Unable to play this video stream.";
             setError(message);

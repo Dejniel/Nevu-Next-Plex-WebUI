@@ -30,6 +30,7 @@ function HeroDisplay({
   const { primaryTrailer } = useTitleExtras(item);
 
   const [previewVidPlaying, setPreviewVidPlaying] = useState<boolean>(false);
+  const [previewVidVisible, setPreviewVidVisible] = useState<boolean>(false);
   const [artworkLoaded, setArtworkLoaded] = useState(false);
   const artworkUrl = getTranscodeImageURL(item.art, 1920, 1080);
 
@@ -39,6 +40,7 @@ function HeroDisplay({
 
   useEffect(() => {
     setPreviewVidPlaying(false);
+    setPreviewVidVisible(false);
 
     if (!primaryTrailer || searchParams.has("mid")) return;
 
@@ -48,8 +50,10 @@ function HeroDisplay({
     }, 3000);
 
     const onScroll = () => {
-      if (window.scrollY > 100) setPreviewVidPlaying(false);
-      else setPreviewVidPlaying(true);
+      if (window.scrollY > 100) {
+        setPreviewVidPlaying(false);
+        setPreviewVidVisible(false);
+      } else setPreviewVidPlaying(true);
     };
 
     window.addEventListener("scroll", onScroll);
@@ -62,6 +66,7 @@ function HeroDisplay({
 
   const openDetails = () => {
     setPreviewVidPlaying(false);
+    setPreviewVidVisible(false);
     setSearchParams({
       ...searchParams,
       mid: item.ratingKey.toString(),
@@ -77,18 +82,19 @@ function HeroDisplay({
         flexDirection: "column",
         alignItems: "flex-start",
         justifyContent: "flex-start",
+        position: "relative",
       }}
     >
       <Box
         sx={{
           position: "absolute",
-          right: "2vw",
-          bottom: { xs: "20vh", sm: "15vh", md: "20vh" },
+          left: { xs: 2, sm: 5, md: 10 },
+          bottom: "20vh",
           opacity: primaryTrailer ? 1 : 0,
-          transition: "all 1s ease",
+          transition: "opacity 0.3s ease",
           zIndex: 2,
           cursor: "pointer",
-          pointerEvents: "all",
+          pointerEvents: primaryTrailer ? "auto" : "none",
 
           display: "flex",
           flexDirection: "row",
@@ -103,7 +109,9 @@ function HeroDisplay({
             backgroundColor: "#00000088",
           }}
           onClick={() => {
-            setPreviewVidPlaying(!previewVidPlaying);
+            const nextPlaying = !previewVidPlaying;
+            setPreviewVidPlaying(nextPlaying);
+            if (!nextPlaying) setPreviewVidVisible(false);
           }}
         >
           {previewVidPlaying ? <PauseRounded /> : <PlayArrowRounded />}
@@ -181,9 +189,9 @@ function HeroDisplay({
             left: 0,
             top: 0,
             filter: "brightness(0.5)",
-            opacity: previewVidPlaying ? 1 : 0,
-            transition: "all 2s ease",
-            backgroundColor: previewVidPlaying ? "#000000" : "transparent",
+            opacity: previewVidVisible ? 1 : 0,
+            transition: "opacity 1s ease",
+            backgroundColor: previewVidVisible ? "#000000" : "transparent",
             pointerEvents: "none",
 
             overflow: "hidden",
@@ -200,8 +208,21 @@ function HeroDisplay({
               controls={false}
               objectFit="cover"
               showErrors={false}
-              onEnded={() => setPreviewVidPlaying(false)}
-              onPlaybackError={() => setPreviewVidPlaying(false)}
+              onPlaying={() => {
+                if (previewVidPlaying) setPreviewVidVisible(true);
+              }}
+              onPlayRejected={() => {
+                setPreviewVidPlaying(false);
+                setPreviewVidVisible(false);
+              }}
+              onEnded={() => {
+                setPreviewVidPlaying(false);
+                setPreviewVidVisible(false);
+              }}
+              onPlaybackError={() => {
+                setPreviewVidPlaying(false);
+                setPreviewVidVisible(false);
+              }}
             />
           )}
         </Box>
@@ -211,8 +232,9 @@ function HeroDisplay({
             position: "absolute",
             top: "64px",
             bottom: "20vh",
-            left: { xs: 2, sm: 5, md: 10 },
-            right: { xs: 2, sm: 4, md: "auto" },
+            left: 0,
+            right: 0,
+            px: { xs: 2, sm: 5, md: 10 },
             display: "flex",
             flexDirection: "column",
             alignItems: "flex-start",
