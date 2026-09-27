@@ -17,6 +17,7 @@ import {
   heroCandidates,
   randomLibraryWindow,
 } from "../plex/homeHero";
+import { homeHeroContentSx } from "../components/homeHeroLayout";
 
 const HERO_WINDOW_SIZE = 8;
 
@@ -215,19 +216,18 @@ function HomeHeroSkeleton() {
       />
       <Box
         sx={{
-          position: "absolute",
-          left: { xs: 2, sm: 5, md: 10 },
-          bottom: { xs: "30vh", sm: "25vh", md: "40vh" },
-          width: { xs: "75vw", sm: "50vw", md: "34vw" },
+          ...homeHeroContentSx,
         }}
       >
-        <Skeleton width="22%" height={28} />
-        <Skeleton width="72%" height={58} />
-        <Skeleton width="100%" height={22} />
-        <Skeleton width="84%" height={22} />
-        <Box sx={{ display: "flex", gap: 2, mt: 3 }}>
-          <Skeleton variant="rounded" width={112} height={38} />
-          <Skeleton variant="rounded" width={46} height={38} />
+        <Box sx={{ width: { xs: "85vw", sm: "60vw", md: "35vw" } }}>
+          <Skeleton width="22%" height={28} />
+          <Skeleton width="72%" height={58} />
+          <Skeleton width="100%" height={22} />
+          <Skeleton width="84%" height={22} />
+          <Box sx={{ display: "flex", gap: 2, mt: 3 }}>
+            <Skeleton variant="rounded" width={112} height={38} />
+            <Skeleton variant="rounded" width={46} height={38} />
+          </Box>
         </Box>
       </Box>
     </Box>

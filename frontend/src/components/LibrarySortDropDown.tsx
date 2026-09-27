@@ -12,6 +12,26 @@ export type LibrarySort =
   | "updated:desc"
   | "random:desc";
 
+export const DEFAULT_LIBRARY_SORT: LibrarySort = "title:asc";
+
+const LIBRARY_SORTS: LibrarySort[] = [
+  "title:asc",
+  "title:desc",
+  "addedAt:asc",
+  "addedAt:desc",
+  "year:asc",
+  "year:desc",
+  "updated:asc",
+  "updated:desc",
+  "random:desc",
+];
+
+export function normalizeLibrarySort(value: string | null): LibrarySort {
+  return LIBRARY_SORTS.includes(value as LibrarySort)
+    ? (value as LibrarySort)
+    : DEFAULT_LIBRARY_SORT;
+}
+
 function LibrarySortDropDown({
   sortHook,
 }: {

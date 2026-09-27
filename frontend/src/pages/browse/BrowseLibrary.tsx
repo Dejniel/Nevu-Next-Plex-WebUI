@@ -18,6 +18,10 @@ import {
   useLibraryCardView,
 } from "../../components/LibraryCardViewControls";
 import LibraryViewToolbar from "../../components/LibraryViewToolbar";
+import {
+  LibrarySort,
+  normalizeLibrarySort,
+} from "../../components/LibrarySortDropDown";
 
 const viewGroupLabel = (viewGroup?: string) => {
   switch (viewGroup) {
@@ -60,8 +64,8 @@ function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) 
 
   const [typeFilter, setTypeFilter] = React.useState("any");
 
-  const [sortBy, setSortBy] = React.useState<string>(
-    localStorage.getItem("sortBy") || "title:asc"
+  const [sortBy, setSortBy] = React.useState<LibrarySort>(
+    normalizeLibrarySort(localStorage.getItem("sortBy"))
   );
   const cardView = useLibraryCardView();
   const cardWidth = getLibraryCardWidth(cardView.layout, cardView.size);
@@ -257,7 +261,7 @@ function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) 
               <Select
                 value={sortBy}
                 onChange={(e) => {
-                  setSortBy(e.target.value);
+                  setSortBy(e.target.value as LibrarySort);
                   localStorage.setItem("sortBy", e.target.value);
                 }}
                 size="small"

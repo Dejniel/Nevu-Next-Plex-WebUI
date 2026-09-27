@@ -14,6 +14,7 @@ import { getTranscodeImageURL } from "../plex";
 import ExtraPlayer from "./title/ExtraPlayer";
 import { useTitleExtras } from "../hooks/useTitleExtras";
 import { alpha } from "@mui/material/styles";
+import { HOME_CONTENT_GUTTER, homeHeroContentSx } from "./homeHeroLayout";
 
 function HeroDisplay({
   item,
@@ -88,7 +89,7 @@ function HeroDisplay({
       <Box
         sx={{
           position: "absolute",
-          left: { xs: 2, sm: 5, md: 10 },
+          left: HOME_CONTENT_GUTTER,
           bottom: "20vh",
           opacity: primaryTrailer ? 1 : 0,
           transition: "opacity 0.3s ease",
@@ -229,16 +230,7 @@ function HeroDisplay({
 
         <Box
           sx={{
-            position: "absolute",
-            top: "64px",
-            bottom: "20vh",
-            left: 0,
-            right: 0,
-            px: { xs: 2, sm: 5, md: 10 },
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            justifyContent: "center",
+            ...homeHeroContentSx,
             zIndex: 2,
           }}
         >

@@ -13,6 +13,7 @@ import MovieItem from "./MovieItem";
 import { useInView } from "react-intersection-observer";
 import LibrarySortDropDown, {
   LibrarySort,
+  normalizeLibrarySort,
   sortMetadata,
 } from "./LibrarySortDropDown";
 import { useWatchListCache } from "../states/WatchListCache";
@@ -25,7 +26,7 @@ function LibraryScreen() {
   const [library, setLibrary] = useState<Plex.MediaContainer | null>(null);
 
   const [sortBy, setSortBy] = useState<LibrarySort>(
-    (localStorage.getItem("sortBy") as LibrarySort) || "title:asc"
+    normalizeLibrarySort(localStorage.getItem("sortBy"))
   );
   const [skipFilter, setSkipFilter] = useState(false);
 
@@ -62,7 +63,7 @@ function LibraryScreen() {
     setLoading(true);
     setError(null);
     setLibrary(null);
-    setSortBy(localStorage.getItem("sortBy") as LibrarySort);
+    setSortBy(normalizeLibrarySort(localStorage.getItem("sortBy")));
 
     switch (bkey) {
       case "/plextv/watchlist":
