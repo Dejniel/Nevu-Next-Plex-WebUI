@@ -208,10 +208,16 @@ function HeroDisplay({
 
         <Box
           sx={{
-            ml: { xs: 2, sm: 5, md: 10 },
-            mb: { xs: "30vh", sm: "25vh", md: "40vh" },
+            position: "absolute",
+            top: "64px",
+            bottom: "20vh",
+            left: { xs: 2, sm: 5, md: 10 },
+            right: { xs: 2, sm: 4, md: "auto" },
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            justifyContent: "center",
             zIndex: 2,
-            mr: { xs: 2, sm: 4, md: 0 },
           }}
         >
           <Box
