@@ -27,6 +27,7 @@ Nevu Next is a modified fork of [Ipmake/NevuForPlex](https://github.com/Ipmake/N
 - **Ratings and reviews** with Plex ratings, Plex community and friend reviews, and editable local or global Nevu reviews with spoiler marking.
 - **Integrated playback** with quality selection, automatic audio and subtitle matching, seek previews, intro and credits skipping, resume support, and optional automatic next-episode playback.
 - **Multiple media versions** with combined audio and subtitle lists; choosing a track automatically switches to the file that contains it.
+- **On-demand subtitle search and download** with editable search criteria, language and Forced/SDH preferences, Plex provider results, and automatic selection during playback.
 - **Firefox-compatible trailer playback** with Plex Discover fallback when a local trailer is unavailable.
 - **Playback-state controls** for watchlists and marking movies, shows, seasons, or episodes as played or unplayed.
 - **Metadata administration** with title, sort title, original title, summary, tagline, studio, release date, year, and content-rating editing plus Plex field lock and unlock controls.
