@@ -4,38 +4,20 @@ import {
   MenuItem,
   Select,
   Skeleton,
-  Slider,
-  ToggleButton,
-  ToggleButtonGroup,
-  Tooltip,
 } from "@mui/material";
-import {
-  CropLandscapeRounded,
-  CropPortraitRounded,
-  GridViewRounded,
-} from "@mui/icons-material";
 import { AnimatePresence, motion } from "framer-motion";
 import React, { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { getLibrary, getLibraryDir } from "../../plex";
 import MovieItem from "../../components/MovieItem";
 import { useInView } from "react-intersection-observer";
-import { useUserSettings } from "../../states/UserSettingsState";
 import { formatLibraryItemCount } from "../../plex/libraryItemCount";
-
-type LibraryCardLayout = "landscape" | "poster";
-
-const DEFAULT_CARD_SIZE = 40;
-
-const normalizeCardSize = (value: string | undefined) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed)
-    ? Math.min(100, Math.max(0, parsed))
-    : DEFAULT_CARD_SIZE;
-};
-
-const getCardWidth = (layout: LibraryCardLayout, size: number) =>
-  Math.round(layout === "poster" ? 140 + size * 1.6 : 190 + size * 2.2);
+import {
+  getLibraryCardWidth,
+  LibraryCardLayout,
+  LibraryCardViewControls,
+  useLibraryCardView,
+} from "../../components/LibraryCardViewControls";
 
 const viewGroupLabel = (viewGroup?: string) => {
   switch (viewGroup) {
@@ -65,7 +47,6 @@ export const libTypeToNum = (type: string) => {
 
 function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) {
   const { libraryID } = useParams<{ libraryID: string }>();
-  const { settings, setSetting } = useUserSettings();
   const [library, setLibrary] = React.useState<Plex.MediaContainer | null>(
     null
   );
@@ -82,21 +63,8 @@ function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) 
   const [sortBy, setSortBy] = React.useState<string>(
     localStorage.getItem("sortBy") || "title:asc"
   );
-  const [cardLayout, setCardLayout] = React.useState<LibraryCardLayout>(
-    settings.LIBRARY_CARD_LAYOUT === "poster" ? "poster" : "landscape"
-  );
-  const [cardSize, setCardSize] = React.useState(() =>
-    normalizeCardSize(settings.LIBRARY_CARD_SIZE)
-  );
-
-  useEffect(() => {
-    setCardLayout(
-      settings.LIBRARY_CARD_LAYOUT === "poster" ? "poster" : "landscape"
-    );
-    setCardSize(normalizeCardSize(settings.LIBRARY_CARD_SIZE));
-  }, [settings.LIBRARY_CARD_LAYOUT, settings.LIBRARY_CARD_SIZE]);
-
-  const cardWidth = getCardWidth(cardLayout, cardSize);
+  const cardView = useLibraryCardView();
+  const cardWidth = getLibraryCardWidth(cardView.layout, cardView.size);
   const itemCount = formatLibraryItemCount(items);
 
   useEffect(() => {
@@ -367,70 +335,15 @@ function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) 
           <Box
             sx={{
               gridArea: { lg: "controls" },
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: { xs: 0.75, sm: 1.25 },
-              minWidth: 0,
-              flex: { xs: "1 1 auto", lg: "0 0 auto" },
             }}
           >
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 0.5,
-                minWidth: { xs: 94, sm: 180 },
-                maxWidth: 210,
-                flex: "1 1 auto",
-              }}
-            >
-              <GridViewRounded sx={{ fontSize: 16, opacity: 0.65 }} />
-              <Slider
-                aria-label="Library card size"
-                min={0}
-                max={100}
-                step={1}
-                value={cardSize}
-                onChange={(_, value) => setCardSize(value as number)}
-                onChangeCommitted={(_, value) =>
-                  setSetting("LIBRARY_CARD_SIZE", String(value as number))
-                }
-                size="small"
-                sx={{
-                  minWidth: { xs: 48, sm: 90 },
-                  maxWidth: 150,
-                  "& .MuiSlider-rail": {
-                    backgroundColor: "rgba(255,255,255,0.42)",
-                    opacity: 1,
-                  },
-                }}
-              />
-              <GridViewRounded sx={{ fontSize: 22, opacity: 0.8 }} />
-            </Box>
-
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={cardLayout}
-              onChange={(_, value: LibraryCardLayout | null) => {
-                if (!value) return;
-                setCardLayout(value);
-                setSetting("LIBRARY_CARD_LAYOUT", value);
-              }}
-              aria-label="Library card layout"
-            >
-              <Tooltip title="Landscape cards">
-                <ToggleButton value="landscape" aria-label="Landscape cards">
-                  <CropLandscapeRounded fontSize="small" />
-                </ToggleButton>
-              </Tooltip>
-              <Tooltip title="Poster cards">
-                <ToggleButton value="poster" aria-label="Poster cards">
-                  <CropPortraitRounded fontSize="small" />
-                </ToggleButton>
-              </Tooltip>
-            </ToggleButtonGroup>
+            <LibraryCardViewControls
+              layout={cardView.layout}
+              size={cardView.size}
+              onSizeChange={cardView.setSize}
+              onSizeCommit={cardView.saveSize}
+              onLayoutChange={cardView.setLayout}
+            />
           </Box>
 
           <Box
@@ -499,7 +412,8 @@ function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) 
                       sx={{
                         width: "100%",
                         height: "auto",
-                        aspectRatio: cardLayout === "poster" ? "2/3" : "16/9",
+                        aspectRatio:
+                          cardView.layout === "poster" ? "2/3" : "16/9",
                         borderRadius: "10px",
                       }}
                     />
@@ -512,7 +426,7 @@ function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) 
                 <DisplayMovieItem
                   key={item.ratingKey}
                   item={item}
-                  layout={cardLayout}
+                  layout={cardView.layout}
                 />
               ))}
           </Box>

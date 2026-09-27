@@ -97,21 +97,10 @@ function Library() {
         width: "100%",
       }}
     >
-      {page === "recommendations" && (
-        <Box
-          sx={{
-            zIndex: 5,
-            right: { xs: 1, sm: 3, md: 6 },
-            top: "68px",
-            position: "absolute",
-          }}
-        >
-          {pageSelector}
-        </Box>
-      )}
-
       <AnimatePresence mode="wait">
-        {page === "recommendations" && <BrowseRecommendations />}
+        {page === "recommendations" && (
+          <BrowseRecommendations pageNavigation={pageSelector} />
+        )}
         {page === "browse" && (
           <BrowseLibrary pageNavigation={pageSelector} />
         )}

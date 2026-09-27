@@ -4,6 +4,10 @@ import { getLibraryDir } from "../plex";
 import { ArrowForwardIosRounded } from "@mui/icons-material";
 import { useSearchParams } from "react-router-dom";
 import MovieItem from "./MovieItem";
+import {
+  getLibraryCardWidth,
+  LibraryCardLayout,
+} from "./LibraryCardViewControls";
 
 function MovieItemSlider({
   title,
@@ -14,6 +18,8 @@ function MovieItemSlider({
   shuffle,
   data,
   plexTvSource,
+  layout = "landscape",
+  cardSize,
 }: {
   title: string;
   dir?: string;
@@ -23,6 +29,8 @@ function MovieItemSlider({
   shuffle?: boolean;
   data?: Plex.Metadata[];
   plexTvSource?: boolean;
+  layout?: LibraryCardLayout;
+  cardSize?: number;
 }) {
   const [, setSearchParams] = useSearchParams();
   const [items, setItems] = React.useState<Plex.Metadata[] | null>(
@@ -50,7 +58,16 @@ function MovieItemSlider({
     }
   };
 
-  const calculateItemsPerPage = (width: number) => {
+  const calculateItemsPerPage = React.useCallback((width: number) => {
+    if (cardSize !== undefined) {
+      const availableWidth = width * 0.95;
+      const targetWidth = getLibraryCardWidth(layout, cardSize);
+      return Math.min(
+        10,
+        Math.max(1, Math.floor((availableWidth + 10) / (targetWidth + 10))),
+      );
+    }
+
     if (width < 400) return 1;
     if (width < 600) return 1;
     if (width < 1200) return 2;
@@ -60,7 +77,7 @@ function MovieItemSlider({
     if (width < 4000) return 7;
     if (width < 5000) return 8;
     return 6;
-  };
+  }, [cardSize, layout]);
 
   const [itemsPerPage, setItemsPerPage] = React.useState(
     calculateItemsPerPage(window.innerWidth)
@@ -70,9 +87,10 @@ function MovieItemSlider({
     const handleResize = () => {
       setItemsPerPage(calculateItemsPerPage(window.innerWidth));
     };
+    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [calculateItemsPerPage]);
 
   const fetchData = async () => {
     if (!dir) return;
@@ -96,8 +114,18 @@ function MovieItemSlider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, dir, filter, props, shuffle]);
 
+  React.useEffect(() => {
+    setCurrPage(0);
+  }, [data, dir, itemsPerPage, layout]);
+
   if (!items)
-    return <MovieItemSliderSkeleton title={title} itemsPerPage={itemsPerPage} />;
+    return (
+      <MovieItemSliderSkeleton
+        title={title}
+        itemsPerPage={itemsPerPage}
+        layout={layout}
+      />
+    );
 
   const itemCount = items.slice(0, itemsPerPage * 5).length;
 
@@ -197,6 +225,7 @@ function MovieItemSlider({
             .map((_, i) => {
               return (
                 <Box
+                  key={i}
                   sx={{
                     width: "10px",
                     height: "4px",
@@ -291,6 +320,7 @@ function MovieItemSlider({
                   itemsPerPage={itemsPerPage}
                   index={i}
                   PlexTvSource={plexTvSource}
+                  layout={layout}
                   refetchData={
                     dir && dir.endsWith("onDeck") ? fetchData : undefined
                   }
@@ -306,7 +336,11 @@ function MovieItemSlider({
                   key={i}
                 >
                   <Box
-                    sx={{ width: "100%", height: "auto", aspectRatio: "16/9" }}
+                    sx={{
+                      width: "100%",
+                      height: "auto",
+                      aspectRatio: layout === "poster" ? "2/3" : "16/9",
+                    }}
                   />
                   <Box sx={{ width: "100%", height: "60px" }} />
                 </Box>
@@ -353,9 +387,11 @@ function MovieItemSlider({
 function MovieItemSliderSkeleton({
   title,
   itemsPerPage,
+  layout,
 }: {
   title: string;
   itemsPerPage: number;
+  layout: LibraryCardLayout;
 }) {
   return (
     <Box aria-hidden="true" sx={{ width: "100%" }}>
@@ -384,7 +420,7 @@ function MovieItemSliderSkeleton({
               animation="wave"
               sx={{
                 width: "100%",
-                aspectRatio: "16/9",
+                aspectRatio: layout === "poster" ? "2/3" : "16/9",
                 height: "auto",
                 borderRadius: "8px",
                 boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.05)",
