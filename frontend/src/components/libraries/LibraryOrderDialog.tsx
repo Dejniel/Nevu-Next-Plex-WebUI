@@ -1,9 +1,5 @@
 import {
   Box,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   IconButton,
   ListItemIcon,
   ListItemText,
@@ -17,6 +13,7 @@ import {
 } from "@mui/icons-material";
 import { Reorder, useDragControls } from "framer-motion";
 import React, { useEffect, useState } from "react";
+import AppDialog from "../AppDialog";
 import {
   LIBRARY_NAVIGATION_SETTING,
   NavigationLibrary,
@@ -77,6 +74,7 @@ export default function LibraryOrderDialog({ open, libraries, onClose }: Props) 
   const { settings, setSetting } = useUserSettings();
   const [ordered, setOrdered] = useState<NavigationLibrary[]>([]);
   const [pinned, setPinned] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -86,46 +84,56 @@ export default function LibraryOrderDialog({ open, libraries, onClose }: Props) 
   }, [libraries, open, settings]);
 
   const save = async () => {
-    await setSetting(
-      LIBRARY_NAVIGATION_SETTING,
-      serializeLibraryNavigation({
-        order: ordered.map((library) => library.uuid),
-        pinned,
-      }),
-    );
-    onClose();
+    setSaving(true);
+    try {
+      await setSetting(
+        LIBRARY_NAVIGATION_SETTING,
+        serializeLibraryNavigation({
+          order: ordered.map((library) => library.uuid),
+          pinned,
+        }),
+      );
+      onClose();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>Arrange libraries</DialogTitle>
-      <DialogContent sx={{ px: 2 }}>
-        <Reorder.Group
-          axis="y"
-          values={ordered}
-          onReorder={setOrdered}
-          style={{ margin: 0, padding: 0 }}
-        >
-          {ordered.map((library) => (
-            <OrderRow
-              key={library.uuid}
-              library={library}
-              pinned={pinned.includes(library.uuid)}
-              onTogglePinned={() =>
-                setPinned((current) =>
-                  current.includes(library.uuid)
-                    ? current.filter((id) => id !== library.uuid)
-                    : [...current, library.uuid],
-                )
-              }
-            />
-          ))}
-        </Reorder.Group>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={save}>Save</Button>
-      </DialogActions>
-    </Dialog>
+    <AppDialog
+      open={open}
+      title="Arrange libraries"
+      size="compact"
+      busy={saving}
+      onClose={onClose}
+      contentSx={{ px: 2 }}
+      actions={
+        <Button variant="contained" onClick={save} disabled={saving}>
+          {saving ? "Saving..." : "Save"}
+        </Button>
+      }
+    >
+      <Reorder.Group
+        axis="y"
+        values={ordered}
+        onReorder={setOrdered}
+        style={{ margin: 0, padding: 0 }}
+      >
+        {ordered.map((library) => (
+          <OrderRow
+            key={library.uuid}
+            library={library}
+            pinned={pinned.includes(library.uuid)}
+            onTogglePinned={() =>
+              setPinned((current) =>
+                current.includes(library.uuid)
+                  ? current.filter((id) => id !== library.uuid)
+                  : [...current, library.uuid],
+              )
+            }
+          />
+        ))}
+      </Reorder.Group>
+    </AppDialog>
   );
 }

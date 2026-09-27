@@ -5,16 +5,13 @@ import {
   Button,
   ButtonBase,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   TextField,
   Typography,
 } from "@mui/material";
 import { LockRounded, LogoutRounded } from "@mui/icons-material";
 import React, { useState } from "react";
 import { HomeProfile } from "../auth/AuthStorage";
+import AppDialog from "../components/AppDialog";
 import { useAuthSession } from "../states/AuthSessionState";
 
 export default function ProfilePicker() {
@@ -133,97 +130,82 @@ export default function ProfilePicker() {
         Sign out of Plex
       </Button>
 
-      <Dialog
+      <AppDialog
         open={Boolean(selectedProfile)}
+        title={selectedProfile?.title || "Enter PIN"}
+        size="compact"
+        busy={unlocking}
         onClose={() => {
-          if (!unlocking) {
-            clearError();
-            setSelectedProfile(null);
-          }
+          clearError();
+          setSelectedProfile(null);
         }}
-        maxWidth="xs"
-        fullWidth
+        actions={unlocking ? <CircularProgress size={20} sx={{ mx: 1 }} /> : undefined}
       >
-        <DialogTitle>{selectedProfile?.title}</DialogTitle>
-        <DialogContent>
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-          <Box sx={{ position: "relative", mt: 1 }}>
-            <TextField
-              autoFocus
-              fullWidth
-              type="text"
-              value={pin}
-              disabled={unlocking}
-              autoComplete="one-time-code"
-              inputProps={{
-                "aria-label": "PIN",
-                inputMode: "numeric",
-                maxLength: 4,
-                pattern: "[0-9]*",
-                autoCorrect: "off",
-                spellCheck: false,
-              }}
-              onChange={(event) => {
-                const nextPin = event.target.value.replace(/\D/g, "").slice(0, 4);
-                setPin(nextPin);
-                if (nextPin.length === 4 && !unlocking)
-                  void unlockProfile(nextPin);
-              }}
-              sx={{
-                "& input": {
-                  color: "transparent",
-                  WebkitTextFillColor: "transparent",
-                  caretColor: "transparent",
-                  fontSize: 0,
-                  textAlign: "center",
-                },
-                "& input.Mui-disabled": {
-                  color: "transparent",
-                  WebkitTextFillColor: "transparent",
-                },
-              }}
-            />
-            <Box
-              aria-hidden="true"
-              sx={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 1.5,
-                pointerEvents: "none",
-              }}
-            >
-              {[0, 1, 2, 3].map((index) => (
-                <Box
-                  key={index}
-                  sx={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    bgcolor: index < pin.length ? "text.primary" : "transparent",
-                    border: "1px solid",
-                    borderColor: "text.secondary",
-                  }}
-                />
-              ))}
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              clearError();
-              setSelectedProfile(null);
-            }}
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        <Box sx={{ position: "relative", mt: 1 }}>
+          <TextField
+            autoFocus
+            fullWidth
+            type="text"
+            value={pin}
             disabled={unlocking}
+            autoComplete="one-time-code"
+            inputProps={{
+              "aria-label": "PIN",
+              inputMode: "numeric",
+              maxLength: 4,
+              pattern: "[0-9]*",
+              autoCorrect: "off",
+              spellCheck: false,
+            }}
+            onChange={(event) => {
+              const nextPin = event.target.value.replace(/\D/g, "").slice(0, 4);
+              setPin(nextPin);
+              if (nextPin.length === 4 && !unlocking)
+                void unlockProfile(nextPin);
+            }}
+            sx={{
+              "& input": {
+                color: "transparent",
+                WebkitTextFillColor: "transparent",
+                caretColor: "transparent",
+                fontSize: 0,
+                textAlign: "center",
+              },
+              "& input.Mui-disabled": {
+                color: "transparent",
+                WebkitTextFillColor: "transparent",
+              },
+            }}
+          />
+          <Box
+            aria-hidden="true"
+            sx={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 1.5,
+              pointerEvents: "none",
+            }}
           >
-            Cancel
-          </Button>
-          {unlocking && <CircularProgress size={20} sx={{ mx: 1 }} />}
-        </DialogActions>
-      </Dialog>
+            {[0, 1, 2, 3].map((index) => (
+              <Box
+                key={index}
+                sx={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  bgcolor: index < pin.length ? "text.primary" : "transparent",
+                  border: "1px solid",
+                  borderColor: "text.secondary",
+                }}
+              />
+            ))}
+          </Box>
+        </Box>
+      </AppDialog>
     </Box>
   );
 }

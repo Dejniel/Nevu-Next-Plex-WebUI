@@ -12,11 +12,6 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   FormControlLabel,
   IconButton,
   Snackbar,
@@ -26,6 +21,8 @@ import {
   Typography,
 } from "@mui/material";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import AppDialog from "../../components/AppDialog";
+import ConfirmDialog from "../../components/ConfirmDialog";
 import {
   createShare,
   deleteShare,
@@ -89,77 +86,12 @@ function ShareEditor({ open, share, libraries, onClose, onSaved }: ShareEditorPr
   };
 
   return (
-    <Dialog open={open} onClose={() => !saving && onClose()} fullWidth maxWidth="sm">
-      <DialogTitle>{share ? `Edit ${share.displayName}` : "Share libraries"}</DialogTitle>
-      <DialogContent>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        {!share && (
-          <TextField
-            autoFocus
-            fullWidth
-            required
-            label="Plex email or username"
-            value={account}
-            disabled={saving}
-            autoComplete="off"
-            onChange={(event) => setAccount(event.target.value)}
-            sx={{ mt: 1, mb: 2 }}
-          />
-        )}
-
-        <Typography variant="subtitle2" sx={{ color: "text.secondary", mb: 0.5 }}>
-          Libraries
-        </Typography>
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={allSelected}
-              indeterminate={selected.length > 0 && !allSelected}
-              disabled={saving}
-              onChange={() =>
-                setSelected(allSelected ? [] : libraries.map((library) => library.id))
-              }
-            />
-          }
-          label="All libraries"
-        />
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}>
-          {libraries.map((library) => (
-            <FormControlLabel
-              key={library.id}
-              control={
-                <Checkbox
-                  checked={selected.includes(library.id)}
-                  disabled={saving}
-                  onChange={() => toggleLibrary(library.id)}
-                />
-              }
-              label={library.title}
-            />
-          ))}
-        </Box>
-
-        {selected.length === 0 && (
-          <Typography variant="caption" color="error">
-            Select at least one library.
-          </Typography>
-        )}
-
-        <Box sx={{ mt: 2, pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={allowDownloads}
-                disabled={saving}
-                onChange={(_, checked) => setAllowDownloads(checked)}
-              />
-            }
-            label="Allow downloads"
-          />
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={saving}>Cancel</Button>
+    <AppDialog
+      open={open}
+      title={share ? `Edit ${share.displayName}` : "Share libraries"}
+      onClose={onClose}
+      busy={saving}
+      actions={
         <Button
           variant="contained"
           onClick={save}
@@ -168,8 +100,74 @@ function ShareEditor({ open, share, libraries, onClose, onSaved }: ShareEditorPr
         >
           {share ? "Save" : "Send invitation"}
         </Button>
-      </DialogActions>
-    </Dialog>
+      }
+    >
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {!share && (
+        <TextField
+          autoFocus
+          fullWidth
+          required
+          label="Plex email or username"
+          value={account}
+          disabled={saving}
+          autoComplete="off"
+          onChange={(event) => setAccount(event.target.value)}
+          sx={{ mt: 1, mb: 2 }}
+        />
+      )}
+
+      <Typography variant="subtitle2" sx={{ color: "text.secondary", mb: 0.5 }}>
+        Libraries
+      </Typography>
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={allSelected}
+            indeterminate={selected.length > 0 && !allSelected}
+            disabled={saving}
+            onChange={() =>
+              setSelected(allSelected ? [] : libraries.map((library) => library.id))
+            }
+          />
+        }
+        label="All libraries"
+      />
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}>
+        {libraries.map((library) => (
+          <FormControlLabel
+            key={library.id}
+            control={
+              <Checkbox
+                checked={selected.includes(library.id)}
+                disabled={saving}
+                onChange={() => toggleLibrary(library.id)}
+              />
+            }
+            label={library.title}
+          />
+        ))}
+      </Box>
+
+      {selected.length === 0 && (
+        <Typography variant="caption" color="error">
+          Select at least one library.
+        </Typography>
+      )}
+
+      <Box sx={{ mt: 2, pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={allowDownloads}
+              disabled={saving}
+              onChange={(_, checked) => setAllowDownloads(checked)}
+            />
+          }
+          label="Allow downloads"
+        />
+      </Box>
+    </AppDialog>
   );
 }
 
@@ -342,20 +340,17 @@ export default function SettingsSharing() {
         onSaved={saved}
       />
 
-      <Dialog open={Boolean(removingShare)} onClose={() => !removing && setRemovingShare(null)}>
-        <DialogTitle>Remove library access?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {removingShare?.displayName} will no longer have access to this Plex server.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setRemovingShare(null)} disabled={removing}>Cancel</Button>
-          <Button color="error" variant="contained" onClick={remove} disabled={removing} startIcon={removing ? <CircularProgress size={16} /> : undefined}>
-            Remove
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={Boolean(removingShare)}
+        title="Remove library access?"
+        message={`${removingShare?.displayName || "This user"} will no longer have access to this Plex server.`}
+        busy={removing}
+        onClose={() => setRemovingShare(null)}
+        onConfirm={remove}
+        confirmLabel="Remove"
+        busyLabel="Removing..."
+        confirmColor="error"
+      />
 
       <Snackbar
         open={Boolean(notice)}

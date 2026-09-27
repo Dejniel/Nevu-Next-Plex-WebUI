@@ -8,7 +8,6 @@ import {
   Divider,
   FormControlLabel,
   MenuItem,
-  Modal,
   Rating,
   Select,
   Stack,
@@ -24,6 +23,7 @@ import {
 import { config } from "../../index";
 import { setMediaRating } from "../../plex";
 import { useUserSessionStore } from "../../states/UserSession";
+import AppDialog from "../AppDialog";
 
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -170,137 +170,125 @@ function AddReviewModal({
   };
 
   return (
-    <Modal open onClose={submitting ? undefined : onClose} aria-labelledby="review-modal-title">
-      <Box
-        sx={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: { xs: "calc(100% - 32px)", sm: 500 },
-          maxHeight: "calc(100vh - 32px)",
-          overflowY: "auto",
-          bgcolor: "background.paper",
-          borderRadius: 2,
-          boxShadow: 24,
-          p: { xs: 3, sm: 4 },
-        }}
-      >
-        {initialLoading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <>
-            <Typography id="review-modal-title" variant="h6" component="h2" gutterBottom>
-              {existingReview ? "Edit Review" : "Add Review"}
-            </Typography>
-            <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-              {item.title}
-            </Typography>
-            <Divider sx={{ my: 2 }} />
-
-            <Stack spacing={3}>
-              {operationError && <Alert severity="error">{operationError}</Alert>}
-
-              <Box>
-                <Typography component="legend" gutterBottom>
-                  Plex rating
-                </Typography>
-                <Rating
-                  name="review-rating"
-                  value={rating}
-                  precision={0.5}
-                  size="large"
-                  disabled={submitting}
-                  onChange={(_, newValue) => setRating(newValue || 0)}
-                  icon={<Star fontSize="inherit" />}
-                  emptyIcon={<StarBorder fontSize="inherit" />}
-                />
-              </Box>
-
-              <TextField
-                label="Review (optional)"
-                multiline
-                rows={4}
-                value={reviewText}
+    <AppDialog
+      open
+      title={existingReview ? "Edit review" : "Add review"}
+      onClose={onClose}
+      busy={submitting}
+      actions={
+        initialLoading ? undefined : (
+          <Box
+            sx={{
+              width: "100%",
+              display: "flex",
+              flexDirection: { xs: "column-reverse", sm: "row" },
+              justifyContent: existingReview ? "space-between" : "flex-end",
+              gap: 2,
+            }}
+          >
+            {existingReview && (
+              <Button
+                variant="outlined"
+                onClick={handleDelete}
+                color="error"
                 disabled={submitting}
-                onChange={(event) => setReviewText(event.target.value)}
-                placeholder="Share your thoughts about this item..."
-                helperText={`${reviewText.length}/256`}
-                slotProps={{ htmlInput: { maxLength: 256 } }}
-                fullWidth
-              />
-
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={isSpoiler}
-                    disabled={submitting}
-                    onChange={(event) => setIsSpoiler(event.target.checked)}
-                  />
-                }
-                label="Contains spoilers"
-              />
-
-              {!existingReview && (
-                <>
-                  <Divider />
-                  <Typography variant="subtitle1">Who can see this review?</Typography>
-                  <Select
-                    value={visibility}
-                    disabled={submitting}
-                    onChange={(event) =>
-                      setVisibility(event.target.value as PerPlexed.Reviews.Visibility)
-                    }
-                    fullWidth
-                    inputProps={{ "aria-label": "Review visibility" }}
-                  >
-                    <MenuItem value="LOCAL">This Nevu server</MenuItem>
-                    <MenuItem
-                      value="GLOBAL"
-                      disabled={config.DISABLE_GLOBAL_REVIEWS}
-                    >
-                      Nevu Community
-                    </MenuItem>
-                  </Select>
-                </>
-              )}
-
-              <Stack
-                direction={{ xs: "column-reverse", sm: "row" }}
-                justifyContent={existingReview ? "space-between" : "flex-end"}
-                gap={2}
               >
-                {existingReview && (
-                  <Button
-                    variant="outlined"
-                    onClick={handleDelete}
-                    color="error"
-                    disabled={submitting}
+                Delete
+              </Button>
+            )}
+            <Button
+              variant="contained"
+              onClick={handleSave}
+              disabled={submitting}
+              startIcon={submitting ? <CircularProgress size={16} /> : undefined}
+            >
+              Save
+            </Button>
+          </Box>
+        )
+      }
+    >
+      {initialLoading ? (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <>
+          <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+            {item.title}
+          </Typography>
+          <Divider sx={{ my: 2 }} />
+
+          <Stack spacing={3}>
+            {operationError && <Alert severity="error">{operationError}</Alert>}
+
+            <Box>
+              <Typography component="legend" gutterBottom>
+                Plex rating
+              </Typography>
+              <Rating
+                name="review-rating"
+                value={rating}
+                precision={0.5}
+                size="large"
+                disabled={submitting}
+                onChange={(_, newValue) => setRating(newValue || 0)}
+                icon={<Star fontSize="inherit" />}
+                emptyIcon={<StarBorder fontSize="inherit" />}
+              />
+            </Box>
+
+            <TextField
+              label="Review (optional)"
+              multiline
+              rows={4}
+              value={reviewText}
+              disabled={submitting}
+              onChange={(event) => setReviewText(event.target.value)}
+              placeholder="Share your thoughts about this item..."
+              helperText={`${reviewText.length}/256`}
+              slotProps={{ htmlInput: { maxLength: 256 } }}
+              fullWidth
+            />
+
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={isSpoiler}
+                  disabled={submitting}
+                  onChange={(event) => setIsSpoiler(event.target.checked)}
+                />
+              }
+              label="Contains spoilers"
+            />
+
+            {!existingReview && (
+              <>
+                <Divider />
+                <Typography variant="subtitle1">Who can see this review?</Typography>
+                <Select
+                  value={visibility}
+                  disabled={submitting}
+                  onChange={(event) =>
+                    setVisibility(event.target.value as PerPlexed.Reviews.Visibility)
+                  }
+                  fullWidth
+                  inputProps={{ "aria-label": "Review visibility" }}
+                >
+                  <MenuItem value="LOCAL">This Nevu server</MenuItem>
+                  <MenuItem
+                    value="GLOBAL"
+                    disabled={config.DISABLE_GLOBAL_REVIEWS}
                   >
-                    Delete
-                  </Button>
-                )}
-                <Stack direction="row" spacing={2} justifyContent="flex-end">
-                  <Button variant="outlined" onClick={onClose} disabled={submitting}>
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="contained"
-                    onClick={handleSave}
-                    disabled={submitting}
-                    startIcon={submitting ? <CircularProgress size={16} /> : undefined}
-                  >
-                    Save
-                  </Button>
-                </Stack>
-              </Stack>
-            </Stack>
-          </>
-        )}
-      </Box>
-    </Modal>
+                    Nevu Community
+                  </MenuItem>
+                </Select>
+              </>
+            )}
+          </Stack>
+        </>
+      )}
+    </AppDialog>
   );
 }
 

@@ -1,6 +1,6 @@
-import { Box, Button, Modal, Typography, Paper, Fade } from "@mui/material";
 import React from "react";
 import { create } from "zustand";
+import ConfirmDialog from "./ConfirmDialog";
 
 // State management with zustand
 interface ConfirmModalState {
@@ -62,87 +62,13 @@ function ConfirmModal() {
   };
 
   return (
-    <Modal
+    <ConfirmDialog
       open={open}
+      title={title}
+      message={message}
       onClose={handleCancel}
-      closeAfterTransition
-      aria-labelledby="confirm-modal-title"
-      aria-describedby="confirm-modal-description"
-    >
-      <Fade in={open}>
-        <Paper
-          elevation={3}
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "85%", sm: 400 },
-            maxWidth: 450,
-            borderRadius: 2,
-            p: 3,
-            outline: "none",
-          }}
-        >
-          <Typography
-            id="confirm-modal-title"
-            variant="h6"
-            component="h2"
-            sx={{
-              mb: 2,
-              fontWeight: 500,
-              color: "text.primary",
-            }}
-          >
-            {title}
-          </Typography>
-
-          <Typography
-            id="confirm-modal-description"
-            variant="body1"
-            sx={{
-              mb: 3,
-              color: "text.secondary",
-            }}
-          >
-            {message}
-          </Typography>
-
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: 2,
-            }}
-          >
-            <Button
-              variant="outlined"
-              onClick={handleCancel}
-              size="medium"
-              sx={{
-                textTransform: "none",
-                fontWeight: 500,
-              }}
-            >
-              Cancel
-            </Button>
-
-            <Button
-              variant="contained"
-              onClick={handleConfirm}
-              disableElevation
-              size="medium"
-              sx={{
-                textTransform: "none",
-                fontWeight: 500,
-              }}
-            >
-              Confirm
-            </Button>
-          </Box>
-        </Paper>
-      </Fade>
-    </Modal>
+      onConfirm={handleConfirm}
+    />
   );
 }
 

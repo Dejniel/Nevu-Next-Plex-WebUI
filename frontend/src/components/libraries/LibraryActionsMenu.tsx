@@ -10,21 +10,16 @@ import {
   RestartAltRounded,
 } from "@mui/icons-material";
 import {
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   Divider,
   ListItemIcon,
   ListItemText,
   Menu,
   MenuItem,
-  Button,
   Snackbar,
 } from "@mui/material";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ConfirmDialog from "../ConfirmDialog";
 import { runLibraryAction } from "../../plex/libraries";
 import {
   LIBRARY_NAVIGATION_SETTING,
@@ -49,6 +44,7 @@ export default function LibraryActionsMenu({ anchorEl, library, libraries, onClo
   const { settings, setSetting } = useUserSettings();
   const [orderOpen, setOrderOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"refresh-metadata" | "empty-trash" | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const navigation = normalizeLibraryNavigation(libraries, settings);
   const isPinned = Boolean(library && navigation.preference.pinned.includes(library.uuid));
@@ -130,22 +126,29 @@ export default function LibraryActionsMenu({ anchorEl, library, libraries, onClo
       </Menu>
 
       <LibraryOrderDialog open={orderOpen} libraries={libraries} onClose={() => setOrderOpen(false)} />
-      <Dialog open={confirmAction !== null} onClose={() => setConfirmAction(null)}>
-        <DialogTitle>{confirmAction === "empty-trash" ? "Empty library trash?" : "Refresh all metadata?"}</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {confirmAction === "empty-trash"
-              ? "Plex will permanently remove unavailable items from this library."
-              : "Plex will refresh metadata for every item in this library."}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmAction(null)}>Cancel</Button>
-          <Button color={confirmAction === "empty-trash" ? "error" : "primary"} variant="contained" onClick={() => confirmAction && action(confirmAction)}>
-            Continue
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmAction !== null}
+        title={confirmAction === "empty-trash" ? "Empty library trash?" : "Refresh all metadata?"}
+        message={
+          confirmAction === "empty-trash"
+            ? "Plex will permanently remove unavailable items from this library."
+            : "Plex will refresh metadata for every item in this library."
+        }
+        busy={confirmBusy}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={async () => {
+          if (!confirmAction) return;
+          setConfirmBusy(true);
+          try {
+            await action(confirmAction);
+          } finally {
+            setConfirmBusy(false);
+          }
+        }}
+        confirmLabel="Continue"
+        busyLabel="Working..."
+        confirmColor={confirmAction === "empty-trash" ? "error" : "primary"}
+      />
       <Snackbar open={Boolean(notice)} autoHideDuration={5000} onClose={() => setNotice("")} message={notice} />
     </>
   );

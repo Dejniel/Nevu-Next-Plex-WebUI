@@ -16,11 +16,6 @@ import {
   Box,
   Button,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   Divider,
   FormControl,
   FormControlLabel,
@@ -44,6 +39,8 @@ import {
 } from "@mui/material";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
+import AppDialog from "../../components/AppDialog";
+import ConfirmDialog from "../../components/ConfirmDialog";
 import {
   browseLibraryFolders,
   createLibrary,
@@ -177,50 +174,53 @@ function FolderBrowser({
   }, [open]);
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Select folder</DialogTitle>
-      <DialogContent sx={{ px: 0 }}>
-        <Box sx={{ px: 2, pb: 1, display: "flex", alignItems: "center", gap: 1 }}>
-          <Tooltip title="Parent folder">
-            <span>
-              <IconButton
-                disabled={history.length === 1}
-                onClick={() => setHistory((items) => items.slice(0, -1))}
-              >
-                <ArrowBackRounded />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Typography noWrap sx={{ fontFamily: "monospace", flex: 1 }}>{current.path}</Typography>
-          <Button
-            variant="contained"
-            disabled={current.path === "/"}
-            onClick={() => onSelect(current.path)}
-          >
-            Select
-          </Button>
-        </Box>
-        <Divider />
-        {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
-        {loading ? (
-          <Box sx={{ py: 6, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>
-        ) : (
-          <List disablePadding sx={{ maxHeight: "50vh", overflowY: "auto" }}>
-            {folders.map((folder) => (
-              <ListItemButton
-                key={folder.key}
-                onClick={() => setHistory((items) => [...items, { key: folder.key, path: folder.path }])}
-              >
-                <ListItemIcon><FolderRounded /></ListItemIcon>
-                <ListItemText primary={folder.title} secondary={folder.path} />
-              </ListItemButton>
-            ))}
-            {!folders.length && !error && <ListItem><ListItemText primary="No folders found." /></ListItem>}
-          </List>
-        )}
-      </DialogContent>
-      <DialogActions><Button onClick={onClose}>Cancel</Button></DialogActions>
-    </Dialog>
+    <AppDialog
+      open={open}
+      title="Select folder"
+      onClose={onClose}
+      contentSx={{ px: 0 }}
+    >
+      <Box sx={{ px: 2, pb: 1, display: "flex", alignItems: "center", gap: 1 }}>
+        <Tooltip title="Parent folder">
+          <span>
+            <IconButton
+              disabled={history.length === 1}
+              onClick={() => setHistory((items) => items.slice(0, -1))}
+            >
+              <ArrowBackRounded />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Typography noWrap sx={{ fontFamily: "monospace", flex: 1 }}>{current.path}</Typography>
+        <Button
+          variant="contained"
+          disabled={current.path === "/"}
+          onClick={() => onSelect(current.path)}
+        >
+          Select
+        </Button>
+      </Box>
+      <Divider />
+      {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
+      {loading ? (
+        <Box sx={{ py: 6, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>
+      ) : (
+        <List disablePadding sx={{ maxHeight: "50vh", overflowY: "auto" }}>
+          {folders.map((folder) => (
+            <ListItemButton
+              key={folder.key}
+              onClick={() => setHistory((items) => [...items, { key: folder.key, path: folder.path }])}
+            >
+              <ListItemIcon><FolderRounded /></ListItemIcon>
+              <ListItemText primary={folder.title} secondary={folder.path} />
+            </ListItemButton>
+          ))}
+          {!folders.length && !error && (
+            <ListItem><ListItemText primary="No folders found." /></ListItem>
+          )}
+        </List>
+      )}
+    </AppDialog>
   );
 }
 
@@ -349,87 +349,93 @@ function LibraryEditor({
   const visiblePreferences = details?.preferences.filter((setting) => !setting.hidden && setting.id) || [];
   return (
     <>
-      <Dialog open={open} onClose={saving ? undefined : onClose} fullWidth maxWidth="md">
-        <DialogTitle>{libraryId ? `Edit ${details?.library.title || "library"}` : "Add library"}</DialogTitle>
-        <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ px: 3 }}>
-          <Tab label="General" />
-          <Tab label="Folders" />
-          {libraryId && <Tab label="Advanced" />}
-        </Tabs>
-        <Divider />
-        <DialogContent sx={{ minHeight: 330 }}>
-          {loading ? <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box> : (
-            <>
-              {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-              {tab === 0 && (
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  {!libraryId && (
-                    <FormControl fullWidth>
-                      <InputLabel>Library type</InputLabel>
-                      <Select label="Library type" value={type} onChange={(event) => setType(event.target.value as ManagedLibraryType)}>
-                        {LIBRARY_TYPES.map((item) => <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>)}
-                      </Select>
-                    </FormControl>
-                  )}
-                  <TextField label="Name" value={name} onChange={(event) => setName(event.target.value)} fullWidth autoFocus />
+      <AppDialog
+        open={open}
+        title={libraryId ? `Edit ${details?.library.title || "library"}` : "Add library"}
+        onClose={onClose}
+        busy={saving}
+        headerContent={
+          <>
+            <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ px: 3 }}>
+              <Tab label="General" />
+              <Tab label="Folders" />
+              {libraryId && <Tab label="Advanced" />}
+            </Tabs>
+            <Divider />
+          </>
+        }
+        contentSx={{ minHeight: 330 }}
+        actions={
+          <Button variant="contained" onClick={save} disabled={saving || loading}>{saving ? "Saving..." : "Save"}</Button>
+        }
+      >
+        {loading ? <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box> : (
+          <>
+            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            {tab === 0 && (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {!libraryId && (
                   <FormControl fullWidth>
-                    <InputLabel id="library-language-label">Language</InputLabel>
-                    <Select
-                      labelId="library-language-label"
-                      label="Language"
-                      value={language}
-                      onChange={(event) => setLanguage(String(event.target.value))}
-                    >
-                      {!LIBRARY_LANGUAGES.some(([code]) => code === language) && (
-                        <MenuItem value={language}>{language}</MenuItem>
-                      )}
-                      {LIBRARY_LANGUAGES.map(([code, label]) => (
-                        <MenuItem key={code} value={code}>{label}</MenuItem>
-                      ))}
+                    <InputLabel>Library type</InputLabel>
+                    <Select label="Library type" value={type} onChange={(event) => setType(event.target.value as ManagedLibraryType)}>
+                      {LIBRARY_TYPES.map((item) => <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>)}
                     </Select>
                   </FormControl>
-                </Box>
-              )}
-              {tab === 1 && (
-                <Box>
-                  <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
-                    <Button startIcon={<AddRounded />} onClick={() => setFolderOpen(true)}>Add folder</Button>
-                  </Box>
-                  <List disablePadding>
-                    {locations.map((path) => (
-                      <ListItem
-                        key={path}
-                        secondaryAction={<Tooltip title="Remove folder"><IconButton onClick={() => setLocations((items) => items.filter((item) => item !== path))}><DeleteOutlineRounded /></IconButton></Tooltip>}
-                      >
-                        <ListItemIcon><FolderRounded /></ListItemIcon>
-                        <ListItemText primary={path} primaryTypographyProps={{ sx: { fontFamily: "monospace" } }} />
-                      </ListItem>
+                )}
+                <TextField label="Name" value={name} onChange={(event) => setName(event.target.value)} fullWidth autoFocus />
+                <FormControl fullWidth>
+                  <InputLabel id="library-language-label">Language</InputLabel>
+                  <Select
+                    labelId="library-language-label"
+                    label="Language"
+                    value={language}
+                    onChange={(event) => setLanguage(String(event.target.value))}
+                  >
+                    {!LIBRARY_LANGUAGES.some(([code]) => code === language) && (
+                      <MenuItem value={language}>{language}</MenuItem>
+                    )}
+                    {LIBRARY_LANGUAGES.map(([code, label]) => (
+                      <MenuItem key={code} value={code}>{label}</MenuItem>
                     ))}
-                    {!locations.length && <ListItem><ListItemText primary="No folders selected." /></ListItem>}
-                  </List>
+                  </Select>
+                </FormControl>
+              </Box>
+            )}
+            {tab === 1 && (
+              <Box>
+                <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
+                  <Button startIcon={<AddRounded />} onClick={() => setFolderOpen(true)}>Add folder</Button>
                 </Box>
-              )}
-              {tab === 2 && (
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  {visiblePreferences.map((setting) => (
-                    <PreferenceField
-                      key={setting.id}
-                      preference={setting}
-                      value={preferences[setting.id] ?? ""}
-                      onChange={(value) => setPreferences((current) => ({ ...current, [setting.id]: value }))}
-                    />
+                <List disablePadding>
+                  {locations.map((path) => (
+                    <ListItem
+                      key={path}
+                      secondaryAction={<Tooltip title="Remove folder"><IconButton onClick={() => setLocations((items) => items.filter((item) => item !== path))}><DeleteOutlineRounded /></IconButton></Tooltip>}
+                    >
+                      <ListItemIcon><FolderRounded /></ListItemIcon>
+                      <ListItemText primary={path} primaryTypographyProps={{ sx: { fontFamily: "monospace" } }} />
+                    </ListItem>
                   ))}
-                  {!visiblePreferences.length && <Typography color="text.secondary">No advanced settings are available.</Typography>}
-                </Box>
-              )}
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button variant="contained" onClick={save} disabled={saving || loading}>{saving ? "Saving..." : "Save"}</Button>
-        </DialogActions>
-      </Dialog>
+                  {!locations.length && <ListItem><ListItemText primary="No folders selected." /></ListItem>}
+                </List>
+              </Box>
+            )}
+            {tab === 2 && (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {visiblePreferences.map((setting) => (
+                  <PreferenceField
+                    key={setting.id}
+                    preference={setting}
+                    value={preferences[setting.id] ?? ""}
+                    onChange={(value) => setPreferences((current) => ({ ...current, [setting.id]: value }))}
+                  />
+                ))}
+                {!visiblePreferences.length && <Typography color="text.secondary">No advanced settings are available.</Typography>}
+              </Box>
+            )}
+          </>
+        )}
+      </AppDialog>
       <FolderBrowser
         open={folderOpen}
         onClose={() => setFolderOpen(false)}
@@ -452,6 +458,8 @@ export default function SettingsLibrariesAdmin() {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [menuLibrary, setMenuLibrary] = useState<ManagedLibrary | null>(null);
   const [confirmAction, setConfirmAction] = useState<"refresh-metadata" | "empty-trash" | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [deletingBusy, setDeletingBusy] = useState(false);
   const editing = searchParams.get("edit");
   const deleting = searchParams.get("delete");
   const adding = searchParams.has("add");
@@ -544,51 +552,53 @@ export default function SettingsLibrariesAdmin() {
       </Menu>
 
       <LibraryEditor open={adding || Boolean(editing)} libraryId={editing} onClose={closeEditor} onSaved={changed} />
-      <Dialog open={Boolean(deleting)} onClose={closeEditor}>
-        <DialogTitle>Delete {deleteTarget?.title || "library"}?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>This removes the library from Plex but does not delete its media files.</DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeEditor}>Cancel</Button>
-          <Button
-            color="error"
-            variant="contained"
-            disabled={!deleteTarget}
-            onClick={async () => {
-              if (!deleteTarget) return;
-              try {
-                await deleteLibrary(deleteTarget.id, deleteTarget.title);
-                await changed("Library deleted.");
-              } catch (reason) {
-                setNotice(errorMessage(reason));
-              }
-            }}
-          >Delete</Button>
-        </DialogActions>
-      </Dialog>
-      <Dialog open={confirmAction !== null} onClose={() => setConfirmAction(null)}>
-        <DialogTitle>{confirmAction === "empty-trash" ? "Empty library trash?" : "Refresh all metadata?"}</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {confirmAction === "empty-trash"
-              ? "Plex will permanently remove unavailable items from this library."
-              : "Plex will refresh metadata for every item in this library."}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmAction(null)}>Cancel</Button>
-          <Button
-            color={confirmAction === "empty-trash" ? "error" : "primary"}
-            variant="contained"
-            onClick={async () => {
-              if (!confirmAction) return;
-              await performAction(confirmAction);
-              setConfirmAction(null);
-            }}
-          >Continue</Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        title={`Delete ${deleteTarget?.title || "library"}?`}
+        message="This removes the library from Plex but does not delete its media files."
+        busy={deletingBusy}
+        onClose={closeEditor}
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          setDeletingBusy(true);
+          try {
+            await deleteLibrary(deleteTarget.id, deleteTarget.title);
+            await changed("Library deleted.");
+          } catch (reason) {
+            setNotice(errorMessage(reason));
+          } finally {
+            setDeletingBusy(false);
+          }
+        }}
+        confirmLabel="Delete"
+        busyLabel="Deleting..."
+        confirmColor="error"
+        confirmDisabled={!deleteTarget}
+      />
+      <ConfirmDialog
+        open={confirmAction !== null}
+        title={confirmAction === "empty-trash" ? "Empty library trash?" : "Refresh all metadata?"}
+        message={
+          confirmAction === "empty-trash"
+            ? "Plex will permanently remove unavailable items from this library."
+            : "Plex will refresh metadata for every item in this library."
+        }
+        busy={confirmBusy}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={async () => {
+          if (!confirmAction) return;
+          setConfirmBusy(true);
+          try {
+            await performAction(confirmAction);
+            setConfirmAction(null);
+          } finally {
+            setConfirmBusy(false);
+          }
+        }}
+        confirmLabel="Continue"
+        busyLabel="Working..."
+        confirmColor={confirmAction === "empty-trash" ? "error" : "primary"}
+      />
       <Snackbar open={Boolean(notice)} autoHideDuration={5000} onClose={() => setNotice("")} message={notice} />
     </Box>
   );
