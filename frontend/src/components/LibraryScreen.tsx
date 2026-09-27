@@ -1,11 +1,4 @@
-import {
-  Alert,
-  Backdrop,
-  Box,
-  CircularProgress,
-  Grid,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, CircularProgress, Grid } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getLibraryDir } from "../plex";
@@ -17,6 +10,7 @@ import LibrarySortDropDown, {
   sortMetadata,
 } from "./LibrarySortDropDown";
 import { useWatchListCache } from "../states/WatchListCache";
+import AppDialog from "./AppDialog";
 
 function LibraryScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -35,20 +29,12 @@ function LibraryScreen() {
     : null;
   const browseProps = parseBrowseProps(searchParams.get("bprops"));
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        searchParams.delete("bkey");
-        searchParams.delete("bprops");
-        setSearchParams(searchParams);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const close = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("bkey");
+    next.delete("bprops");
+    setSearchParams(next);
+  };
 
   useEffect(() => {
     if (!(searchParams.has("mid") && searchParams.has("bkey"))) return;
@@ -100,131 +86,78 @@ function LibraryScreen() {
     }
   }, [bkey, searchParams]);
 
-  if (loading)
-    return (
-      <Backdrop
-        open={searchParams.has("bkey")}
-        sx={{
-          overflowY: "scroll",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1200,
-        }}
-        onClick={() => {
-          searchParams.delete("bkey");
-          searchParams.delete("bprops");
-          setSearchParams(searchParams);
-        }}
-      >
-        <CircularProgress />
-      </Backdrop>
-    );
-
   if (bkey)
     return (
-      <Backdrop
-        open={searchParams.has("bkey")}
-        sx={{
-          overflowY: "scroll",
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "center",
-          zIndex: 1200,
-        }}
-        onClick={() => {
-          searchParams.delete("bkey");
-          searchParams.delete("bprops");
-          setSearchParams(searchParams);
-        }}
-      >
-        <Box
-          sx={{
-            width: { xs: "95vw", sm: "90vw", md: "130vh" },
-            maxWidth: "100vw",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            justifyContent: "flex-start",
-            backgroundColor: "#181818",
-            mt: { xs: 1, md: 4 },
-            padding: { xs: "12px", md: "20px" },
-
-            ...((library?.Metadata?.length ?? 0) > 10 && {
-              pb: "10vh",
-            }),
-
-            borderRadius: "10px",
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-          }}
-        >
-          {error && (
-            <Box sx={{ width: "100%" }}>
-              <Alert severity="error">{error}</Alert>
-            </Box>
-          )}
-
+      <AppDialog
+        open
+        onClose={close}
+        title={
           <Box
+            component="span"
             sx={{
               width: "100%",
-              pt: 0,
-              pb: 2,
+              minWidth: 0,
               display: "flex",
-              gap: 0,
-              flexDirection: "row",
               alignItems: "center",
-              justifyContent: "flex-start",
-              userSelect: "none",
+              gap: 2,
             }}
           >
-            <Typography
-              sx={{
-                color: "#fff",
-                fontSize: { xs: "1.4rem", md: "2rem" },
-                fontWeight: "bold",
-              }}
-            >
-              {library?.title1} {library?.title2 && ` - ${library?.title2}`}
-            </Typography>
-
             <Box
-              sx={{
-                marginLeft: "auto",
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "flex-end",
-                gap: 2,
-              }}
+              component="span"
+              sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
             >
-              {!skipFilter && (
-                <LibrarySortDropDown sortHook={[sortBy, setSortBy]} />
-              )}
+              {library?.title1 || "Browse"}
+              {library?.title2 && ` - ${library.title2}`}
             </Box>
+            {!loading && !skipFilter && (
+              <Box component="span" sx={{ ml: "auto", flexShrink: 0 }}>
+                <LibrarySortDropDown sortHook={[sortBy, setSortBy]} />
+              </Box>
+            )}
           </Box>
+        }
+        contentSx={{ pb: (library?.Metadata?.length ?? 0) > 10 ? 6 : 3 }}
+      >
+        {loading ? (
+          <Box
+            sx={{
+              minHeight: 240,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <CircularProgress />
+          </Box>
+        ) : (
+          <>
+            {error && (
+              <Box sx={{ width: "100%", mb: 2 }}>
+                <Alert severity="error">{error}</Alert>
+              </Box>
+            )}
 
-          <Grid container spacing={2} sx={{ width: "100%" }}>
-            {library?.Metadata &&
-              (skipFilter
-                ? library?.Metadata
-                : sortMetadata(library?.Metadata, sortBy)
-              ).map((item, index) => (
-                <Grid
-                  size={{ xs: 12, sm: 6, md: 4, lg: 4, xl: 3 }}
-                  key={item.ratingKey}
-                >
-                  <Element
-                    item={item}
-                    key={`${index}`}
-                    plexTv={bkey.startsWith("/plextv")}
-                  />
-                </Grid>
-              ))}
-          </Grid>
-        </Box>
-      </Backdrop>
+            <Grid container spacing={2} sx={{ width: "100%" }}>
+              {library?.Metadata &&
+                (skipFilter
+                  ? library?.Metadata
+                  : sortMetadata(library?.Metadata, sortBy)
+                ).map((item, index) => (
+                  <Grid
+                    size={{ xs: 12, sm: 6, md: 4, lg: 4, xl: 3 }}
+                    key={item.ratingKey}
+                  >
+                    <Element
+                      item={item}
+                      key={`${index}`}
+                      plexTv={bkey.startsWith("/plextv")}
+                    />
+                  </Grid>
+                ))}
+            </Grid>
+          </>
+        )}
+      </AppDialog>
     );
 
   return <></>;
