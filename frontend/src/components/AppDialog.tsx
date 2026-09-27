@@ -5,7 +5,6 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  Tooltip,
 } from "@mui/material";
 import type { SxProps, Theme } from "@mui/material";
 import React, { useId } from "react";
@@ -40,18 +39,14 @@ export default function AppDialog({
   const compact = size === "compact";
   const hasTitle = title !== undefined && title !== null;
   const closeButton = (
-    <Tooltip title="Close">
-      <span>
-        <IconButton
-          aria-label="Close dialog"
-          disabled={busy}
-          onClick={onClose}
-          sx={{ position: "absolute", top: 8, right: 8, zIndex: 10 }}
-        >
-          <CloseRounded />
-        </IconButton>
-      </span>
-    </Tooltip>
+    <IconButton
+      aria-label="Close dialog"
+      disabled={busy}
+      onClick={onClose}
+      sx={{ position: "absolute", top: 8, right: 8, zIndex: 10 }}
+    >
+      <CloseRounded />
+    </IconButton>
   );
 
   return (
