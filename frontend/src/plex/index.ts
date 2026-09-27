@@ -1,11 +1,21 @@
 import axios from "axios";
 import { authedGet, authedPost, authedPut, getIncludeProps, getXPlexProps, queryBuilder } from "./QuickFunctions";
 import './plex.d.ts'
-import { getBackendURL, ProxiedRequest } from "../backendURL";
+import { ProxiedRequest } from "../backendURL";
 import { platformCache } from "../common/DesktopApp";
 import { AuthStorage } from "../auth/AuthStorage";
 
+export {
+    getResponsiveTranscodeImageProps,
+    getTranscodeImageURL,
+    HERO_IMAGE_WIDTHS,
+    LANDSCAPE_IMAGE_WIDTHS,
+    POSTER_IMAGE_WIDTHS,
+    DETAIL_POSTER_IMAGE_WIDTHS,
+} from "./images";
+
 export { getAccessToken, getLoggedInUser, getPin } from "./auth";
+export { getLibraryPage } from "./libraryPage";
 
 axios.defaults.headers.common['accept'] = 'application/json';
 
@@ -16,7 +26,7 @@ export async function getAllLibraries(): Promise<Plex.LibarySection[]> {
 
 export async function getLibrary(key: string): Promise<Plex.MediaContainer> {
     const res = await authedGet(`/library/sections/${key}?${queryBuilder({
-        ...getIncludeProps(),
+        includeDetails: 1,
     })}`);
     return res.MediaContainer;
 }
@@ -216,23 +226,6 @@ export async function getPlayQueue(uri: string): Promise<Plex.Metadata[]> {
         ...getXPlexProps()
     })}`);
     return res.MediaContainer.Metadata;
-}
-
-/**
- * Generates a URL for transcoding an image with the specified dimensions.
- *
- * @param url - The URL of the image to be transcoded.
- * @param width - The desired width of the transcoded image.
- * @param height - The desired height of the transcoded image.
- * @returns The URL for the transcoded image.
- */
-export function getTranscodeImageURL(url: string, width: number, height: number) {
-    return `${getBackendURL()}/dynproxy/photo/:/transcode?${queryBuilder({
-        width,
-        height,
-        url,
-        "X-Plex-Token": AuthStorage.getServerToken() as string,
-    })}`;
 }
 
 /**

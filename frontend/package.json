@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "dependencies": {
+    "@nevu/contracts": "file:../contracts",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@fontsource-variable/inter": "^5.2.5",
@@ -11,6 +12,7 @@
     "@fontsource/ibm-plex-sans": "^5.2.5",
     "@mui/icons-material": "^7.0.2",
     "@mui/material": "^7.0.2",
+    "@tanstack/react-virtual": "^3.14.13",
     "axios": "^1.8.4",
     "fast-xml-parser": "^5.2.0",
     "framer-motion": "^12.6.3",

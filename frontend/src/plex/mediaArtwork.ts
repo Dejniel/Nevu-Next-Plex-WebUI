@@ -5,7 +5,7 @@ function firstPath(...paths: Array<string | null | undefined>) {
 }
 
 export function mediaArtworkPath(
-  item: Pick<Plex.Metadata, "type" | "thumb" | "art">,
+  item: { type: string; thumb?: string; art?: string },
   layout: MediaArtworkLayout,
 ) {
   if (layout === "poster") return firstPath(item.thumb, item.art);

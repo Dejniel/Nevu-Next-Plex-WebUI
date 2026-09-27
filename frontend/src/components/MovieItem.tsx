@@ -32,10 +32,13 @@ import React, { JSX, memo, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   getTranscodeImageURL,
+  getResponsiveTranscodeImageProps,
   getLibraryMeta,
   getLibraryMetaChildren,
   getItemByGUID,
   setMediaPlayedStatus,
+  LANDSCAPE_IMAGE_WIDTHS,
+  POSTER_IMAGE_WIDTHS,
 } from "../plex";
 import { durationToText } from "./MovieItemSlider";
 import {
@@ -53,6 +56,9 @@ import { AuthStorage } from "../auth/AuthStorage";
 import { mediaQualityBadge } from "../plex/mediaVersions";
 import { mediaArtworkPath } from "../plex/mediaArtwork";
 import { alpha } from "@mui/material/styles";
+import type { LibraryCardDto } from "@nevu/contracts";
+
+export type MovieItemData = Plex.Metadata | LibraryCardDto;
 
 interface MovieItemPreviewPlaybackState {
   url: string;
@@ -78,13 +84,17 @@ function MovieItem({
   PlexTvSource,
   refetchData,
   layout = "landscape",
+  imageSizes,
+  imageLoading = "lazy",
 }: {
-  item: Plex.Metadata;
+  item: MovieItemData;
   itemsPerPage?: number;
   index?: number;
   PlexTvSource?: boolean;
   refetchData?: () => void;
   layout?: "landscape" | "poster";
+  imageSizes?: string;
+  imageLoading?: "eager" | "lazy";
 }): JSX.Element {
   const [, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -143,13 +153,20 @@ function MovieItem({
         .filter(Boolean)
         .join(" · ");
   const artworkPath = mediaArtworkPath(item, layout);
-  const artworkUrl = artworkPath
-    ? getTranscodeImageURL(
-        artworkPath,
-        layout === "poster" ? 600 : 1200,
-        layout === "poster" ? 900 : 680,
-      )
+  const artwork = artworkPath
+    ? getResponsiveTranscodeImageProps(artworkPath, {
+        widths:
+          layout === "poster" ? POSTER_IMAGE_WIDTHS : LANDSCAPE_IMAGE_WIDTHS,
+        aspectRatio: layout === "poster" ? 2 / 3 : 16 / 9,
+        sizes:
+          imageSizes ||
+          (itemsPerPage
+            ? `${Math.ceil(95 / itemsPerPage)}vw`
+            : "(max-width: 600px) calc(100vw - 16px), 320px"),
+        fallbackWidth: layout === "poster" ? 480 : 640,
+      })
     : null;
+  const artworkUrl = artwork?.src || null;
   const [artworkStatus, setArtworkStatus] = React.useState<
     "loading" | "loaded" | "missing"
   >(artworkUrl ? "loading" : "missing");
@@ -518,12 +535,14 @@ function MovieItem({
               "inset 0 0 0 1px rgba(255,255,255,0.05), inset 0 -32px 56px rgba(0,0,0,0.24)",
           }}
         >
-          {artworkUrl && artworkStatus !== "missing" && (
+          {artwork && artworkStatus !== "missing" && (
             <Box
               component="img"
-              src={artworkUrl}
+              {...artwork}
               alt=""
               draggable={false}
+              loading={imageLoading}
+              decoding="async"
               onLoad={() => setArtworkStatus("loaded")}
               onError={() => setArtworkStatus("missing")}
               sx={{
@@ -534,7 +553,7 @@ function MovieItem({
                 objectFit: "cover",
                 objectPosition: layout === "poster" ? "center top" : "center",
                 opacity: artworkStatus === "loaded" ? 1 : 0,
-                transition: "opacity 0.25s ease",
+                transition: "opacity 0.12s ease",
               }}
             />
           )}
@@ -877,7 +896,7 @@ function MovieItem({
 
 export default memo(MovieItem);
 
-function MediaTypePlaceholder({ type }: { type: Plex.LibaryType }) {
+function MediaTypePlaceholder({ type }: { type: string }) {
   const sx = { fontSize: "clamp(38px, 6vw, 72px)" };
 
   if (["show", "season", "episode"].includes(type)) return <TvRounded sx={sx} />;
@@ -887,7 +906,7 @@ function MediaTypePlaceholder({ type }: { type: Plex.LibaryType }) {
   return <VideoLibraryOutlined sx={sx} />;
 }
 
-export function WatchListButton({ item }: { item: Plex.Metadata }) {
+export function WatchListButton({ item }: { item: MovieItemData }) {
   const WatchList = useWatchListCache();
   const [isLoading, setIsLoading] = React.useState(false);
 
@@ -919,7 +938,7 @@ export function WatchListButton({ item }: { item: Plex.Metadata }) {
         if (WatchList.isOnWatchList(item.guid))
           return WatchList.removeItem(item.guid);
 
-        WatchList.addItem(item);
+        WatchList.addItem(item as Plex.Metadata);
       }}
     >
       {isLoading ? (

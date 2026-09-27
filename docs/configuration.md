@@ -31,7 +31,7 @@ Boolean options are enabled only when their value is the string `"true"`.
 | `LISTEN_PORT` | `3000` | Internal TCP port on which Nevu listens. The container-side port mapping and healthcheck use this value. |
 | `DISABLE_TLS_VERIFY` | `false` | Accept an untrusted HTTPS certificate presented by `PLEX_SERVER`. This affects the Nevu-to-Plex connection, not Nevu's own certificate. |
 | `DISABLE_NEVU_SYNC` | `false` | Disable Nevu Sync and its Watch Together interface. |
-| `DISABLE_REQUEST_LOGGING` | `false` | Stop logging each HTTP request to the container log. Startup and error messages remain enabled. |
+| `DISABLE_REQUEST_LOGGING` | `false` | Stop logging HTTP requests to the container log. Dynamic image requests are always omitted and sensitive query tokens are redacted. Startup and error messages remain enabled. |
 | `DISABLE_GLOBAL_REVIEWS` | `false` | Disable Nevu community reviews and global review submission. |
 | `TLS_SELF_SIGNED` | `false` | Generate and persist a self-signed certificate, then serve Nevu over HTTPS. |
 | `TLS_COMMON_NAME` | `localhost` | Certificate common name used only with `TLS_SELF_SIGNED=true`. |

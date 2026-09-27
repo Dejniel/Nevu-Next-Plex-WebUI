@@ -1,17 +1,22 @@
+import type {
+  LibraryCardDto,
+  LibraryFilter,
+  LibraryItemType,
+} from "@nevu/contracts";
+import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import {
+  Alert,
   Box,
+  Button,
   Divider,
   MenuItem,
   Select,
   Skeleton,
 } from "@mui/material";
-import { AnimatePresence, motion } from "framer-motion";
-import React, { useEffect } from "react";
+import { motion } from "framer-motion";
+import React, { useEffect, useLayoutEffect } from "react";
 import { useParams } from "react-router-dom";
-import { getLibrary, getLibraryDir } from "../../plex";
 import MovieItem from "../../components/MovieItem";
-import { useInView } from "react-intersection-observer";
-import { formatLibraryItemCount } from "../../plex/libraryItemCount";
 import {
   getLibraryCardWidth,
   LibraryCardLayout,
@@ -22,153 +27,242 @@ import {
   LibrarySort,
   normalizeLibrarySort,
 } from "../../components/LibrarySortDropDown";
+import { AuthStorage } from "../../auth/AuthStorage";
+import { getLibrary } from "../../plex";
+import {
+  LIBRARY_RANGE_SIZE,
+  libraryQueryKey,
+  libraryRangeStore,
+  LibraryQuery,
+  useLibraryRange,
+} from "../../states/LibraryRangeStore";
+
+const GRID_GAP = 16;
+const INITIAL_PLACEHOLDER_ROWS = 6;
+const filters = new Set<LibraryFilter>([
+  "all",
+  "unwatched",
+  "watched",
+  "recentlyAdded",
+  "onDeck",
+  "newest",
+]);
+
+function storedFilter(): LibraryFilter {
+  const value = localStorage.getItem("primaryFilter") as LibraryFilter | null;
+  return value && filters.has(value) ? value : "all";
+}
 
 const viewGroupLabel = (viewGroup?: string) => {
   switch (viewGroup) {
-    case "movie":
-      return "Movies";
-    case "show":
-      return "Shows";
-    case "episode":
-      return "Episodes";
-    default:
-      return "All types";
+    case "movie": return "Movies";
+    case "show": return "Shows";
+    case "episode": return "Episodes";
+    default: return "All types";
   }
 };
 
-export const libTypeToNum = (type: string) => {
-  switch (type) {
-    case "movie":
-      return 1;
-    case "show":
-      return 2;
-    case "episode":
-      return 4;
-    default:
-      return 0;
-  }
-};
+function randomSeed(query: Omit<LibraryQuery, "sort" | "seed">) {
+  const storageKey = `nevu.library.randomSeed:${libraryQueryKey({
+    ...query,
+    sort: "random:desc",
+  })}`;
+  const stored = sessionStorage.getItem(storageKey);
+  if (stored) return stored;
+  const seed = globalThis.crypto?.randomUUID?.().replaceAll("-", "") ||
+    `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+  sessionStorage.setItem(storageKey, seed);
+  return seed;
+}
 
-function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) {
+function useGridGeometry(ref: React.RefObject<HTMLDivElement | null>) {
+  const [geometry, setGeometry] = React.useState({ width: 0, top: 0 });
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const update = () => {
+      const bounds = element.getBoundingClientRect();
+      const next = { width: bounds.width, top: bounds.top + window.scrollY };
+      setGeometry((current) =>
+        current.width === next.width && current.top === next.top ? current : next,
+      );
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    window.addEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [ref]);
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const bounds = element.getBoundingClientRect();
+    const next = { width: bounds.width, top: bounds.top + window.scrollY };
+    setGeometry((current) =>
+      current.width === next.width && current.top === next.top ? current : next,
+    );
+  });
+
+  return geometry;
+}
+
+export default function BrowseLibrary({
+  pageNavigation,
+}: {
+  pageNavigation: React.ReactNode;
+}) {
   const { libraryID } = useParams<{ libraryID: string }>();
-  const [library, setLibrary] = React.useState<Plex.MediaContainer | null>(
-    null
+  return libraryID ? (
+    <BrowseLibraryContent key={libraryID} libraryID={libraryID} pageNavigation={pageNavigation} />
+  ) : null;
+}
+
+function BrowseLibraryContent({
+  libraryID,
+  pageNavigation,
+}: {
+  libraryID: string;
+  pageNavigation: React.ReactNode;
+}) {
+  const [library, setLibrary] = React.useState<Plex.MediaContainer | null>(null);
+  const [libraryError, setLibraryError] = React.useState<string | null>(null);
+  const [libraryAttempt, setLibraryAttempt] = React.useState(0);
+  const [primaryFilter, setPrimaryFilter] = React.useState<LibraryFilter>(storedFilter);
+  const [typeFilter, setTypeFilter] = React.useState<LibraryItemType | "any">(
+    () => (localStorage.getItem(`typeFilter:${libraryID}`) as LibraryItemType | "any") || "any",
   );
-  const [items, setItems] = React.useState<Plex.MediaContainer | null>(null);
-
-  const [isLoading, setIsLoading] = React.useState(true);
-
-  const [primaryFilter, setPrimaryFilter] = React.useState<string>(
-    localStorage.getItem("primaryFilter") || "all"
-  );
-
-  const [typeFilter, setTypeFilter] = React.useState("any");
-
   const [sortBy, setSortBy] = React.useState<LibrarySort>(
-    normalizeLibrarySort(localStorage.getItem("sortBy"))
+    normalizeLibrarySort(localStorage.getItem("sortBy")),
   );
   const cardView = useLibraryCardView();
-  const cardWidth = getLibraryCardWidth(cardView.layout, cardView.size);
-  const itemCount = formatLibraryItemCount(items);
+  const gridRef = React.useRef<HTMLDivElement>(null);
+  const geometry = useGridGeometry(gridRef);
 
   useEffect(() => {
-    if (!libraryID) return;
-    let cancelled = false;
-
+    let current = true;
     setLibrary(null);
-    setItems(null);
-    setIsLoading(true);
-    setTypeFilter(
-      localStorage.getItem(`typeFilter:${libraryID}`) || "any"
-    );
+    setLibraryError(null);
+    getLibrary(libraryID)
+      .then((data) => {
+        if (current) setLibrary(data);
+      })
+      .catch((error) => {
+        if (current)
+          setLibraryError(error instanceof Error ? error.message : "Unable to load the library");
+      });
+    return () => { current = false; };
+  }, [libraryAttempt, libraryID]);
 
-    getLibrary(libraryID).then((data) => {
-      if (!cancelled) setLibrary(data);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [libraryID]);
+  const availableTypes = React.useMemo(
+    () => new Set(
+      library?.Type
+        ?.map((entry) => entry.type)
+        .filter((type): type is LibraryItemType =>
+          type === "movie" || type === "show" || type === "episode") || [],
+    ),
+    [library],
+  );
 
   useEffect(() => {
-    if (
-      !library ||
-      !libraryID ||
-      library.librarySectionID.toString() !== libraryID
-    )
-      return;
+    if (!library || typeFilter === "any" || availableTypes.has(typeFilter)) return;
+    setTypeFilter("any");
+    localStorage.setItem(`typeFilter:${libraryID}`, "any");
+  }, [availableTypes, library, libraryID, typeFilter]);
 
-    setItems(null);
-    setIsLoading(true);
-
-    const availableTypes = new Set(
-      library.Type?.filter((entry) =>
-        ["movie", "show", "episode"].includes(entry.type)
-      ).map((entry) => entry.type) || []
-    );
-    if (typeFilter !== "any" && !availableTypes.has(typeFilter)) {
-      setTypeFilter("any");
-      localStorage.setItem(`typeFilter:${libraryID}`, "any");
-      return;
-    }
-
-    let conEnd = "all";
-    let extraProps = {};
-    let sortString = sortBy;
-
-    switch (primaryFilter) {
-      case "watched":
-        conEnd = "all";
-        extraProps = {
-          "show.unwatchedLeaves!": 1,
-          "unwatched!": 1,
-        };
-        break;
-      default:
-        conEnd = primaryFilter;
-        break;
-    }
-
-    switch (sortBy) {
-      case "updated:asc":
-      case "updated:desc":
-        if (library?.Type?.[0].type === "show") sortString = "title:asc";
-        break;
-    }
-
-    let cancelled = false;
-    getLibraryDir(
-      `/library/sections/${library.librarySectionID.toString()}/${conEnd}`,
-      {
-        ...extraProps,
-        ...(primaryFilter === "all" &&
-          typeFilter !== "any" && {
-            type: libTypeToNum(typeFilter),
-          }),
-        sort: sortString,
-      }
-    ).then(async (media) => {
-      if (!media || cancelled) return;
-
-      switch (sortBy) {
-        case "updated:asc":
-        case "updated:desc":
-          media.Metadata = media.Metadata?.sort((a, b) => {
-            if (sortBy === "updated:asc") return a.updatedAt - b.updatedAt;
-            else return b.updatedAt - a.updatedAt;
-          });
-          break;
-      }
-
-      setItems(media);
-      setIsLoading(false);
-    });
-
-    return () => {
-      cancelled = true;
+  const baseQuery = React.useMemo<Omit<LibraryQuery, "sort" | "seed"> | null>(() => {
+    if (!library || (typeFilter !== "any" && !availableTypes.has(typeFilter))) return null;
+    const profile = AuthStorage.getActiveSession()?.profile;
+    return {
+      profileKey: profile ? String(profile.id) : "owner",
+      sectionId: Number(libraryID),
+      filter: primaryFilter,
+      ...(primaryFilter === "all" && typeFilter !== "any" && { type: typeFilter }),
     };
-  }, [library, libraryID, primaryFilter, sortBy, typeFilter]);
+  }, [availableTypes, library, libraryID, primaryFilter, typeFilter]);
+
+  const query = React.useMemo<LibraryQuery | null>(() => {
+    if (!baseQuery) return null;
+    return {
+      ...baseQuery,
+      sort: sortBy,
+      ...(sortBy === "random:desc" && { seed: randomSeed(baseQuery) }),
+    };
+  }, [baseQuery, sortBy]);
+  const queryKey = React.useMemo(() => query ? libraryQueryKey(query) : null, [query]);
+  const range = useLibraryRange(queryKey);
+
+  useEffect(() => {
+    if (!query) return;
+    const key = libraryRangeStore.ensure(query);
+    return () => libraryRangeStore.release(key);
+  }, [query]);
+
+  const targetCardWidth = getLibraryCardWidth(cardView.layout, cardView.size);
+  const columns = Math.max(
+    1,
+    Math.floor((geometry.width + GRID_GAP) / (targetCardWidth + GRID_GAP)),
+  );
+  const cardWidth = geometry.width > 0
+    ? Math.min(targetCardWidth, (geometry.width - GRID_GAP * (columns - 1)) / columns)
+    : targetCardWidth;
+  const imageRatio = cardView.layout === "poster" ? 2 / 3 : 16 / 9;
+  const rowHeight = Math.ceil(cardWidth / imageRatio + 68 + GRID_GAP);
+  const displayCount = range.totalSize ?? Math.max(
+    range.knownSize,
+    columns * INITIAL_PLACEHOLDER_ROWS,
+  );
+  const rowCount = Math.ceil(displayCount / columns);
+  const cardImageSizes = `${Math.ceil(cardWidth)}px`;
+
+  const virtualizer = useWindowVirtualizer({
+    count: rowCount,
+    estimateSize: () => rowHeight,
+    overscan: 3,
+    scrollMargin: geometry.top,
+    useFlushSync: false,
+  });
+  const virtualRows = virtualizer.getVirtualItems();
+  const firstVirtualRow = virtualRows[0]?.index ?? 0;
+  const lastVirtualRow = virtualRows[virtualRows.length - 1]?.index ?? 0;
+
+  useEffect(() => {
+    virtualizer.measure();
+  }, [columns, rowHeight, virtualizer]);
+
+  useEffect(() => {
+    if (!queryKey || rowCount === 0) return;
+    const relativeScroll = Math.max(0, (virtualizer.scrollOffset || window.scrollY) - geometry.top);
+    const firstVisibleRow = Math.max(0, Math.floor(relativeScroll / rowHeight));
+    const lastVisibleRow = Math.min(
+      rowCount - 1,
+      Math.ceil((relativeScroll + window.innerHeight) / rowHeight),
+    );
+    libraryRangeStore.demand(
+      queryKey,
+      firstVirtualRow * columns,
+      Math.min(displayCount - 1, (lastVirtualRow + 1) * columns - 1),
+      firstVisibleRow * columns,
+      Math.min(displayCount - 1, (lastVisibleRow + 1) * columns - 1),
+    );
+  }, [
+    columns,
+    displayCount,
+    firstVirtualRow,
+    geometry.top,
+    lastVirtualRow,
+    queryKey,
+    rowCount,
+    rowHeight,
+    virtualizer.scrollOffset,
+  ]);
+
+  const initialRangeError = range.errors.get(0);
+  const itemCount = range.totalSize?.toLocaleString();
 
   return (
     <Box
@@ -176,14 +270,12 @@ function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.25 }}
       sx={{
         display: "flex",
         flexDirection: "column",
         alignItems: "flex-start",
-        justifyContent: "flex-start",
         width: "100%",
-        height: "fit-content",
         minHeight: "calc(100vh - 64px)",
         mt: "64px",
       }}
@@ -207,9 +299,10 @@ function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) 
           >
             <Select
               value={primaryFilter}
-              onChange={(e) => {
-                setPrimaryFilter(e.target.value);
-                localStorage.setItem("primaryFilter", e.target.value);
+              onChange={(event) => {
+                const value = event.target.value as LibraryFilter;
+                setPrimaryFilter(value);
+                localStorage.setItem("primaryFilter", value);
               }}
               size="small"
             >
@@ -225,85 +318,58 @@ function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) 
             {primaryFilter === "all" && (
               <Select
                 value={typeFilter}
-                onChange={(e) => {
-                  setTypeFilter(e.target.value);
-                  if (libraryID)
-                    localStorage.setItem(
-                      `typeFilter:${libraryID}`,
-                      e.target.value
-                    );
+                onChange={(event) => {
+                  const value = event.target.value as LibraryItemType | "any";
+                  setTypeFilter(value);
+                  localStorage.setItem(`typeFilter:${libraryID}`, value);
                 }}
                 size="small"
               >
                 <MenuItem value="any">
-                  {viewGroupLabel(items?.viewGroup || library?.viewGroup)}
+                  {viewGroupLabel(range.viewGroup || library?.viewGroup)}
                 </MenuItem>
                 <Divider />
-                {library?.Type?.filter((e) =>
-                  ["movie", "show", "episode"].includes(e.type)
-                ).map((type) => (
-                  <MenuItem key={type.key} value={type.type}>
-                    {type.title}
-                  </MenuItem>
-                ))}
+                {library?.Type?.filter((entry) => availableTypes.has(entry.type as LibraryItemType))
+                  .map((type) => (
+                    <MenuItem key={type.key} value={type.type}>{type.title}</MenuItem>
+                  ))}
               </Select>
             )}
 
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1.5,
-                minWidth: 0,
-                flex: { xs: "1 1 170px", lg: "0 0 auto" },
-              }}
-            >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
               <Select
                 value={sortBy}
-                onChange={(e) => {
-                  setSortBy(e.target.value as LibrarySort);
-                  localStorage.setItem("sortBy", e.target.value);
+                onChange={(event) => {
+                  const value = event.target.value as LibrarySort;
+                  setSortBy(value);
+                  localStorage.setItem("sortBy", value);
                 }}
                 size="small"
-                sx={{ minWidth: 0, flex: "1 1 auto" }}
+                sx={{ minWidth: 0 }}
               >
-                <MenuItem value={"title:asc"}>Title (A-Z)</MenuItem>
-                <MenuItem value={"title:desc"}>Title (Z-A)</MenuItem>
+                <MenuItem value="title:asc">Title (A-Z)</MenuItem>
+                <MenuItem value="title:desc">Title (Z-A)</MenuItem>
                 <Divider />
-                <MenuItem value={"addedAt:asc"}>Date Added (Oldest)</MenuItem>
-                <MenuItem value={"addedAt:desc"}>Date Added (Newest)</MenuItem>
-                <MenuItem value={"year:asc"}>Year (Oldest)</MenuItem>
-                <MenuItem value={"year:desc"}>Year (Newest)</MenuItem>
-                <MenuItem value={"updated:asc"}>Date Updated (Oldest)</MenuItem>
-                <MenuItem value={"updated:desc"}>Date Updated (Newest)</MenuItem>
+                <MenuItem value="addedAt:asc">Date Added (Oldest)</MenuItem>
+                <MenuItem value="addedAt:desc">Date Added (Newest)</MenuItem>
+                <MenuItem value="year:asc">Year (Oldest)</MenuItem>
+                <MenuItem value="year:desc">Year (Newest)</MenuItem>
+                <MenuItem value="updated:asc">Date Updated (Oldest)</MenuItem>
+                <MenuItem value="updated:desc">Date Updated (Newest)</MenuItem>
                 <Divider />
-                <MenuItem value={"random:desc"}>Random</MenuItem>
+                <MenuItem value="random:desc">Random</MenuItem>
               </Select>
-
               <Box
+                component="span"
                 sx={{
                   minWidth: 36,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "flex-start",
-                  flexShrink: 0,
+                  color: "text.secondary",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
                 }}
               >
-                {isLoading ? (
-                  <Skeleton width={32} />
-                ) : (
-                  <Box
-                    component="span"
-                    sx={{
-                      color: "text.secondary",
-                      fontSize: "0.875rem",
-                      fontWeight: 600,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {itemCount}
-                  </Box>
-                )}
+                {itemCount ?? <Skeleton width={32} />}
               </Box>
             </Box>
           </Box>
@@ -311,105 +377,121 @@ function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) 
         pageNavigation={pageNavigation}
       />
 
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-start",
-          justifyContent: "flex-start",
-          width: "100%",
-          height: "fit-content",
-          px: { xs: 1, md: 6 },
-          pb: 2,
-        }}
-      >
-        <AnimatePresence>
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${cardWidth}px), 1fr))`,
-              gap: 2,
-              mt: 2,
-              width: "100%",
-              "& > *": {
-                width: `min(100%, ${cardWidth}px)`,
-                justifySelf: "center",
-              },
-            }}
-          >
-            {isLoading &&
-              "1"
-                .repeat(50)
-                .split("")
-                .map((_, index) => (
-                  <Box key={index}>
-                    <Skeleton
-                      variant="rounded"
-                      width="100%"
-                      height="auto"
-                      sx={{
-                        width: "100%",
-                        height: "auto",
-                        aspectRatio:
-                          cardView.layout === "poster" ? "2/3" : "16/9",
-                        borderRadius: "10px",
-                      }}
-                    />
-                    <Box sx={{ height: "60px" }} />
-                  </Box>
-                ))}
-            {items &&
-              !isLoading &&
-              items.Metadata?.map((item) => (
-                <DisplayMovieItem
-                  key={item.ratingKey}
-                  item={item}
-                  layout={cardView.layout}
-                />
+      <Box sx={{ width: "100%", px: { xs: 1, md: 6 }, pb: 2 }}>
+        <Box ref={gridRef} sx={{ width: "100%", mt: 2 }}>
+          {libraryError ? (
+            <Alert
+              severity="error"
+              action={<Button color="inherit" onClick={() => setLibraryAttempt((value) => value + 1)}>Retry</Button>}
+            >
+              {libraryError}
+            </Alert>
+          ) : initialRangeError && range.items.size === 0 && queryKey ? (
+            <Alert
+              severity="error"
+              action={<Button color="inherit" onClick={() => libraryRangeStore.retry(queryKey, 0)}>Retry</Button>}
+            >
+              {initialRangeError}
+            </Alert>
+          ) : (
+            <Box
+              sx={{
+                height: virtualizer.getTotalSize(),
+                minHeight: library ? 0 : rowHeight * 2,
+                position: "relative",
+                width: "100%",
+              }}
+            >
+              {virtualRows.map((virtualRow) => (
+                <Box
+                  key={virtualRow.key}
+                  ref={virtualizer.measureElement}
+                  data-index={virtualRow.index}
+                  sx={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: rowHeight,
+                    transform: `translateY(${virtualRow.start - geometry.top}px)`,
+                    display: "grid",
+                    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                    gap: `${GRID_GAP}px`,
+                    alignItems: "start",
+                  }}
+                >
+                  {Array.from({ length: columns }, (_, column) => {
+                    const itemIndex = virtualRow.index * columns + column;
+                    if (itemIndex >= displayCount) return <Box key={column} />;
+                    const item = range.items.get(itemIndex);
+                    const offset = Math.floor(itemIndex / LIBRARY_RANGE_SIZE) * LIBRARY_RANGE_SIZE;
+                    const error = range.errors.get(offset);
+                    return (
+                      <Box
+                        key={item?.ratingKey || itemIndex}
+                        sx={{ width: `min(100%, ${targetCardWidth}px)`, justifySelf: "center" }}
+                      >
+                        {item ? (
+                          <MovieItem
+                            item={item}
+                            layout={cardView.layout}
+                            imageSizes={cardImageSizes}
+                            imageLoading="eager"
+                          />
+                        ) : error && queryKey ? (
+                          <RangeErrorCard
+                            layout={cardView.layout}
+                            onRetry={() => libraryRangeStore.retry(queryKey, offset)}
+                          />
+                        ) : (
+                          <CardSkeleton layout={cardView.layout} />
+                        )}
+                      </Box>
+                    );
+                  })}
+                </Box>
               ))}
-          </Box>
-        </AnimatePresence>
+            </Box>
+          )}
+        </Box>
       </Box>
     </Box>
   );
 }
 
-export default BrowseLibrary;
-
-function DisplayMovieItem({
-  item,
-  layout,
-}: {
-  item: Plex.Metadata;
-  layout: LibraryCardLayout;
-}) {
-  const { inView, ref } = useInView({
-    triggerOnce: true,
-    rootMargin: "200px 0px",
-  });
-
+function CardSkeleton({ layout }: { layout: LibraryCardLayout }) {
   return (
-    <div
-      ref={ref}
-      style={{
-        opacity: inView ? 1 : 0,
-        transition: "opacity 0.35s ease-in-out",
+    <Box>
+      <Skeleton
+        variant="rounded"
+        sx={{ width: "100%", aspectRatio: layout === "poster" ? "2/3" : "16/9", borderRadius: "8px" }}
+      />
+      <Box sx={{ height: 60 }} />
+    </Box>
+  );
+}
+
+function RangeErrorCard({
+  layout,
+  onRetry,
+}: {
+  layout: LibraryCardLayout;
+  onRetry: () => void;
+}) {
+  return (
+    <Box
+      sx={{
+        aspectRatio: layout === "poster" ? "2/3" : "16/9",
+        minHeight: 90,
+        border: "1px solid",
+        borderColor: "divider",
+        borderRadius: "8px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
       }}
     >
-      {inView ? (
-        <MovieItem item={item} layout={layout} />
-      ) : (
-        <Box style={{ width: "100%" }}>
-          <Box
-            sx={{
-              width: "100%",
-              height: "auto",
-              aspectRatio: layout === "poster" ? "2/3" : "16/9",
-            }}
-          />
-          <Box sx={{ width: "100%", height: "60px" }} />
-        </Box>
-      )}
-    </div>
+      <Button size="small" onClick={onRetry}>Retry</Button>
+    </Box>
   );
 }

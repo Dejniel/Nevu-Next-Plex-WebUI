@@ -1,16 +1,8 @@
 import { MenuItem, Select } from "@mui/material";
+import type { LibrarySort } from "@nevu/contracts";
 import React, { SetStateAction } from "react";
 
-export type LibrarySort =
-  | "title:asc"
-  | "title:desc"
-  | "addedAt:asc"
-  | "addedAt:desc"
-  | "year:asc"
-  | "year:desc"
-  | "updated:asc"
-  | "updated:desc"
-  | "random:desc";
+export type { LibrarySort } from "@nevu/contracts";
 
 export const DEFAULT_LIBRARY_SORT: LibrarySort = "title:asc";
 

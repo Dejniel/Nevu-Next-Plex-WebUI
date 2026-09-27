@@ -10,7 +10,10 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { usePreviewPlayer } from "../states/PreviewPlayerState";
 import { HeroWatchListButton } from "./MovieItem";
-import { getTranscodeImageURL } from "../plex";
+import {
+  getResponsiveTranscodeImageProps,
+  HERO_IMAGE_WIDTHS,
+} from "../plex";
 import ExtraPlayer from "./title/ExtraPlayer";
 import { useTitleExtras } from "../hooks/useTitleExtras";
 import { alpha } from "@mui/material/styles";
@@ -33,7 +36,12 @@ function HeroDisplay({
   const [previewVidPlaying, setPreviewVidPlaying] = useState<boolean>(false);
   const [previewVidVisible, setPreviewVidVisible] = useState<boolean>(false);
   const [artworkLoaded, setArtworkLoaded] = useState(false);
-  const artworkUrl = getTranscodeImageURL(item.art, 1920, 1080);
+  const artwork = getResponsiveTranscodeImageProps(item.art, {
+    widths: HERO_IMAGE_WIDTHS,
+    aspectRatio: 16 / 9,
+    sizes: "100vw",
+    fallbackWidth: 1280,
+  });
 
   useEffect(() => {
     setArtworkLoaded(false);
@@ -149,8 +157,11 @@ function HeroDisplay({
       >
         <Box
           component="img"
-          src={artworkUrl}
+          {...artwork}
           alt=""
+          loading="eager"
+          decoding="async"
+          fetchPriority="high"
           onLoad={() => setArtworkLoaded(true)}
           onError={onArtworkError}
           sx={{
@@ -161,7 +172,7 @@ function HeroDisplay({
             objectFit: "cover",
             objectPosition: "center",
             opacity: artworkLoaded ? 1 : 0,
-            transition: "opacity 0.35s ease",
+            transition: "opacity 0.15s ease",
             zIndex: 0,
           }}
         />

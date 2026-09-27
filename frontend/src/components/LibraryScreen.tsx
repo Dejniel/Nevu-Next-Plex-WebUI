@@ -178,11 +178,16 @@ function parseBrowseProps(value: string | null) {
 }
 
 function Element({ item, plexTv }: { item: Plex.Metadata; plexTv?: boolean }) {
-  const { inView, ref } = useInView();
+  const { inView, ref } = useInView({
+    triggerOnce: true,
+    rootMargin: "800px 0px",
+  });
 
   return (
     <div ref={ref}>
-      {inView && <MovieItem item={item} PlexTvSource={plexTv} />}
+      {inView && (
+        <MovieItem item={item} PlexTvSource={plexTv} imageLoading="eager" />
+      )}
       {!inView && (
         <Box style={{ width: "100%" }}>
           <Box sx={{ width: "100%", height: "auto", aspectRatio: "16/9" }} />

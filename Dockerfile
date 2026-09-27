@@ -3,6 +3,8 @@ ARG APP_VERSION=dev
 
 FROM ${NODE_IMAGE} AS frontend-build
 ARG APP_VERSION
+WORKDIR /build
+COPY contracts/ ./contracts/
 WORKDIR /build/frontend
 ENV CI=true \
     GENERATE_SOURCEMAP=false \
@@ -19,6 +21,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 FROM backend-base AS backend-build
+WORKDIR /build
+COPY contracts/ ./contracts/
 WORKDIR /build/backend
 
 COPY backend/package.json backend/package-lock.json ./
@@ -29,6 +33,8 @@ RUN npm run db:generate && npm run build
 
 FROM backend-base AS runtime
 ARG APP_VERSION
+WORKDIR /
+COPY contracts/ ./contracts/
 WORKDIR /app
 ENV NODE_ENV=production \
     LISTEN_PORT=3000 \

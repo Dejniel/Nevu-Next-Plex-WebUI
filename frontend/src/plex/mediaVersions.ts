@@ -84,7 +84,12 @@ export function findPreferredStream(
     : streams.find((stream) => stream.index === preference.index);
 }
 
-function mediaQualityScore(media: Plex.Media) {
+type MediaQualityData = Pick<
+  Plex.Media,
+  "bitrate" | "height" | "videoDynamicRange" | "videoResolution" | "width"
+>;
+
+function mediaQualityScore(media: MediaQualityData) {
   const resolution = media.videoResolution?.toLowerCase();
   const resolutionHeight = resolution === "4k"
     ? 2160
@@ -99,7 +104,7 @@ function qualityScore(version: MediaVersion) {
   return mediaQualityScore(version.media);
 }
 
-export function mediaQualityBadge(data: Plex.Metadata): string | null {
+export function mediaQualityBadge(data: { Media?: MediaQualityData[] }): string | null {
   if (!data.Media?.length) return null;
 
   const media = data.Media.reduce((best, candidate) =>

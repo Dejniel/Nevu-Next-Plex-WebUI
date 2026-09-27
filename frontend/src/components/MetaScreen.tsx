@@ -29,7 +29,10 @@ import React, { JSX, useEffect, useState } from "react";
 import {
   getLibraryMeta,
   getLibraryMetaChildren,
+  getResponsiveTranscodeImageProps,
   getTranscodeImageURL,
+  DETAIL_POSTER_IMAGE_WIDTHS,
+  HERO_IMAGE_WIDTHS,
   setMediaPlayedStatus,
   setMediaRating,
 } from "../plex";
@@ -231,6 +234,23 @@ function MetaScreen() {
     .map(({ tag }) => tag)
     .filter(Boolean)
     .join(", ");
+  const heroArtwork = data?.art
+    ? getResponsiveTranscodeImageProps(data.art, {
+        widths: HERO_IMAGE_WIDTHS,
+        aspectRatio: 16 / 9,
+        sizes: "(max-width: 600px) 100vw, 90vw",
+        fallbackWidth: 1280,
+      })
+    : null;
+  const posterPath = data?.thumb || data?.art;
+  const posterArtwork = posterPath
+    ? getResponsiveTranscodeImageProps(posterPath, {
+        widths: DETAIL_POSTER_IMAGE_WIDTHS,
+        aspectRatio: 2 / 3,
+        sizes: "(max-width: 600px) 320px, 27vw",
+        fallbackWidth: 480,
+      })
+    : null;
 
   const metadataWasSaved = (
     changes: MetadataUpdate,
@@ -289,16 +309,7 @@ function MetaScreen() {
             width: "100%",
             maxWidth: "100%",
             height: { xs: "50vh", sm: DESKTOP_HERO_HEIGHT },
-            backgroundImage: `url(${getTranscodeImageURL(
-              data?.art as string,
-              1920,
-              1080
-            )})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
             backgroundColor: "#000000AA",
-            backgroundBlendMode: "darken",
 
             display: "flex",
             flexDirection: "column",
@@ -313,6 +324,24 @@ function MetaScreen() {
             userSelect: "none",
           }}
         >
+          {heroArtwork && (
+            <Box
+              component="img"
+              {...heroArtwork}
+              alt=""
+              loading="eager"
+              decoding="async"
+              sx={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                objectPosition: "center",
+                filter: "brightness(0.32)",
+              }}
+            />
+          )}
         </Box>
 
         <Box
@@ -360,19 +389,25 @@ function MetaScreen() {
               boxShadow: (theme) =>
                 `0 20px 25px -5px ${theme.palette.common.black}`,
               position: "relative",
+              aspectRatio: "2/3",
+              backgroundColor: "#17191e",
             }}
           >
-            <img
-              src={`${getTranscodeImageURL(data?.thumb as string, 600, 900)}`}
-              alt={data?.title || ""}
-              style={{
-                width: "100%",
-                aspectRatio: "2/3",
-                backgroundColor: "#00000088",
-                objectFit: "cover",
-                display: "block",
-              }}
-            />
+            {posterArtwork && (
+              <img
+                {...posterArtwork}
+                alt={data?.title || ""}
+                loading="eager"
+                decoding="async"
+                style={{
+                  width: "100%",
+                  aspectRatio: "2/3",
+                  backgroundColor: "#00000088",
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
+            )}
           </Box>
 
           <Box

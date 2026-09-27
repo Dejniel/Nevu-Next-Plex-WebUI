@@ -14,6 +14,8 @@ import { createPlexSharingRouter } from './plexSharing';
 import { createPlexLibrariesRouter } from './plexLibraries';
 import { APP_VERSION } from './appVersion';
 import { createReviewsRouter } from './reviews';
+import { createLibraryPageRouter } from './libraryPage';
+import { safeRequestUrl, shouldLogRequest } from './requestLogging';
 
 /* 
  * ENVIRONMENT VARIABLES
@@ -52,13 +54,34 @@ discovery.announce("Nevu", {
     }
 }, 500, true);
 
+const plexServerUrl = new URL(process.env.PLEX_SERVER || 'http://localhost:32400');
+const keepAliveOptions = {
+    keepAlive: true,
+    keepAliveMsecs: 1000,
+    maxFreeSockets: 16,
+    maxSockets: 64,
+};
+const plexHttpAgent = new http.Agent(keepAliveOptions);
+const verifiedHttpsAgent = new https.Agent(keepAliveOptions);
+const noVerifyHttpsAgent = new https.Agent({
+    ...keepAliveOptions,
+    rejectUnauthorized: false,
+});
+const plexHttpsAgent = process.env.DISABLE_TLS_VERIFY === 'true'
+    ? noVerifyHttpsAgent
+    : verifiedHttpsAgent;
+const plexProxyAgent = plexServerUrl.protocol === 'https:'
+    ? plexHttpsAgent
+    : plexHttpAgent;
+
 const proxy = httpProxy.createProxyServer({
     ws: true,
     autoRewrite: false,
     cookieDomainRewrite: (new URL(process.env.PLEX_SERVER || "http://localhost:32400")).hostname,
     changeOrigin: true,
-    secure: false,
+    secure: process.env.DISABLE_TLS_VERIFY !== 'true',
     followRedirects: true,
+    agent: plexProxyAgent,
 });
 
 proxy.on('error', (err, req, res) => {
@@ -66,10 +89,6 @@ proxy.on('error', (err, req, res) => {
 });
 
 app.use(express.json());
-
-const noVerifyHttpsAgent = new https.Agent({
-    rejectUnauthorized: false
-});
 
 const PLEX_DISCOVER_URL = 'https://discover.provider.plex.tv';
 const discoverExtrasPath = /^\/library\/metadata\/[a-f0-9]+\/extras$/i;
@@ -126,8 +145,8 @@ function getDiscoverHeaders(req: express.Request) {
             while (true) {
                 const r = await axios.get(`${process.env.PLEX_SERVER ?? "http://localhost:32400"}/identity`, {
                     timeout: 5000,
-                    httpAgent: process.env.DISABLE_TLS_VERIFY === "true" ? noVerifyHttpsAgent : undefined,
-                    httpsAgent: process.env.DISABLE_TLS_VERIFY === "true" ? noVerifyHttpsAgent : undefined,
+                    httpAgent: plexHttpAgent,
+                    httpsAgent: plexHttpsAgent,
                 }).catch((e) => {
                     console.error('Error reaching PLEX_SERVER:', e.message);
                     return null;
@@ -192,7 +211,14 @@ function getDiscoverHeaders(req: express.Request) {
 })();
 
 app.use((req, res, next) => {
-    if (process.env.DISABLE_REQUEST_LOGGING != "true") console.log(`[${new Date().toISOString()}] [${req.method}] ${req.url}`);
+    if (
+        process.env.DISABLE_REQUEST_LOGGING !== 'true' &&
+        shouldLogRequest(req.path)
+    ) {
+        console.log(
+            `[${new Date().toISOString()}] [${req.method}] ${safeRequestUrl(req.originalUrl)}`,
+        );
+    }
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
     res.header('Access-Control-Allow-Headers', '*'); // Add this line
@@ -217,12 +243,18 @@ app.get('/config', (req, res) => {
 
 app.use('/sharing', createPlexSharingRouter({
     plexServer: process.env.PLEX_SERVER || 'http://localhost:32400',
-    httpsAgent: process.env.DISABLE_TLS_VERIFY === 'true' ? noVerifyHttpsAgent : undefined,
+    httpsAgent: plexHttpsAgent,
 }));
 
 app.use('/libraries', createPlexLibrariesRouter({
     plexServer: process.env.PLEX_SERVER || 'http://localhost:32400',
-    httpsAgent: process.env.DISABLE_TLS_VERIFY === 'true' ? noVerifyHttpsAgent : undefined,
+    httpsAgent: plexHttpsAgent,
+}));
+
+app.use('/library-page', createLibraryPageRouter({
+    plexServer: process.env.PLEX_SERVER || 'http://localhost:32400',
+    httpAgent: plexHttpAgent,
+    httpsAgent: plexHttpsAgent,
 }));
 
 app.use('/reviews', createReviewsRouter({
@@ -385,12 +417,8 @@ app.post('/proxy', (req, res) => {
     if (!method || !['GET', 'POST', 'PUT'].includes(method)) return res.status(400).send('Invalid method');
 
     if (process.env.DISABLE_REQUEST_LOGGING != "true") {
-        const loggedUrl = new URL(url, 'http://plex.local');
-        if (loggedUrl.searchParams.has('X-Plex-Token')) {
-            loggedUrl.searchParams.set('X-Plex-Token', '[redacted]');
-        }
         console.log(
-            `[${new Date().toISOString()}] [PROXY] [${method}] ${loggedUrl.pathname}${loggedUrl.search} from ${ip}`
+            `[${new Date().toISOString()}] [PROXY] [${method}] ${safeRequestUrl(url)} from ${ip}`
         );
     }
 
@@ -405,9 +433,8 @@ app.post('/proxy', (req, res) => {
             'X-Forwarded-For': ip,
         },
         data,
-        ...(process.env.DISABLE_TLS_VERIFY === "true" && {
-            httpsAgent: noVerifyHttpsAgent
-        })
+        httpAgent: plexHttpAgent,
+        httpsAgent: plexHttpsAgent,
     };
 
     axios(config)
@@ -449,9 +476,8 @@ app.get('/proxy', async (req, res) => {
             'X-Fowarded-For': ip,
         },
         params: queryParams,
-        ...(process.env.DISABLE_TLS_VERIFY === "true" && {
-            httpsAgent: noVerifyHttpsAgent
-        }),
+        httpAgent: plexHttpAgent,
+        httpsAgent: plexHttpsAgent,
         responseType: 'stream'
     };
 
