@@ -15,6 +15,7 @@ function MovieItemSlider({
   props,
   filter,
   link,
+  browseProps,
   shuffle,
   data,
   plexTvSource,
@@ -26,6 +27,7 @@ function MovieItemSlider({
   props?: { [key: string]: any };
   filter?: (item: Plex.Metadata) => boolean;
   link?: string;
+  browseProps?: { [key: string]: string | number };
   shuffle?: boolean;
   data?: Plex.Metadata[];
   plexTvSource?: boolean;
@@ -172,12 +174,12 @@ function MovieItemSlider({
             userSelect: "none",
           }}
           onClick={() => {
-            if (link)
-              setSearchParams(
-                new URLSearchParams({
-                  bkey: link,
-                })
-              );
+            if (link) {
+              const params = new URLSearchParams({ bkey: link });
+              if (browseProps)
+                params.set("bprops", JSON.stringify(browseProps));
+              setSearchParams(params);
+            }
           }}
         >
           <Typography

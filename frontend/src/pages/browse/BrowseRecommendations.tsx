@@ -18,6 +18,8 @@ import {
 interface RecommendationShelf {
   title: string;
   items: Plex.Metadata[];
+  link: string;
+  browseProps?: { [key: string]: string | number };
 }
 
 const SHELF_LIMIT = 40;
@@ -51,10 +53,11 @@ async function getDirectories(libraryID: string, directory: string) {
 
 async function buildRecommendationShelves(libraryID: string) {
   const basePath = `/library/sections/${libraryID}`;
+  const recentlyReleasedProps = { sort: "originallyAvailableAt:desc" };
+  const topRatedProps = { sort: "audienceRating:desc", unwatched: 1 };
   const historyFilters = {
     sort: "lastViewedAt:desc",
     "unwatched!": 1,
-    ...containerProps(HISTORY_LIMIT),
   };
 
   const [
@@ -68,16 +71,18 @@ async function buildRecommendationShelves(libraryID: string) {
   ] = await Promise.all([
     getItems(`${basePath}/onDeck`, containerProps()),
     getItems(`${basePath}/all`, {
-      sort: "originallyAvailableAt:desc",
+      ...recentlyReleasedProps,
       ...containerProps(),
     }),
     getItems(`${basePath}/recentlyAdded`, containerProps()),
     getItems(`${basePath}/all`, {
-      sort: "audienceRating:desc",
-      unwatched: 1,
+      ...topRatedProps,
       ...containerProps(),
     }),
-    getItems(`${basePath}/all`, historyFilters),
+    getItems(`${basePath}/all`, {
+      ...historyFilters,
+      ...containerProps(HISTORY_LIMIT),
+    }),
     getDirectories(libraryID, "genre"),
     getDirectories(libraryID, "actor"),
   ]);
@@ -110,20 +115,54 @@ async function buildRecommendationShelves(libraryID: string) {
       : Promise.resolve([]),
   ]);
 
+  const genreProps = genre
+    ? { genre: genre.key, ...topRatedProps }
+    : undefined;
+  const actorProps = actor
+    ? { actor: actor.key, ...topRatedProps }
+    : undefined;
+
   const shelves: RecommendationShelf[] = [
-    { title: "Continue Watching", items: continueWatching },
-    { title: "Recently Released", items: recentlyReleased },
-    { title: "Recently Added", items: recentlyAdded },
-    { title: "Top Rated Unwatched", items: topRatedUnwatched },
+    {
+      title: "Continue Watching",
+      items: continueWatching,
+      link: `${basePath}/onDeck`,
+    },
+    {
+      title: "Recently Released",
+      items: recentlyReleased,
+      link: `${basePath}/all`,
+      browseProps: recentlyReleasedProps,
+    },
+    {
+      title: "Recently Added",
+      items: recentlyAdded,
+      link: `${basePath}/recentlyAdded`,
+    },
+    {
+      title: "Top Rated Unwatched",
+      items: topRatedUnwatched,
+      link: `${basePath}/all`,
+      browseProps: topRatedProps,
+    },
     {
       title: genre ? `Top ${genre.title} Picks` : "Top Genre Picks",
       items: genreRecommendations,
+      link: `${basePath}/all`,
+      browseProps: genreProps,
     },
     {
       title: actor ? `More with ${actor.title}` : "More with Familiar Cast",
       items: actorRecommendations,
+      link: `${basePath}/all`,
+      browseProps: actorProps,
     },
-    { title: "Recently Watched", items: watchHistory },
+    {
+      title: "Recently Watched",
+      items: watchHistory,
+      link: `${basePath}/all`,
+      browseProps: historyFilters,
+    },
   ];
 
   return shelves.filter((shelf) => shelf.items.length > 0);
@@ -224,6 +263,8 @@ function BrowseRecommendations({
               key={shelf.title}
               title={shelf.title}
               data={shelf.items}
+              link={shelf.link}
+              browseProps={shelf.browseProps}
               layout={cardView.layout}
               cardSize={cardView.size}
             />

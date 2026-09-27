@@ -33,11 +33,13 @@ function LibraryScreen() {
   const bkey = searchParams.has("bkey")
     ? decodeURIComponent(searchParams.get("bkey") as string)
     : null;
+  const browseProps = parseBrowseProps(searchParams.get("bprops"));
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         searchParams.delete("bkey");
+        searchParams.delete("bprops");
         setSearchParams(searchParams);
       }
     };
@@ -83,7 +85,7 @@ function LibraryScreen() {
         }
         break;
       default:
-        getLibraryDir(bkey)
+        getLibraryDir(bkey, browseProps)
           .then((data) => {
             setLibrary(data);
             setLoading(false);
@@ -111,6 +113,7 @@ function LibraryScreen() {
         }}
         onClick={() => {
           searchParams.delete("bkey");
+          searchParams.delete("bprops");
           setSearchParams(searchParams);
         }}
       >
@@ -131,6 +134,7 @@ function LibraryScreen() {
         }}
         onClick={() => {
           searchParams.delete("bkey");
+          searchParams.delete("bprops");
           setSearchParams(searchParams);
         }}
       >
@@ -224,6 +228,20 @@ function LibraryScreen() {
     );
 
   return <></>;
+}
+
+function parseBrowseProps(value: string | null) {
+  if (!value) return undefined;
+
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+      return parsed as { [key: string]: string | number };
+  } catch {
+    // Ignore malformed links and load the unfiltered endpoint.
+  }
+
+  return undefined;
 }
 
 function Element({ item, plexTv }: { item: Plex.Metadata; plexTv?: boolean }) {
