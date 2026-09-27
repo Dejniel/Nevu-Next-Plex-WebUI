@@ -9,7 +9,7 @@ import {
   Typography,
 } from "@mui/material";
 import { LockRounded, LogoutRounded } from "@mui/icons-material";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { HomeProfile } from "../auth/AuthStorage";
 import AppDialog from "../components/AppDialog";
 import { useAuthSession } from "../states/AuthSessionState";
@@ -18,7 +18,12 @@ export default function ProfilePicker() {
   const { profiles, status, error, selectProfile, signOut, clearError } = useAuthSession();
   const [selectedProfile, setSelectedProfile] = useState<HomeProfile | null>(null);
   const [pin, setPin] = useState("");
+  const pinInputRef = useRef<HTMLInputElement>(null);
   const unlocking = status === "unlocking";
+
+  useEffect(() => {
+    if (selectedProfile && !unlocking) pinInputRef.current?.focus();
+  }, [selectedProfile, unlocking]);
 
   const chooseProfile = async (profile: HomeProfile) => {
     clearError();
@@ -148,13 +153,15 @@ export default function ProfilePicker() {
             fullWidth
             type="text"
             value={pin}
-            disabled={unlocking}
+            inputRef={pinInputRef}
             autoComplete="one-time-code"
             inputProps={{
               "aria-label": "PIN",
+              "aria-busy": unlocking,
               inputMode: "numeric",
               maxLength: 4,
               pattern: "[0-9]*",
+              readOnly: unlocking,
               autoCorrect: "off",
               spellCheck: false,
             }}
@@ -171,10 +178,6 @@ export default function ProfilePicker() {
                 caretColor: "transparent",
                 fontSize: 0,
                 textAlign: "center",
-              },
-              "& input.Mui-disabled": {
-                color: "transparent",
-                WebkitTextFillColor: "transparent",
               },
             }}
           />
