@@ -55,25 +55,39 @@ function BrowsePageSelector({
         variant="outlined"
         sx={{
           display: { xs: "none", lg: "inline-flex" },
-          opacity: 0.7,
-          filter: "brightness(0.7)",
-          transition: "opacity 0.4s ease, filter 0.4s ease",
-          "&:hover": {
-            opacity: 1,
-            filter: "brightness(1)",
+          "& .MuiButton-root": {
+            minWidth: 112,
+            borderColor: "rgba(255,255,255,0.22)",
+            color: "text.secondary",
+            fontWeight: 700,
+            textTransform: "uppercase",
+          },
+          "& .MuiButton-contained": {
+            backgroundColor: "primary.main",
+            color: "common.white",
+            borderColor: "primary.main",
+            boxShadow: "none",
+          },
+          "& .MuiButton-contained:hover": {
+            backgroundColor: "primary.light",
+            borderColor: "primary.light",
+          },
+          "& .MuiButton-outlined:hover": {
+            borderColor: "rgba(255,255,255,0.48)",
+            backgroundColor: "rgba(255,255,255,0.06)",
           },
         }}
       >
         <Button
           variant={page === "recommendations" ? "contained" : "outlined"}
-          sx={{ fontWeight: "bold", textTransform: "uppercase" }}
+          aria-pressed={page === "recommendations"}
           onClick={() => setPage("recommendations")}
         >
           Recommended
         </Button>
         <Button
           variant={page === "browse" ? "contained" : "outlined"}
-          sx={{ fontWeight: "bold", textTransform: "uppercase" }}
+          aria-pressed={page === "browse"}
           onClick={() => setPage("browse")}
         >
           Browse

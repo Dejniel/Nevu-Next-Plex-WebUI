@@ -2,10 +2,8 @@ import { Box, CircularProgress, Typography } from "@mui/material";
 import { motion } from "framer-motion";
 import React, { useEffect } from "react";
 import { useParams } from "react-router-dom";
-import {
-  LibraryCardViewControls,
-  useLibraryCardView,
-} from "../../components/LibraryCardViewControls";
+import { useLibraryCardView } from "../../components/LibraryCardViewControls";
+import LibraryViewToolbar from "../../components/LibraryViewToolbar";
 import MovieItemSlider from "../../components/MovieItemSlider";
 import {
   getLibrary,
@@ -179,34 +177,23 @@ function BrowseRecommendations({
         pb: 8,
       }}
     >
-      <Box
-        sx={{
-          zIndex: 10,
-          width: "100%",
-          px: { xs: 1, md: 6 },
-          pt: { xs: 1, md: 0.5 },
-          pb: 1,
-          display: "grid",
-          gridTemplateColumns: {
-            xs: "minmax(0, 1fr) max-content",
-            lg: "1fr auto 1fr",
-          },
-          alignItems: "center",
-          gap: { xs: 0.5, sm: 1 },
-        }}
-      >
-        <Box sx={{ display: { xs: "none", lg: "block" } }} />
-        <LibraryCardViewControls
-          layout={cardView.layout}
-          size={cardView.size}
-          onSizeChange={cardView.setSize}
-          onSizeCommit={cardView.saveSize}
-          onLayoutChange={cardView.setLayout}
-        />
-        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-          {pageNavigation}
-        </Box>
-      </Box>
+      <LibraryViewToolbar
+        cardView={cardView}
+        leading={
+          <Typography
+            component="h1"
+            sx={{
+              fontSize: "1rem",
+              fontWeight: 700,
+              color: "text.secondary",
+              textTransform: "uppercase",
+            }}
+          >
+            Recommendations
+          </Typography>
+        }
+        pageNavigation={pageNavigation}
+      />
 
       {shelves === null ? (
         <Box

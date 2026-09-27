@@ -15,9 +15,9 @@ import { formatLibraryItemCount } from "../../plex/libraryItemCount";
 import {
   getLibraryCardWidth,
   LibraryCardLayout,
-  LibraryCardViewControls,
   useLibraryCardView,
 } from "../../components/LibraryCardViewControls";
+import LibraryViewToolbar from "../../components/LibraryViewToolbar";
 
 const viewGroupLabel = (viewGroup?: string) => {
   switch (viewGroup) {
@@ -184,194 +184,128 @@ function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) 
         mt: "64px",
       }}
     >
-      <Box
-        sx={{
-          zIndex: 10,
-          width: "100%",
-          px: { xs: 1, md: 6 },
-          pt: { xs: 1, md: 0.5 },
-          pb: 1,
-          position: "relative",
-          display: "grid",
-          gridTemplateAreas: {
-            xs: '"actions" "filters"',
-            lg: '"filters controls pages"',
-          },
-          gridTemplateColumns: {
-            xs: "minmax(0, 1fr)",
-            lg: "max-content minmax(0, 1fr) max-content",
-          },
-          alignItems: "center",
-          gap: { xs: 1.25, lg: 1 },
-        }}
-      >
-        <Box
-          sx={{
-            gridArea: "filters",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: { xs: "space-evenly", lg: "flex-start" },
-            flexWrap: { xs: "wrap", lg: "nowrap" },
-            gap: 1,
-            "& > .MuiInputBase-root": {
-              flex: { xs: "1 1 105px", lg: "0 0 auto" },
-              minWidth: 0,
-            },
-          }}
-        >
-          <Select
-            value={primaryFilter}
-            onChange={(e) => {
-              setPrimaryFilter(e.target.value);
-              localStorage.setItem("primaryFilter", e.target.value);
-            }}
-            size="small"
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="unwatched">Unwatched</MenuItem>
-            <MenuItem value="watched">Watched</MenuItem>
-            <Divider />
-            <MenuItem value="recentlyAdded">Recently Added</MenuItem>
-            <MenuItem value="onDeck">On Deck</MenuItem>
-            <MenuItem value="newest">Newest</MenuItem>
-          </Select>
-
-          {primaryFilter === "all" && (
-            <Select
-              value={typeFilter}
-              onChange={(e) => {
-                setTypeFilter(e.target.value);
-                if (libraryID)
-                  localStorage.setItem(
-                    `typeFilter:${libraryID}`,
-                    e.target.value
-                  );
-              }}
-              size="small"
-            >
-              <MenuItem value="any">
-                {viewGroupLabel(items?.viewGroup || library?.viewGroup)}
-              </MenuItem>
-              <Divider />
-              {library?.Type?.filter((e) =>
-                ["movie", "show", "episode"].includes(e.type)
-              ).map((type) => (
-                <MenuItem key={type.key} value={type.type}>
-                  {type.title}
-                </MenuItem>
-              ))}
-            </Select>
-          )}
-
+      <LibraryViewToolbar
+        cardView={cardView}
+        showLeadingOnMobile
+        leading={
           <Box
             sx={{
               display: "flex",
               alignItems: "center",
-              gap: 1.5,
-              minWidth: 0,
-              flex: { xs: "1 1 170px", lg: "0 0 auto" },
+              justifyContent: { xs: "space-evenly", lg: "flex-start" },
+              flexWrap: { xs: "wrap", lg: "nowrap" },
+              gap: 1,
+              "& > .MuiInputBase-root": {
+                flex: { xs: "1 1 105px", lg: "0 0 auto" },
+                minWidth: 0,
+              },
             }}
           >
             <Select
-              value={sortBy}
+              value={primaryFilter}
               onChange={(e) => {
-                setSortBy(e.target.value);
-                localStorage.setItem("sortBy", e.target.value);
+                setPrimaryFilter(e.target.value);
+                localStorage.setItem("primaryFilter", e.target.value);
               }}
               size="small"
-              sx={{ minWidth: 0, flex: "1 1 auto" }}
             >
-              <MenuItem value={"title:asc"}>Title (A-Z)</MenuItem>
-              <MenuItem value={"title:desc"}>Title (Z-A)</MenuItem>
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="unwatched">Unwatched</MenuItem>
+              <MenuItem value="watched">Watched</MenuItem>
               <Divider />
-              <MenuItem value={"addedAt:asc"}>Date Added (Oldest)</MenuItem>
-              <MenuItem value={"addedAt:desc"}>Date Added (Newest)</MenuItem>
-              <MenuItem value={"year:asc"}>Year (Oldest)</MenuItem>
-              <MenuItem value={"year:desc"}>Year (Newest)</MenuItem>
-              <MenuItem value={"updated:asc"}>Date Updated (Oldest)</MenuItem>
-              <MenuItem value={"updated:desc"}>Date Updated (Newest)</MenuItem>
-              <Divider />
-              <MenuItem value={"random:desc"}>Random</MenuItem>
+              <MenuItem value="recentlyAdded">Recently Added</MenuItem>
+              <MenuItem value="onDeck">On Deck</MenuItem>
+              <MenuItem value="newest">Newest</MenuItem>
             </Select>
+
+            {primaryFilter === "all" && (
+              <Select
+                value={typeFilter}
+                onChange={(e) => {
+                  setTypeFilter(e.target.value);
+                  if (libraryID)
+                    localStorage.setItem(
+                      `typeFilter:${libraryID}`,
+                      e.target.value
+                    );
+                }}
+                size="small"
+              >
+                <MenuItem value="any">
+                  {viewGroupLabel(items?.viewGroup || library?.viewGroup)}
+                </MenuItem>
+                <Divider />
+                {library?.Type?.filter((e) =>
+                  ["movie", "show", "episode"].includes(e.type)
+                ).map((type) => (
+                  <MenuItem key={type.key} value={type.type}>
+                    {type.title}
+                  </MenuItem>
+                ))}
+              </Select>
+            )}
 
             <Box
               sx={{
-                minWidth: 36,
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "flex-start",
-                flexShrink: 0,
+                gap: 1.5,
+                minWidth: 0,
+                flex: { xs: "1 1 170px", lg: "0 0 auto" },
               }}
             >
-              {isLoading ? (
-                <Skeleton width={32} />
-              ) : (
-                <Box
-                  component="span"
-                  sx={{
-                    color: "text.secondary",
-                    fontSize: "0.875rem",
-                    fontWeight: 600,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {itemCount}
-                </Box>
-              )}
+              <Select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  localStorage.setItem("sortBy", e.target.value);
+                }}
+                size="small"
+                sx={{ minWidth: 0, flex: "1 1 auto" }}
+              >
+                <MenuItem value={"title:asc"}>Title (A-Z)</MenuItem>
+                <MenuItem value={"title:desc"}>Title (Z-A)</MenuItem>
+                <Divider />
+                <MenuItem value={"addedAt:asc"}>Date Added (Oldest)</MenuItem>
+                <MenuItem value={"addedAt:desc"}>Date Added (Newest)</MenuItem>
+                <MenuItem value={"year:asc"}>Year (Oldest)</MenuItem>
+                <MenuItem value={"year:desc"}>Year (Newest)</MenuItem>
+                <MenuItem value={"updated:asc"}>Date Updated (Oldest)</MenuItem>
+                <MenuItem value={"updated:desc"}>Date Updated (Newest)</MenuItem>
+                <Divider />
+                <MenuItem value={"random:desc"}>Random</MenuItem>
+              </Select>
+
+              <Box
+                sx={{
+                  minWidth: 36,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "flex-start",
+                  flexShrink: 0,
+                }}
+              >
+                {isLoading ? (
+                  <Skeleton width={32} />
+                ) : (
+                  <Box
+                    component="span"
+                    sx={{
+                      color: "text.secondary",
+                      fontSize: "0.875rem",
+                      fontWeight: 600,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {itemCount}
+                  </Box>
+                )}
+              </Box>
             </Box>
           </Box>
-        </Box>
-
-        <Box
-          sx={{
-            gridArea: { xs: "actions", lg: "auto" },
-            display: { xs: "flex", lg: "contents" },
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 0.5,
-            minWidth: 0,
-          }}
-        >
-          <Box
-            sx={{
-              gridArea: { lg: "controls" },
-            }}
-          >
-            <LibraryCardViewControls
-              layout={cardView.layout}
-              size={cardView.size}
-              onSizeChange={cardView.setSize}
-              onSizeCommit={cardView.saveSize}
-              onLayoutChange={cardView.setLayout}
-            />
-          </Box>
-
-          <Box
-            sx={{
-              gridArea: { lg: "pages" },
-              display: "flex",
-              justifyContent: "flex-end",
-              flexShrink: 0,
-            }}
-          >
-            {pageNavigation}
-          </Box>
-        </Box>
-      </Box>
-
-      {/* {isLoading && (
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: "100%",
-            height: "95vh",
-          }}
-        >
-          <CircularProgress />
-        </Box>
-      )} */}
+        }
+        pageNavigation={pageNavigation}
+      />
 
       <Box
         sx={{
