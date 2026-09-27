@@ -204,7 +204,7 @@ function HomeHeroSkeleton() {
         height: "100vh",
         position: "relative",
         overflow: "hidden",
-        backgroundColor: "#15171b",
+        backgroundColor: "background.default",
         boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.04)",
       }}
     >

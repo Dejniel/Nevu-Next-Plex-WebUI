@@ -304,7 +304,7 @@ function MetaScreen() {
           flexDirection: "column",
           alignItems: "flex-start",
           justifyContent: "flex-start",
-          backgroundColor: "#121216",
+          backgroundColor: "background.default",
           mt: { xs: 0, sm: 4 },
           pb: { xs: 6, sm: 4 },
           position: "relative",
@@ -369,8 +369,13 @@ function MetaScreen() {
             mt: { xs: "-25vh", sm: "-15vh" },
             height: { xs: "25vh", sm: "30vh" },
             width: "100%",
-            background:
-              "linear-gradient(180deg, #12121600, #121216FF, #121216FF)",
+            background: (theme) =>
+              `linear-gradient(180deg, ${alpha(
+                theme.palette.background.default,
+                0,
+              )}, ${theme.palette.background.default}, ${
+                theme.palette.background.default
+              })`,
             zIndex: 1,
             pointerEvents: "none",
             position: "relative",

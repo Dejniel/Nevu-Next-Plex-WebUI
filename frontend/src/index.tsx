@@ -80,7 +80,7 @@ root.render(
           light: "#FB7185",
         },
         background: {
-          default: "#000000", // Deep blue-black
+          default: "#222222",
           paper: "#121927",
         },
         text: {

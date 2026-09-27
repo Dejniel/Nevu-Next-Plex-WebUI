@@ -47,7 +47,7 @@ export default function ProfilePicker() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        bgcolor: "#000",
+        bgcolor: "background.default",
         px: 2,
         py: 6,
       }}

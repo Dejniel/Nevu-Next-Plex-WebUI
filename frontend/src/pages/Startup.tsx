@@ -144,7 +144,7 @@ function Startup() {
         alignItems: "center",
         justifyContent: "center",
         height: "100vh",
-        backgroundColor: "black",
+        backgroundColor: "background.default",
       }}
     >
       <img

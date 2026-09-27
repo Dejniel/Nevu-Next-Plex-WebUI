@@ -13,6 +13,7 @@ import { HeroWatchListButton } from "./MovieItem";
 import { getTranscodeImageURL } from "../plex";
 import ExtraPlayer from "./title/ExtraPlayer";
 import { useTitleExtras } from "../hooks/useTitleExtras";
+import { alpha } from "@mui/material/styles";
 
 function HeroDisplay({
   item,
@@ -129,7 +130,7 @@ function HeroDisplay({
           flexDirection: "column",
           alignItems: "flex-start",
           justifyContent: "flex-end",
-          backgroundColor: "#15171b",
+          backgroundColor: "background.default",
           boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.04)",
           zIndex: 0,
           position: "relative",
@@ -363,8 +364,13 @@ function HeroDisplay({
           bottom: 0,
           left: 0,
 
-          backgroundImage:
-            "linear-gradient(180deg, #00000000, #000000AA, #000000FF)",
+          backgroundImage: (theme) =>
+            `linear-gradient(180deg, ${alpha(
+              theme.palette.background.default,
+              0,
+            )}, ${alpha(theme.palette.background.default, 0.67)}, ${
+              theme.palette.background.default
+            })`,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",

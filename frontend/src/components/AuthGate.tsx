@@ -12,7 +12,7 @@ function LoadingScreen() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        bgcolor: "#000",
+        bgcolor: "background.default",
       }}
     >
       <CircularProgress />
@@ -42,7 +42,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
           alignItems: "center",
           justifyContent: "center",
           gap: 2,
-          bgcolor: "#000",
+          bgcolor: "background.default",
           px: 2,
         }}
       >

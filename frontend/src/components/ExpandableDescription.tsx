@@ -1,4 +1,5 @@
 import { Box, Typography } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import React, { useEffect, useState } from "react";
 
 const DESKTOP_BREAKPOINT = "(min-width: 600px)";
@@ -9,15 +10,12 @@ function ExpandableDescription({
   minLines = 3,
   boundaryRef,
   color = "text.secondary",
-  linkBackground =
-    "linear-gradient(90deg, rgba(18,18,22,0), #121216 28%, #121216 100%)",
 }: {
   text?: string;
   lines?: number;
   minLines?: number;
   boundaryRef?: React.RefObject<HTMLDivElement | null>;
   color?: string;
-  linkBackground?: string;
 }) {
   const textRef = React.useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
@@ -130,7 +128,13 @@ function ExpandableDescription({
             font: "inherit",
             lineHeight: 1.5,
             color: "primary.main",
-            background: linkBackground,
+            background: (theme) =>
+              `linear-gradient(90deg, ${alpha(
+                theme.palette.background.default,
+                0,
+              )}, ${theme.palette.background.default} 28%, ${
+                theme.palette.background.default
+              } 100%)`,
             cursor: "pointer",
             "&:hover": { color: "primary.light" },
             "&:focus-visible": {
