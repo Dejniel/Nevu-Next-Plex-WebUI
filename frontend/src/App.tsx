@@ -17,11 +17,11 @@ import ToastManager from "./components/ToastManager";
 import LibraryScreen from "./components/LibraryScreen";
 import { useSessionStore } from "./states/SessionState";
 import Settings from "./pages/Settings";
-import { useUserSettings } from "./states/UserSettingsState";
 import MetaScreen from "./components/MetaScreen";
 import ConfirmModal from "./components/ConfirmModal";
 import AuthGate from "./components/AuthGate";
 import { useUserSessionStore } from "./states/UserSession";
+import ProfileBootstrapGate from "./components/ProfileBootstrapGate";
 
 function AppManager() {
   const { loading } = useStartupState();
@@ -47,7 +47,9 @@ function AppManager() {
 
   return (
     <AuthGate>
-      <App />
+      <ProfileBootstrapGate>
+        <App />
+      </ProfileBootstrapGate>
     </AuthGate>
   );
 }
@@ -77,7 +79,6 @@ function App() {
     useUserSessionStore.getState().loadUser();
     useWatchListCache.getState().loadWatchListCache();
     useSessionStore.getState().fetchPlexServer();
-    useUserSettings.getState().fetchSettings();
 
     const interval = setInterval(() => {
       useWatchListCache.getState().loadWatchListCache();

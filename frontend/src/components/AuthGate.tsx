@@ -4,7 +4,7 @@ import Login from "../pages/Login";
 import ProfilePicker from "../pages/ProfilePicker";
 import { useAuthSession } from "../states/AuthSessionState";
 
-function LoadingScreen() {
+export function LoadingScreen() {
   return (
     <Box
       sx={{

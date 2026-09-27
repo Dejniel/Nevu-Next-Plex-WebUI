@@ -1,32 +1,15 @@
-import { Box, CircularProgress, Typography } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import React from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import SettingsInfo from "./settings/SettingsInfo";
 import SettingsPlayback from "./settings/SettingsPlayback";
-import { useUserSettings } from "../states/UserSettingsState";
 import SettingsAccount from "./settings/SettingsAccount";
 import SettingsSharing from "./settings/SettingsSharing";
 import SettingsLibrariesAdmin from "./settings/SettingsLibrariesAdmin";
 import { useCanManageServer } from "../states/ServerAccess";
 
 function Settings() {
-  const { loaded } = useUserSettings();
   const canManageServer = useCanManageServer();
-
-  if (!loaded)
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100vh",
-          width: "100vw",
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
 
   return (
     <Box

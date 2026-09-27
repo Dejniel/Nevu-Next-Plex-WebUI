@@ -29,13 +29,11 @@ export default function Home() {
     null
   );
   const { watchListCache } = useWatchListCache();
-  const { settings, loaded: settingsLoaded } = useUserSettings();
+  const { settings } = useUserSettings();
 
   const [heroLoading, setHeroLoading] = React.useState(true);
 
   useEffect(() => {
-    if (!settingsLoaded) return;
-
     async function fetchData() {
       setHeroLoading(true);
       setRandomItem(null);

@@ -10,7 +10,7 @@ import {
   ToggleButtonGroup,
   Tooltip,
 } from "@mui/material";
-import React, { useEffect } from "react";
+import React from "react";
 import { useUserSettings } from "../states/UserSettingsState";
 
 export type LibraryCardLayout = "landscape" | "poster";
@@ -31,29 +31,22 @@ export const getLibraryCardWidth = (
 
 export function useLibraryCardView() {
   const { settings, setSetting } = useUserSettings();
-  const [layout, setLayout] = React.useState<LibraryCardLayout>(
-    settings.LIBRARY_CARD_LAYOUT === "poster" ? "poster" : "landscape",
-  );
-  const [size, setSize] = React.useState(() =>
-    normalizeCardSize(settings.LIBRARY_CARD_SIZE),
-  );
-
-  useEffect(() => {
-    setLayout(
-      settings.LIBRARY_CARD_LAYOUT === "poster" ? "poster" : "landscape",
-    );
-    setSize(normalizeCardSize(settings.LIBRARY_CARD_SIZE));
-  }, [settings.LIBRARY_CARD_LAYOUT, settings.LIBRARY_CARD_SIZE]);
+  const layout: LibraryCardLayout =
+    settings.LIBRARY_CARD_LAYOUT === "poster" ? "poster" : "landscape";
+  const storedSize = normalizeCardSize(settings.LIBRARY_CARD_SIZE);
+  const [draftSize, setDraftSize] = React.useState<number | null>(null);
 
   return {
     layout,
-    size,
-    setSize,
+    size: draftSize ?? storedSize,
+    setSize: setDraftSize,
     setLayout: (value: LibraryCardLayout) => {
-      setLayout(value);
-      setSetting("LIBRARY_CARD_LAYOUT", value);
+      void setSetting("LIBRARY_CARD_LAYOUT", value);
     },
-    saveSize: (value: number) => setSetting("LIBRARY_CARD_SIZE", String(value)),
+    saveSize: (value: number) => {
+      setDraftSize(null);
+      void setSetting("LIBRARY_CARD_SIZE", String(value));
+    },
   };
 }
 
