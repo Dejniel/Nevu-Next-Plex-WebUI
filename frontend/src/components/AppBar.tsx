@@ -309,19 +309,36 @@ S - Skip onscreen markers (intro, credits, etc)
           ...BarSide,
         }}
       >
-        <img
-          src="/nevu-next-right.svg"
-          alt=""
-          style={{
-            width: isMobile
-              ? "clamp(118px, 36vw, 150px)"
-              : "clamp(120px, 14vw, 200px)",
-            maxWidth: "100%",
-            height: "auto",
+        <Box
+          component={Link}
+          to="/"
+          aria-label="Go to home"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            minWidth: 0,
             flexShrink: 1,
-            objectFit: "contain",
+            borderRadius: 0.5,
+            "&:focus-visible": {
+              outline: "2px solid",
+              outlineColor: "primary.main",
+              outlineOffset: 3,
+            },
           }}
-        />
+        >
+          <img
+            src="/nevu-next-right.svg"
+            alt="Nevu Next"
+            style={{
+              width: isMobile
+                ? "clamp(118px, 36vw, 150px)"
+                : "clamp(120px, 14vw, 200px)",
+              maxWidth: "100%",
+              height: "auto",
+              objectFit: "contain",
+            }}
+          />
+        </Box>
 
         {/* Desktop: nav links */}
         {!isMobile && (
