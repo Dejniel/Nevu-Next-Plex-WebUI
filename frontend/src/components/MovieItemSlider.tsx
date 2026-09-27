@@ -238,7 +238,7 @@ function MovieItemSlider({
             height: "16vh",
             position: "absolute",
             left: "0px",
-            backgroundColor: "#00000022",
+            backgroundColor: "transparent",
             zIndex: 2,
             display: "flex",
             alignItems: "center",
@@ -250,7 +250,7 @@ function MovieItemSlider({
               backgroundColor: "#000000AA",
             },
 
-            transition: "all 0.5s ease",
+            transition: "background-color 0.2s ease",
           }}
           onClick={() => {
             setCurrPage((currPage) =>
@@ -321,7 +321,7 @@ function MovieItemSlider({
             height: "16vh",
             position: "absolute",
             right: "0px",
-            backgroundColor: "#00000022",
+            backgroundColor: "transparent",
             zIndex: 2,
             display: "flex",
             alignItems: "center",
@@ -333,7 +333,7 @@ function MovieItemSlider({
               backgroundColor: "#000000AA",
             },
 
-            transition: "all 0.5s ease",
+            transition: "background-color 0.2s ease",
           }}
           onClick={() => {
             setCurrPage(
