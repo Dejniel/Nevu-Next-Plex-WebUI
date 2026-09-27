@@ -1,5 +1,4 @@
 import {
-  Backdrop,
   Box,
   Button,
   CircularProgress,
@@ -13,6 +12,7 @@ import { create } from "zustand";
 import { useSyncSessionState } from "../states/SyncSessionState";
 import { ContentCopyRounded } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
+import AppDialog from "./AppDialog";
 
 interface SyncInterfaceState {
   open: boolean;
@@ -43,46 +43,21 @@ function PerPlexedSync() {
   }, [room, open]);
 
   return (
-    <Backdrop
-      sx={{
-        zIndex: (theme) => 20000,
-      }}
+    <AppDialog
       open={open}
-      onClick={() => setOpen(false)}
+      title="Nevu Sync"
+      onClose={() => setOpen(false)}
     >
       <Box
         sx={{
-          width: "500px",
-          height: "auto",
-          backgroundColor: "#202020",
-          padding: "20px",
-          borderRadius: "10px",
-
+          width: "100%",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
           gap: "10px",
         }}
-        onClick={(e) => e.stopPropagation()}
       >
-        <Typography
-          sx={{
-            color: "white",
-            fontSize: "24px",
-            fontWeight: "bold",
-          }}
-        >
-          Nevu Sync
-        </Typography>
-
-        <Divider
-          sx={{
-            width: "100%",
-          }}
-          variant="middle"
-        />
-
         {page === "load" && (
           <Box
             sx={{
@@ -331,7 +306,7 @@ function PerPlexedSync() {
           </Box>
         )}
       </Box>
-    </Backdrop>
+    </AppDialog>
   );
 }
 

@@ -15,7 +15,7 @@ type AppDialogSize = "compact" | "standard";
 
 interface AppDialogProps {
   open: boolean;
-  title: ReactNode;
+  title?: ReactNode;
   children: ReactNode;
   onClose: () => void;
   actions?: ReactNode;
@@ -38,6 +38,21 @@ export default function AppDialog({
 }: AppDialogProps) {
   const titleId = useId();
   const compact = size === "compact";
+  const hasTitle = title !== undefined && title !== null;
+  const closeButton = (
+    <Tooltip title="Close">
+      <span>
+        <IconButton
+          aria-label="Close dialog"
+          disabled={busy}
+          onClick={onClose}
+          sx={{ position: "absolute", top: 8, right: 8, zIndex: 10 }}
+        >
+          <CloseRounded />
+        </IconButton>
+      </span>
+    </Tooltip>
+  );
 
   return (
     <Dialog
@@ -47,44 +62,34 @@ export default function AppDialog({
       }}
       disableEscapeKeyDown={busy}
       maxWidth={false}
-      aria-labelledby={titleId}
+      aria-labelledby={hasTitle ? titleId : undefined}
+      aria-label={hasTitle ? undefined : "Dialog"}
       slotProps={{
         paper: {
           sx: {
             width: compact
               ? { xs: "calc(100% - 32px)", sm: "auto" }
-              : { xs: "calc(100% - 32px)", sm: "calc(100% - 48px)" },
+              : { xs: "100%", sm: "90vw" },
             minWidth: compact ? { sm: 360 } : undefined,
-            maxWidth: compact ? 440 : 800,
-            maxHeight: "calc(100dvh - 32px)",
-            m: { xs: 2, sm: 3 },
+            maxWidth: compact ? 440 : 1800,
+            maxHeight: compact
+              ? "calc(100dvh - 32px)"
+              : { xs: "100dvh", sm: "calc(100dvh - 64px)" },
+            m: compact ? { xs: 2, sm: 3 } : { xs: 0, sm: 4 },
+            borderRadius: compact ? undefined : { xs: 0, sm: 2 },
           },
         },
       }}
     >
-      <DialogTitle
-        id={titleId}
-        sx={{
-          minHeight: 56,
-          display: "flex",
-          alignItems: "center",
-          pr: 7,
-        }}
-      >
-        {title}
-        <Tooltip title="Close">
-          <span>
-            <IconButton
-              aria-label="Close dialog"
-              disabled={busy}
-              onClick={onClose}
-              sx={{ position: "absolute", top: 8, right: 8 }}
-            >
-              <CloseRounded />
-            </IconButton>
-          </span>
-        </Tooltip>
-      </DialogTitle>
+      {hasTitle ? (
+        <DialogTitle
+          id={titleId}
+          sx={{ minHeight: 56, display: "flex", alignItems: "center", pr: 7 }}
+        >
+          {title}
+          {closeButton}
+        </DialogTitle>
+      ) : closeButton}
       {headerContent}
       <DialogContent sx={contentSx}>{children}</DialogContent>
       {actions !== undefined && (

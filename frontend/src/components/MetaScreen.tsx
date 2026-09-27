@@ -1,7 +1,6 @@
 import {
   Alert,
   Avatar,
-  Backdrop,
   Box,
   Button,
   Checkbox,
@@ -36,7 +35,6 @@ import {
 } from "../plex";
 import {
   CheckCircleRounded,
-  CloseRounded,
   PlayArrowRounded,
   CheckCircleOutlineRounded,
   StarRounded,
@@ -71,6 +69,7 @@ import { getTrackChoices } from "../plex/mediaVersions";
 import { useCanManageServer } from "../states/ServerAccess";
 import { useTitleExtras } from "../hooks/useTitleExtras";
 import ExpandableDescription from "./ExpandableDescription";
+import AppDialog from "./AppDialog";
 
 const DESKTOP_HERO_HEIGHT = "clamp(560px, 93.333vh, 960px)";
 
@@ -135,22 +134,6 @@ function MetaScreen() {
   } = useTitleExtras(data);
 
   const mid = searchParams.get("mid");
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.key === "Escape" &&
-        !document.fullscreenElement &&
-        !document.querySelector('[role="dialog"]')
-      )
-        setSearchParams(new URLSearchParams());
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     setData(undefined);
@@ -268,14 +251,15 @@ function MetaScreen() {
 
   if (loading)
     return (
-      <Backdrop
-        open={true}
-        sx={{
-          zIndex: 100,
-        }}
+      <AppDialog
+        open
+        onClose={() => setSearchParams(new URLSearchParams())}
+        contentSx={{ p: 0 }}
       >
-        <CircularProgress />
-      </Backdrop>
+        <Box sx={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <CircularProgress />
+        </Box>
+      </AppDialog>
     );
 
   // const selectedSeasonData = data?.Children?.Metadata.find(
@@ -283,56 +267,23 @@ function MetaScreen() {
   // );
 
   return (
-    <Backdrop
+    <AppDialog
       open={searchParams.has("mid")}
-      sx={{
-        overflowY: "scroll",
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        zIndex: 100,
-      }}
-      onClick={() => {
-        setSearchParams(new URLSearchParams());
-      }}
+      onClose={() => setSearchParams(new URLSearchParams())}
+      contentSx={{ p: 0, backgroundColor: "background.default" }}
     >
       <Box
         sx={{
-          width: { xs: "100vw", sm: "90vw" },
-          maxWidth: { xs: "100vw", sm: "1800px" },
+          width: "100%",
           display: "flex",
           flexDirection: "column",
           alignItems: "flex-start",
           justifyContent: "flex-start",
           backgroundColor: "background.default",
-          mt: { xs: 0, sm: 4 },
           pb: { xs: 6, sm: 4 },
           position: "relative",
-
-          borderTopLeftRadius: { xs: 0, sm: "10px" },
-          borderTopRightRadius: { xs: 0, sm: "10px" },
-        }}
-        onClick={(e) => {
-          e.stopPropagation();
         }}
       >
-        {/* Close button — always on top of everything */}
-        <Box
-          sx={{
-            position: "absolute",
-            top: 8,
-            right: 8,
-            display: "flex",
-            zIndex: 50,
-          }}
-        >
-          <IconButton
-            sx={{ backgroundColor: "#000000BB" }}
-            onClick={() => setSearchParams(new URLSearchParams())}
-          >
-            <CloseRounded fontSize="medium" />
-          </IconButton>
-        </Box>
         <Box
           sx={{
             width: "100%",
@@ -1051,7 +1002,7 @@ function MetaScreen() {
           message="Metadata saved"
         />
       </Box>
-    </Backdrop>
+    </AppDialog>
   );
 }
 

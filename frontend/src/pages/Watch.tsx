@@ -16,7 +16,6 @@ import {
 import CenteredSpinner from "../components/CenteredSpinner";
 import {
   alpha,
-  Backdrop,
   Box,
   Button,
   Divider,
@@ -77,6 +76,7 @@ import {
   TrackPreference,
 } from "../plex/mediaVersions";
 import SubtitleSearchPanel from "../components/SubtitleSearchPanel";
+import AppDialog from "../components/AppDialog";
 import {
   downloadSubtitle,
   findAttachedSubtitle,
@@ -725,48 +725,19 @@ function Watch() {
 
   return (
     <>
-      <Backdrop
+      <AppDialog
         open={showError !== false}
-        sx={{
-          zIndex: 10000,
-          backdropFilter: "blur(8px)",
-        }}
-      >
-        <Paper
-          elevation={10}
-          sx={{
-            p: 4,
-            background: "#121216",
-            color: theme.palette.text.primary,
-            borderRadius: 2,
-            maxWidth: "500px",
-            width: "90%",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            border: `1px solid ${theme.palette.divider}`,
-          }}
-        >
-          <Typography variant="h6" sx={{ mb: 3, textAlign: "center" }}>
-            {showError}
-          </Typography>
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "row",
-              gap: 2,
-              width: "100%",
-              justifyContent: "center",
-            }}
-          >
+        title="Playback error"
+        size="compact"
+        onClose={() => setShowError(false)}
+        actions={
+          <>
             <Button
               variant="outlined"
               color="primary"
               onClick={() => {
                 setShowError(false);
 
-                // If the video is already 5 seconds in, reload the page with the current time
                 if (player.current?.getCurrentTime() ?? 0 > 5) {
                   const url = new URL(window.location.href);
                   url.searchParams.set(
@@ -805,17 +776,11 @@ function Watch() {
             >
               Home
             </Button>
-            <Button
-              variant="text"
-              onClick={() => {
-                setShowError(false);
-              }}
-            >
-              Ignore
-            </Button>
-          </Box>
-        </Paper>
-      </Backdrop>
+          </>
+        }
+      >
+        <Typography sx={{ textAlign: "center" }}>{showError}</Typography>
+      </AppDialog>
       <Box
         sx={{
           display: "flex",
