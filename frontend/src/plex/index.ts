@@ -4,6 +4,7 @@ import './plex.d.ts'
 import { ProxiedRequest } from "../backendURL";
 import { platformCache } from "../common/DesktopApp";
 import { AuthStorage } from "../auth/AuthStorage";
+import { libraryRangeStore } from "../states/LibraryRangeStore";
 
 export {
     getResponsiveTranscodeImageProps,
@@ -278,6 +279,7 @@ export async function setMediaPlayedStatus(watched: boolean, ratingKey: string):
             ...getXPlexProps()
         })}`);
     }
+    libraryRangeStore.invalidateAll();
 }
 
 /**

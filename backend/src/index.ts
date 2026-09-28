@@ -16,6 +16,7 @@ import { APP_VERSION } from './appVersion';
 import { createReviewsRouter } from './reviews';
 import { createLibraryPageRouter } from './libraryPage';
 import { safeRequestUrl, shouldLogRequest } from './requestLogging';
+import { parsePlexServerUrl } from './plexServerUrl';
 
 /* 
  * ENVIRONMENT VARIABLES
@@ -54,7 +55,8 @@ discovery.announce("Nevu", {
     }
 }, 500, true);
 
-const plexServerUrl = new URL(process.env.PLEX_SERVER || 'http://localhost:32400');
+const configuredPlexServerUrl = parsePlexServerUrl(process.env.PLEX_SERVER);
+const plexServerUrl = configuredPlexServerUrl ?? new URL('http://localhost:32400');
 const keepAliveOptions = {
     keepAlive: true,
     keepAliveMsecs: 1000,
@@ -77,7 +79,7 @@ const plexProxyAgent = plexServerUrl.protocol === 'https:'
 const proxy = httpProxy.createProxyServer({
     ws: true,
     autoRewrite: false,
-    cookieDomainRewrite: (new URL(process.env.PLEX_SERVER || "http://localhost:32400")).hostname,
+    cookieDomainRewrite: plexServerUrl.hostname,
     changeOrigin: true,
     secure: process.env.DISABLE_TLS_VERIFY !== 'true',
     followRedirects: true,
@@ -133,7 +135,7 @@ function getDiscoverHeaders(req: express.Request) {
 
     if (process.env.PLEX_SERVER) {
         // check if the PLEX_SERVER environment variable is a valid URL, the URL must not end with a /
-        if (!process.env.PLEX_SERVER.match(/^https?:\/\/[^\/]+$/)) {
+        if (!configuredPlexServerUrl) {
             status.error = true;
             status.message = 'Invalid PLEX_SERVER environment variable. \nThe URL must start with http:// or https:// and must not end with a /';
             console.error('Invalid PLEX_SERVER environment variable. \nThe URL must start with http:// or https:// and must not end with a /');

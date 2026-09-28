@@ -68,6 +68,7 @@ export interface LibraryPageRequest {
   offset: number;
   size: number;
   seed?: string;
+  refresh?: boolean;
 }
 
 export interface LibraryPageDto {
@@ -75,6 +76,7 @@ export interface LibraryPageDto {
   size: number;
   totalSize: number | null;
   hasMore: boolean;
+  generationId?: string;
   viewGroup?: string;
   title?: string;
   items: LibraryCardDto[];

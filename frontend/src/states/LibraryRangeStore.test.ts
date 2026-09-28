@@ -4,6 +4,7 @@ import {
   LibraryRangeStore,
   libraryQueryKey,
 } from "./LibraryRangeStore";
+import { LibraryPageError } from "../plex/libraryPage";
 
 const query = (overrides: Partial<LibraryQuery> = {}): LibraryQuery => ({
   profileKey: "owner",
@@ -113,9 +114,188 @@ it("exposes failed ranges and retries them explicitly", async () => {
   await flush();
 
   expect(store.getSnapshot(key).ranges.get(0)).toBe("error");
-  expect(store.getSnapshot(key).errors.get(0)).toBe("Plex is unavailable");
+  expect(store.getSnapshot(key).errors.get(0)?.message).toBe("Plex is unavailable");
   store.retry(key, 0);
   await flush();
   expect(store.getSnapshot(key).ranges.get(0)).toBe("loaded");
   expect(store.getSnapshot(key).items.get(0)?.ratingKey).toBe("1");
+});
+
+it("continues past a full range when totalSize is unknown", async () => {
+  const requests: LibraryPageRequest[] = [];
+  const store = new LibraryRangeStore(async (request) => {
+    requests.push(request);
+    if (request.offset === 0) {
+      const items = Array.from({ length: 64 }, (_, index) => card(String(index)));
+      return { offset: 0, size: 64, totalSize: null, hasMore: true, items };
+    }
+    return { offset: 64, size: 1, totalSize: null, hasMore: false, items: [card("64")] };
+  });
+  const key = store.ensure(query());
+
+  store.demand(key, 0, 63);
+  await flush();
+  expect(store.getSnapshot(key).knownSize).toBe(64);
+  expect(store.getSnapshot(key).hasMore).toBe(true);
+
+  store.demand(key, 64, 64);
+  await flush();
+  expect(requests.map((request) => request.offset)).toEqual([0, 64]);
+  expect(store.getSnapshot(key).totalSize).toBe(65);
+  expect(store.getSnapshot(key).hasMore).toBe(false);
+});
+
+it("rechecks an empty cached library when its query is reactivated", async () => {
+  const requests: LibraryPageRequest[] = [];
+  const store = new LibraryRangeStore(async (request) => {
+    requests.push(request);
+    return page(request, [], 0);
+  });
+  const libraryQuery = query();
+  const key = store.ensure(libraryQuery);
+  store.demand(key, 0, 0);
+  await flush();
+  expect(store.getSnapshot(key).totalSize).toBe(0);
+
+  store.release(key);
+  store.ensure(libraryQuery);
+  expect(store.getSnapshot(key).totalSize).toBeNull();
+  store.demand(key, 0, 0);
+  await flush();
+  expect(requests).toHaveLength(2);
+});
+
+it("keeps an unknown-size tail closed when an earlier page finishes later", async () => {
+  const resolvers = new Map<number, (value: LibraryPageDto) => void>();
+  const store = new LibraryRangeStore((request) => new Promise((resolve) => {
+    resolvers.set(request.offset, resolve);
+  }), 2);
+  const key = store.ensure(query());
+  store.demand(key, 0, 127, 0, 127);
+
+  resolvers.get(64)?.({
+    offset: 64, size: 1, totalSize: null, hasMore: false, items: [card("64")],
+  });
+  await flush();
+  resolvers.get(0)?.({
+    offset: 0,
+    size: 64,
+    totalSize: null,
+    hasMore: true,
+    items: Array.from({ length: 64 }, (_, index) => card(String(index))),
+  });
+  await flush();
+
+  expect(store.getSnapshot(key).totalSize).toBe(65);
+  expect(store.getSnapshot(key).hasMore).toBe(false);
+});
+
+it("drops every old random slot when the catalog generation changes", async () => {
+  let generation = "generation-a";
+  const store = new LibraryRangeStore(async (request) => ({
+    ...page(request, [card(`${generation}-${request.offset}`)], 128),
+    generationId: generation,
+  }));
+  const randomQuery = query({ sort: "random:desc", seed: "stable-seed" });
+  const key = store.ensure(randomQuery);
+
+  store.demand(key, 0, 127, 0, 63);
+  await flush();
+  await flush();
+  expect(store.getSnapshot(key).items.get(64)?.ratingKey).toBe("generation-a-64");
+
+  store.release(key);
+  generation = "generation-b";
+  store.ensure(randomQuery);
+  store.demand(key, 0, 63);
+  await flush();
+
+  const snapshot = store.getSnapshot(key);
+  expect(snapshot.generationId).toBe("generation-b");
+  expect(snapshot.items.get(0)?.ratingKey).toBe("generation-b-0");
+  expect(snapshot.items.has(64)).toBe(false);
+});
+
+it("requests a fresh random catalog after reactivating a cached query", async () => {
+  const requests: LibraryPageRequest[] = [];
+  const store = new LibraryRangeStore(async (request) => {
+    requests.push(request);
+    return {
+      ...page(request, [card(String(requests.length))], 1),
+      generationId: "same-generation",
+    };
+  });
+  const randomQuery = query({ sort: "random:desc", seed: "stable-seed" });
+  const key = store.ensure(randomQuery);
+  store.demand(key, 0, 0);
+  await flush();
+  store.release(key);
+
+  store.ensure(randomQuery);
+  store.demand(key, 0, 0);
+  await flush();
+
+  expect(requests).toHaveLength(2);
+  expect(requests.every((request) => request.refresh)).toBe(true);
+});
+
+it("does not fan out retries when the random catalog refresh fails", async () => {
+  let requests = 0;
+  const store = new LibraryRangeStore(async (request) => {
+    requests += 1;
+    if (requests === 1) throw new Error("Catalog refresh failed");
+    return {
+      ...page(request, [card(String(request.offset))], 128),
+      generationId: "generation-a",
+    };
+  }, 2);
+  const key = store.ensure(query({ sort: "random:desc", seed: "stable-seed" }));
+  store.demand(key, 0, 127, 0, 63);
+  await flush();
+  await flush();
+
+  expect(requests).toBe(1);
+  expect(store.getSnapshot(key).ranges.get(0)).toBe("error");
+  expect(store.getSnapshot(key).ranges.get(64)).toBe("error");
+
+  store.retry(key, 0);
+  await flush();
+  await flush();
+  expect(requests).toBe(3);
+  expect(store.getSnapshot(key).ranges.get(0)).toBe("loaded");
+  expect(store.getSnapshot(key).ranges.get(64)).toBe("loaded");
+});
+
+it("does not retry a non-retryable range failure", async () => {
+  let requests = 0;
+  const store = new LibraryRangeStore(async () => {
+    requests += 1;
+    throw new LibraryPageError("Session expired", false, 401);
+  });
+  const key = store.ensure(query());
+  store.demand(key, 0, 63);
+  await flush();
+
+  store.retry(key, 0);
+  await flush();
+  expect(requests).toBe(1);
+  expect(store.getSnapshot(key).errors.get(0)).toMatchObject({
+    message: "Session expired",
+    retryable: false,
+    status: 401,
+  });
+});
+
+it("ignores in-flight responses after the store is cleared", async () => {
+  let resolvePage: ((value: LibraryPageDto) => void) | undefined;
+  const store = new LibraryRangeStore((request) => new Promise((resolve) => {
+    resolvePage = resolve;
+  }));
+  const key = store.ensure(query());
+  store.demand(key, 0, 63);
+  store.clear();
+  resolvePage?.({ offset: 0, size: 1, totalSize: 1, hasMore: false, items: [card("late")] });
+  await flush();
+
+  expect(store.getSnapshot(key).items.size).toBe(0);
 });

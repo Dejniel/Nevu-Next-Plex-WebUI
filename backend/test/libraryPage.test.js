@@ -3,9 +3,10 @@ const test = require("node:test");
 const axios = require("axios");
 const {
   createLibraryPageRouter,
+  InvalidLibraryPageError,
   projectLibraryPage,
   RequestLimiter,
-  seededShuffle,
+  stableRandomOrder,
 } = require("../dist/libraryPage");
 
 function card(id, title = `Movie ${id}`) {
@@ -58,6 +59,21 @@ test("projects library pages to the explicit card contract", () => {
       Media: [{ width: 3840, height: 2160, videoResolution: "4k" }],
     }],
   });
+});
+
+test("rejects malformed records instead of compacting positional pages", () => {
+  assert.throws(
+    () => projectLibraryPage({
+      offset: 64,
+      totalSize: 66,
+      Metadata: [card(1), { ratingKey: "broken", type: "movie", title: "Broken" }],
+    }, 64, 64),
+    InvalidLibraryPageError,
+  );
+  assert.throws(
+    () => projectLibraryPage({ offset: 0, totalSize: 2 }, 0, 64),
+    InvalidLibraryPageError,
+  );
 });
 
 test("loads a validated range and keeps the Plex token in a request header", async () => {
@@ -115,14 +131,17 @@ test("rejects arbitrary Plex paths and invalid ranges", async () => {
   assert.deepEqual(result.body, { error: "Invalid library range request" });
 });
 
-test("seeded shuffle is repeatable without changing its input", () => {
-  const source = Array.from({ length: 30 }, (_, index) => index);
-  const first = seededShuffle(source, "session-a");
-  const second = seededShuffle(source, "session-a");
-  const other = seededShuffle(source, "session-b");
+test("stable random order survives additions and removals", () => {
+  const source = Array.from({ length: 30 }, (_, index) => card(index));
+  const first = stableRandomOrder(source, "session-a");
+  const second = stableRandomOrder(source, "session-a");
+  const other = stableRandomOrder(source, "session-b");
+  const withAddition = stableRandomOrder([...source, card(99)], "session-a")
+    .filter((item) => item.ratingKey !== "99");
   assert.deepEqual(first, second);
   assert.notDeepEqual(first, other);
-  assert.deepEqual(source, Array.from({ length: 30 }, (_, index) => index));
+  assert.deepEqual(withAddition, first);
+  assert.deepEqual(source, Array.from({ length: 30 }, (_, index) => card(index)));
 });
 
 test("random ranges share one stable server snapshot", async () => {
@@ -153,10 +172,88 @@ test("random ranges share one stable server snapshot", async () => {
     };
     const first = await callRouter(router, { ...base, offset: "0" });
     const second = await callRouter(router, { ...base, offset: "2" });
-    const expected = seededShuffle([card(1), card(2), card(3), card(4)], base.seed);
+    const expected = stableRandomOrder([card(1), card(2), card(3), card(4)], base.seed);
 
     assert.equal(calls, 1);
     assert.deepEqual([...first.body.items, ...second.body.items], expected);
+    assert.equal(first.body.generationId, second.body.generationId);
+  } finally {
+    axios.get = originalGet;
+  }
+});
+
+test("refreshing a random catalog updates cards and versions membership changes", async () => {
+  const originalGet = axios.get;
+  let items = [card(1), card(2), card(3)];
+  axios.get = async () => ({
+    data: { MediaContainer: { offset: 0, totalSize: items.length, Metadata: items } },
+  });
+
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex:32400" });
+    const query = {
+      sectionId: "1",
+      filter: "all",
+      sort: "random:desc",
+      seed: "persistent-seed",
+      offset: "0",
+      size: "64",
+    };
+    const before = await callRouter(router, query);
+    items = items.map((item) => item.ratingKey === "2" ? { ...item, title: "Renamed" } : item);
+    const metadataRefresh = await callRouter(router, { ...query, refresh: "true" });
+
+    assert.equal(before.body.generationId, metadataRefresh.body.generationId);
+    assert.equal(
+      metadataRefresh.body.items.find((item) => item.ratingKey === "2").title,
+      "Renamed",
+    );
+
+    items = [...items, card(4)];
+    const after = await callRouter(router, { ...query, refresh: "true" });
+
+    assert.notEqual(metadataRefresh.body.generationId, after.body.generationId);
+    assert.deepEqual(
+      after.body.items.filter((item) => item.ratingKey !== "4"),
+      metadataRefresh.body.items,
+    );
+  } finally {
+    axios.get = originalGet;
+  }
+});
+
+test("builds a random catalog from source offsets rather than projected positions", async () => {
+  const originalGet = axios.get;
+  const source = Array.from({ length: 501 }, (_, index) => card(index));
+  const starts = [];
+  axios.get = async (_url, config) => {
+    const start = config.params["X-Plex-Container-Start"];
+    const size = config.params["X-Plex-Container-Size"];
+    starts.push(start);
+    return {
+      data: {
+        MediaContainer: {
+          offset: start,
+          totalSize: source.length,
+          Metadata: source.slice(start, start + size),
+        },
+      },
+    };
+  };
+
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex:32400" });
+    const result = await callRouter(router, {
+      sectionId: "1",
+      filter: "all",
+      sort: "random:desc",
+      seed: "large-catalog",
+      offset: "480",
+      size: "21",
+    });
+    assert.deepEqual(starts, [0, 500]);
+    assert.equal(result.body.totalSize, 501);
+    assert.equal(result.body.items.length, 21);
   } finally {
     axios.get = originalGet;
   }

@@ -4,14 +4,17 @@ import type {
   LibraryItemType,
 } from "@nevu/contracts";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
+import { ShuffleRounded } from "@mui/icons-material";
 import {
   Alert,
   Box,
   Button,
   Divider,
+  IconButton,
   MenuItem,
   Select,
   Skeleton,
+  Tooltip,
 } from "@mui/material";
 import { motion } from "framer-motion";
 import React, { useEffect, useLayoutEffect } from "react";
@@ -29,6 +32,10 @@ import {
 } from "../../components/LibrarySortDropDown";
 import { AuthStorage } from "../../auth/AuthStorage";
 import { getLibrary } from "../../plex";
+import {
+  getLibraryRandomSeed,
+  replaceLibraryRandomSeed,
+} from "../../plex/libraryRandom";
 import {
   LIBRARY_RANGE_SIZE,
   libraryQueryKey,
@@ -62,25 +69,16 @@ const viewGroupLabel = (viewGroup?: string) => {
   }
 };
 
-function randomSeed(query: Omit<LibraryQuery, "sort" | "seed">) {
-  const storageKey = `nevu.library.randomSeed:${libraryQueryKey({
-    ...query,
-    sort: "random:desc",
-  })}`;
-  const stored = sessionStorage.getItem(storageKey);
-  if (stored) return stored;
-  const seed = globalThis.crypto?.randomUUID?.().replaceAll("-", "") ||
-    `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
-  sessionStorage.setItem(storageKey, seed);
-  return seed;
-}
-
-function useGridGeometry(ref: React.RefObject<HTMLDivElement | null>) {
+function useGridGeometry(
+  gridRef: React.RefObject<HTMLDivElement | null>,
+  toolbarRef: React.RefObject<HTMLDivElement | null>,
+) {
   const [geometry, setGeometry] = React.useState({ width: 0, top: 0 });
 
   useLayoutEffect(() => {
-    const element = ref.current;
+    const element = gridRef.current;
     if (!element) return;
+    let frame = 0;
     const update = () => {
       const bounds = element.getBoundingClientRect();
       const next = { width: bounds.width, top: bounds.top + window.scrollY };
@@ -88,25 +86,21 @@ function useGridGeometry(ref: React.RefObject<HTMLDivElement | null>) {
         current.width === next.width && current.top === next.top ? current : next,
       );
     };
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(element);
-    window.addEventListener("resize", update);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", update);
+    const scheduleUpdate = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(update);
     };
-  }, [ref]);
-
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    const bounds = element.getBoundingClientRect();
-    const next = { width: bounds.width, top: bounds.top + window.scrollY };
-    setGeometry((current) =>
-      current.width === next.width && current.top === next.top ? current : next,
-    );
-  });
+    update();
+    const observer = new ResizeObserver(scheduleUpdate);
+    observer.observe(element);
+    if (toolbarRef.current) observer.observe(toolbarRef.current);
+    window.addEventListener("resize", scheduleUpdate);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [gridRef, toolbarRef]);
 
   return geometry;
 }
@@ -139,9 +133,11 @@ function BrowseLibraryContent({
   const [sortBy, setSortBy] = React.useState<LibrarySort>(
     normalizeLibrarySort(localStorage.getItem("sortBy")),
   );
+  const [seedRevision, setSeedRevision] = React.useState(0);
   const cardView = useLibraryCardView();
   const gridRef = React.useRef<HTMLDivElement>(null);
-  const geometry = useGridGeometry(gridRef);
+  const toolbarRef = React.useRef<HTMLDivElement>(null);
+  const geometry = useGridGeometry(gridRef, toolbarRef);
 
   useEffect(() => {
     let current = true;
@@ -190,9 +186,11 @@ function BrowseLibraryContent({
     return {
       ...baseQuery,
       sort: sortBy,
-      ...(sortBy === "random:desc" && { seed: randomSeed(baseQuery) }),
+      ...(sortBy === "random:desc" && {
+        seed: getLibraryRandomSeed(baseQuery.profileKey, baseQuery.sectionId),
+      }),
     };
-  }, [baseQuery, sortBy]);
+  }, [baseQuery, seedRevision, sortBy]);
   const queryKey = React.useMemo(() => query ? libraryQueryKey(query) : null, [query]);
   const range = useLibraryRange(queryKey);
 
@@ -213,7 +211,7 @@ function BrowseLibraryContent({
   const imageRatio = cardView.layout === "poster" ? 2 / 3 : 16 / 9;
   const rowHeight = Math.ceil(cardWidth / imageRatio + 68 + GRID_GAP);
   const displayCount = range.totalSize ?? Math.max(
-    range.knownSize,
+    range.knownSize + (range.hasMore ? 1 : 0),
     columns * INITIAL_PLACEHOLDER_ROWS,
   );
   const rowCount = Math.ceil(displayCount / columns);
@@ -280,10 +278,11 @@ function BrowseLibraryContent({
         mt: "64px",
       }}
     >
-      <LibraryViewToolbar
-        cardView={cardView}
-        showLeadingOnMobile
-        leading={
+      <Box ref={toolbarRef} sx={{ width: "100%" }}>
+        <LibraryViewToolbar
+          cardView={cardView}
+          showLeadingOnMobile
+          leading={
           <Box
             sx={{
               display: "flex",
@@ -359,6 +358,22 @@ function BrowseLibraryContent({
                 <Divider />
                 <MenuItem value="random:desc">Random</MenuItem>
               </Select>
+              {sortBy === "random:desc" && baseQuery && (
+                <Tooltip title="Reshuffle">
+                  <IconButton
+                    size="small"
+                    aria-label="Reshuffle library"
+                    onClick={() => {
+                      if (queryKey) libraryRangeStore.drop(queryKey);
+                      replaceLibraryRandomSeed(baseQuery.profileKey, baseQuery.sectionId);
+                      setSeedRevision((value) => value + 1);
+                      window.scrollTo({ top: Math.max(0, geometry.top - 80), behavior: "smooth" });
+                    }}
+                  >
+                    <ShuffleRounded fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
               <Box
                 component="span"
                 sx={{
@@ -373,9 +388,10 @@ function BrowseLibraryContent({
               </Box>
             </Box>
           </Box>
-        }
-        pageNavigation={pageNavigation}
-      />
+          }
+          pageNavigation={pageNavigation}
+        />
+      </Box>
 
       <Box sx={{ width: "100%", px: { xs: 1, md: 6 }, pb: 2 }}>
         <Box ref={gridRef} sx={{ width: "100%", mt: 2 }}>
@@ -389,9 +405,11 @@ function BrowseLibraryContent({
           ) : initialRangeError && range.items.size === 0 && queryKey ? (
             <Alert
               severity="error"
-              action={<Button color="inherit" onClick={() => libraryRangeStore.retry(queryKey, 0)}>Retry</Button>}
+              action={initialRangeError.retryable ? (
+                <Button color="inherit" onClick={() => libraryRangeStore.retry(queryKey, 0)}>Retry</Button>
+              ) : undefined}
             >
-              {initialRangeError}
+              {initialRangeError.message}
             </Alert>
           ) : (
             <Box
@@ -441,7 +459,9 @@ function BrowseLibraryContent({
                         ) : error && queryKey ? (
                           <RangeErrorCard
                             layout={cardView.layout}
-                            onRetry={() => libraryRangeStore.retry(queryKey, offset)}
+                            onRetry={error.retryable
+                              ? () => libraryRangeStore.retry(queryKey, offset)
+                              : undefined}
                           />
                         ) : (
                           <CardSkeleton layout={cardView.layout} />
@@ -476,7 +496,7 @@ function RangeErrorCard({
   onRetry,
 }: {
   layout: LibraryCardLayout;
-  onRetry: () => void;
+  onRetry?: () => void;
 }) {
   return (
     <Box
@@ -491,7 +511,11 @@ function RangeErrorCard({
         justifyContent: "center",
       }}
     >
-      <Button size="small" onClick={onRetry}>Retry</Button>
+      {onRetry ? (
+        <Button size="small" onClick={onRetry}>Retry</Button>
+      ) : (
+        <Box sx={{ color: "text.secondary", fontSize: "0.75rem" }}>Unavailable</Box>
+      )}
     </Box>
   );
 }

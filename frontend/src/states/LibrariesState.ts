@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { getAllLibraries } from "../plex";
+import { libraryRangeStore } from "./LibraryRangeStore";
 
 interface LibrariesState {
   libraries: Plex.LibarySection[] | null;
@@ -27,5 +28,6 @@ export const useLibraries = create<LibrariesState>((set) => ({
 }));
 
 export function notifyLibrariesChanged() {
+  libraryRangeStore.invalidateAll();
   window.dispatchEvent(new Event(LIBRARIES_CHANGED_EVENT));
 }

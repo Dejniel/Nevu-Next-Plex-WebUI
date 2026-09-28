@@ -3,6 +3,7 @@ import React, { ReactNode, useEffect } from "react";
 import Login from "../pages/Login";
 import ProfilePicker from "../pages/ProfilePicker";
 import { useAuthSession } from "../states/AuthSessionState";
+import { PLEX_SESSION_INVALID_EVENT } from "../plex/libraryPage";
 
 export function LoadingScreen() {
   return (
@@ -25,6 +26,14 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     initialize();
+  }, [initialize]);
+
+  useEffect(() => {
+    const revalidate = () => {
+      if (useAuthSession.getState().status !== "initializing") void initialize();
+    };
+    window.addEventListener(PLEX_SESSION_INVALID_EVENT, revalidate);
+    return () => window.removeEventListener(PLEX_SESSION_INVALID_EVENT, revalidate);
   }, [initialize]);
 
   if (status === "initializing") return <LoadingScreen />;

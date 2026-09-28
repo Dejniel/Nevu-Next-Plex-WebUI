@@ -92,8 +92,16 @@ const excludedElements = [
     'Part',
 ].join(',');
 const RANDOM_FETCH_SIZE = 500;
-const RANDOM_CACHE_TTL_MS = 30 * 60 * 1000;
-const RANDOM_CACHE_LIMIT = 8;
+const RANDOM_CATALOG_TTL_MS = 30 * 60 * 1000;
+const RANDOM_CATALOG_LIMIT = 8;
+const RANDOM_ORDER_LIMIT = 16;
+
+export class InvalidLibraryPageError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'InvalidLibraryPageError';
+    }
+}
 
 function pick(source: JsonObject, fields: readonly string[]) {
     return Object.fromEntries(
@@ -125,25 +133,28 @@ function projectGenres(genres: unknown) {
 }
 
 export function projectLibraryCards(metadata: unknown): LibraryCardDto[] {
-    if (!Array.isArray(metadata)) return [];
+    if (metadata === undefined) return [];
+    if (!Array.isArray(metadata))
+        throw new InvalidLibraryPageError('Library metadata is not an array');
 
-    return metadata.flatMap((candidate) => {
-        if (!candidate || typeof candidate !== 'object') return [];
+    return metadata.map((candidate, index) => {
+        if (!candidate || typeof candidate !== 'object')
+            throw new InvalidLibraryPageError(`Invalid library item at index ${index}`);
         const item = candidate as JsonObject;
         if (
             typeof item.ratingKey !== 'string' ||
             typeof item.guid !== 'string' ||
             typeof item.type !== 'string' || !itemTypes.has(item.type as LibraryItemType) ||
             typeof item.title !== 'string'
-        ) return [];
+        ) throw new InvalidLibraryPageError(`Incomplete library item at index ${index}`);
 
         const genres = projectGenres(item.Genre);
         const media = projectMedia(item.Media);
-        return [{
+        return {
             ...pick(item, cardFields),
             ...(genres && { Genre: genres }),
             ...(media && { Media: media }),
-        } as LibraryCardDto];
+        } as LibraryCardDto;
     });
 }
 
@@ -158,6 +169,13 @@ export function projectLibraryPage(
     const items = projectLibraryCards(source.Metadata);
     const offset = Number.isInteger(source.offset) ? Number(source.offset) : requestedOffset;
     const totalSize = Number.isInteger(source.totalSize) ? Number(source.totalSize) : null;
+    const reportedSize = Number.isInteger(source.size) ? Number(source.size) : items.length;
+
+    if (
+        reportedSize !== items.length ||
+        (totalSize !== null && (offset + items.length > totalSize ||
+            (items.length === 0 && offset < totalSize)))
+    ) throw new InvalidLibraryPageError('Plex returned an inconsistent library page');
 
     return {
         offset,
@@ -195,27 +213,25 @@ export class RequestLimiter {
     }
 }
 
-function seededRandom(seed: string) {
-    const digest = createHash('sha256').update(seed).digest();
-    let state = digest.readUInt32LE(0) || 0x6d2b79f5;
-
-    return () => {
-        state += 0x6d2b79f5;
-        let value = state;
-        value = Math.imul(value ^ (value >>> 15), value | 1);
-        value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-        return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-    };
-}
-
-export function seededShuffle<T>(items: readonly T[], seed: string): T[] {
-    const shuffled = [...items];
-    const random = seededRandom(seed);
-    for (let index = shuffled.length - 1; index > 0; index -= 1) {
-        const swapWith = Math.floor(random() * (index + 1));
-        [shuffled[index], shuffled[swapWith]] = [shuffled[swapWith], shuffled[index]];
-    }
-    return shuffled;
+export function stableRandomOrder<T extends { ratingKey: string }>(
+    items: readonly T[],
+    seed: string,
+): T[] {
+    return items
+        .map((item) => ({
+            item,
+            rank: createHash('sha256')
+                .update(seed)
+                .update('\0')
+                .update(item.ratingKey)
+                .digest('hex'),
+        }))
+        .sort((left, right) => {
+            if (left.rank !== right.rank) return left.rank < right.rank ? -1 : 1;
+            if (left.item.ratingKey === right.item.ratingKey) return 0;
+            return left.item.ratingKey < right.item.ratingKey ? -1 : 1;
+        })
+        .map(({ item }) => item);
 }
 
 interface ParsedRequest {
@@ -226,13 +242,21 @@ interface ParsedRequest {
     offset: number;
     size: number;
     seed?: string;
+    refresh: boolean;
 }
 
-interface RandomSnapshot {
+interface RandomCatalog {
     items: LibraryCardDto[];
+    generationId: string;
+    loadedAt: number;
     lastUsed: number;
     viewGroup?: string;
     title?: string;
+}
+
+interface RandomOrder {
+    items: LibraryCardDto[];
+    lastUsed: number;
 }
 
 function single(value: unknown) {
@@ -254,6 +278,8 @@ function parseRequest(query: express.Request['query']): ParsedRequest | null {
     const sort = single(query.sort) as LibrarySort | undefined;
     const type = single(query.type) as LibraryItemType | undefined;
     const seed = single(query.seed);
+    const refreshValue = single(query.refresh);
+    const refresh = refreshValue === 'true' || refreshValue === '1';
 
     if (
         sectionId === null || sectionId < 1 ||
@@ -262,10 +288,20 @@ function parseRequest(query: express.Request['query']): ParsedRequest | null {
         !filter || !filters.has(filter) ||
         !sort || !sorts.has(sort) ||
         (type && !itemTypes.has(type)) ||
+        (refreshValue !== undefined && !['true', 'false', '1', '0'].includes(refreshValue)) ||
         (sort === 'random:desc' && (!seed || !/^[a-zA-Z0-9_-]{1,64}$/.test(seed)))
     ) return null;
 
-    return { sectionId, offset, size, filter, sort, ...(type && { type }), ...(seed && { seed }) };
+    return {
+        sectionId,
+        offset,
+        size,
+        filter,
+        sort,
+        refresh,
+        ...(type && { type }),
+        ...(seed && { seed }),
+    };
 }
 
 function plexSort(sort: Exclude<LibrarySort, 'random:desc'>) {
@@ -311,8 +347,9 @@ export function createLibraryPageRouter({
 }: LibraryPageRouterOptions) {
     const router = express.Router();
     const limiter = new RequestLimiter(maxConcurrentRequests);
-    const randomSnapshots = new Map<string, RandomSnapshot>();
-    const pendingSnapshots = new Map<string, Promise<RandomSnapshot>>();
+    const randomCatalogs = new Map<string, RandomCatalog>();
+    const randomOrders = new Map<string, RandomOrder>();
+    const pendingCatalogs = new Map<string, Promise<RandomCatalog>>();
 
     const fetchContainer = async (
         token: string,
@@ -331,47 +368,43 @@ export function createLibraryPageRouter({
         return response.data?.MediaContainer;
     });
 
-    const pruneSnapshots = () => {
-        const now = Date.now();
-        for (const [key, snapshot] of randomSnapshots)
-            if (now - snapshot.lastUsed > RANDOM_CACHE_TTL_MS) randomSnapshots.delete(key);
-
-        while (randomSnapshots.size > RANDOM_CACHE_LIMIT) {
-            const oldest = [...randomSnapshots.entries()]
+    const pruneRandomCaches = () => {
+        while (randomCatalogs.size > RANDOM_CATALOG_LIMIT) {
+            const oldest = [...randomCatalogs.entries()]
                 .sort((left, right) => left[1].lastUsed - right[1].lastUsed)[0];
             if (!oldest) break;
-            randomSnapshots.delete(oldest[0]);
+            randomCatalogs.delete(oldest[0]);
+            for (const key of randomOrders.keys())
+                if (key.startsWith(`${oldest[0]}:`)) randomOrders.delete(key);
+        }
+
+        while (randomOrders.size > RANDOM_ORDER_LIMIT) {
+            const oldest = [...randomOrders.entries()]
+                .sort((left, right) => left[1].lastUsed - right[1].lastUsed)[0];
+            if (!oldest) break;
+            randomOrders.delete(oldest[0]);
         }
     };
 
-    const getRandomSnapshot = async (
+    const randomCatalogKey = (token: string, request: ParsedRequest) => [
+        tokenCacheKey(token),
+        request.sectionId,
+        request.filter,
+        request.type || 'any',
+    ].join(':');
+
+    const loadRandomCatalog = async (
         token: string,
         request: ParsedRequest,
-    ): Promise<RandomSnapshot> => {
-        const cacheKey = [
-            tokenCacheKey(token),
-            request.sectionId,
-            request.filter,
-            request.type || 'any',
-            request.seed,
-        ].join(':');
-        const cached = randomSnapshots.get(cacheKey);
-        if (cached && Date.now() - cached.lastUsed <= RANDOM_CACHE_TTL_MS) {
-            cached.lastUsed = Date.now();
-            return cached;
-        }
-
-        const pending = pendingSnapshots.get(cacheKey);
-        if (pending) return pending;
-
-        const loading = (async () => {
-            // PMS does not expose a stable, seeded random library order. Build one
-            // snapshot per browser session so arbitrary ranges remain consistent.
+    ): Promise<RandomCatalog> => {
+        for (let attempt = 0; attempt < 2; attempt += 1) {
             let offset = 0;
             let totalSize: number | null = null;
             let viewGroup: string | undefined;
             let title: string | undefined;
             const items: LibraryCardDto[] = [];
+            const ratingKeys = new Set<string>();
+            let duplicateFound = false;
 
             do {
                 const container = await fetchContainer(
@@ -382,33 +415,95 @@ export function createLibraryPageRouter({
                     RANDOM_FETCH_SIZE,
                 );
                 const page = projectLibraryPage(container, offset, RANDOM_FETCH_SIZE);
+                if (page.offset !== offset)
+                    throw new InvalidLibraryPageError('Plex returned a mismatched library page');
                 if (offset === 0) {
                     totalSize = page.totalSize;
                     viewGroup = page.viewGroup;
                     title = page.title;
+                } else if (page.totalSize !== totalSize)
+                    throw new InvalidLibraryPageError('Plex changed the library during pagination');
+                for (const item of page.items) {
+                    if (ratingKeys.has(item.ratingKey)) {
+                        duplicateFound = true;
+                        break;
+                    }
+                    ratingKeys.add(item.ratingKey);
+                    items.push(item);
                 }
-                items.push(...page.items);
-                offset += page.items.length;
-                if (!page.hasMore || page.items.length === 0) break;
+                if (duplicateFound) break;
+                offset += page.size;
+                if (!page.hasMore || page.size === 0) break;
             } while (totalSize === null || offset < totalSize);
 
-            const snapshot = {
-                items: seededShuffle(items, request.seed as string),
+            if (duplicateFound || (totalSize !== null && items.length !== totalSize)) {
+                if (attempt === 0) continue;
+                throw new InvalidLibraryPageError('Plex changed the library during pagination');
+            }
+
+            const generationHash = createHash('sha256');
+            for (const ratingKey of [...ratingKeys].sort())
+                generationHash.update(ratingKey).update('\0');
+
+            return {
+                items,
+                generationId: generationHash.digest('hex').slice(0, 24),
+                loadedAt: Date.now(),
                 lastUsed: Date.now(),
                 ...(viewGroup && { viewGroup }),
                 ...(title && { title }),
             };
-            randomSnapshots.set(cacheKey, snapshot);
-            pruneSnapshots();
-            return snapshot;
-        })();
-
-        pendingSnapshots.set(cacheKey, loading);
-        try {
-            return await loading;
-        } finally {
-            pendingSnapshots.delete(cacheKey);
         }
+        throw new InvalidLibraryPageError('Unable to build a consistent Plex library catalog');
+    };
+
+    const getRandomCatalog = async (
+        token: string,
+        request: ParsedRequest,
+    ): Promise<{ key: string; catalog: RandomCatalog }> => {
+        const key = randomCatalogKey(token, request);
+        const pending = pendingCatalogs.get(key);
+        if (pending) return { key, catalog: await pending };
+
+        const cached = randomCatalogs.get(key);
+        if (
+            cached &&
+            !request.refresh &&
+            Date.now() - cached.loadedAt <= RANDOM_CATALOG_TTL_MS
+        ) {
+            cached.lastUsed = Date.now();
+            return { key, catalog: cached };
+        }
+
+        const loading = loadRandomCatalog(token, request);
+        pendingCatalogs.set(key, loading);
+
+        try {
+            const catalog = await loading;
+            for (const orderKey of randomOrders.keys())
+                if (orderKey.startsWith(`${key}:`)) randomOrders.delete(orderKey);
+            randomCatalogs.set(key, catalog);
+            pruneRandomCaches();
+            return { key, catalog };
+        } finally {
+            pendingCatalogs.delete(key);
+        }
+    };
+
+    const getRandomOrder = (key: string, catalog: RandomCatalog, seed: string) => {
+        const orderKey = `${key}:${catalog.generationId}:${seed}`;
+        const cached = randomOrders.get(orderKey);
+        if (cached) {
+            cached.lastUsed = Date.now();
+            return cached.items;
+        }
+
+        // TODO(scale): Above a configurable item limit, choose enough deterministic
+        // hash partitions to keep every in-memory partition below that limit.
+        const items = stableRandomOrder(catalog.items, seed);
+        randomOrders.set(orderKey, { items, lastUsed: Date.now() });
+        pruneRandomCaches();
+        return items;
     };
 
     router.get('/', async (req, res) => {
@@ -423,15 +518,17 @@ export function createLibraryPageRouter({
         try {
             let page: LibraryPageDto;
             if (request.sort === 'random:desc') {
-                const snapshot = await getRandomSnapshot(token, request);
-                const items = snapshot.items.slice(request.offset, request.offset + request.size);
+                const { key, catalog } = await getRandomCatalog(token, request);
+                const orderedItems = getRandomOrder(key, catalog, request.seed as string);
+                const items = orderedItems.slice(request.offset, request.offset + request.size);
                 page = {
                     offset: request.offset,
                     size: items.length,
-                    totalSize: snapshot.items.length,
-                    hasMore: request.offset + items.length < snapshot.items.length,
-                    ...(snapshot.viewGroup && { viewGroup: snapshot.viewGroup }),
-                    ...(snapshot.title && { title: snapshot.title }),
+                    totalSize: orderedItems.length,
+                    hasMore: request.offset + items.length < orderedItems.length,
+                    generationId: catalog.generationId,
+                    ...(catalog.viewGroup && { viewGroup: catalog.viewGroup }),
+                    ...(catalog.title && { title: catalog.title }),
                     items,
                 };
             } else {
@@ -449,7 +546,8 @@ export function createLibraryPageRouter({
             const upstreamStatus = axios.isAxiosError(error) ? error.response?.status : undefined;
             res.status(upstreamStatus && upstreamStatus < 500 ? upstreamStatus : 502).send({
                 error: 'Unable to load the Plex library range',
-                retryable: !upstreamStatus || upstreamStatus >= 500,
+                retryable: !(error instanceof InvalidLibraryPageError) &&
+                    (!upstreamStatus || upstreamStatus >= 500),
             });
         }
     });

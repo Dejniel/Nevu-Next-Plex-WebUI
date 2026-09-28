@@ -17,6 +17,7 @@ import { useUserSettings } from "./UserSettingsState";
 import { useWatchListCache } from "./WatchListCache";
 import { useSessionStore } from "./SessionState";
 import { useLibraries } from "./LibrariesState";
+import { libraryRangeStore } from "./LibraryRangeStore";
 
 export type AuthStatus =
   | "initializing"
@@ -43,6 +44,7 @@ interface AuthSessionState {
 }
 
 function resetProfileState() {
+  libraryRangeStore.clear();
   useSyncSessionState.getState().disconnect();
   useUserSessionStore.getState().reset();
   useUserSettings.getState().reset();

@@ -1,5 +1,6 @@
 import { AuthStorage } from "../auth/AuthStorage";
 import { ProxiedRequest } from "../backendURL";
+import { libraryRangeStore } from "../states/LibraryRangeStore";
 
 export interface MetadataUpdate {
   title?: string;
@@ -82,7 +83,10 @@ export async function updateMetadata(
     {},
   );
 
-  if (response.status >= 200 && response.status < 300) return;
+  if (response.status >= 200 && response.status < 300) {
+    libraryRangeStore.invalidateAll();
+    return;
+  }
   if (response.status === 400)
     throw new MetadataUpdateError(
       "Plex rejected one or more metadata values.",
