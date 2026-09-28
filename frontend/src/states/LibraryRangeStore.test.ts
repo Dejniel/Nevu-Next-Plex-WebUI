@@ -1,10 +1,29 @@
 import type { LibraryCardDto, LibraryPageDto, LibraryPageRequest } from "@nevu/contracts";
+import React, { act } from "react";
+import { createRoot } from "react-dom/client";
 import {
   LibraryQuery,
   LibraryRangeStore,
+  libraryRangeStore,
   libraryQueryKey,
+  useLibraryQueryRange,
 } from "./LibraryRangeStore";
 import { LibraryPageError } from "../plex/libraryPage";
+
+const reactActEnvironment = globalThis as typeof globalThis & {
+  IS_REACT_ACT_ENVIRONMENT?: boolean;
+};
+const previousReactActEnvironment = reactActEnvironment.IS_REACT_ACT_ENVIRONMENT;
+
+beforeAll(() => {
+  reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true;
+});
+
+afterAll(() => {
+  if (previousReactActEnvironment === undefined)
+    delete reactActEnvironment.IS_REACT_ACT_ENVIRONMENT;
+  else reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = previousReactActEnvironment;
+});
 
 const query = (overrides: Partial<LibraryQuery> = {}): LibraryQuery => ({
   profileKey: "owner",
@@ -33,6 +52,43 @@ const page = (
 });
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+function QueryRetentionHarness({ value }: { value: LibraryQuery | null }) {
+  useLibraryQueryRange(value);
+  return null;
+}
+
+it("retains a canonical query when an equivalent object replaces it", () => {
+  libraryRangeStore.clear();
+  const ensure = jest.spyOn(libraryRangeStore, "ensure");
+  const release = jest.spyOn(libraryRangeStore, "release");
+  const root = createRoot(document.createElement("div"));
+  const first = query();
+
+  act(() => root.render(React.createElement(QueryRetentionHarness, { value: first })));
+  expect(ensure).toHaveBeenCalledTimes(1);
+  expect(release).not.toHaveBeenCalled();
+
+  act(() => root.render(React.createElement(QueryRetentionHarness, {
+    value: { ...first },
+  })));
+  expect(ensure).toHaveBeenCalledTimes(1);
+  expect(release).not.toHaveBeenCalled();
+
+  const changed = { ...first, sort: "year:desc" as const };
+  act(() => root.render(React.createElement(QueryRetentionHarness, { value: changed })));
+  expect(release).toHaveBeenCalledTimes(1);
+  expect(release).toHaveBeenLastCalledWith(libraryQueryKey(first));
+  expect(ensure).toHaveBeenCalledTimes(2);
+
+  act(() => root.unmount());
+  expect(release).toHaveBeenCalledTimes(2);
+  expect(release).toHaveBeenLastCalledWith(libraryQueryKey(changed));
+
+  ensure.mockRestore();
+  release.mockRestore();
+  libraryRangeStore.clear();
+});
 
 it("separates range caches by canonical filter clauses, not display labels", () => {
   const first = query({

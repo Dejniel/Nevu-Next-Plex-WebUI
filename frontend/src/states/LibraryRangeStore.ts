@@ -116,7 +116,10 @@ export function useLibraryQueryRange(query: LibraryQuery | null | undefined) {
     if (!query) return;
     const key = libraryRangeStore.ensure(query);
     return () => libraryRangeStore.release(key);
-  }, [query]);
+    // The serialized key is the query identity. Depending on the object reference
+    // releases live demand when URL normalization recreates an equivalent query.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryKey]);
 
   return { queryKey, range };
 }
