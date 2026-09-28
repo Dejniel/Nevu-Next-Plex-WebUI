@@ -52,7 +52,7 @@ import {
 import { VideoSeekSlider } from "react-video-seek-slider";
 import "react-video-seek-slider/styles.css";
 import { useSessionStore } from "../states/SessionState";
-import { durationToText } from "../components/MovieItemSlider";
+import { durationToText } from "../common/Duration";
 import {
   SessionStateEmitter,
   useSyncSessionState,

@@ -40,7 +40,7 @@ import {
   LANDSCAPE_IMAGE_WIDTHS,
   POSTER_IMAGE_WIDTHS,
 } from "../plex";
-import { durationToText } from "./MovieItemSlider";
+import { durationToText } from "../common/Duration";
 import {
   useWatchListCache,
   WatchListCacheEmitter,

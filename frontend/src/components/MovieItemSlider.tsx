@@ -3,6 +3,7 @@ import React from "react";
 import { getLibraryDir } from "../plex";
 import { ArrowForwardIosRounded } from "@mui/icons-material";
 import { useSearchParams } from "react-router-dom";
+import { shuffleArray } from "../common/ArrayExtra";
 import MovieItem from "./MovieItem";
 import {
   getLibraryCardWidth,
@@ -438,25 +439,3 @@ function MovieItemSliderSkeleton({
 }
 
 export default MovieItemSlider;
-
-export function durationToText(duration: number): string {
-  const hours = Math.floor(duration / 1000 / 60 / 60);
-  const minutes = (duration / 1000 / 60 / 60 - hours) * 60;
-
-  return (
-    (hours > 0 ? `${hours}h` : "") +
-    (Math.floor(minutes) > 0 ? ` ${Math.floor(minutes)}m` : "")
-  ).trim();
-}
-
-export const shuffleArray = (array: any[]) => {
-  const oldArray = [...array];
-  const newArray = [];
-
-  while (oldArray.length) {
-    const index = Math.floor(Math.random() * oldArray.length);
-    newArray.push(oldArray.splice(index, 1)[0]);
-  }
-
-  return newArray;
-};

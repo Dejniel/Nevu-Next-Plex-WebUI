@@ -1,6 +1,6 @@
-export const shuffleArray = (array: any[]) => {
+export const shuffleArray = <T>(array: readonly T[]) => {
     const oldArray = [...array];
-    const newArray = [];
+    const newArray: T[] = [];
 
     while (oldArray.length) {
         const index = Math.floor(Math.random() * oldArray.length);

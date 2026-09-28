@@ -10,7 +10,7 @@ import { PlayArrowRounded } from "@mui/icons-material";
 import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getTranscodeImageURL } from "../../plex";
-import { durationToText } from "../MovieItemSlider";
+import { durationToText } from "../../common/Duration";
 import { extraTypeLabel, TitleExtra } from "../../plex/discover";
 import ExtraPlayer from "./ExtraPlayer";
 

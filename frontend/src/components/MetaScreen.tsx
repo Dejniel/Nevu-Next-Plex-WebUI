@@ -46,7 +46,7 @@ import {
   CheckBoxRounded,
   EditRounded,
 } from "@mui/icons-material";
-import { durationToText } from "./MovieItemSlider";
+import { durationToText } from "../common/Duration";
 import { HeroWatchListButton } from "./MovieItem";
 import { alpha } from "@mui/material/styles";
 import { AnimatePresence, motion } from "framer-motion";
