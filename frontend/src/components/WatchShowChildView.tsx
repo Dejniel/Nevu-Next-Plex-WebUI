@@ -21,7 +21,8 @@ import React, { useEffect } from "react";
 import { useState } from "react";
 import { getLibraryDir, getTranscodeImageURL } from "../plex";
 import { getMinutes } from "./MetaScreen";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { mediaWatchTo } from "../navigation";
 
 function WatchShowChildView({
   item,
@@ -37,7 +38,6 @@ function WatchShowChildView({
   const [seasons, setSeasons] = useState<Plex.Metadata[] | null>(null);
   const [episodes, setEpisodes] = useState<Plex.Metadata[] | null>(null);
   const [selectedSeason, setSelectedSeason] = useState(item.parentIndex ?? 1);
-  const navigate = useNavigate();
   const theme = useTheme();
 
   const [, setControlElementsVisible] = controlElementsVisibleState;
@@ -243,14 +243,24 @@ function WatchShowChildView({
                           .map((episode) => (
                             <Box
                               key={episode.ratingKey}
+                              component={
+                                episode.ratingKey !== item.ratingKey
+                                  ? Link
+                                  : "div"
+                              }
+                              to={
+                                episode.ratingKey !== item.ratingKey
+                                  ? mediaWatchTo(episode)
+                                  : undefined
+                              }
                               onClick={() => {
-                                if (episode.ratingKey !== item.ratingKey) {
-                                  navigate(`/watch/${episode.ratingKey}`);
+                                if (episode.ratingKey !== item.ratingKey)
                                   setAnchorEl(null);
-                                }
                               }}
                               sx={{
                                 display: "flex",
+                                color: "inherit",
+                                textDecoration: "none",
                                 borderRadius: 1,
                                 overflow: "hidden",
                                 transition: "all 0.2s",

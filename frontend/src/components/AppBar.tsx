@@ -29,7 +29,6 @@ import {
   Link,
   useLocation,
   useNavigate,
-  useSearchParams,
 } from "react-router-dom";
 import { getSearch, getTranscodeImageURL } from "../plex";
 import { useUserSessionStore } from "../states/UserSession";
@@ -56,6 +55,8 @@ import { SPONSOR_URL } from "../projectLinks";
 import { useLibraries, LIBRARIES_CHANGED_EVENT } from "../states/LibrariesState";
 import { normalizeLibraryNavigation, NavigationLibrary } from "../plex/libraryNavigation";
 import LibraryActionsMenu from "./libraries/LibraryActionsMenu";
+import { libraryBrowseTo, mediaDetailsTo } from "../navigation";
+import StretchedLink from "./StretchedLink";
 
 const BarSide: SxProps<Theme> = {
   display: "flex",
@@ -81,7 +82,6 @@ function Appbar() {
   const [scrollAtTop, setScrollAtTop] = useState(true);
   const location = useLocation();
   const { room } = useSyncSessionState();
-  const [, setSearchParams] = useSearchParams();
   const { settings } = useUserSettings();
 
   const { user } = useUserSessionStore();
@@ -108,8 +108,6 @@ function Appbar() {
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
-
-  const navigate = useNavigate();
 
   useEffect(() => {
     void loadLibraries();
@@ -183,10 +181,11 @@ function Appbar() {
         <Divider />
 
         <MenuItem
-          onClick={() => {
-            setAnchorEl(null);
-            window.open(SPONSOR_URL, "_blank", "noopener,noreferrer");
-          }}
+          component="a"
+          href={SPONSOR_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => setAnchorEl(null)}
         >
           <ListItemIcon>
             <FavoriteRounded fontSize="small" />
@@ -224,9 +223,6 @@ function Appbar() {
         <MenuItem
           onClick={() => {
             useBigReader.getState().setBigReader(`
---- Hint ---
-You can right click on any library item at the top to view the entire library.
-
 --- Browsing ---
 CTRL + F - Search
 
@@ -247,10 +243,9 @@ S - Skip onscreen markers (intro, credits, etc)
         </MenuItem>
 
         <MenuItem
-          onClick={() => {
-            setAnchorEl(null);
-            navigate("/settings/info");
-          }}
+          component={Link}
+          to="/settings/info"
+          onClick={() => setAnchorEl(null)}
         >
           <ListItemIcon>
             <SettingsRounded fontSize="small" />
@@ -391,13 +386,9 @@ S - Skip onscreen markers (intro, credits, etc)
           <>
             <SearchBar />
             <IconButton
-              onClick={() => {
-                setSearchParams(
-                  new URLSearchParams({
-                    bkey: `/plextv/watchlist`,
-                  })
-                );
-              }}
+              component={Link}
+              to={libraryBrowseTo(location, "/plextv/watchlist")}
+              aria-label="Open watchlist"
             >
               <BookmarkRounded />
             </IconButton>
@@ -462,8 +453,10 @@ S - Skip onscreen markers (intro, credits, etc)
           <List disablePadding>
             <ListItem disablePadding>
               <ListItemButton
+                component={Link}
+                to="/"
                 selected={location.pathname === "/"}
-                onClick={() => { navigate("/"); setDrawerOpen(false); }}
+                onClick={() => setDrawerOpen(false)}
               >
                 <ListItemText primary="Home" />
               </ListItemButton>
@@ -491,9 +484,11 @@ S - Skip onscreen markers (intro, credits, etc)
                 }
               >
                 <ListItemButton
+                  component={Link}
+                  to={`/browse/${library.key}`}
                   sx={{ pr: 7 }}
                   selected={location.pathname.includes(`/browse/${library.key}`)}
-                  onClick={() => { navigate(`/browse/${library.key}`); setDrawerOpen(false); }}
+                  onClick={() => setDrawerOpen(false)}
                 >
                   <ListItemText primary={library.title} />
                 </ListItemButton>
@@ -520,9 +515,11 @@ S - Skip onscreen markers (intro, credits, etc)
                     }
                   >
                     <ListItemButton
+                      component={Link}
+                      to={`/browse/${library.key}`}
                       sx={{ pr: 7 }}
                       selected={location.pathname.includes(`/browse/${library.key}`)}
-                      onClick={() => { navigate(`/browse/${library.key}`); setDrawerOpen(false); }}
+                      onClick={() => setDrawerOpen(false)}
                     >
                       <ListItemText primary={library.title} />
                     </ListItemButton>
@@ -535,10 +532,9 @@ S - Skip onscreen markers (intro, credits, etc)
 
             <ListItem disablePadding>
               <ListItemButton
-                onClick={() => {
-                  setSearchParams(new URLSearchParams({ bkey: `/plextv/watchlist` }));
-                  setDrawerOpen(false);
-                }}
+                component={Link}
+                to={libraryBrowseTo(location, "/plextv/watchlist")}
+                onClick={() => setDrawerOpen(false)}
               >
                 <ListItemIcon><BookmarkRounded /></ListItemIcon>
                 <ListItemText primary="Watchlist" />
@@ -578,7 +574,7 @@ function SearchBar({ onResultSelected, inDrawer }: { onResultSelected?: () => vo
   );
   const [searchLoading, setSearchLoading] = React.useState(false);
 
-  const [, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
 
   const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
@@ -711,17 +707,19 @@ function SearchBar({ onResultSelected, inDrawer }: { onResultSelected?: () => vo
 
               if (selectedIndex !== null && searchResults.length > 0) {
                 if (searchResults[selectedIndex].Metadata?.ratingKey) {
-                  setSearchParams(
-                    new URLSearchParams({
-                      mid:
-                        searchResults[selectedIndex].Metadata?.ratingKey || "",
-                    })
+                  navigate(
+                    mediaDetailsTo(
+                      location,
+                      searchResults[selectedIndex].Metadata as Plex.Metadata,
+                    ),
                   );
                 } else if (searchResults[selectedIndex].Directory) {
-                  setSearchParams(
-                    new URLSearchParams({
-                      bkey: `/library/sections/${searchResults[selectedIndex].Directory?.librarySectionID}/genre/${searchResults[selectedIndex].Directory?.id}`,
-                    })
+                  const directory = searchResults[selectedIndex].Directory;
+                  navigate(
+                    libraryBrowseTo(
+                      location,
+                      `/library/sections/${directory?.librarySectionID}/genre/${directory?.id}`,
+                    ),
                   );
                 }
               } else {
@@ -736,7 +734,6 @@ function SearchBar({ onResultSelected, inDrawer }: { onResultSelected?: () => vo
         }}
         onChange={(e) => {
           setSearchValue(e.target.value);
-          //navigate(`/search/${encodeURIComponent(e.target.value.trim())}`);
         }}
         onFocus={(e) => {
           setSearchAnchorEl(e.currentTarget);
@@ -780,7 +777,6 @@ function SearchBar({ onResultSelected, inDrawer }: { onResultSelected?: () => vo
         }}
         onClick={(e) => {
           e.stopPropagation();
-          e.preventDefault();
         }}
       >
         {searchLoading && (
@@ -801,6 +797,8 @@ function SearchBar({ onResultSelected, inDrawer }: { onResultSelected?: () => vo
             if (item.Metadata) {
               return (
                 <Box
+                  component={Link}
+                  to={mediaDetailsTo(location, item.Metadata)}
                   sx={{
                     display: "flex",
                     alignItems: "flex-start",
@@ -823,18 +821,14 @@ function SearchBar({ onResultSelected, inDrawer }: { onResultSelected?: () => vo
 
                     userSelect: "none",
                     cursor: "pointer",
+                    color: "inherit",
+                    textDecoration: "none",
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
-                    e.preventDefault();
                     searchAnchorEl?.blur();
                     setSearchAnchorEl(null);
                     onResultSelected?.();
-                    if (item.Metadata?.ratingKey) {
-                      setSearchParams({
-                        mid: item.Metadata.ratingKey,
-                      });
-                    }
                   }}
                 >
                   <img
@@ -870,6 +864,11 @@ function SearchBar({ onResultSelected, inDrawer }: { onResultSelected?: () => vo
             } else if (item.Directory) {
               return (
                 <Box
+                  component={Link}
+                  to={libraryBrowseTo(
+                    location,
+                    `/library/sections/${item.Directory.librarySectionID}/genre/${item.Directory.id}`,
+                  )}
                   sx={{
                     display: "flex",
                     alignItems: "flex-start",
@@ -892,16 +891,11 @@ function SearchBar({ onResultSelected, inDrawer }: { onResultSelected?: () => vo
 
                     userSelect: "none",
                     cursor: "pointer",
+                    color: "inherit",
+                    textDecoration: "none",
                   }}
                   onClick={(e) => {
-                    console.log("test");
                     e.stopPropagation();
-                    e.preventDefault();
-                    setSearchParams(
-                      new URLSearchParams({
-                        bkey: `/library/sections/${item.Directory?.librarySectionID}/genre/${item.Directory?.id}`,
-                      })
-                    );
                     searchAnchorEl?.blur();
                     setSearchAnchorEl(null);
                     onResultSelected?.();
@@ -931,7 +925,6 @@ function LibrariesDropdown({
 }) {
   const [librariesAnchorEl, setLibrariesAnchorEl] = React.useState<null | HTMLElement>(null);
   const librariesOpen = Boolean(librariesAnchorEl);
-  const navigate = useNavigate();
   const libraries = [...pinned, ...unpinned];
 
   return (
@@ -1023,14 +1016,16 @@ function LibrariesDropdown({
                       alignItems: "center",
                       borderRadius: "4px",
                       cursor: "pointer",
+                      position: "relative",
                       "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
                     }}
-                    onClick={() => {
-                      navigate(`/browse/${library.key}`);
-                      setLibrariesAnchorEl(null);
-                    }}
                   >
-                    <Typography noWrap sx={{ flex: 1, fontSize: 14, fontWeight: 500 }}>{library.title}</Typography>
+                    <StretchedLink
+                      to={`/browse/${library.key}`}
+                      label={`Open ${library.title}`}
+                      onClick={() => setLibrariesAnchorEl(null)}
+                    />
+                    <Typography noWrap sx={{ flex: 1, fontSize: 14, fontWeight: 500, pointerEvents: "none" }}>{library.title}</Typography>
                     <IconButton
                       size="small"
                       onClick={(event) => {
@@ -1040,7 +1035,7 @@ function LibrariesDropdown({
                         setLibrariesAnchorEl(null);
                       }}
                       aria-label={`Actions for ${library.title}`}
-                      sx={{ ...menuDotsSx, width: 32, height: 32 }}
+                      sx={{ ...menuDotsSx, width: 32, height: 32, zIndex: 2 }}
                     >
                       <MoreVertRounded fontSize="small" />
                     </IconButton>
@@ -1068,7 +1063,6 @@ function HeadLink({
   active?: boolean;
   onMenu?: (anchor: HTMLElement, library: NavigationLibrary) => void;
 }): JSX.Element {
-  const [, setSearchParams] = useSearchParams();
   return (
     <Box
       sx={{
@@ -1090,11 +1084,6 @@ function HeadLink({
           fontFamily: '"Inter Variable", sans-serif',
           userSelect: "none",
           whiteSpace: "nowrap",
-        }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          if (library)
-            setSearchParams(new URLSearchParams({ bkey: `/library/sections/${library.key}/all` }));
         }}
         aria-current={active ? "page" : undefined}
       >

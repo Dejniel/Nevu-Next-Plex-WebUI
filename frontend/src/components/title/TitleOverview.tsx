@@ -7,11 +7,12 @@ import {
 } from "@mui/material";
 import { ArrowForwardRounded } from "@mui/icons-material";
 import React from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import MovieItem from "../MovieItem";
 import { getTranscodeImageURL } from "../../plex";
 import { TitleExtra } from "../../plex/discover";
 import ExtraPlayer from "./ExtraPlayer";
+import { libraryBrowseTo } from "../../navigation";
 
 function SectionTitle({
   children,
@@ -83,7 +84,7 @@ export default function TitleOverview({
   onShowDetails: () => void;
   onShowReviews: () => void;
 }) {
-  const [, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const related = Array.from(
     new Map(
       (data.Related?.Hub || [])
@@ -179,11 +180,11 @@ export default function TitleOverview({
             {cast.map((role) => (
               <Button
                 key={role.id}
-                onClick={() =>
-                  setSearchParams({
-                    bkey: `/library/sections/${data.librarySectionID}/actor/${role.id}`,
-                  })
-                }
+                component={Link}
+                to={libraryBrowseTo(
+                  location,
+                  `/library/sections/${data.librarySectionID}/actor/${role.id}`,
+                )}
                 sx={{
                   width: "100%",
                   minHeight: 72,

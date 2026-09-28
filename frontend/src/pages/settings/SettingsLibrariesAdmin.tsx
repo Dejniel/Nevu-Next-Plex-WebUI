@@ -38,7 +38,7 @@ import {
   Typography,
 } from "@mui/material";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import AppDialog from "../../components/AppDialog";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import {
@@ -508,7 +508,14 @@ export default function SettingsLibrariesAdmin() {
           <Typography variant="h4">Libraries</Typography>
           <Typography color="text.secondary">Create and maintain Plex libraries.</Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddRounded />} onClick={() => setSearchParams({ add: "1" })}>Add library</Button>
+        <Button
+          component={Link}
+          to="/settings/manage-libraries?add=1"
+          variant="contained"
+          startIcon={<AddRounded />}
+        >
+          Add library
+        </Button>
       </Box>
       <Divider />
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
@@ -522,7 +529,14 @@ export default function SettingsLibrariesAdmin() {
               divider
               secondaryAction={
                 <Box sx={{ display: "flex", alignItems: "center" }}>
-                  <Tooltip title="Edit library"><IconButton onClick={() => setSearchParams({ edit: library.id })}><EditRounded /></IconButton></Tooltip>
+                  <Tooltip title="Edit library">
+                    <IconButton
+                      component={Link}
+                      to={`/settings/manage-libraries?edit=${library.id}`}
+                    >
+                      <EditRounded />
+                    </IconButton>
+                  </Tooltip>
                   <Tooltip title="Library actions"><IconButton sx={menuDotsSx} onClick={(event) => { setMenuLibrary(library); setMenuAnchor(event.currentTarget); }}><MoreVertRounded /></IconButton></Tooltip>
                 </Box>
               }
@@ -541,14 +555,27 @@ export default function SettingsLibrariesAdmin() {
       )}
 
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
-        <MenuItem onClick={() => { if (menuLibrary) setSearchParams({ edit: menuLibrary.id }); setMenuAnchor(null); }}><ListItemText>Edit</ListItemText></MenuItem>
+        <MenuItem
+          component={Link}
+          to={`/settings/manage-libraries?edit=${menuLibrary?.id || ""}`}
+          onClick={() => setMenuAnchor(null)}
+        >
+          <ListItemText>Edit</ListItemText>
+        </MenuItem>
         <Divider />
         <MenuItem onClick={() => performAction("scan")}><ListItemText>Scan library files</ListItemText></MenuItem>
         <MenuItem onClick={() => { setConfirmAction("refresh-metadata"); setMenuAnchor(null); }}><ListItemText>Refresh all metadata</ListItemText></MenuItem>
         <MenuItem onClick={() => performAction("analyze")}><ListItemText>Analyze</ListItemText></MenuItem>
         <MenuItem onClick={() => { setConfirmAction("empty-trash"); setMenuAnchor(null); }}><ListItemText>Empty trash</ListItemText></MenuItem>
         <Divider />
-        <MenuItem sx={{ color: "error.main" }} onClick={() => { if (menuLibrary) setSearchParams({ delete: menuLibrary.id }); setMenuAnchor(null); }}><ListItemText>Delete library</ListItemText></MenuItem>
+        <MenuItem
+          component={Link}
+          to={`/settings/manage-libraries?delete=${menuLibrary?.id || ""}`}
+          sx={{ color: "error.main" }}
+          onClick={() => setMenuAnchor(null)}
+        >
+          <ListItemText>Delete library</ListItemText>
+        </MenuItem>
       </Menu>
 
       <LibraryEditor open={adding || Boolean(editing)} libraryId={editing} onClose={closeEditor} onSaved={changed} />

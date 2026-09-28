@@ -8,11 +8,12 @@ import {
 } from "@mui/material";
 import { PlayArrowRounded } from "@mui/icons-material";
 import React, { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { getTranscodeImageURL } from "../../plex";
 import { durationToText } from "../../common/Duration";
 import { extraTypeLabel, TitleExtra } from "../../plex/discover";
 import ExtraPlayer from "./ExtraPlayer";
+import { libraryBrowseTo } from "../../navigation";
 
 function Detail({ label, value }: { label: string; value?: React.ReactNode }) {
   if (!value) return null;
@@ -35,7 +36,7 @@ export default function TitleDetails({
   extras: TitleExtra[];
   loadingExtras: boolean;
 }) {
-  const [, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const [selectedExtra, setSelectedExtra] = useState<TitleExtra | null>(null);
 
   return (
@@ -160,11 +161,11 @@ export default function TitleDetails({
             {data.Role?.map((role) => (
               <Grid key={role.id} size={{ xs: 6, sm: 4, md: 3 }}>
                 <Button
-                  onClick={() =>
-                    setSearchParams({
-                      bkey: `/library/sections/${data.librarySectionID}/actor/${role.id}`,
-                    })
-                  }
+                  component={Link}
+                  to={libraryBrowseTo(
+                    location,
+                    `/library/sections/${data.librarySectionID}/actor/${role.id}`,
+                  )}
                   sx={{
                     width: "100%",
                     minHeight: 72,

@@ -24,11 +24,17 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import React, { JSX, useEffect, useState } from "react";
 import {
   getLibraryMeta,
   getLibraryMetaChildren,
+  getItemByGUID,
   getResponsiveTranscodeImageProps,
   getTranscodeImageURL,
   DETAIL_POSTER_IMAGE_WIDTHS,
@@ -73,6 +79,8 @@ import { useCanManageServer } from "../states/ServerAccess";
 import { useTitleExtras } from "../hooks/useTitleExtras";
 import ExpandableDescription from "./ExpandableDescription";
 import AppDialog from "./AppDialog";
+import { libraryBrowseTo, mediaWatchTo } from "../navigation";
+import StretchedLink from "./StretchedLink";
 
 const DESKTOP_HERO_HEIGHT = "clamp(560px, 93.333vh, 960px)";
 
@@ -112,12 +120,14 @@ function TitleScore({
 
 function MetaScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const canManageServer = useCanManageServer();
   const posterRef = React.useRef<HTMLDivElement>(null);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [data, setData] = useState<Plex.Metadata | undefined>(undefined);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [page, setPage] = useState<number>(0);
   const [reviewRevision, setReviewRevision] = useState(0);
@@ -137,10 +147,20 @@ function MetaScreen() {
   } = useTitleExtras(data);
 
   const mid = searchParams.get("mid");
+  const plexGuid = searchParams.get("pguid");
+
+  const closeDetails = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("mid");
+    next.delete("pguid");
+    setSearchParams(next);
+  };
 
   useEffect(() => {
+    let active = true;
     setData(undefined);
     setLoading(true);
+    setLoadError(null);
     setEpisodes(null);
     setSelectedSeason(0);
     setLanguages(null);
@@ -149,24 +169,69 @@ function MetaScreen() {
     setEditMetadataOpen(false);
     setMetadataSaved(false);
 
-    if (!mid) return;
-    getLibraryMeta(mid).then((res) => {
-      const seasons = [...(res.Children?.Metadata || [])];
-      setSelectedSeason(
-        res.OnDeck?.Metadata?.parentIndex ??
-          seasons.sort((a, b) => {
-            // if the index is 0 put it at the end
-            if (a.index === 0) return 1;
-            if (b.index === 0) return -1;
-            // sort by index
-            return a.index - b.index;
-          })?.[0]?.index ??
-          1
-      );
-      setData(res);
+    if (!mid && !plexGuid) {
       setLoading(false);
-    });
-  }, [mid]);
+      return;
+    }
+
+    if (!mid && plexGuid) {
+      void getItemByGUID(plexGuid)
+        .then((localItem) => {
+          if (!active) return;
+          if (!localItem) {
+            setLoadError("This title is not available on this Plex server.");
+            setLoading(false);
+            return;
+          }
+
+          setSearchParams((current) => {
+            const next = new URLSearchParams(current);
+            next.delete("pguid");
+            next.set("mid", localItem.ratingKey.toString());
+            return next;
+          }, { replace: true });
+        })
+        .catch(() => {
+          if (!active) return;
+          setLoadError("Could not resolve this title on the Plex server.");
+          setLoading(false);
+        });
+
+      return () => {
+        active = false;
+      };
+    }
+
+    void getLibraryMeta(mid as string)
+      .then((res) => {
+        if (!active) return;
+        if (!res) throw new Error("Metadata not found");
+
+        const seasons = [...(res.Children?.Metadata || [])];
+        setSelectedSeason(
+          res.OnDeck?.Metadata?.parentIndex ??
+            seasons.sort((a, b) => {
+              if (a.index === 0) return 1;
+              if (b.index === 0) return -1;
+              return a.index - b.index;
+            })?.[0]?.index ??
+            1
+        );
+        setData(res);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setLoadError("Could not load this title from the Plex server.");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+    // Only URL identity changes should restart metadata loading.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mid, plexGuid]);
 
   useEffect(() => {
     if (languages || subTitles) return;
@@ -267,18 +332,30 @@ function MetaScreen() {
         .catch(() => undefined);
   };
 
-  if (!searchParams.has("mid")) return <></>;
+  if (!mid && !plexGuid) return <></>;
 
   if (loading)
     return (
       <AppDialog
         open
-        onClose={() => setSearchParams(new URLSearchParams())}
+        onClose={closeDetails}
         contentSx={{ p: 0 }}
       >
         <Box sx={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <CircularProgress />
         </Box>
+      </AppDialog>
+    );
+
+  if (loadError)
+    return (
+      <AppDialog
+        open
+        size="compact"
+        onClose={closeDetails}
+        title="Title unavailable"
+      >
+        <Alert severity="error">{loadError}</Alert>
       </AppDialog>
     );
 
@@ -288,8 +365,8 @@ function MetaScreen() {
 
   return (
     <AppDialog
-      open={searchParams.has("mid")}
-      onClose={() => setSearchParams(new URLSearchParams())}
+      open={Boolean(mid)}
+      onClose={closeDetails}
       contentSx={{ p: 0, backgroundColor: "background.default" }}
     >
       <Box
@@ -789,6 +866,11 @@ function MetaScreen() {
                 <Typography color="text.secondary">Genres: </Typography>
                 {data?.Genre?.slice(0, 5).map((genre, index) => (
                   <Typography
+                    component={Link}
+                    to={libraryBrowseTo(
+                      location,
+                      `/library/sections/${data?.librarySectionID}/genre/${genre.id}`,
+                    )}
                     key={genre.id}
                     sx={{
                       color: (theme) => theme.palette.text.primary,
@@ -799,13 +881,7 @@ function MetaScreen() {
                         textDecoration: "none",
                       },
                       transition: "all 0.2s ease",
-                    }}
-                    onClick={() => {
-                      setSearchParams(
-                        new URLSearchParams({
-                          bkey: `/library/sections/${data?.librarySectionID}/genre/${genre.id}`,
-                        })
-                      );
+                      textDecoration: "none",
                     }}
                   >
                     {genre.tag}
@@ -1225,13 +1301,6 @@ function EpisodesPage({
               }}
               selectMode={selectMode}
               setSelectMode={setSelectMode}
-              onClick={() => {
-                navigate(
-                  `/watch/${episode.ratingKey}${
-                    episode.viewOffset ? `?t=${episode.viewOffset} ` : ""
-                  }`
-                );
-              }}
             />
           ))}
         </Box>
@@ -1758,7 +1827,6 @@ function RatingButton({
 
 function EpisodeItem({
   item,
-  onClick,
   refetchData,
   selected,
   setSelected,
@@ -1766,7 +1834,6 @@ function EpisodeItem({
   setSelectMode,
 }: {
   item: Plex.Metadata;
-  onClick?: (event: React.MouseEvent) => void;
   refetchData: () => void;
   selected?: boolean;
   setSelected?: (selected: boolean) => void;
@@ -1952,6 +2019,7 @@ function EpisodeItem({
           p: 1.5,
           mb: 1,
           transition: "all 0.5s ease",
+          position: "relative",
           "&:hover": {
             backgroundColor: (theme) =>
               alpha(theme.palette.background.paper, 0.5),
@@ -1966,11 +2034,12 @@ function EpisodeItem({
             },
           },
         }}
-        onClick={(e) => {
-          if (onClick) onClick(e);
-        }}
         onContextMenu={handleContextMenu}
       >
+        <StretchedLink
+          to={mediaWatchTo(item)}
+          label={`Play ${item.title}`}
+        />
         <Box
           sx={{
             minWidth: { xs: "30px", sm: "40px" },
@@ -1980,6 +2049,8 @@ function EpisodeItem({
             alignItems: "center",
             justifyContent: "center",
             alignSelf: "center",
+            position: "relative",
+            zIndex: 2,
           }}
           onClick={(e) => {
             e.stopPropagation();

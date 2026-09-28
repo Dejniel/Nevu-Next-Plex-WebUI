@@ -18,7 +18,7 @@ import {
   Snackbar,
 } from "@mui/material";
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import ConfirmDialog from "../ConfirmDialog";
 import { runLibraryAction } from "../../plex/libraries";
 import {
@@ -39,7 +39,6 @@ interface Props {
 }
 
 export default function LibraryActionsMenu({ anchorEl, library, libraries, onClose }: Props) {
-  const navigate = useNavigate();
   const canManageServer = useCanManageServer();
   const { settings, setSetting } = useUserSettings();
   const [orderOpen, setOrderOpen] = useState(false);
@@ -97,7 +96,11 @@ export default function LibraryActionsMenu({ anchorEl, library, libraries, onClo
         {canManageServer && library && (
           <>
             <Divider />
-            <MenuItem onClick={() => closeAnd(() => navigate(`/settings/manage-libraries?edit=${library.key}`))}>
+            <MenuItem
+              component={Link}
+              to={`/settings/manage-libraries?edit=${library.key}`}
+              onClick={onClose}
+            >
               <ListItemIcon><EditRounded /></ListItemIcon>
               <ListItemText>Edit library</ListItemText>
             </MenuItem>
@@ -117,7 +120,11 @@ export default function LibraryActionsMenu({ anchorEl, library, libraries, onClo
               <ListItemIcon><DeleteOutlineRounded /></ListItemIcon>
               <ListItemText>Empty trash</ListItemText>
             </MenuItem>
-            <MenuItem onClick={() => closeAnd(() => navigate(`/settings/manage-libraries?delete=${library.key}`))}>
+            <MenuItem
+              component={Link}
+              to={`/settings/manage-libraries?delete=${library.key}`}
+              onClick={onClose}
+            >
               <ListItemIcon><MoreHorizRounded /></ListItemIcon>
               <ListItemText>Delete library</ListItemText>
             </MenuItem>

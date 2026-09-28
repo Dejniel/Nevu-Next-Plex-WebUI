@@ -37,12 +37,13 @@ function LibraryScreen() {
   };
 
   useEffect(() => {
-    if (!(searchParams.has("mid") && searchParams.has("bkey"))) return;
+    if (!searchParams.has("bkey")) return;
+    if (!searchParams.has("mid") && !searchParams.has("pguid")) return;
 
-    const localbkey = searchParams.get("bkey");
-    searchParams.delete("mid");
-    if (localbkey) searchParams.set("bkey", localbkey);
-    setSearchParams(searchParams);
+    const next = new URLSearchParams(searchParams);
+    next.delete("mid");
+    next.delete("pguid");
+    setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
   useEffect(() => {

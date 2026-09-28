@@ -7,7 +7,7 @@ import {
 } from "@mui/icons-material";
 import { Box, Typography, Button, IconButton, Skeleton } from "@mui/material";
 import React, { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { usePreviewPlayer } from "../states/PreviewPlayerState";
 import { HeroWatchListButton } from "./MovieItem";
 import {
@@ -18,6 +18,7 @@ import ExtraPlayer from "./title/ExtraPlayer";
 import { useTitleExtras } from "../hooks/useTitleExtras";
 import { alpha } from "@mui/material/styles";
 import { HOME_CONTENT_GUTTER, homeHeroContentSx } from "./homeHeroLayout";
+import { mediaDetailsTo, mediaWatchTo } from "../navigation";
 
 function HeroDisplay({
   item,
@@ -26,8 +27,8 @@ function HeroDisplay({
   item: Plex.Metadata;
   onArtworkError?: () => void;
 }) {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
 
   const { MetaScreenPlayerMuted, setMetaScreenPlayerMuted } =
     usePreviewPlayer();
@@ -73,13 +74,10 @@ function HeroDisplay({
     };
   }, [primaryTrailer, searchParams]);
 
-  const openDetails = () => {
+  const detailsTarget = mediaDetailsTo(location, item);
+  const stopPreview = () => {
     setPreviewVidPlaying(false);
     setPreviewVidVisible(false);
-    setSearchParams({
-      ...searchParams,
-      mid: item.ratingKey.toString(),
-    });
   };
 
   return (
@@ -276,10 +274,10 @@ function HeroDisplay({
             </Typography>
           </Box>
           <Box
-            component="button"
-            type="button"
+            component={Link}
+            to={detailsTarget}
             aria-label={`Open details for ${item.title}`}
-            onClick={openDetails}
+            onClick={stopPreview}
             sx={{
               display: "block",
               maxWidth: { xs: "85vw", sm: "60vw", md: "35vw" },
@@ -289,6 +287,7 @@ function HeroDisplay({
               color: "inherit",
               background: "none",
               textAlign: "left",
+              textDecoration: "none",
               cursor: "pointer",
               "&:focus-visible": {
                 outline: "2px solid",
@@ -333,6 +332,8 @@ function HeroDisplay({
             }}
           >
             <Button
+              component={Link}
+              to={mediaWatchTo(item)}
               variant="contained"
               sx={{
                 fontWeight: "bold",
@@ -341,15 +342,13 @@ function HeroDisplay({
                 gap: "10px",
                 transition: "all 0.2s ease-in-out",
               }}
-              onClick={() => {
-                if (!item) return;
-                navigate(`/watch/${item.ratingKey}`);
-              }}
             >
               <PlayArrowRounded fontSize="medium" /> Play
             </Button>
 
             <Button
+              component={Link}
+              to={detailsTarget}
               variant="contained"
               sx={{
                 fontWeight: "bold",
@@ -363,7 +362,7 @@ function HeroDisplay({
                 },
                 transition: "all 0.2s ease-in-out",
               }}
-              onClick={openDetails}
+              onClick={stopPreview}
             >
               <InfoOutlined fontSize="medium" />{" "}
               <Typography

@@ -1,12 +1,13 @@
 import { Box, CircularProgress, Grid, Typography } from "@mui/material";
 import React, { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { getSearch } from "../plex";
 import MovieItem from "../components/MovieItem";
+import { libraryBrowseTo } from "../navigation";
 
 export default function Search() {
   const { query } = useParams();
-  const [, setSearchParams] = useSearchParams();
+  const location = useLocation();
 
   const [results, setResults] = useState<Plex.Metadata[] | null>(null);
   const [directories, setDirectories] = useState<Plex.Directory[] | null>(null);
@@ -87,13 +88,10 @@ export default function Search() {
               <Grid key={item.key} size={{ xl: 2, lg: 3, md: 6, sm: 12, xs: 12 }}>
                 <DirectoryItem
                   item={item}
-                  onClick={() => {
-                    setSearchParams(
-                      new URLSearchParams({
-                        bkey: `/library/sections/${item.librarySectionID}/genre/${item.id}`,
-                      })
-                    );
-                  }}
+                  to={libraryBrowseTo(
+                    location,
+                    `/library/sections/${item.librarySectionID}/genre/${item.id}`
+                  )}
                 />
               </Grid>
             ))}
@@ -118,13 +116,15 @@ export default function Search() {
 
 export function DirectoryItem({
   item,
-  onClick,
+  to,
 }: {
   item: Plex.Directory;
-  onClick: () => void;
+  to: React.ComponentProps<typeof Link>["to"];
 }) {
   return (
     <Box
+      component={Link}
+      to={to}
       sx={{
         display: "flex",
         flexDirection: "column",
@@ -137,13 +137,14 @@ export function DirectoryItem({
         p: 2,
         background: "#333333",
         cursor: "pointer",
+        color: "inherit",
+        textDecoration: "none",
 
         "&:hover": {
           background: "#444444",
         },
         userSelect: "none",
       }}
-      onClick={onClick}
     >
       <Typography variant="h5">
         {item.librarySectionTitle} - {item.tag}

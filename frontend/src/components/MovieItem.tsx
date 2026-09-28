@@ -29,7 +29,11 @@ import {
   Skeleton,
 } from "@mui/material";
 import React, { JSX, memo, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import {
   getTranscodeImageURL,
   getResponsiveTranscodeImageProps,
@@ -57,6 +61,8 @@ import { mediaQualityBadge } from "../plex/mediaVersions";
 import { mediaArtworkPath } from "../plex/mediaArtwork";
 import { alpha } from "@mui/material/styles";
 import type { LibraryCardDto } from "@nevu/contracts";
+import { libraryBrowseTo, mediaDetailsTo } from "../navigation";
+import StretchedLink from "./StretchedLink";
 
 export type MovieItemData = Plex.Metadata | LibraryCardDto;
 
@@ -96,7 +102,7 @@ function MovieItem({
   imageSizes?: string;
   imageLoading?: "eager" | "lazy";
 }): JSX.Element {
-  const [, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const { MetaScreenPlayerMuted } = usePreviewPlayer();
 
@@ -170,6 +176,7 @@ function MovieItem({
   const [artworkStatus, setArtworkStatus] = React.useState<
     "loading" | "loaded" | "missing"
   >(artworkUrl ? "loading" : "missing");
+  const detailsTarget = mediaDetailsTo(location, item, PlexTvSource);
 
   useEffect(() => {
     setArtworkStatus(artworkUrl ? "loading" : "missing");
@@ -334,23 +341,16 @@ function MovieItem({
           Play
         </MenuItem>
         <MenuItem
-          onClick={async (e) => {
-            if (!item) return;
-            handleClose();
-
-            if (item.type === "episode")
-              return setSearchParams(
-                new URLSearchParams({
-                  bkey: `/library/metadata/${item.grandparentRatingKey}/similar`,
-                })
-              );
-
-            setSearchParams(
-              new URLSearchParams({
-                bkey: `/library/metadata/${item.ratingKey}/similar`,
-              })
-            );
-          }}
+          component={Link}
+          to={libraryBrowseTo(
+            location,
+            `/library/metadata/${
+              item.type === "episode"
+                ? item.grandparentRatingKey
+                : item.ratingKey
+            }/similar`,
+          )}
+          onClick={handleClose}
         >
           <ListItemIcon>
             <RecommendRounded fontSize="small" />
@@ -483,6 +483,12 @@ function MovieItem({
           "&:hover .movie-item-hover-overlay": {
             opacity: "1 !important",
           },
+
+          "&:has(.movie-item-link:focus-visible)": {
+            borderColor: (theme) => theme.palette.primary.light,
+            boxShadow: (theme) =>
+              `0 0 0 2px ${alpha(theme.palette.primary.main, 0.7)}`,
+          },
         }}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -495,26 +501,6 @@ function MovieItem({
               : null
           );
         }}
-        onClick={async () => {
-          if (PlexTvSource) {
-            const data = await getItemByGUID(item.guid);
-            if (!data) {
-              useBigReader
-                .getState()
-                .setBigReader(
-                  `"${item.title}" is not available on this Plex Server`
-                );
-              return;
-            }
-
-            setSearchParams({ mid: data.ratingKey.toString() });
-          } else {
-            if (item.grandparentRatingKey && ["episode"].includes(item.type))
-              return setSearchParams({ mid: item.grandparentRatingKey });
-
-            setSearchParams({ mid: item.ratingKey.toString() });
-          }
-        }}
         onMouseEnter={() => {
           setHovered(true);
         }}
@@ -522,6 +508,13 @@ function MovieItem({
           setHovered(false);
         }}
       >
+        <StretchedLink
+          className="movie-item-link"
+          to={detailsTarget}
+          label={`Open details for ${cardTitle}`}
+          zIndex={20}
+        />
+
         {/* Thumbnail area */}
         <Box
           sx={{
@@ -637,7 +630,7 @@ function MovieItem({
               justifyContent: "flex-end",
               padding: "8px",
               gap: "6px",
-              zIndex: 5,
+              zIndex: 30,
               pointerEvents: "none",
             }}
           >
@@ -685,7 +678,7 @@ function MovieItem({
                 position: "absolute",
                 top: "8px",
                 left: "8px",
-                zIndex: 10,
+                zIndex: 30,
                 padding: "1px",
                 "&:hover": {
                   backgroundColor: "rgba(18, 25, 39, 0.8)",
