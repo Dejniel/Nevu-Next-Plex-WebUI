@@ -1,12 +1,14 @@
 import type {
   LibraryCardDto,
-  LibraryFilter,
+  LibraryFilterExpression,
   LibraryItemType,
   LibraryPageDto,
   LibraryPageRequest,
+  LibrarySource,
   LibrarySort,
 } from "@nevu/contracts";
-import { useSyncExternalStore } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { libraryFilterExpressionKey } from "../plex/libraryFilterExpression";
 import { getLibraryPage, LibraryPageError } from "../plex/libraryPage";
 import { isRandomLibrarySort } from "../plex/librarySort";
 
@@ -16,20 +18,21 @@ const MAX_CACHED_QUERIES = 8;
 export interface LibraryQuery {
   profileKey: string;
   sectionId: number;
-  filter: LibraryFilter;
+  source?: LibrarySource;
   type?: LibraryItemType;
   sort: LibrarySort;
+  filterExpression?: LibraryFilterExpression;
   seed?: string;
 }
 
-export type LibraryRangeStatus =
+type LibraryRangeStatus =
   | "queued"
   | "loading"
   | "loaded"
   | "stale"
   | "error";
 
-export interface LibraryRangeError {
+interface LibraryRangeError {
   message: string;
   retryable: boolean;
   status?: number;
@@ -42,10 +45,6 @@ export interface LibraryRangeSnapshot {
   totalSize: number | null;
   knownSize: number;
   hasMore: boolean;
-  revision: number;
-  generationId?: string;
-  viewGroup?: string;
-  title?: string;
 }
 
 interface QueryState {
@@ -59,15 +58,12 @@ interface QueryState {
   hasMore: boolean;
   generationId?: string;
   generationSequence: number;
-  viewGroup?: string;
-  title?: string;
   lastUsed: number;
   demand: Set<number>;
   consumers: number;
   acceptAfterSequence: number;
   requiresCatalogRefresh: boolean;
   catalogRefreshInFlight: boolean;
-  revision: number;
   snapshot: LibraryRangeSnapshot;
 }
 
@@ -95,7 +91,6 @@ const EMPTY_SNAPSHOT: LibraryRangeSnapshot = {
   totalSize: null,
   knownSize: 0,
   hasMore: true,
-  revision: 0,
 };
 
 const rangeStart = (index: number) =>
@@ -105,11 +100,25 @@ export function libraryQueryKey(query: LibraryQuery) {
   return JSON.stringify([
     query.profileKey,
     query.sectionId,
-    query.filter,
+    query.source || "all",
     query.type || "any",
     query.sort,
+    libraryFilterExpressionKey(query.filterExpression),
     query.seed || "",
   ]);
+}
+
+export function useLibraryQueryRange(query: LibraryQuery | null | undefined) {
+  const queryKey = useMemo(() => query ? libraryQueryKey(query) : null, [query]);
+  const range = useLibraryRange(queryKey);
+
+  useEffect(() => {
+    if (!query) return;
+    const key = libraryRangeStore.ensure(query);
+    return () => libraryRangeStore.release(key);
+  }, [query]);
+
+  return { queryKey, range };
 }
 
 export class LibraryRangeStore {
@@ -159,7 +168,6 @@ export class LibraryRangeStore {
         acceptAfterSequence: 0,
         requiresCatalogRefresh: isRandomLibrarySort(query.sort),
         catalogRefreshInFlight: false,
-        revision: 0,
         snapshot: EMPTY_SNAPSHOT,
       };
       this.queries.set(key, state);
@@ -247,9 +255,10 @@ export class LibraryRangeStore {
     this.pump();
   }
 
-  invalidateSection(sectionId: number) {
-    for (const state of this.queries.values())
-      if (state.query.sectionId === sectionId) this.invalidateState(state);
+  invalidateQuery(queryKey: string) {
+    const state = this.queries.get(queryKey);
+    if (!state) return;
+    this.invalidateState(state);
     this.pump();
   }
 
@@ -364,9 +373,10 @@ export class LibraryRangeStore {
     try {
       const page = await this.fetchPage({
         sectionId: state.query.sectionId,
-        filter: state.query.filter,
+        ...(state.query.source && { source: state.query.source }),
         ...(state.query.type && { type: state.query.type }),
         sort: state.query.sort,
+        ...(state.query.filterExpression && { filterExpression: state.query.filterExpression }),
         ...(state.query.seed && { seed: state.query.seed }),
         ...(task.refresh && { refresh: true }),
         offset: task.offset,
@@ -398,8 +408,6 @@ export class LibraryRangeStore {
       state.totalSize = page.totalSize ??
         (page.hasMore ? state.totalSize : page.offset + page.items.length);
       state.knownSize = Math.max(state.knownSize, page.offset + page.items.length);
-      state.viewGroup = page.viewGroup || state.viewGroup;
-      state.title = page.title || state.title;
 
       if (state.totalSize !== null) {
         state.knownSize = Math.min(state.knownSize, state.totalSize);
@@ -472,7 +480,6 @@ export class LibraryRangeStore {
       const entity = this.entities.get(entityKey);
       if (entity) items.set(index, entity.item);
     });
-    state.revision += 1;
     state.snapshot = {
       items,
       ranges: new Map(state.ranges),
@@ -480,10 +487,6 @@ export class LibraryRangeStore {
       totalSize: state.totalSize,
       knownSize: state.knownSize,
       hasMore: state.hasMore,
-      revision: state.revision,
-      ...(state.generationId && { generationId: state.generationId }),
-      ...(state.viewGroup && { viewGroup: state.viewGroup }),
-      ...(state.title && { title: state.title }),
     };
     this.listeners.forEach((listener) => listener());
   }

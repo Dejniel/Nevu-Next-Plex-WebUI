@@ -37,7 +37,6 @@ test("projects library pages to the explicit card contract", () => {
     size: 1,
     totalSize: 900,
     offset: 0,
-    viewGroup: "movie",
     unwanted: "container",
     Metadata: [{
       ...card(42, "Movie"),
@@ -52,7 +51,6 @@ test("projects library pages to the explicit card contract", () => {
     size: 1,
     totalSize: 900,
     hasMore: true,
-    viewGroup: "movie",
     items: [{
       ...card(42, "Movie"),
       Genre: [{ id: 1, tag: "Drama" }],
@@ -96,9 +94,18 @@ test("loads a validated range and keeps the Plex token in a request header", asy
     const router = createLibraryPageRouter({ plexServer: "https://plex:32400" });
     const result = await callRouter(router, {
       sectionId: "1",
-      filter: "all",
       type: "movie",
       sort: "updated:desc",
+      filterExpression: JSON.stringify({
+        kind: "group",
+        mode: "or",
+        children: [
+          { kind: "clause", field: "genre", operator: "=", value: "4" },
+          { kind: "clause", field: "genre", operator: "=", value: "5" },
+          { kind: "clause", field: "unwatched", operator: "!=", value: "1" },
+          { kind: "clause", field: "year", operator: ">=", value: "2020" },
+        ],
+      }),
       offset: "128",
       size: "64",
     });
@@ -107,11 +114,25 @@ test("loads a validated range and keeps the Plex token in a request header", asy
     assert.equal(result.headers["Cache-Control"], "private, no-store");
     assert.equal(upstream.url, "https://plex:32400/library/sections/1/all");
     assert.equal(upstream.config.headers["X-Plex-Token"], "secret");
-    assert.equal(upstream.config.params["X-Plex-Container-Start"], 128);
-    assert.equal(upstream.config.params["X-Plex-Container-Size"], 64);
-    assert.equal(upstream.config.params.sort, "updatedAt:desc");
-    assert.equal(upstream.config.params.type, 1);
-    assert.match(upstream.config.params.excludeElements, /Part/);
+    assert.equal(upstream.config.params.get("X-Plex-Container-Start"), "128");
+    assert.equal(upstream.config.params.get("X-Plex-Container-Size"), "64");
+    assert.equal(upstream.config.params.get("sort"), "updatedAt:desc");
+    assert.equal(upstream.config.params.get("type"), "1");
+    assert.deepEqual(upstream.config.params.getAll("genre"), ["4", "5"]);
+    assert.equal(upstream.config.params.get("unwatched!"), "1");
+    assert.equal(upstream.config.params.get("year>"), "2020");
+    assert.match(upstream.config.params.get("excludeElements"), /Part/);
+    assert.deepEqual([...upstream.config.params.entries()].slice(6), [
+      ["push", "1"],
+      ["genre", "4"],
+      ["or", "1"],
+      ["genre", "5"],
+      ["or", "1"],
+      ["unwatched!", "1"],
+      ["or", "1"],
+      ["year>", "2020"],
+      ["pop", "1"],
+    ]);
     assert.deepEqual(result.body.items, [card(1, "First")]);
   } finally {
     axios.get = originalGet;
@@ -122,13 +143,192 @@ test("rejects arbitrary Plex paths and invalid ranges", async () => {
   const router = createLibraryPageRouter({ plexServer: "http://plex:32400" });
   const result = await callRouter(router, {
     sectionId: "../identity",
-    filter: "all",
     sort: "title:asc",
     offset: "0",
     size: "1000",
   });
   assert.equal(result.status, 400);
   assert.deepEqual(result.body, { error: "Invalid library range request" });
+
+  const arbitrarySource = await callRouter(router, {
+    sectionId: "1",
+    source: "../../identity",
+    sort: "titleSort",
+    offset: "0",
+    size: "64",
+  });
+  assert.equal(arbitrarySource.status, 400);
+
+  const injectedFilter = await callRouter(router, {
+    sectionId: "1",
+    sort: "titleSort",
+    filterExpression: JSON.stringify({
+      kind: "clause",
+      field: "genre&X-Plex-Token",
+      operator: "=",
+      value: "other",
+    }),
+    offset: "0",
+    size: "64",
+  });
+  assert.equal(injectedFilter.status, 400);
+
+  const invalidValue = await callRouter(router, {
+    sectionId: "1",
+    sort: "titleSort",
+    filterExpression: JSON.stringify({
+      kind: "clause",
+      field: "genre",
+      operator: "=",
+      value: "4\nX-Plex-Token=other",
+    }),
+    offset: "0",
+    size: "64",
+  });
+  assert.equal(invalidValue.status, 400);
+
+  const oversizedValue = await callRouter(router, {
+    sectionId: "1",
+    sort: "titleSort",
+    filterExpression: JSON.stringify({
+      kind: "clause",
+      field: "genre",
+      operator: "=",
+      value: "x".repeat(257),
+    }),
+    offset: "0",
+    size: "64",
+  });
+  assert.equal(oversizedValue.status, 400);
+
+  const invalidGroup = await callRouter(router, {
+    sectionId: "1",
+    sort: "titleSort",
+    filterExpression: JSON.stringify({ kind: "group", mode: "xor", children: [] }),
+    offset: "0",
+    size: "64",
+  });
+  assert.equal(invalidGroup.status, 400);
+});
+
+test("loads section on-deck through the same paginated contract", async () => {
+  const originalGet = axios.get;
+  let upstreamUrl;
+  axios.get = async (url) => {
+    upstreamUrl = url;
+    return {
+      data: {
+        MediaContainer: {
+          offset: 0,
+          totalSize: 1,
+          Metadata: [card(7, "Continue")],
+        },
+      },
+    };
+  };
+
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex:32400" });
+    const result = await callRouter(router, {
+      sectionId: "2",
+      source: "onDeck",
+      sort: "lastViewedAt:desc",
+      offset: "0",
+      size: "64",
+    });
+
+    assert.equal(result.status, 200);
+    assert.equal(upstreamUrl, "http://plex:32400/library/sections/2/onDeck");
+    assert.equal(result.body.items[0].title, "Continue");
+  } finally {
+    axios.get = originalGet;
+  }
+});
+
+test("serializes nested boolean filter groups in Plex order", async () => {
+  const originalGet = axios.get;
+  let upstream;
+  axios.get = async (_url, config) => {
+    upstream = config.params;
+    return { data: { MediaContainer: { offset: 0, totalSize: 0 } } };
+  };
+
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex:32400" });
+    const result = await callRouter(router, {
+      sectionId: "1",
+      type: "movie",
+      sort: "titleSort",
+      filterExpression: JSON.stringify({
+        kind: "group",
+        mode: "and",
+        children: [{
+          kind: "group",
+          mode: "or",
+          children: [
+            { kind: "clause", field: "genre", operator: "=", value: "5" },
+            { kind: "clause", field: "genre", operator: "=", value: "4" },
+          ],
+        }, {
+          kind: "clause",
+          field: "unwatched",
+          operator: "=",
+          value: "1",
+        }],
+      }),
+      offset: "0",
+      size: "64",
+    });
+
+    assert.equal(result.status, 200);
+    assert.deepEqual([...upstream.entries()].slice(6), [
+      ["push", "1"],
+      ["unwatched", "1"],
+      ["and", "1"],
+      ["push", "1"],
+      ["genre", "4"],
+      ["or", "1"],
+      ["genre", "5"],
+      ["pop", "1"],
+      ["pop", "1"],
+    ]);
+  } finally {
+    axios.get = originalGet;
+  }
+});
+
+test("rejects empty, oversized, and excessively deep filter groups", async () => {
+  const router = createLibraryPageRouter({ plexServer: "http://plex:32400" });
+  const base = { sectionId: "1", sort: "titleSort", offset: "0", size: "64" };
+  const empty = await callRouter(router, {
+    ...base,
+    filterExpression: JSON.stringify({ kind: "group", mode: "and", children: [] }),
+  });
+
+  let tooDeep = { kind: "clause", field: "genre", operator: "=", value: "4" };
+  for (let depth = 0; depth < 5; depth += 1)
+    tooDeep = { kind: "group", mode: "and", children: [tooDeep] };
+  const deep = await callRouter(router, {
+    ...base,
+    filterExpression: JSON.stringify(tooDeep),
+  });
+  const oversized = await callRouter(router, {
+    ...base,
+    filterExpression: JSON.stringify({
+      kind: "group",
+      mode: "or",
+      children: Array.from({ length: 33 }, (_, index) => ({
+        kind: "clause",
+        field: "genre",
+        operator: "=",
+        value: String(index),
+      })),
+    }),
+  });
+
+  assert.equal(empty.status, 400);
+  assert.equal(deep.status, 400);
+  assert.equal(oversized.status, 400);
 });
 
 test("stable random order survives additions and removals", () => {
@@ -149,7 +349,7 @@ test("random ranges share one stable server snapshot", async () => {
   let calls = 0;
   axios.get = async (_url, config) => {
     calls += 1;
-    assert.equal(config.params.sort, "titleSort");
+    assert.equal(config.params.get("sort"), "titleSort");
     return {
       data: {
         MediaContainer: {
@@ -165,7 +365,6 @@ test("random ranges share one stable server snapshot", async () => {
     const router = createLibraryPageRouter({ plexServer: "http://plex:32400" });
     const base = {
       sectionId: "1",
-      filter: "all",
       sort: "random:desc",
       seed: "stable-session-seed",
       size: "2",
@@ -186,7 +385,7 @@ test("accepts Plex-declared sort expressions but rejects injected parameters", a
   const originalGet = axios.get;
   let upstreamSort;
   axios.get = async (_url, config) => {
-    upstreamSort = config.params.sort;
+    upstreamSort = config.params.get("sort");
     return { data: { MediaContainer: { offset: 0, totalSize: 0 } } };
   };
 
@@ -194,7 +393,6 @@ test("accepts Plex-declared sort expressions but rejects injected parameters", a
     const router = createLibraryPageRouter({ plexServer: "http://plex:32400" });
     const valid = await callRouter(router, {
       sectionId: "2",
-      filter: "all",
       type: "episode",
       sort: "show.titleSort:desc,season.index:nullsLast,episode.index:nullsLast",
       offset: "0",
@@ -208,7 +406,6 @@ test("accepts Plex-declared sort expressions but rejects injected parameters", a
 
     const invalid = await callRouter(router, {
       sectionId: "2",
-      filter: "all",
       sort: "titleSort:asc&X-Plex-Token=other",
       offset: "0",
       size: "64",
@@ -230,7 +427,6 @@ test("refreshing a random catalog updates cards and versions membership changes"
     const router = createLibraryPageRouter({ plexServer: "http://plex:32400" });
     const query = {
       sectionId: "1",
-      filter: "all",
       sort: "random:desc",
       seed: "persistent-seed",
       offset: "0",
@@ -264,8 +460,8 @@ test("builds a random catalog from source offsets rather than projected position
   const source = Array.from({ length: 501 }, (_, index) => card(index));
   const starts = [];
   axios.get = async (_url, config) => {
-    const start = config.params["X-Plex-Container-Start"];
-    const size = config.params["X-Plex-Container-Size"];
+    const start = Number(config.params.get("X-Plex-Container-Start"));
+    const size = Number(config.params.get("X-Plex-Container-Size"));
     starts.push(start);
     return {
       data: {
@@ -282,7 +478,6 @@ test("builds a random catalog from source offsets rather than projected position
     const router = createLibraryPageRouter({ plexServer: "http://plex:32400" });
     const result = await callRouter(router, {
       sectionId: "1",
-      filter: "all",
       sort: "random:desc",
       seed: "large-catalog",
       offset: "480",

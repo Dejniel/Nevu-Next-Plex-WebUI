@@ -81,6 +81,7 @@ declare namespace Plex {
     interface Directory {
         key: string;
         title: string;
+        fastKey?: string;
         secondary?: boolean;
         prompt?: string;
         search?: boolean;
@@ -101,9 +102,9 @@ declare namespace Plex {
         type: LibaryType;
         title: string;
         active: boolean;
-        Filter: Filter[];
-        Sort: Sort[];
-        Field: Field[];
+        Filter?: Filter[];
+        Sort?: Sort[];
+        Field?: Field[];
     }
 
     interface Filter {

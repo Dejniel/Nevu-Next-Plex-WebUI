@@ -16,7 +16,6 @@ export {
 } from "./images";
 
 export { getAccessToken, getLoggedInUser, getPin } from "./auth";
-export { getLibraryPage } from "./libraryPage";
 
 axios.defaults.headers.common['accept'] = 'application/json';
 

@@ -2,6 +2,7 @@ import type { LibraryPageDto, LibraryPageRequest } from "@nevu/contracts";
 import axios from "axios";
 import { AuthStorage } from "../auth/AuthStorage";
 import { getBackendURL } from "../backendURL";
+import { normalizeLibraryFilterExpression } from "./libraryFilterExpression";
 
 export const PLEX_SESSION_INVALID_EVENT = "nevu:plex-session-invalid";
 
@@ -24,10 +25,18 @@ export async function getLibraryPage(
     throw new LibraryPageError("The active Plex session is missing", false, 401);
 
   try {
+    const { filterExpression, ...params } = request;
     const response = await axios.get<LibraryPageDto>(
       `${getBackendURL()}/library-page`,
       {
-        params: request,
+        params: {
+          ...params,
+          ...(filterExpression && {
+            filterExpression: JSON.stringify(
+              normalizeLibraryFilterExpression(filterExpression),
+            ),
+          }),
+        },
         headers: { "X-Plex-Token": token },
       },
     );

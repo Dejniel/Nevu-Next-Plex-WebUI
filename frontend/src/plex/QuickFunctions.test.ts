@@ -1,0 +1,36 @@
+import { ProxiedRequest } from "../backendURL";
+import {
+  authedGet,
+  authedGetStrict,
+  PlexRequestError,
+} from "./QuickFunctions";
+
+jest.mock("../backendURL", () => ({ ProxiedRequest: jest.fn() }));
+
+const request = ProxiedRequest as jest.MockedFunction<typeof ProxiedRequest>;
+
+beforeEach(() => request.mockReset());
+
+it("returns successful Plex responses from strict authenticated requests", async () => {
+  request.mockResolvedValue({ status: 200, data: { ok: true } } as never);
+
+  await expect(authedGetStrict("/identity")).resolves.toEqual({ ok: true });
+});
+
+it("preserves the status when a strict authenticated request fails", async () => {
+  request.mockResolvedValue({ status: 503, data: "unavailable" } as never);
+
+  await expect(authedGetStrict("/identity")).rejects.toEqual(
+    expect.objectContaining<PlexRequestError>({
+      name: "PlexRequestError",
+      status: 503,
+      response: "unavailable",
+    }),
+  );
+});
+
+it("keeps the legacy nullable behavior for existing callers", async () => {
+  request.mockResolvedValue({ status: 500, data: "failed" } as never);
+
+  await expect(authedGet("/identity")).resolves.toBeNull();
+});

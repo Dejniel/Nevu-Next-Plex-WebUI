@@ -1,14 +1,39 @@
-export type LibraryFilter =
-  | "all"
-  | "unwatched"
-  | "watched"
-  | "recentlyAdded"
-  | "onDeck"
-  | "newest";
-
 export type LibraryItemType = "movie" | "show" | "episode";
 
 export type LibrarySort = string;
+
+export type LibrarySource = "all" | "onDeck";
+
+export type LibraryFilterMode = "and" | "or";
+
+export type LibraryFilterOperator =
+  | "="
+  | "!="
+  | "=="
+  | "!=="
+  | "<="
+  | ">="
+  | "<<="
+  | ">>=";
+
+export interface LibraryFilterClause {
+  field: string;
+  operator: LibraryFilterOperator;
+  value: string;
+  valueLabel?: string;
+}
+
+export interface LibraryFilterLeaf extends LibraryFilterClause {
+  kind: "clause";
+}
+
+export interface LibraryFilterGroup {
+  kind: "group";
+  mode: LibraryFilterMode;
+  children: LibraryFilterExpression[];
+}
+
+export type LibraryFilterExpression = LibraryFilterLeaf | LibraryFilterGroup;
 
 export interface LibraryGenreDto {
   id?: number;
@@ -53,9 +78,10 @@ export interface LibraryCardDto {
 
 export interface LibraryPageRequest {
   sectionId: number;
-  filter: LibraryFilter;
+  source?: LibrarySource;
   type?: LibraryItemType;
   sort: LibrarySort;
+  filterExpression?: LibraryFilterExpression;
   offset: number;
   size: number;
   seed?: string;
@@ -68,7 +94,5 @@ export interface LibraryPageDto {
   totalSize: number | null;
   hasMore: boolean;
   generationId?: string;
-  viewGroup?: string;
-  title?: string;
   items: LibraryCardDto[];
 }

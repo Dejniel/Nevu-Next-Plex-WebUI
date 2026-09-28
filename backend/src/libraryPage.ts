@@ -1,8 +1,13 @@
 import type {
     LibraryCardDto,
-    LibraryFilter,
+    LibraryFilterExpression,
+    LibraryFilterGroup,
+    LibraryFilterLeaf,
+    LibraryFilterMode,
+    LibraryFilterOperator,
     LibraryItemType,
     LibraryPageDto,
+    LibrarySource,
     LibrarySort,
 } from '@nevu/contracts';
 import axios from 'axios';
@@ -20,11 +25,19 @@ interface LibraryPageRouterOptions {
 
 type JsonObject = Record<string, unknown>;
 
-const filters = new Set<LibraryFilter>([
-    'all', 'unwatched', 'watched', 'recentlyAdded', 'onDeck', 'newest',
-]);
 const itemTypes = new Set<LibraryItemType>(['movie', 'show', 'episode']);
+const librarySources = new Set<LibrarySource>(['all', 'onDeck']);
+const filterModes = new Set<LibraryFilterMode>(['and', 'or']);
+const filterOperators = new Set<LibraryFilterOperator>([
+    '=', '!=', '==', '!==', '<=', '>=', '<<=', '>>=',
+]);
+const plexFilterFieldExpression = /^[A-Za-z][A-Za-z0-9_.]{0,95}$/;
 const plexSortExpression = /^[A-Za-z][A-Za-z0-9_.]*(?::(?:asc|desc|nullsFirst|nullsLast))?(?:,[A-Za-z][A-Za-z0-9_.]*(?::(?:asc|desc|nullsFirst|nullsLast))?)*$/;
+const MAX_FILTER_CONDITIONS = 32;
+const MAX_FILTER_NODES = 64;
+const MAX_FILTER_DEPTH = 4;
+const MAX_FILTER_EXPRESSION_LENGTH = 16384;
+const MAX_FILTER_VALUE_LENGTH = 256;
 const typeNumbers: Record<LibraryItemType, number> = {
     movie: 1,
     show: 2,
@@ -122,7 +135,7 @@ function projectGenres(genres: unknown) {
         .filter((genre) => typeof genre.tag === 'string');
 }
 
-export function projectLibraryCards(metadata: unknown): LibraryCardDto[] {
+function projectLibraryCards(metadata: unknown): LibraryCardDto[] {
     if (metadata === undefined) return [];
     if (!Array.isArray(metadata))
         throw new InvalidLibraryPageError('Library metadata is not an array');
@@ -174,8 +187,6 @@ export function projectLibraryPage(
         hasMore: totalSize !== null
             ? offset + items.length < totalSize
             : requestedSize > 0 && items.length >= requestedSize,
-        ...(typeof source.viewGroup === 'string' && { viewGroup: source.viewGroup }),
-        ...(typeof source.title1 === 'string' && { title: source.title1 }),
         items,
     };
 }
@@ -226,9 +237,10 @@ export function stableRandomOrder<T extends { ratingKey: string }>(
 
 interface ParsedRequest {
     sectionId: number;
-    filter: LibraryFilter;
+    source: LibrarySource;
     type?: LibraryItemType;
     sort: LibrarySort;
+    filterExpression?: LibraryFilterExpression;
     offset: number;
     size: number;
     seed?: string;
@@ -240,8 +252,6 @@ interface RandomCatalog {
     generationId: string;
     loadedAt: number;
     lastUsed: number;
-    viewGroup?: string;
-    title?: string;
 }
 
 interface RandomOrder {
@@ -268,35 +278,126 @@ function isRandomSort(value: LibrarySort) {
     return value === 'random' || value === 'random:desc';
 }
 
+function normalizedFilterExpression(
+    expression: LibraryFilterExpression,
+): LibraryFilterExpression {
+    if (expression.kind === 'clause') return expression;
+
+    const normalized = expression.children.flatMap((child) => {
+        const next = normalizedFilterExpression(child);
+        return next.kind === 'group' && next.mode === expression.mode
+            ? next.children
+            : [next];
+    });
+    const unique = new Map(normalized.map((child) => [JSON.stringify(child), child]));
+    const children = [...unique.values()].sort((left, right) => {
+        const leftKey = JSON.stringify(left);
+        const rightKey = JSON.stringify(right);
+        return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+    });
+    if (children.length === 1) return children[0];
+    return { kind: 'group', mode: expression.mode, children };
+}
+
+function parseFilterExpression(value: unknown): LibraryFilterExpression | null | undefined {
+    if (value === undefined) return undefined;
+    const serialized = single(value);
+    if (!serialized || serialized.length > MAX_FILTER_EXPRESSION_LENGTH) return null;
+
+    try {
+        const parsed = JSON.parse(serialized) as unknown;
+        let conditions = 0;
+        let nodes = 0;
+
+        const parseNode = (candidate: unknown, depth: number): LibraryFilterExpression => {
+            if (!candidate || typeof candidate !== 'object')
+                throw new InvalidLibraryPageError('Invalid filter');
+            const source = candidate as Record<string, unknown>;
+            nodes += 1;
+            if (nodes > MAX_FILTER_NODES || depth > MAX_FILTER_DEPTH)
+                throw new InvalidLibraryPageError('Filter expression is too complex');
+
+            if (source.kind === 'clause') {
+                conditions += 1;
+                const field = source.field;
+                const operator = source.operator;
+                const filterValue = source.value;
+                if (
+                    conditions > MAX_FILTER_CONDITIONS ||
+                    typeof field !== 'string' || !plexFilterFieldExpression.test(field) ||
+                    typeof operator !== 'string' ||
+                        !filterOperators.has(operator as LibraryFilterOperator) ||
+                    typeof filterValue !== 'string' || !filterValue.trim() ||
+                    filterValue.length > MAX_FILTER_VALUE_LENGTH ||
+                        /[\u0000-\u001f\u007f]/.test(filterValue)
+                ) throw new InvalidLibraryPageError('Invalid filter condition');
+                return {
+                    kind: 'clause',
+                    field,
+                    operator: operator as LibraryFilterOperator,
+                    value: filterValue,
+                } satisfies LibraryFilterLeaf;
+            }
+
+            if (source.kind === 'group') {
+                const mode = source.mode;
+                const children = source.children;
+                if (
+                    typeof mode !== 'string' || !filterModes.has(mode as LibraryFilterMode) ||
+                    !Array.isArray(children) || !children.length ||
+                    children.length > MAX_FILTER_CONDITIONS
+                ) throw new InvalidLibraryPageError('Invalid filter group');
+                return {
+                    kind: 'group',
+                    mode: mode as LibraryFilterMode,
+                    children: children.map((child) => parseNode(child, depth + 1)),
+                } satisfies LibraryFilterGroup;
+            }
+
+            throw new InvalidLibraryPageError('Unknown filter node');
+        };
+
+        return normalizedFilterExpression(parseNode(parsed, 0));
+    } catch {
+        return null;
+    }
+}
+
 function parseRequest(query: express.Request['query']): ParsedRequest | null {
     const sectionId = parseInteger(query.sectionId);
     const offset = parseInteger(query.offset);
     const size = parseInteger(query.size);
-    const filter = single(query.filter) as LibraryFilter | undefined;
     const sort = single(query.sort) as LibrarySort | undefined;
     const type = single(query.type) as LibraryItemType | undefined;
+    const sourceValue = single(query.source);
+    const source = (sourceValue || 'all') as LibrarySource;
     const seed = single(query.seed);
     const refreshValue = single(query.refresh);
     const refresh = refreshValue === 'true' || refreshValue === '1';
+    const filterExpression = parseFilterExpression(query.filterExpression);
 
     if (
         sectionId === null || sectionId < 1 ||
         offset === null || offset < 0 ||
         size === null || size < 1 || size > 256 ||
-        !filter || !filters.has(filter) ||
         !isValidPlexSort(sort) ||
+        filterExpression === null ||
+        !librarySources.has(source) ||
         (type && !itemTypes.has(type)) ||
         (refreshValue !== undefined && !['true', 'false', '1', '0'].includes(refreshValue)) ||
-        (isRandomSort(sort) && (!seed || !/^[a-zA-Z0-9_-]{1,64}$/.test(seed)))
+        (isRandomSort(sort) && (
+            source !== 'all' || !seed || !/^[a-zA-Z0-9_-]{1,64}$/.test(seed)
+        ))
     ) return null;
 
     return {
         sectionId,
+        source,
         offset,
         size,
-        filter,
         sort,
         refresh,
+        ...(filterExpression && { filterExpression }),
         ...(type && { type }),
         ...(seed && { seed }),
     };
@@ -310,29 +411,38 @@ function plexSort(sort: LibrarySort) {
     return sort;
 }
 
-function plexPath(request: Pick<ParsedRequest, 'sectionId' | 'filter'>) {
-    const endpoint = request.filter === 'watched' ? 'all' : request.filter;
-    return `/library/sections/${request.sectionId}/${endpoint}`;
-}
-
 function plexParams(
-    request: Pick<ParsedRequest, 'filter' | 'type'>,
+    request: Pick<ParsedRequest, 'filterExpression' | 'type'>,
     sort: string,
     offset: number,
     size: number,
 ) {
-    return {
-        sort,
-        ...(request.filter === 'watched' && {
-            'show.unwatchedLeaves!': 1,
-            'unwatched!': 1,
-        }),
-        ...(request.filter === 'all' && request.type && { type: typeNumbers[request.type] }),
-        excludeFields: excludedFields,
-        excludeElements: excludedElements,
-        'X-Plex-Container-Start': offset,
-        'X-Plex-Container-Size': size,
+    const params = new URLSearchParams();
+    params.set('sort', sort);
+    if (request.type) params.set('type', String(typeNumbers[request.type]));
+    params.set('excludeFields', excludedFields);
+    params.set('excludeElements', excludedElements);
+    params.set('X-Plex-Container-Start', String(offset));
+    params.set('X-Plex-Container-Size', String(size));
+
+    const appendFilter = (expression: LibraryFilterExpression) => {
+        if (expression.kind === 'clause') {
+            params.append(
+                `${expression.field}${expression.operator.slice(0, -1)}`,
+                expression.value,
+            );
+            return;
+        }
+
+        params.append('push', '1');
+        expression.children.forEach((child, index) => {
+            if (index) params.append(expression.mode, '1');
+            appendFilter(child);
+        });
+        params.append('pop', '1');
     };
+    if (request.filterExpression) appendFilter(request.filterExpression);
+    return params;
 }
 
 function tokenCacheKey(token: string) {
@@ -358,13 +468,16 @@ export function createLibraryPageRouter({
         offset: number,
         size: number,
     ) => limiter.run(async () => {
-        const response = await axios.get(`${plexServer}${plexPath(request)}`, {
-            params: plexParams(request, sort, offset, size),
-            headers: { Accept: 'application/json', 'X-Plex-Token': token },
-            timeout: 20000,
-            ...(httpAgent && { httpAgent }),
-            ...(httpsAgent && { httpsAgent }),
-        });
+        const response = await axios.get(
+            `${plexServer}/library/sections/${request.sectionId}/${request.source}`,
+            {
+                params: plexParams(request, sort, offset, size),
+                headers: { Accept: 'application/json', 'X-Plex-Token': token },
+                timeout: 20000,
+                ...(httpAgent && { httpAgent }),
+                ...(httpsAgent && { httpsAgent }),
+            },
+        );
         return response.data?.MediaContainer;
     });
 
@@ -389,8 +502,11 @@ export function createLibraryPageRouter({
     const randomCatalogKey = (token: string, request: ParsedRequest) => [
         tokenCacheKey(token),
         request.sectionId,
-        request.filter,
         request.type || 'any',
+        createHash('sha256')
+            .update(JSON.stringify(request.filterExpression || null))
+            .digest('hex')
+            .slice(0, 16),
     ].join(':');
 
     const loadRandomCatalog = async (
@@ -400,8 +516,6 @@ export function createLibraryPageRouter({
         for (let attempt = 0; attempt < 2; attempt += 1) {
             let offset = 0;
             let totalSize: number | null = null;
-            let viewGroup: string | undefined;
-            let title: string | undefined;
             const items: LibraryCardDto[] = [];
             const ratingKeys = new Set<string>();
             let duplicateFound = false;
@@ -419,8 +533,6 @@ export function createLibraryPageRouter({
                     throw new InvalidLibraryPageError('Plex returned a mismatched library page');
                 if (offset === 0) {
                     totalSize = page.totalSize;
-                    viewGroup = page.viewGroup;
-                    title = page.title;
                 } else if (page.totalSize !== totalSize)
                     throw new InvalidLibraryPageError('Plex changed the library during pagination');
                 for (const item of page.items) {
@@ -450,8 +562,6 @@ export function createLibraryPageRouter({
                 generationId: generationHash.digest('hex').slice(0, 24),
                 loadedAt: Date.now(),
                 lastUsed: Date.now(),
-                ...(viewGroup && { viewGroup }),
-                ...(title && { title }),
             };
         }
         throw new InvalidLibraryPageError('Unable to build a consistent Plex library catalog');
@@ -527,8 +637,6 @@ export function createLibraryPageRouter({
                     totalSize: orderedItems.length,
                     hasMore: request.offset + items.length < orderedItems.length,
                     generationId: catalog.generationId,
-                    ...(catalog.viewGroup && { viewGroup: catalog.viewGroup }),
-                    ...(catalog.title && { title: catalog.title }),
                     items,
                 };
             } else {

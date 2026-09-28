@@ -9,7 +9,6 @@ import { LibraryPageError } from "../plex/libraryPage";
 const query = (overrides: Partial<LibraryQuery> = {}): LibraryQuery => ({
   profileKey: "owner",
   sectionId: 1,
-  filter: "all",
   sort: "title:asc",
   ...overrides,
 });
@@ -34,6 +33,65 @@ const page = (
 });
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+it("separates range caches by canonical filter clauses, not display labels", () => {
+  const first = query({
+    filterExpression: {
+      kind: "clause", field: "genre", operator: "=", value: "4", valueLabel: "Action",
+    },
+  });
+  const same = query({
+    filterExpression: {
+      kind: "clause", field: "genre", operator: "=", value: "4", valueLabel: "Akcja",
+    },
+  });
+  const other = query({
+    filterExpression: {
+      kind: "clause", field: "genre", operator: "=", value: "5", valueLabel: "Comedy",
+    },
+  });
+  const all = query({
+    filterExpression: {
+      kind: "group",
+      mode: "and",
+      children: [
+        { kind: "clause", field: "genre", operator: "=", value: "4" },
+        { kind: "clause", field: "year", operator: ">=", value: "2020" },
+      ],
+    },
+  });
+  const any = query({
+    filterExpression: {
+      ...all.filterExpression,
+      kind: "group",
+      mode: "or",
+    },
+  });
+
+  expect(libraryQueryKey(first)).toBe(libraryQueryKey(same));
+  expect(libraryQueryKey(first)).not.toBe(libraryQueryKey(other));
+  expect(libraryQueryKey(all)).not.toBe(libraryQueryKey(any));
+});
+
+it("separates section collections from special sources", () => {
+  expect(libraryQueryKey(query())).not.toBe(
+    libraryQueryKey(query({ source: "onDeck" })),
+  );
+});
+
+it("forwards the collection source to the page request", async () => {
+  const requests: LibraryPageRequest[] = [];
+  const store = new LibraryRangeStore(async (request) => {
+    requests.push(request);
+    return page(request, [], 0);
+  });
+  const key = store.ensure(query({ source: "onDeck" }));
+
+  store.demand(key, 0, 10);
+  await flush();
+
+  expect(requests[0].source).toBe("onDeck");
+});
 
 it("places an independently loaded range at its absolute indices", async () => {
   const requests: LibraryPageRequest[] = [];
@@ -211,7 +269,6 @@ it("drops every old random slot when the catalog generation changes", async () =
   await flush();
 
   const snapshot = store.getSnapshot(key);
-  expect(snapshot.generationId).toBe("generation-b");
   expect(snapshot.items.get(0)?.ratingKey).toBe("generation-b-0");
   expect(snapshot.items.has(64)).toBe(false);
 });
