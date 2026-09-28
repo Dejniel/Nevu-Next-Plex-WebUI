@@ -1,11 +1,11 @@
-import { ProxiedRequest } from "../backendURL";
+import { ProxiedRequest } from "shared/api/backend";
 import {
   authedGet,
   authedGetStrict,
   PlexRequestError,
 } from "./QuickFunctions";
 
-jest.mock("../backendURL", () => ({ ProxiedRequest: jest.fn() }));
+jest.mock("shared/api/backend", () => ({ ProxiedRequest: jest.fn() }));
 
 const request = ProxiedRequest as jest.MockedFunction<typeof ProxiedRequest>;
 

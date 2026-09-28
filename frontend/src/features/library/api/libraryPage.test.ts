@@ -1,11 +1,11 @@
 import axios from "axios";
-import { AuthStorage } from "../auth/AuthStorage";
+import { AuthStorage } from "../../../auth/AuthStorage";
 import {
   getLibraryPage,
   LibraryPageError,
   PLEX_SESSION_INVALID_EVENT,
 } from "./libraryPage";
-import { normalizeLibraryFilterExpression } from "./libraryFilterExpression";
+import { normalizeLibraryFilterExpression } from "../model/libraryFilterExpression";
 
 const request = {
   sectionId: 1,

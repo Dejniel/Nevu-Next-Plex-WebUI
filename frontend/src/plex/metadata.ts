@@ -1,6 +1,6 @@
 import { AuthStorage } from "../auth/AuthStorage";
-import { ProxiedRequest } from "../backendURL";
-import { libraryRangeStore } from "../states/LibraryRangeStore";
+import { ProxiedRequest } from "shared/api/backend";
+import { invalidateLibraryCache } from "shared/lib/libraryCache";
 
 export interface MetadataUpdate {
   title?: string;
@@ -84,7 +84,7 @@ export async function updateMetadata(
   );
 
   if (response.status >= 200 && response.status < 300) {
-    libraryRangeStore.invalidateAll();
+    invalidateLibraryCache();
     return;
   }
   if (response.status === 400)

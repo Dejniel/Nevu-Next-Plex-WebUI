@@ -1,6 +1,6 @@
 import axios from "axios";
 import { AuthStorage } from "../auth/AuthStorage";
-import { getBackendURL } from "../backendURL";
+import { getBackendURL } from "shared/api/backend";
 import { queryBuilder } from "./QuickFunctions";
 
 export type ExtraSource = "local" | "discover";

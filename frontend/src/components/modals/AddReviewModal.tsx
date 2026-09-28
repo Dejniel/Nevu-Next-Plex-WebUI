@@ -20,7 +20,7 @@ import {
   getNevuReviews,
   updateNevuReview,
 } from "../../common/NevuReviews";
-import { config } from "../../index";
+import { config } from "app/config";
 import { setMediaRating } from "../../plex";
 import { useUserSessionStore } from "../../states/UserSession";
 import AppDialog from "../AppDialog";

@@ -1,10 +1,10 @@
 import { Alert, Box, Button, Skeleton, Typography } from "@mui/material";
 import React from "react";
-import { getLibraryDir } from "../plex";
+import { getLibraryDir } from "plex";
 import { ArrowForwardIosRounded } from "@mui/icons-material";
 import { Link, To, useLocation } from "react-router-dom";
-import { shuffleArray } from "../common/ArrayExtra";
-import MovieItem from "./MovieItem";
+import { shuffleArray } from "common/ArrayExtra";
+import MovieItem from "components/MovieItem";
 import {
   getLibraryCardWidth,
   LibraryCardLayout,
@@ -13,8 +13,8 @@ import {
   libraryRangeStore,
   LibraryQuery,
   useLibraryQueryRange,
-} from "../states/LibraryRangeStore";
-import { libraryBrowseTo } from "../navigation";
+} from "../model/LibraryRangeStore";
+import { libraryBrowseTo } from "navigation";
 
 const QUERY_SHELF_LIMIT = 40;
 

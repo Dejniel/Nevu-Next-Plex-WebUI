@@ -47,7 +47,7 @@ import {
 } from "@mui/icons-material";
 import { useSyncInterfaceState } from "./PerPlexedSync";
 import { useSyncSessionState } from "../states/SyncSessionState";
-import { config } from "..";
+import { config } from "app/config";
 import { useBigReader } from "./BigReader";
 import { useUserSettings } from "../states/UserSettingsState";
 import { useAuthSession } from "../states/AuthSessionState";

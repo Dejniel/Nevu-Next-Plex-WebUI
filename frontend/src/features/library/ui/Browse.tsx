@@ -2,9 +2,9 @@ import React from "react";
 import { Box, Button, ButtonGroup, MenuItem, Select } from "@mui/material";
 import { AnimatePresence } from "framer-motion";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import BrowseRecommendations from "./browse/BrowseRecommendations";
-import BrowseLibrary from "./browse/BrowseLibrary";
-import { libraryViewTo } from "../navigation";
+import BrowseRecommendations from "./BrowseRecommendations";
+import BrowseLibrary from "./BrowseLibrary";
+import { libraryViewTo } from "navigation";
 
 type BrowsePages = "recommendations" | "browse";
 

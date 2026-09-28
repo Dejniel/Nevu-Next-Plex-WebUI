@@ -11,7 +11,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import React from "react";
-import { useUserSettings } from "../states/UserSettingsState";
+import { useUserSettings } from "states/UserSettingsState";
 
 export type LibraryCardLayout = "landscape" | "poster";
 

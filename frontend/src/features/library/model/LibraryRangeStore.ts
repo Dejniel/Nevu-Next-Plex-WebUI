@@ -8,9 +8,10 @@ import type {
   LibrarySort,
 } from "@nevu/contracts";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { libraryFilterExpressionKey } from "../plex/libraryFilterExpression";
-import { getLibraryPage, LibraryPageError } from "../plex/libraryPage";
-import { isRandomLibrarySort } from "../plex/librarySort";
+import { subscribeToLibraryCache } from "shared/lib/libraryCache";
+import { getLibraryPage, LibraryPageError } from "../api/libraryPage";
+import { libraryFilterExpressionKey } from "./libraryFilterExpression";
+import { isRandomLibrarySort } from "./librarySort";
 
 export const LIBRARY_RANGE_SIZE = 64;
 const MAX_CACHED_QUERIES = 8;
@@ -521,6 +522,11 @@ export class LibraryRangeStore {
 }
 
 export const libraryRangeStore = new LibraryRangeStore();
+
+subscribeToLibraryCache((action) => {
+  if (action === "clear") libraryRangeStore.clear();
+  else libraryRangeStore.invalidateAll();
+});
 
 export function useLibraryRange(queryKey: string | null) {
   return useSyncExternalStore(

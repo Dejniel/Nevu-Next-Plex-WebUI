@@ -4,11 +4,11 @@ import { useSearchParams } from "react-router-dom";
 import { getLibraryDir } from "../plex";
 import MovieItem from "./MovieItem";
 import { useInView } from "react-intersection-observer";
-import LibrarySortDropDown, {
+import { LibrarySortDropDown,
   LibrarySort,
   normalizeLibrarySort,
   sortMetadata,
-} from "./LibrarySortDropDown";
+} from "features/library/public";
 import { useWatchListCache } from "../states/WatchListCache";
 import AppDialog from "./AppDialog";
 

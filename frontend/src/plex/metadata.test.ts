@@ -1,5 +1,5 @@
 import { AuthStorage } from "../auth/AuthStorage";
-import { ProxiedRequest } from "../backendURL";
+import { ProxiedRequest } from "shared/api/backend";
 import {
   applyMetadataUpdate,
   buildMetadataUpdatePath,
@@ -8,7 +8,7 @@ import {
   updateMetadata,
 } from "./metadata";
 
-jest.mock("../backendURL", () => ({ ProxiedRequest: jest.fn() }));
+jest.mock("shared/api/backend", () => ({ ProxiedRequest: jest.fn() }));
 
 const request = ProxiedRequest as jest.Mock;
 

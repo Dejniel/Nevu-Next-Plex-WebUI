@@ -3,22 +3,22 @@ import { Box, CircularProgress, Typography } from "@mui/material";
 import { motion } from "framer-motion";
 import React, { useEffect } from "react";
 import { useLocation, useParams, useSearchParams } from "react-router-dom";
-import { AuthStorage } from "../../auth/AuthStorage";
-import { useLibraryCardView } from "../../components/LibraryCardViewControls";
-import LibraryCollectionDialog from "../../components/LibraryCollectionDialog";
-import LibraryViewToolbar from "../../components/LibraryViewToolbar";
-import MovieItemSlider from "../../components/MovieItemSlider";
+import { AuthStorage } from "auth/AuthStorage";
+import { useLibraryCardView } from "./LibraryCardViewControls";
+import LibraryCollectionDialog from "./LibraryCollectionDialog";
+import LibraryViewToolbar from "./LibraryViewToolbar";
+import MovieItemSlider from "./MovieItemSlider";
 import {
   getLibrary,
   getLibraryDir,
   getLibrarySecondary,
-} from "../../plex";
+} from "plex";
 import {
   matchRecommendationDirectory,
   pickPreferredTag,
-} from "../../plex/libraryRecommendations";
-import { LibraryQuery } from "../../states/LibraryRangeStore";
-import { recommendationShelfTo } from "../../navigation";
+} from "../model/libraryRecommendations";
+import { LibraryQuery } from "../model/LibraryRangeStore";
+import { recommendationShelfTo } from "navigation";
 
 interface RecommendationShelf {
   id: string;

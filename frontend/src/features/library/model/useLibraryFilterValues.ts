@@ -1,8 +1,8 @@
 import React from "react";
+import { getLibraryFilterValues } from "../api/libraryFilterValues";
 import {
-  getLibraryFilterValues,
   LibraryFilterValueOption,
-} from "../plex/libraryFilters";
+} from "./libraryFilters";
 
 type LoadState = "loading" | "loaded" | "error";
 

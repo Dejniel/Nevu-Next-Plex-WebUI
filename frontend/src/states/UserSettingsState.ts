@@ -1,7 +1,7 @@
 import axios from "axios";
 import { create } from "zustand";
 import { AuthStorage } from "../auth/AuthStorage";
-import { getBackendURL } from "../backendURL";
+import { getBackendURL } from "shared/api/backend";
 
 export type UserSettingsStatus = "idle" | "loading" | "ready" | "error";
 export type UserSettings = Record<string, string>;

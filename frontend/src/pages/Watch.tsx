@@ -62,7 +62,7 @@ import { absoluteDifference } from "../common/NumberExtra";
 import WatchShowChildView from "../components/WatchShowChildView";
 import { useUserSettings } from "../states/UserSettingsState";
 import PlaybackNextEPButton from "../components/PlaybackNextEPButton";
-import { getBackendURL } from "../backendURL";
+import { getBackendURL } from "shared/api/backend";
 import { platformCache } from "../common/DesktopApp";
 import {
   chooseBestMediaVersion,

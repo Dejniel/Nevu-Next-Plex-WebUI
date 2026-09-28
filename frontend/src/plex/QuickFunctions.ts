@@ -1,27 +1,15 @@
-import { ProxiedRequest } from "../backendURL";
 import { platformCache } from "../common/DesktopApp";
 import { useSessionStore } from "../states/SessionState";
 import { AuthStorage } from "../auth/AuthStorage";
 import { APP_VERSION } from "../appVersion";
+import { PlexClient, PlexRequestError } from "shared/api/PlexClient";
 
-export class PlexRequestError extends Error {
-    constructor(
-        public readonly status: number,
-        public readonly response: unknown,
-    ) {
-        super(`Plex request failed with status ${status}`);
-        this.name = "PlexRequestError";
-    }
-}
+export { PlexRequestError };
+
+export const plexClient = new PlexClient(() => AuthStorage.getServerToken());
 
 export async function authedGetStrict(url: string) {
-    const res = await ProxiedRequest(url, "GET", {
-        'X-Plex-Token': AuthStorage.getServerToken() as string,
-        'accept': 'application/json'
-    });
-
-    if (res.status === 200) return res.data;
-    throw new PlexRequestError(res.status, res.data);
+    return plexClient.get(url);
 }
 
 export async function authedGet(url: string) {
@@ -33,29 +21,11 @@ export async function authedGet(url: string) {
 }
 
 export async function authedPost(url: string, body?: any) {
-    const res = await ProxiedRequest(url, "POST", {
-        'X-Plex-Token': AuthStorage.getServerToken() as string,
-        'accept': 'application/json'
-    }, body).catch((err) => {
-        console.log(err);
-        return { status: err.response?.status || 500, data: err.response?.data || 'Internal server error' }
-    });
-
-    if (res.status === 200) return res.data;
-    else return null;
+    return plexClient.post(url, body).catch(() => null);
 }
 
 export async function authedPut(url: string, body: any) {
-    const res = await ProxiedRequest(url, "PUT", {
-        'X-Plex-Token': AuthStorage.getServerToken() as string,
-        'accept': 'application/json'
-    }, body).catch((err) => {
-        console.log(err);
-        return { status: err.response?.status || 500, data: err.response?.data || 'Internal server error' }
-    });
-
-    if (res.status === 200) return res.data;
-    else return null;
+    return plexClient.put(url, body).catch(() => null);
 }
 
 export function queryBuilder(query: any) {

@@ -3,7 +3,6 @@ import type {
   LibraryFilterMode,
   LibraryFilterOperator,
 } from "@nevu/contracts";
-import { authedGetStrict } from "./QuickFunctions";
 
 const LIBRARY_FILTER_PARAM = "filter";
 export const LIBRARY_FILTER_MODE_PARAM = "match";
@@ -167,32 +166,4 @@ export function libraryFilterFieldTitle(
   return scope
     ? `${scope.charAt(0).toUpperCase()}${scope.slice(1)} - ${field.title}`
     : field.title;
-}
-
-function valueFromFastKey(directory: Plex.Directory, filter: string) {
-  if (!directory.fastKey) return undefined;
-  try {
-    const params = new URL(directory.fastKey, window.location.origin).searchParams;
-    const exact = params.get(filter);
-    if (exact) return exact;
-    for (const [key, value] of params)
-      if (key.endsWith(`.${filter}`) && value) return value;
-    return undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-export async function getLibraryFilterValues(source: Plex.Filter) {
-  const response = await authedGetStrict(source.key);
-  const directories = response?.MediaContainer?.Directory;
-  if (!Array.isArray(directories)) return [];
-
-  const seen = new Set<string>();
-  return directories.flatMap((directory: Plex.Directory) => {
-    const value = valueFromFastKey(directory, source.filter) || directory.key;
-    if (!value || !directory.title || seen.has(value)) return [];
-    seen.add(value);
-    return [{ value, label: directory.title }];
-  });
 }

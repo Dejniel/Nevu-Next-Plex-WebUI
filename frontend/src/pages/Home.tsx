@@ -7,7 +7,7 @@ import {
   getLibrarySecondary,
 } from "../plex";
 import { shuffleArray } from "../common/ArrayExtra";
-import MovieItemSlider from "../components/MovieItemSlider";
+import { MovieItemSlider } from "features/library/public";
 import HeroDisplay from "../components/HeroDisplay";
 import { useWatchListCache } from "../states/WatchListCache";
 import { useUserSettings } from "../states/UserSettingsState";

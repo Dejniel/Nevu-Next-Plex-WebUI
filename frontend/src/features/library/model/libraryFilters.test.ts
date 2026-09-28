@@ -1,7 +1,5 @@
 import type { LibraryFilterClause } from "@nevu/contracts";
-import * as QuickFunctions from "./QuickFunctions";
 import {
-  getLibraryFilterValues,
   libraryFilterFields,
   libraryFilterIsOperator,
   libraryFilterOperators,
@@ -13,8 +11,6 @@ import {
   writeLibraryFilterMode,
   writeLibraryFilters,
 } from "./libraryFilters";
-
-afterEach(() => jest.restoreAllMocks());
 
 const fields: Plex.Field[] = [
   { key: "show.genre", title: "Genre", type: "tag" },
@@ -107,36 +103,4 @@ it("uses Plex field types and unscoped filter value endpoints", () => {
 it("selects only an exact Plex is operator for simple filters", () => {
   expect(libraryFilterIsOperator(fields[0], fieldTypes)).toEqual({ key: "=", title: "is" });
   expect(libraryFilterIsOperator(fields[1], fieldTypes)).toBeUndefined();
-});
-
-it("extracts stable filter values from Plex fast keys", async () => {
-  jest.spyOn(QuickFunctions, "authedGetStrict").mockResolvedValue({
-    MediaContainer: {
-      Directory: [{
-        key: "fallback",
-        title: "Action",
-        fastKey: "/library/sections/1/all?genre=393",
-      }],
-    },
-  });
-
-  await expect(getLibraryFilterValues({
-    filter: "genre",
-    filterType: "string",
-    key: "/library/sections/1/genre",
-    title: "Genre",
-    type: "filter",
-  })).resolves.toEqual([{ value: "393", label: "Action" }]);
-});
-
-it("propagates Plex failures while loading filter values", async () => {
-  jest.spyOn(QuickFunctions, "authedGetStrict").mockRejectedValue(new Error("offline"));
-
-  await expect(getLibraryFilterValues({
-    filter: "genre",
-    filterType: "string",
-    key: "/library/sections/1/genre",
-    title: "Genre",
-    type: "filter",
-  })).rejects.toThrow("offline");
 });

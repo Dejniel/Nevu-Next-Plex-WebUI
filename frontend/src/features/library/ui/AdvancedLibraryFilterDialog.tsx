@@ -17,7 +17,7 @@ import {
   ToggleButtonGroup,
 } from "@mui/material";
 import React from "react";
-import useLibraryFilterValues from "../hooks/useLibraryFilterValues";
+import useLibraryFilterValues from "../model/useLibraryFilterValues";
 import {
   isLibraryFilterClause,
   libraryFilterFieldTitle,
@@ -26,8 +26,8 @@ import {
   LibraryFilterValueOption,
   MAX_LIBRARY_FILTERS,
   normalizeLibraryFilters,
-} from "../plex/libraryFilters";
-import AppDialog from "./AppDialog";
+} from "../model/libraryFilters";
+import AppDialog from "components/AppDialog";
 
 interface FilterDraft {
   id: number;

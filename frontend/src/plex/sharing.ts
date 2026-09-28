@@ -1,6 +1,6 @@
 import axios from "axios";
 import { AuthStorage } from "../auth/AuthStorage";
-import { getBackendURL } from "../backendURL";
+import { getBackendURL } from "shared/api/backend";
 
 export interface SharingLibrary {
   id: string;

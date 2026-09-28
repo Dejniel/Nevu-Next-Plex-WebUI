@@ -54,7 +54,7 @@ import { create } from "zustand";
 import { usePreviewPlayer } from "../states/PreviewPlayerState";
 import ReactPlayer from "react-player";
 import { useConfirmModal } from "./ConfirmModal";
-import { getBackendURL } from "../backendURL";
+import { getBackendURL } from "shared/api/backend";
 import { queryBuilder } from "../plex/QuickFunctions";
 import { AuthStorage } from "../auth/AuthStorage";
 import { mediaQualityBadge } from "../plex/mediaVersions";

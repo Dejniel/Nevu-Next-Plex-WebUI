@@ -1,7 +1,7 @@
 import axios from "axios";
 import { XMLParser } from "fast-xml-parser";
 import { AuthStorage, HomeProfile } from "../auth/AuthStorage";
-import { ProxiedRequest } from "../backendURL";
+import { ProxiedRequest } from "shared/api/backend";
 import { APP_VERSION } from "../appVersion";
 
 const xmlParser = new XMLParser({

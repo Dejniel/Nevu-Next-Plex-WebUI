@@ -15,12 +15,12 @@ import {
   SelectChangeEvent,
 } from "@mui/material";
 import React from "react";
-import useLibraryFilterValues from "../hooks/useLibraryFilterValues";
+import useLibraryFilterValues from "../model/useLibraryFilterValues";
 import {
   libraryFilterFieldTitle,
   libraryFilterIsOperator,
   libraryFilterSource,
-} from "../plex/libraryFilters";
+} from "../model/libraryFilters";
 
 const CLEAR_VALUE = "__all__";
 const BACK_VALUE = "__back__";

@@ -1,5 +1,5 @@
 import { AuthStorage } from "../auth/AuthStorage";
-import { getBackendURL } from "../backendURL";
+import { getBackendURL } from "shared/api/backend";
 import { queryBuilder } from "./QuickFunctions";
 
 export const LANDSCAPE_IMAGE_WIDTHS = [320, 480, 640, 960, 1280] as const;

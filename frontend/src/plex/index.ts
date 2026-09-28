@@ -1,10 +1,10 @@
 import axios from "axios";
 import { authedGet, authedPost, authedPut, getIncludeProps, getXPlexProps, queryBuilder } from "./QuickFunctions";
 import './plex.d.ts'
-import { ProxiedRequest } from "../backendURL";
+import { ProxiedRequest } from "shared/api/backend";
 import { platformCache } from "../common/DesktopApp";
 import { AuthStorage } from "../auth/AuthStorage";
-import { libraryRangeStore } from "../states/LibraryRangeStore";
+import { invalidateLibraryCache } from "shared/lib/libraryCache";
 
 export {
     getResponsiveTranscodeImageProps,
@@ -278,7 +278,7 @@ export async function setMediaPlayedStatus(watched: boolean, ratingKey: string):
             ...getXPlexProps()
         })}`);
     }
-    libraryRangeStore.invalidateAll();
+    invalidateLibraryCache();
 }
 
 /**

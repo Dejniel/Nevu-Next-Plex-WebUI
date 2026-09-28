@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { EventEmitter } from "events";
 import { io, Socket } from "socket.io-client";
-import { getBackendURL, isDev } from "../backendURL";
+import { getBackendURL, isDev } from "shared/api/backend";
 import { NavigateFunction } from "react-router-dom";
 import { useToast } from "../components/ToastManager";
 import { AuthStorage } from "../auth/AuthStorage";

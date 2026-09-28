@@ -6,10 +6,10 @@ import {
   isRandomLibrarySort,
   librarySortOptions,
   normalizeLibrarySort,
-} from "../plex/librarySort";
+} from "../model/librarySort";
 
 export type { LibrarySort } from "@nevu/contracts";
-export { DEFAULT_LIBRARY_SORT, normalizeLibrarySort } from "../plex/librarySort";
+export { DEFAULT_LIBRARY_SORT, normalizeLibrarySort } from "../model/librarySort";
 
 function LibrarySortDropDown({
   sortHook,

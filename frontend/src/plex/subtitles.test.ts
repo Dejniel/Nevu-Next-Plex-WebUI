@@ -1,5 +1,5 @@
 import { AuthStorage } from "../auth/AuthStorage";
-import { ProxiedRequest } from "../backendURL";
+import { ProxiedRequest } from "shared/api/backend";
 import {
   buildSubtitleDownloadPath,
   buildSubtitleSearchPath,
@@ -10,7 +10,7 @@ import {
   SubtitleSearchResult,
 } from "./subtitles";
 
-jest.mock("../backendURL", () => ({ ProxiedRequest: jest.fn() }));
+jest.mock("shared/api/backend", () => ({ ProxiedRequest: jest.fn() }));
 
 const request = ProxiedRequest as jest.Mock;
 const result: SubtitleSearchResult = {

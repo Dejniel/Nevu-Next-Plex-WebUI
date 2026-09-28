@@ -1,5 +1,5 @@
 import { AuthStorage } from "../auth/AuthStorage";
-import { getBackendURL } from "../backendURL";
+import { getBackendURL } from "shared/api/backend";
 
 export interface OriginalDownload {
   href: string;

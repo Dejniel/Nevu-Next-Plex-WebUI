@@ -8,7 +8,7 @@ import {
   libraryQueryKey,
   useLibraryQueryRange,
 } from "./LibraryRangeStore";
-import { LibraryPageError } from "../plex/libraryPage";
+import { LibraryPageError } from "../api/libraryPage";
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean;

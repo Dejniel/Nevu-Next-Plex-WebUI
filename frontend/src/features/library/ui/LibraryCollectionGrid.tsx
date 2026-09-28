@@ -11,8 +11,8 @@ import {
   LibraryQuery,
   LibraryRangeSnapshot,
   useLibraryQueryRange,
-} from "../states/LibraryRangeStore";
-import MovieItem from "./MovieItem";
+} from "../model/LibraryRangeStore";
+import MovieItem from "components/MovieItem";
 import {
   getLibraryCardWidth,
   LibraryCardLayout,

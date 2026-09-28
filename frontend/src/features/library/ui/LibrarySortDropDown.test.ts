@@ -5,7 +5,7 @@ import {
 import {
   defaultLibrarySort,
   librarySortOptions,
-} from "../plex/librarySort";
+} from "../model/librarySort";
 
 describe("normalizeLibrarySort", () => {
   it("keeps supported sort values", () => {

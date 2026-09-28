@@ -3,7 +3,7 @@ import React, { ReactNode, useEffect } from "react";
 import Login from "../pages/Login";
 import ProfilePicker from "../pages/ProfilePicker";
 import { useAuthSession } from "../states/AuthSessionState";
-import { PLEX_SESSION_INVALID_EVENT } from "../plex/libraryPage";
+import { PLEX_SESSION_INVALID_EVENT } from "features/library/public";
 
 export function LoadingScreen() {
   return (

@@ -17,14 +17,14 @@ import {
 import { motion } from "framer-motion";
 import React, { useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import AdvancedLibraryFilterDialog from "../../components/AdvancedLibraryFilterDialog";
-import { LibraryFilterSelect } from "../../components/LibraryFilterControls";
-import { useLibraryCardView } from "../../components/LibraryCardViewControls";
-import { WindowLibraryCollectionGrid } from "../../components/LibraryCollectionGrid";
-import LibraryViewToolbar from "../../components/LibraryViewToolbar";
-import { AuthStorage } from "../../auth/AuthStorage";
-import { getLibrary } from "../../plex";
-import { createLibraryFilterExpression } from "../../plex/libraryFilterExpression";
+import AdvancedLibraryFilterDialog from "./AdvancedLibraryFilterDialog";
+import { LibraryFilterSelect } from "./LibraryFilterControls";
+import { useLibraryCardView } from "./LibraryCardViewControls";
+import { WindowLibraryCollectionGrid } from "./LibraryCollectionGrid";
+import LibraryViewToolbar from "./LibraryViewToolbar";
+import { AuthStorage } from "auth/AuthStorage";
+import { getLibrary } from "plex";
+import { createLibraryFilterExpression } from "../model/libraryFilterExpression";
 import {
   LIBRARY_FILTER_MODE_PARAM,
   libraryFilterFields,
@@ -33,23 +33,23 @@ import {
   readLibraryFilters,
   writeLibraryFilterMode,
   writeLibraryFilters,
-} from "../../plex/libraryFilters";
+} from "../model/libraryFilters";
 import {
   defaultLibrarySort,
   isRandomLibrarySort,
   isValidLibrarySort,
   librarySortOptions,
-} from "../../plex/librarySort";
+} from "../model/librarySort";
 import {
   getLibraryRandomSeed,
   replaceLibraryRandomSeed,
-} from "../../plex/libraryRandom";
+} from "../model/libraryRandom";
 import {
   libraryQueryKey,
   libraryRangeStore,
   LibraryQuery,
   useLibraryRange,
-} from "../../states/LibraryRangeStore";
+} from "../model/LibraryRangeStore";
 
 function isLibraryItemType(value: string | null | undefined): value is LibraryItemType {
   return value === "movie" || value === "show" || value === "episode";

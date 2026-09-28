@@ -2,7 +2,7 @@ import { Box } from "@mui/material";
 import axios from "axios";
 import React, { useEffect, useRef } from "react";
 import { create } from "zustand";
-import { getBackendURL } from "../backendURL";
+import { getBackendURL } from "shared/api/backend";
 import Utility from "./Utility";
 
 interface StartupState {
