@@ -1,65 +1,71 @@
-import { Box, Skeleton, Typography } from "@mui/material";
+import { Alert, Box, Button, Skeleton, Typography } from "@mui/material";
 import React from "react";
 import { getLibraryDir } from "../plex";
 import { ArrowForwardIosRounded } from "@mui/icons-material";
-import { useSearchParams } from "react-router-dom";
+import { Link, To, useLocation } from "react-router-dom";
 import { shuffleArray } from "../common/ArrayExtra";
 import MovieItem from "./MovieItem";
 import {
   getLibraryCardWidth,
   LibraryCardLayout,
 } from "./LibraryCardViewControls";
+import {
+  libraryRangeStore,
+  LibraryQuery,
+  useLibraryQueryRange,
+} from "../states/LibraryRangeStore";
+import { libraryBrowseTo } from "../navigation";
+
+const QUERY_SHELF_LIMIT = 40;
 
 function MovieItemSlider({
   title,
   dir,
-  props,
-  filter,
   link,
-  browseProps,
   shuffle,
   data,
   plexTvSource,
   layout = "landscape",
   cardSize,
+  query,
+  browseTo,
 }: {
   title: string;
   dir?: string;
-  props?: { [key: string]: any };
-  filter?: (item: Plex.Metadata) => boolean;
   link?: string;
-  browseProps?: { [key: string]: string | number };
   shuffle?: boolean;
   data?: Plex.Metadata[];
   plexTvSource?: boolean;
   layout?: LibraryCardLayout;
   cardSize?: number;
+  query?: LibraryQuery;
+  browseTo?: To;
 }) {
-  const [, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const [items, setItems] = React.useState<Plex.Metadata[] | null>(
     data ?? null
   );
+  const { queryKey, range: queryRange } = useLibraryQueryRange(query);
+
+  React.useEffect(() => {
+    if (queryKey) libraryRangeStore.demand(queryKey, 0, QUERY_SHELF_LIMIT - 1);
+  }, [queryKey]);
+
+  const queryItems = React.useMemo(() => {
+    if (!query) return null;
+    if (queryRange.totalSize === null && queryRange.items.size === 0) return null;
+    const count = Math.min(
+      QUERY_SHELF_LIMIT,
+      queryRange.totalSize ?? queryRange.knownSize,
+    );
+    return Array.from({ length: count }, (_, index) => queryRange.items.get(index))
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  }, [query, queryRange]);
+  const displayedItems = query ? queryItems : items;
+  const browseTarget = browseTo || (link ? libraryBrowseTo(location, link) : null);
 
   const [currPage, setCurrPage] = React.useState(0);
   const touchStartX = React.useRef<number | null>(null);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    const delta = touchStartX.current - e.changedTouches[0].clientX;
-    touchStartX.current = null;
-    if (Math.abs(delta) < 50) return; // ignore small movements
-    if (delta > 0) {
-      // swiped left → next page
-      setCurrPage((p) => (p + 1 > Math.ceil(itemCount / itemsPerPage) - 1 ? 0 : p + 1));
-    } else {
-      // swiped right → prev page
-      setCurrPage((p) => (p - 1 < 0 ? Math.ceil(itemCount / itemsPerPage) - 1 : p - 1));
-    }
-  };
 
   const calculateItemsPerPage = React.useCallback((width: number) => {
     if (cardSize !== undefined) {
@@ -71,7 +77,6 @@ function MovieItemSlider({
       );
     }
 
-    if (width < 400) return 1;
     if (width < 600) return 1;
     if (width < 1200) return 2;
     if (width < 1500) return 4;
@@ -98,30 +103,43 @@ function MovieItemSlider({
   const fetchData = async () => {
     if (!dir) return;
 
-    getLibraryDir(dir, props).then((res) => {
-      // cut the array down so its a multiple of itemsPerPage
+    getLibraryDir(dir).then((res) => {
       if (!res.Metadata) return;
 
-      let media: Plex.Metadata[] = res.Metadata;
-      if (filter) media = res.Metadata.filter(filter);
-
-      if (!media) return;
-      setItems(shuffle ? shuffleArray(media) : media);
+      setItems(shuffle ? shuffleArray(res.Metadata) : res.Metadata);
     });
   };
 
   React.useEffect(() => {
     if (data) return setItems(data);
+    if (query) return;
 
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, dir, filter, props, shuffle]);
+  }, [data, dir, query, shuffle]);
 
   React.useEffect(() => {
     setCurrPage(0);
   }, [data, dir, itemsPerPage, layout]);
 
-  if (!items)
+  const queryError = queryRange.errors.get(0);
+  if (!displayedItems && queryError)
+    return (
+      <Box sx={{ width: "100%", px: "2.5vw" }}>
+        <Alert
+          severity="error"
+          action={queryError.retryable && queryKey ? (
+            <Button color="inherit" onClick={() => libraryRangeStore.retry(queryKey, 0)}>
+              Retry
+            </Button>
+          ) : undefined}
+        >
+          Unable to load {title.toLocaleLowerCase()}.
+        </Alert>
+      </Box>
+    );
+
+  if (!displayedItems)
     return (
       <MovieItemSliderSkeleton
         title={title}
@@ -130,7 +148,20 @@ function MovieItemSlider({
       />
     );
 
-  const itemCount = items.slice(0, itemsPerPage * 5).length;
+  if (query && queryRange.totalSize === 0) return null;
+
+  const itemCount = displayedItems.slice(0, itemsPerPage * 5).length;
+  const pageCount = Math.ceil(itemCount / itemsPerPage);
+  const changePage = (step: number) => {
+    if (pageCount > 1)
+      setCurrPage((page) => (page + step + pageCount) % pageCount);
+  };
+  const handleTouchEnd = (event: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const delta = touchStartX.current - event.changedTouches[0].clientX;
+    touchStartX.current = null;
+    if (Math.abs(delta) >= 50) changePage(delta > 0 ? 1 : -1);
+  };
 
   return (
     <Box
@@ -155,64 +186,29 @@ function MovieItemSlider({
           px: "2.5vw",
         }}
       >
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "10px",
-            mb: "-10px",
-            cursor: link ? "pointer" : "default",
-            "&:hover": {
-              gap: "20px",
-            },
-            "&:hover > :nth-child(2)": {
-              opacity: 1,
-              gap: "5px",
-            },
-            transition: "all 0.5s ease",
-            userSelect: "none",
-          }}
-          onClick={() => {
-            if (link) {
-              const params = new URLSearchParams({ bkey: link });
-              if (browseProps)
-                params.set("bprops", JSON.stringify(browseProps));
-              setSearchParams(params);
-            }
-          }}
-        >
-          <Typography
-            variant="h4"
+        {browseTarget ? (
+          <Box
+            component={Link}
+            to={browseTarget}
             sx={{
-              fontSize: { xs: "1.3rem", sm: "1.6rem", md: "2rem" },
-              fontWeight: "bold",
-              mb: "0px",
+              ...shelfHeadingSx,
+              color: "inherit",
+              textDecoration: "none",
             }}
           >
-            {title}
-          </Typography>
-
-          {link && (
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                mt: "0px",
-                opacity: 0,
-                gap: "0px",
-                transition: "all 0.5s ease",
-                color: "primary.main",
-              }}
-            >
-              <Typography sx={{ fontSize: "1rem" }}>Browse</Typography>
-              <ArrowForwardIosRounded fontSize="small" />
-            </Box>
-          )}
-        </Box>
+            <ShelfHeading title={title} browsable />
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              ...shelfHeadingSx,
+              cursor: "default",
+              color: "inherit",
+            }}
+          >
+            <ShelfHeading title={title} browsable={false} />
+          </Box>
+        )}
 
         <Box
           sx={{
@@ -223,26 +219,20 @@ function MovieItemSlider({
             visibility: itemCount > itemsPerPage ? "visible" : "hidden",
           }}
         >
-          {Array(Math.ceil(itemCount / itemsPerPage))
-            .fill(0)
-            .map((_, i) => {
-              return (
-                <Box
-                  key={i}
-                  sx={{
-                    width: "10px",
-                    height: "4px",
-                    backgroundColor: i === currPage ? "#FFFFFF" : "#FFFFFF55",
-                    transition: "all 0.5s ease",
-                    mx: "2px",
-                    cursor: "pointer",
-                  }}
-                  onClick={() => {
-                    setCurrPage(i);
-                  }}
-                />
-              );
-            })}
+          {Array.from({ length: pageCount }, (_, page) => (
+            <Box
+              key={page}
+              sx={{
+                width: "10px",
+                height: "4px",
+                backgroundColor: page === currPage ? "#FFFFFF" : "#FFFFFF55",
+                transition: "all 0.5s ease",
+                mx: "2px",
+                cursor: "pointer",
+              }}
+              onClick={() => setCurrPage(page)}
+            />
+          ))}
         </Box>
       </Box>
       <Box
@@ -255,50 +245,14 @@ function MovieItemSlider({
 
           py: "10px",
           whiteSpace: "nowrap",
-          // clipPath: "inset(0px 0px -10px 0px)",
           overflowX: "clip",
           overflowY: "visible",
           position: "relative",
         }}
-        onTouchStart={handleTouchStart}
+        onTouchStart={(event) => { touchStartX.current = event.touches[0].clientX; }}
         onTouchEnd={handleTouchEnd}
       >
-        <Box
-          sx={{
-            width: { xs: "40px", sm: "calc(2.5vw)" },
-            minWidth: { sm: "30px" },
-            height: "16vh",
-            position: "absolute",
-            left: "0px",
-            backgroundColor: "transparent",
-            zIndex: 2,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            visibility: itemCount > itemsPerPage ? "visible" : "hidden",
-
-            "&:hover": {
-              backgroundColor: "#000000AA",
-            },
-
-            transition: "background-color 0.2s ease",
-          }}
-          onClick={() => {
-            setCurrPage((currPage) =>
-              currPage - 1 < 0
-                ? Math.ceil(itemCount / itemsPerPage) - 1
-                : currPage - 1
-            );
-          }}
-        >
-          <ArrowForwardIosRounded
-            sx={{
-              transform: "rotate(180deg)",
-            }}
-            fontSize="large"
-          />
-        </Box>
+        <SliderArrow side="left" visible={pageCount > 1} onClick={() => changePage(-1)} />
         <Box
           sx={{
             display: "flex",
@@ -311,7 +265,7 @@ function MovieItemSlider({
             transition: { xs: "transform 0.35s ease", md: "transform 1s ease" },
           }}
         >
-          {items?.slice(0, itemsPerPage * 5).map((item, i) => {
+          {displayedItems.slice(0, itemsPerPage * 5).map((item, i) => {
             const start = currPage * itemsPerPage - itemsPerPage;
             const end = currPage * itemsPerPage + itemsPerPage * 2;
 
@@ -324,9 +278,9 @@ function MovieItemSlider({
                   index={i}
                   PlexTvSource={plexTvSource}
                   layout={layout}
-                  refetchData={
-                    dir && dir.endsWith("onDeck") ? fetchData : undefined
-                  }
+                  refetchData={queryKey && query?.source === "onDeck"
+                    ? () => libraryRangeStore.invalidateQuery(queryKey)
+                    : dir && dir.endsWith("onDeck") ? fetchData : undefined}
                 />
               );
             } else {
@@ -351,38 +305,105 @@ function MovieItemSlider({
             }
           })}
         </Box>
-        <Box
-          sx={{
-            width: { xs: "40px", sm: "calc(2.5vw)" },
-            minWidth: { sm: "30px" },
-            height: "16vh",
-            position: "absolute",
-            right: "0px",
-            backgroundColor: "transparent",
-            zIndex: 2,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            visibility: itemCount > itemsPerPage ? "visible" : "hidden",
-
-            "&:hover": {
-              backgroundColor: "#000000AA",
-            },
-
-            transition: "background-color 0.2s ease",
-          }}
-          onClick={() => {
-            setCurrPage(
-              currPage + 1 > Math.ceil(itemCount / itemsPerPage) - 1
-                ? 0
-                : currPage + 1
-            );
-          }}
-        >
-          <ArrowForwardIosRounded fontSize="large" />
-        </Box>
+        <SliderArrow side="right" visible={pageCount > 1} onClick={() => changePage(1)} />
       </Box>
+    </Box>
+  );
+}
+
+const shelfHeadingSx = {
+  display: "flex",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "10px",
+  mb: "-10px",
+  cursor: "pointer",
+  "&:hover": {
+    gap: "20px",
+  },
+  "&:hover > :nth-child(2)": {
+    opacity: 1,
+    gap: "5px",
+  },
+  transition: "all 0.5s ease",
+  userSelect: "none",
+} as const;
+
+function ShelfHeading({
+  title,
+  browsable,
+}: {
+  title: string;
+  browsable: boolean;
+}) {
+  return (
+    <>
+          <Typography
+            variant="h4"
+            sx={{
+              fontSize: { xs: "1.3rem", sm: "1.6rem", md: "2rem" },
+              fontWeight: "bold",
+              mb: "0px",
+            }}
+          >
+            {title}
+          </Typography>
+
+          {browsable && (
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                mt: "0px",
+                opacity: 0,
+                gap: "0px",
+                transition: "all 0.5s ease",
+                color: "primary.main",
+              }}
+            >
+              <Typography sx={{ fontSize: "1rem" }}>Browse</Typography>
+              <ArrowForwardIosRounded fontSize="small" />
+            </Box>
+          )}
+    </>
+  );
+}
+
+function SliderArrow({
+  side,
+  visible,
+  onClick,
+}: {
+  side: "left" | "right";
+  visible: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Box
+      sx={{
+        width: { xs: "40px", sm: "2.5vw" },
+        minWidth: { sm: "30px" },
+        height: "16vh",
+        position: "absolute",
+        [side]: 0,
+        zIndex: 2,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        visibility: visible ? "visible" : "hidden",
+        transition: "background-color 0.2s ease",
+        "&:hover": { backgroundColor: "#000000AA" },
+      }}
+      onClick={onClick}
+    >
+      <ArrowForwardIosRounded
+        fontSize="large"
+        sx={side === "left" ? { transform: "rotate(180deg)" } : undefined}
+      />
     </Box>
   );
 }

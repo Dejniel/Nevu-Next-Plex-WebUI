@@ -1,32 +1,23 @@
 import React from "react";
 import { Box, Button, ButtonGroup, MenuItem, Select } from "@mui/material";
-import { create } from "zustand";
 import { AnimatePresence } from "framer-motion";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import BrowseRecommendations from "./browse/BrowseRecommendations";
 import BrowseLibrary from "./browse/BrowseLibrary";
+import { libraryViewTo } from "../navigation";
 
 type BrowsePages = "recommendations" | "browse";
-
-interface BrowsePageOptionsState {
-  page: BrowsePages;
-  setPage: (page: BrowsePages) => void;
-}
-
-const useBrowsePageOptions = create<BrowsePageOptionsState>((set) => ({
-  page:
-    (localStorage.getItem("browsePage") as BrowsePages) || "recommendations",
-  setPage: (page: BrowsePages) => {
-    localStorage.setItem("browsePage", page);
-    set({ page });
-  },
-}));
 
 function BrowsePageSelector({
   page,
   setPage,
+  recommendationsTo,
+  browseTo,
 }: {
   page: BrowsePages;
   setPage: (page: BrowsePages) => void;
+  recommendationsTo: ReturnType<typeof libraryViewTo>;
+  browseTo: ReturnType<typeof libraryViewTo>;
 }) {
   return (
     <>
@@ -79,16 +70,20 @@ function BrowsePageSelector({
         }}
       >
         <Button
+          component={Link}
+          to={recommendationsTo}
           variant={page === "recommendations" ? "contained" : "outlined"}
           aria-pressed={page === "recommendations"}
-          onClick={() => setPage("recommendations")}
+          onClick={() => localStorage.setItem("browsePage", "recommendations")}
         >
           Recommended
         </Button>
         <Button
+          component={Link}
+          to={browseTo}
           variant={page === "browse" ? "contained" : "outlined"}
           aria-pressed={page === "browse"}
-          onClick={() => setPage("browse")}
+          onClick={() => localStorage.setItem("browsePage", "browse")}
         >
           Browse
         </Button>
@@ -98,8 +93,31 @@ function BrowsePageSelector({
 }
 
 function Library() {
-  const { page, setPage } = useBrowsePageOptions();
-  const pageSelector = <BrowsePageSelector page={page} setPage={setPage} />;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const requestedPage = searchParams.get("view");
+  const storedPage = localStorage.getItem("browsePage");
+  const page: BrowsePages =
+    requestedPage === "browse" || requestedPage === "recommendations"
+      ? requestedPage
+      : storedPage === "browse"
+        ? "browse"
+        : "recommendations";
+  const setPage = (nextPage: BrowsePages) => {
+    localStorage.setItem("browsePage", nextPage);
+    const next = new URLSearchParams(searchParams);
+    next.set("view", nextPage);
+    next.delete("shelf");
+    setSearchParams(next);
+  };
+  const pageSelector = (
+    <BrowsePageSelector
+      page={page}
+      setPage={setPage}
+      recommendationsTo={libraryViewTo(location, "recommendations")}
+      browseTo={libraryViewTo(location, "browse")}
+    />
+  );
 
   return (
     <Box

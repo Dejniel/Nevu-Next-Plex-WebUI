@@ -22,6 +22,7 @@ interface AppDialogProps {
   size?: AppDialogSize;
   headerContent?: ReactNode;
   contentSx?: SxProps<Theme>;
+  contentRef?: React.Ref<HTMLDivElement>;
 }
 
 export default function AppDialog({
@@ -34,6 +35,7 @@ export default function AppDialog({
   size = "standard",
   headerContent,
   contentSx,
+  contentRef,
 }: AppDialogProps) {
   const titleId = useId();
   const compact = size === "compact";
@@ -86,7 +88,7 @@ export default function AppDialog({
         </DialogTitle>
       ) : closeButton}
       {headerContent}
-      <DialogContent sx={contentSx}>{children}</DialogContent>
+      <DialogContent ref={contentRef} sx={contentSx}>{children}</DialogContent>
       {actions !== undefined && (
         <DialogActions>{actions}</DialogActions>
       )}

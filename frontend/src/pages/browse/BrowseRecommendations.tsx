@@ -1,8 +1,11 @@
+import type { LibraryFilterExpression, LibraryItemType } from "@nevu/contracts";
 import { Box, CircularProgress, Typography } from "@mui/material";
 import { motion } from "framer-motion";
 import React, { useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams, useSearchParams } from "react-router-dom";
+import { AuthStorage } from "../../auth/AuthStorage";
 import { useLibraryCardView } from "../../components/LibraryCardViewControls";
+import LibraryCollectionDialog from "../../components/LibraryCollectionDialog";
 import LibraryViewToolbar from "../../components/LibraryViewToolbar";
 import MovieItemSlider from "../../components/MovieItemSlider";
 import {
@@ -14,21 +17,33 @@ import {
   matchRecommendationDirectory,
   pickPreferredTag,
 } from "../../plex/libraryRecommendations";
+import { LibraryQuery } from "../../states/LibraryRangeStore";
+import { recommendationShelfTo } from "../../navigation";
 
 interface RecommendationShelf {
+  id: string;
   title: string;
-  items: Plex.Metadata[];
-  link: string;
-  browseProps?: { [key: string]: string | number };
+  query: LibraryQuery;
 }
 
-const SHELF_LIMIT = 40;
 const HISTORY_LIMIT = 40;
 
-const containerProps = (size = SHELF_LIMIT) => ({
+const containerProps = (size = HISTORY_LIMIT) => ({
   "X-Plex-Container-Start": 0,
   "X-Plex-Container-Size": size,
 });
+
+function isLibraryItemType(value: string | undefined): value is LibraryItemType {
+  return value === "movie" || value === "show" || value === "episode";
+}
+
+function clause(
+  field: string,
+  operator: "=" | "!=",
+  value: string,
+): LibraryFilterExpression {
+  return { kind: "clause", field, operator, value };
+}
 
 async function getItems(
   path: string,
@@ -37,7 +52,7 @@ async function getItems(
   try {
     return (await getLibraryDir(path, props)).Metadata || [];
   } catch (error) {
-    console.error(`Could not load recommendation shelf ${path}`, error);
+    console.error(`Could not load recommendation context ${path}`, error);
     return [];
   }
 }
@@ -51,37 +66,30 @@ async function getDirectories(libraryID: string, directory: string) {
   }
 }
 
-async function buildRecommendationShelves(libraryID: string) {
-  const basePath = `/library/sections/${libraryID}`;
-  const recentlyReleasedProps = { sort: "originallyAvailableAt:desc" };
-  const topRatedProps = { sort: "audienceRating:desc", unwatched: 1 };
-  const historyFilters = {
-    sort: "lastViewedAt:desc",
-    "unwatched!": 1,
-  };
+async function buildRecommendationShelves(
+  libraryID: string,
+  library: Plex.MediaContainer,
+) {
+  const sectionId = Number(libraryID);
+  const itemType = library.Type
+    ?.map((entry) => entry.type)
+    .find(isLibraryItemType);
+  if (!Number.isSafeInteger(sectionId) || sectionId < 1 || !itemType) return [];
 
-  const [
-    continueWatching,
-    recentlyReleased,
-    recentlyAdded,
-    topRatedUnwatched,
-    watchHistory,
-    genres,
-    actors,
-  ] = await Promise.all([
-    getItems(`${basePath}/onDeck`, containerProps()),
+  const profile = AuthStorage.getActiveSession()?.profile;
+  const common = {
+    profileKey: profile ? String(profile.id) : "owner",
+    sectionId,
+    type: itemType,
+  } satisfies Omit<LibraryQuery, "sort">;
+  const basePath = `/library/sections/${libraryID}`;
+  const historyFilter = clause("unwatched", "!=", "1");
+
+  const [watchHistory, genres, actors] = await Promise.all([
     getItems(`${basePath}/all`, {
-      ...recentlyReleasedProps,
+      sort: "lastViewedAt:desc",
+      "unwatched!": 1,
       ...containerProps(),
-    }),
-    getItems(`${basePath}/recentlyAdded`, containerProps()),
-    getItems(`${basePath}/all`, {
-      ...topRatedProps,
-      ...containerProps(),
-    }),
-    getItems(`${basePath}/all`, {
-      ...historyFilters,
-      ...containerProps(HISTORY_LIMIT),
     }),
     getDirectories(libraryID, "genre"),
     getDirectories(libraryID, "actor"),
@@ -95,77 +103,70 @@ async function buildRecommendationShelves(libraryID: string) {
     pickPreferredTag(watchHistory, "Role"),
     actors,
   );
-
-  const [genreRecommendations, actorRecommendations] = await Promise.all([
-    genre
-      ? getItems(`${basePath}/all`, {
-          genre: genre.key,
-          sort: "audienceRating:desc",
-          unwatched: 1,
-          ...containerProps(),
-        })
-      : Promise.resolve([]),
-    actor
-      ? getItems(`${basePath}/all`, {
-          actor: actor.key,
-          sort: "audienceRating:desc",
-          unwatched: 1,
-          ...containerProps(),
-        })
-      : Promise.resolve([]),
-  ]);
-
-  const genreProps = genre
-    ? { genre: genre.key, ...topRatedProps }
-    : undefined;
-  const actorProps = actor
-    ? { actor: actor.key, ...topRatedProps }
-    : undefined;
-
+  const topUnwatched = clause("unwatched", "=", "1");
   const shelves: RecommendationShelf[] = [
     {
+      id: "continue-watching",
       title: "Continue Watching",
-      items: continueWatching,
-      link: `${basePath}/onDeck`,
+      query: { ...common, source: "onDeck", sort: "lastViewedAt:desc" },
     },
     {
+      id: "recently-released",
       title: "Recently Released",
-      items: recentlyReleased,
-      link: `${basePath}/all`,
-      browseProps: recentlyReleasedProps,
+      query: { ...common, sort: "originallyAvailableAt:desc" },
     },
     {
+      id: "recently-added",
       title: "Recently Added",
-      items: recentlyAdded,
-      link: `${basePath}/recentlyAdded`,
+      query: { ...common, sort: "addedAt:desc" },
     },
     {
+      id: "top-rated-unwatched",
       title: "Top Rated Unwatched",
-      items: topRatedUnwatched,
-      link: `${basePath}/all`,
-      browseProps: topRatedProps,
+      query: {
+        ...common,
+        sort: "audienceRating:desc",
+        filterExpression: topUnwatched,
+      },
     },
+    ...(genre ? [{
+      id: `genre-${genre.key}`,
+      title: `Top ${genre.title} Picks`,
+      query: {
+        ...common,
+        sort: "audienceRating:desc",
+        filterExpression: {
+          kind: "group" as const,
+          mode: "and" as const,
+          children: [clause("genre", "=", String(genre.key)), topUnwatched],
+        },
+      },
+    }] : []),
+    ...(actor ? [{
+      id: `actor-${actor.key}`,
+      title: `More with ${actor.title}`,
+      query: {
+        ...common,
+        sort: "audienceRating:desc",
+        filterExpression: {
+          kind: "group" as const,
+          mode: "and" as const,
+          children: [clause("actor", "=", String(actor.key)), topUnwatched],
+        },
+      },
+    }] : []),
     {
-      title: genre ? `Top ${genre.title} Picks` : "Top Genre Picks",
-      items: genreRecommendations,
-      link: `${basePath}/all`,
-      browseProps: genreProps,
-    },
-    {
-      title: actor ? `More with ${actor.title}` : "More with Familiar Cast",
-      items: actorRecommendations,
-      link: `${basePath}/all`,
-      browseProps: actorProps,
-    },
-    {
+      id: "recently-watched",
       title: "Recently Watched",
-      items: watchHistory,
-      link: `${basePath}/all`,
-      browseProps: historyFilters,
+      query: {
+        ...common,
+        sort: "lastViewedAt:desc",
+        filterExpression: historyFilter,
+      },
     },
   ];
 
-  return shelves.filter((shelf) => shelf.items.length > 0);
+  return shelves;
 }
 
 function BrowseRecommendations({
@@ -174,20 +175,23 @@ function BrowseRecommendations({
   pageNavigation: React.ReactNode;
 }) {
   const { libraryID } = useParams<{ libraryID: string }>();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const cardView = useLibraryCardView();
-  const [shelves, setShelves] = React.useState<RecommendationShelf[] | null>(
-    null,
-  );
+  const [library, setLibrary] = React.useState<Plex.MediaContainer | null>(null);
+  const [shelves, setShelves] = React.useState<RecommendationShelf[] | null>(null);
 
   useEffect(() => {
     if (!libraryID) return;
     let cancelled = false;
 
+    setLibrary(null);
     setShelves(null);
     getLibrary(libraryID)
-      .then((library) => {
-        if (library.librarySectionID.toString() !== libraryID) return [];
-        return buildRecommendationShelves(libraryID);
+      .then(async (nextLibrary) => {
+        if (nextLibrary.librarySectionID.toString() !== libraryID) return [];
+        if (!cancelled) setLibrary(nextLibrary);
+        return buildRecommendationShelves(libraryID, nextLibrary);
       })
       .then((nextShelves) => {
         if (!cancelled) setShelves(nextShelves);
@@ -201,6 +205,14 @@ function BrowseRecommendations({
       cancelled = true;
     };
   }, [libraryID]);
+
+  const selectedShelf =
+    shelves?.find((shelf) => shelf.id === searchParams.get("shelf")) || null;
+  const closeShelf = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("shelf");
+    setSearchParams(next);
+  };
 
   return (
     <Box
@@ -260,17 +272,29 @@ function BrowseRecommendations({
         >
           {shelves.map((shelf) => (
             <MovieItemSlider
-              key={shelf.title}
+              key={shelf.id}
               title={shelf.title}
-              data={shelf.items}
-              link={shelf.link}
-              browseProps={shelf.browseProps}
+              query={shelf.query}
+              browseTo={recommendationShelfTo(location, shelf.id)}
               layout={cardView.layout}
               cardSize={cardView.size}
             />
           ))}
         </Box>
       )}
+
+      <LibraryCollectionDialog
+        key={selectedShelf?.id || "closed"}
+        open={Boolean(selectedShelf)}
+        title={selectedShelf?.title || "Browse"}
+        baseQuery={selectedShelf?.query || null}
+        sortDefinitions={library?.Type?.find(
+          (entry) => entry.type === selectedShelf?.query.type,
+        )?.Sort}
+        cardView={cardView}
+        emptyMessage="No items are available for this recommendation."
+        onClose={closeShelf}
+      />
     </Box>
   );
 }
