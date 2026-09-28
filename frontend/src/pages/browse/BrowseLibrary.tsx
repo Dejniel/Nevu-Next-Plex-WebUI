@@ -253,7 +253,34 @@ function BrowseLibraryContent({
               flexWrap: { xs: "wrap", lg: "nowrap" },
               gap: 1,
               width: "100%",
-              "& > .MuiInputBase-root": {
+              "& .MuiSelect-root": {
+                height: 40,
+                backgroundColor: "rgba(255,255,255,0.025)",
+                transition: "background-color 0.15s ease, border-color 0.15s ease",
+                "& .MuiSelect-select": {
+                  display: "flex",
+                  alignItems: "center",
+                  height: "100%",
+                  minHeight: "0 !important",
+                  boxSizing: "border-box",
+                  py: "0 !important",
+                },
+                "& .MuiOutlinedInput-notchedOutline": {
+                  borderColor: "rgba(255,255,255,0.22)",
+                  borderWidth: "1px !important",
+                },
+                "&:hover .MuiOutlinedInput-notchedOutline": {
+                  borderColor: "rgba(255,255,255,0.42)",
+                },
+                "&.Mui-focused": {
+                  backgroundColor: "rgba(255,255,255,0.06)",
+                },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                  borderColor: "rgba(255,255,255,0.5)",
+                  borderWidth: "1px !important",
+                },
+              },
+              "& > .MuiSelect-root": {
                 flex: { xs: "1 1 105px", lg: "0 0 auto" },
                 minWidth: 0,
               },

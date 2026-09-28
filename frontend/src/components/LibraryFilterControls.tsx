@@ -164,7 +164,16 @@ export function LibraryFilterSelect({
       }}
       onChange={handleChange}
       renderValue={() => (
-        <Box component="span" sx={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+        <Box
+          component="span"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            minWidth: 0,
+            width: "100%",
+            height: 22,
+          }}
+        >
           <Box
             component="span"
             sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
@@ -186,7 +195,15 @@ export function LibraryFilterSelect({
                 event.stopPropagation();
                 onChange(null);
               }}
-              sx={{ ml: 0.75, mr: -0.5, p: 0.25, color: "text.secondary" }}
+              sx={{
+                ml: 0.5,
+                mr: -0.25,
+                p: 0,
+                width: 20,
+                height: 20,
+                flex: "0 0 20px",
+                color: "text.secondary",
+              }}
             >
               <CancelRounded sx={{ fontSize: 18 }} />
             </IconButton>
