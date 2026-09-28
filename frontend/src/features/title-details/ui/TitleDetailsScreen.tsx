@@ -53,7 +53,10 @@ import {
   EditRounded,
 } from "@mui/icons-material";
 import { durationToText } from "common/Duration";
-import { HeroWatchListButton } from "components/MovieItem";
+import {
+  HeroWatchListButton,
+} from "entities/media/public";
+import { getTrackChoices } from "entities/media/model";
 import { alpha } from "@mui/material/styles";
 import { AnimatePresence, motion } from "framer-motion";
 import { useConfirmModal } from "components/ConfirmModal";
@@ -74,7 +77,6 @@ import {
 import {
   withoutExtra,
 } from "../model/titleExtras";
-import { getTrackChoices } from "plex/mediaVersions";
 import { useCanManageServer } from "states/ServerAccess";
 import { useTitleExtras } from "../model/useTitleExtras";
 import ExpandableDescription from "./ExpandableDescription";

@@ -74,7 +74,7 @@ import {
   parseTrackPreference,
   preferenceFromStream,
   TrackPreference,
-} from "../plex/mediaVersions";
+} from "entities/media/model";
 import SubtitleSearchPanel from "../components/SubtitleSearchPanel";
 import AppDialog from "../components/AppDialog";
 import {

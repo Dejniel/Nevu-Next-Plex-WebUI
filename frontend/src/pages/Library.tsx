@@ -2,7 +2,7 @@ import { Box, CircularProgress, Grid, Typography } from "@mui/material";
 import React from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { getLibraryDir } from "../plex";
-import MovieItem from "../components/MovieItem";
+import { MediaCard } from "entities/media/public";
 
 export default function Library() {
   const { dir } = useParams() as {
@@ -65,7 +65,7 @@ export default function Library() {
                   key={item.ratingKey}
                   size={{ xs: 12, sm: 12, md: 6, lg: 4, xl: 3 }}
                 >
-                  <MovieItem item={item} />
+                  <MediaCard item={item} />
                 </Grid>
               ))}
           </Grid>

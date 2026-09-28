@@ -4,7 +4,7 @@ import { getLibraryDir } from "plex";
 import { ArrowForwardIosRounded } from "@mui/icons-material";
 import { Link, To, useLocation } from "react-router-dom";
 import { shuffleArray } from "common/ArrayExtra";
-import MovieItem from "components/MovieItem";
+import { MediaCard } from "entities/media/public";
 import {
   getLibraryCardWidth,
   LibraryCardLayout,
@@ -271,7 +271,7 @@ function MovieItemSlider({
 
             if (i >= start && i < end) {
               return (
-                <MovieItem
+                <MediaCard
                   key={item.ratingKey}
                   item={item}
                   itemsPerPage={itemsPerPage}

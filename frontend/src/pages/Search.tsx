@@ -2,7 +2,7 @@ import { Box, CircularProgress, Grid, Typography } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { getSearch } from "../plex";
-import MovieItem from "../components/MovieItem";
+import { MediaCard } from "entities/media/public";
 import { libraryBrowseTo } from "../navigation";
 
 export default function Search() {
@@ -106,7 +106,7 @@ export default function Search() {
               key={item.ratingKey}
               size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2 }}
             >
-              <MovieItem item={item} />
+              <MediaCard item={item} />
             </Grid>
           ))}
       </Grid>

@@ -1,6 +1,6 @@
 import { AuthStorage } from "../auth/AuthStorage";
 import { ProxiedRequest } from "shared/api/backend";
-import { TrackChoice, getTrackChoices } from "./mediaVersions";
+import { TrackChoice, getTrackChoices } from "entities/media/model";
 
 export type SubtitleSearchPreference = 0 | 1 | 2 | 3;
 

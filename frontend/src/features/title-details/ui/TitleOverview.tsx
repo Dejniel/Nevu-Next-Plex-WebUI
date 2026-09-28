@@ -8,7 +8,7 @@ import {
 import { ArrowForwardRounded } from "@mui/icons-material";
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import MovieItem from "components/MovieItem";
+import { MediaCard } from "entities/media/public";
 import { getTranscodeImageURL } from "plex";
 import { TitleExtra } from "../model/titleExtras";
 import ExtraPlayer from "./ExtraPlayer";
@@ -164,7 +164,7 @@ export default function TitleOverview({
           >
             {related.map((item) => (
               <Box key={item.ratingKey}>
-                <MovieItem item={item} />
+                <MediaCard item={item} />
               </Box>
             ))}
           </HorizontalRail>

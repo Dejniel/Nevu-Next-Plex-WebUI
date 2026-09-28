@@ -20,7 +20,7 @@ import {
   Typography,
 } from "@mui/material";
 import React from "react";
-import { MediaVersion } from "../plex/mediaVersions";
+import { MediaVersion } from "entities/media/model";
 import {
   defaultSubtitleSearchTitle,
   searchSubtitles,

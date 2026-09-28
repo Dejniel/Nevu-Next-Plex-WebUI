@@ -1,8 +1,6 @@
 import {
   PlayArrowRounded,
-  BookmarkBorderRounded,
   CheckCircleOutlineRounded,
-  BookmarkRounded,
   RecommendRounded,
   CheckCircleRounded,
   VolumeOffRounded,
@@ -18,7 +16,6 @@ import {
   Box,
   Typography,
   Tooltip,
-  Button,
   CircularProgress,
   LinearProgress,
   Menu,
@@ -43,30 +40,25 @@ import {
   setMediaPlayedStatus,
   LANDSCAPE_IMAGE_WIDTHS,
   POSTER_IMAGE_WIDTHS,
-} from "../plex";
-import { durationToText } from "../common/Duration";
-import {
-  useWatchListCache,
-  WatchListCacheEmitter,
-} from "../states/WatchListCache";
-import { useBigReader } from "./BigReader";
+} from "plex";
+import { durationToText } from "common/Duration";
+import { useBigReader } from "components/BigReader";
 import { create } from "zustand";
-import { usePreviewPlayer } from "../states/PreviewPlayerState";
+import { usePreviewPlayer } from "../model/PreviewPlayerState";
 import ReactPlayer from "react-player";
-import { useConfirmModal } from "./ConfirmModal";
+import { useConfirmModal } from "components/ConfirmModal";
 import { getBackendURL } from "shared/api/backend";
-import { queryBuilder } from "../plex/QuickFunctions";
-import { AuthStorage } from "../auth/AuthStorage";
-import { mediaQualityBadge } from "../plex/mediaVersions";
-import { mediaArtworkPath } from "../plex/mediaArtwork";
+import { queryBuilder } from "plex/QuickFunctions";
+import { AuthStorage } from "auth/AuthStorage";
+import { mediaQualityBadge } from "../model/mediaVersions";
+import { mediaArtworkPath } from "../model/mediaArtwork";
 import { alpha } from "@mui/material/styles";
-import type { LibraryCardDto } from "@nevu/contracts";
-import { libraryBrowseTo, mediaDetailsTo } from "../navigation";
-import StretchedLink from "./StretchedLink";
+import { libraryBrowseTo, mediaDetailsTo } from "navigation";
+import StretchedLink from "components/StretchedLink";
+import type { MediaItemData } from "../model/media";
+import { WatchListButton } from "./WatchlistButton";
 
-export type MovieItemData = Plex.Metadata | LibraryCardDto;
-
-interface MovieItemPreviewPlaybackState {
+interface MediaCardPreviewPlaybackState {
   url: string;
   playing: boolean;
   setUrl: (url: string) => void;
@@ -75,7 +67,7 @@ interface MovieItemPreviewPlaybackState {
 }
 
 export const useMovieItemPreviewPlayback =
-  create<MovieItemPreviewPlaybackState>((set) => ({
+  create<MediaCardPreviewPlaybackState>((set) => ({
     url: "",
     playing: false,
     setUrl: (url: string) => set({ url }),
@@ -83,7 +75,7 @@ export const useMovieItemPreviewPlayback =
     setState: (state: { url: string; playing: boolean }) => set(state),
   }));
 
-function MovieItem({
+function MediaCard({
   item,
   itemsPerPage,
   index,
@@ -93,7 +85,7 @@ function MovieItem({
   imageSizes,
   imageLoading = "lazy",
 }: {
-  item: MovieItemData;
+  item: MediaItemData;
   itemsPerPage?: number;
   index?: number;
   PlexTvSource?: boolean;
@@ -887,7 +879,7 @@ function MovieItem({
   );
 }
 
-export default memo(MovieItem);
+export default memo(MediaCard);
 
 function MediaTypePlaceholder({ type }: { type: string }) {
   const sx = { fontSize: "clamp(38px, 6vw, 72px)" };
@@ -897,99 +889,4 @@ function MediaTypePlaceholder({ type }: { type: string }) {
   if (type === "photo") return <PhotoOutlined sx={sx} />;
   if (["movie", "video"].includes(type)) return <MovieOutlined sx={sx} />;
   return <VideoLibraryOutlined sx={sx} />;
-}
-
-export function WatchListButton({ item }: { item: MovieItemData }) {
-  const WatchList = useWatchListCache();
-  const [isLoading, setIsLoading] = React.useState(false);
-
-  return (
-    <IconButton
-      size="small"
-      sx={{
-        backgroundColor: "rgba(18, 25, 39, 0.55)",
-        backdropFilter: "blur(12px)",
-        border: "1px solid rgba(255,255,255,0.15)",
-        color: "#fff",
-        width: "30px",
-        height: "30px",
-        pointerEvents: "auto",
-        transition: "background-color 0.2s ease",
-        "&:hover": {
-          backgroundColor: "rgba(18, 25, 39, 0.8)",
-        },
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        if (!item || isLoading) return;
-        setIsLoading(true);
-
-        WatchListCacheEmitter.once("watchListUpdate", () => {
-          setIsLoading(false);
-        });
-
-        if (WatchList.isOnWatchList(item.guid))
-          return WatchList.removeItem(item.guid);
-
-        WatchList.addItem(item as Plex.Metadata);
-      }}
-    >
-      {isLoading ? (
-        <CircularProgress size={12} color="inherit" />
-      ) : (
-        <>
-          {WatchList.isOnWatchList(item.guid) ? (
-            <BookmarkRounded sx={{ fontSize: "16px" }} />
-          ) : (
-            <BookmarkBorderRounded sx={{ fontSize: "16px" }} />
-          )}
-        </>
-      )}
-    </IconButton>
-  );
-}
-
-export function HeroWatchListButton({ item }: { item: Plex.Metadata }) {
-  const WatchList = useWatchListCache();
-  const [isLoading, setIsLoading] = React.useState(false);
-
-  const isOnWatchList = WatchList.isOnWatchList(item.guid);
-
-  return (
-    <Button
-      variant="contained"
-      sx={{
-        fontWeight: "bold",
-        letterSpacing: "0.1em",
-        textTransform: "uppercase",
-        transition: "all 0.2s ease-in-out",
-        height: "38.5px"
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        if (!item || isLoading) return;
-        setIsLoading(true);
-
-        WatchListCacheEmitter.once("watchListUpdate", () => {
-          setIsLoading(false);
-        });
-
-        if (isOnWatchList) return WatchList.removeItem(item.guid);
-
-        WatchList.addItem(item);
-      }}
-    >
-      {isLoading ? (
-        <CircularProgress size={16} color="inherit" />
-      ) : (
-        <>
-          {isOnWatchList ? (
-            <BookmarkRounded fontSize="small" />
-          ) : (
-            <BookmarkBorderRounded fontSize="small" />
-          )}
-        </>
-      )}
-    </Button>
-  );
 }

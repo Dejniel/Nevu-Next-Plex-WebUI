@@ -31,6 +31,10 @@ feature imports from that file instead of reaching into `api`, `model`, or `ui`.
 Files inside the same feature use direct relative imports so their ownership is
 visible and barrel-file cycles are avoided.
 
+Entities may additionally expose a headless `model.ts` entry point. API and
+model code should use it when importing the main `public.ts` would also load UI
+dependencies.
+
 The library module is the reference implementation:
 
 ```text

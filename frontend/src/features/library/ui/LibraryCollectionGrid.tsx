@@ -12,7 +12,7 @@ import {
   LibraryRangeSnapshot,
   useLibraryQueryRange,
 } from "../model/LibraryRangeStore";
-import MovieItem from "components/MovieItem";
+import { MediaCard } from "entities/media/public";
 import {
   getLibraryCardWidth,
   LibraryCardLayout,
@@ -395,7 +395,7 @@ function LibraryGridBody({
                 sx={{ width: `min(100%, ${model.targetCardWidth}px)`, justifySelf: "center" }}
               >
                 {item ? (
-                  <MovieItem
+                  <MediaCard
                     item={item}
                     layout={layout}
                     imageSizes={model.cardImageSizes}

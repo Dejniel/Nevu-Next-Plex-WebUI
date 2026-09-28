@@ -2,7 +2,7 @@ import { Alert, Box, CircularProgress, Grid } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getLibraryDir } from "../plex";
-import MovieItem from "./MovieItem";
+import { MediaCard } from "entities/media/public";
 import { useInView } from "react-intersection-observer";
 import { LibrarySortDropDown,
   LibrarySort,
@@ -187,7 +187,7 @@ function Element({ item, plexTv }: { item: Plex.Metadata; plexTv?: boolean }) {
   return (
     <div ref={ref}>
       {inView && (
-        <MovieItem item={item} PlexTvSource={plexTv} imageLoading="eager" />
+        <MediaCard item={item} PlexTvSource={plexTv} imageLoading="eager" />
       )}
       {!inView && (
         <Box style={{ width: "100%" }}>

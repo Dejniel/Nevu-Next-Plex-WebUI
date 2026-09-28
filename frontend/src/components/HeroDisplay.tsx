@@ -8,8 +8,10 @@ import {
 import { Box, Typography, Button, IconButton, Skeleton } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import { usePreviewPlayer } from "../states/PreviewPlayerState";
-import { HeroWatchListButton } from "./MovieItem";
+import {
+  HeroWatchListButton,
+  usePreviewPlayer,
+} from "entities/media/public";
 import {
   getResponsiveTranscodeImageProps,
   HERO_IMAGE_WIDTHS,
