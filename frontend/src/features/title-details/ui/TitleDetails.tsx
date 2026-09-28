@@ -9,11 +9,11 @@ import {
 import { PlayArrowRounded } from "@mui/icons-material";
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { getTranscodeImageURL } from "../../plex";
-import { durationToText } from "../../common/Duration";
-import { extraTypeLabel, TitleExtra } from "../../plex/discover";
+import { getTranscodeImageURL } from "plex";
+import { durationToText } from "common/Duration";
+import { extraTypeLabel, TitleExtra } from "../model/titleExtras";
 import ExtraPlayer from "./ExtraPlayer";
-import { libraryBrowseTo } from "../../navigation";
+import { libraryBrowseTo } from "navigation";
 
 function Detail({ label, value }: { label: string; value?: React.ReactNode }) {
   if (!value) return null;

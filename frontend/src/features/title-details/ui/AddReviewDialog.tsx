@@ -19,11 +19,11 @@ import {
   deleteNevuReview,
   getNevuReviews,
   updateNevuReview,
-} from "../../common/NevuReviews";
+} from "../api/reviews";
 import { config } from "app/config";
-import { setMediaRating } from "../../plex";
-import { useUserSessionStore } from "../../states/UserSession";
-import AppDialog from "../AppDialog";
+import { setMediaRating } from "plex";
+import { useUserSessionStore } from "states/UserSession";
+import AppDialog from "components/AppDialog";
 
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -35,7 +35,7 @@ function storedReviewText(message?: string) {
     : message || "";
 }
 
-function AddReviewModal({
+function AddReviewDialog({
   item,
   onClose,
   onChanged,
@@ -292,4 +292,4 @@ function AddReviewModal({
   );
 }
 
-export default AddReviewModal;
+export default AddReviewDialog;

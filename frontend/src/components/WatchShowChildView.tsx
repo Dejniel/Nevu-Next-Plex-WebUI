@@ -20,7 +20,7 @@ import {
 import React, { useEffect } from "react";
 import { useState } from "react";
 import { getLibraryDir, getTranscodeImageURL } from "../plex";
-import { getMinutes } from "./MetaScreen";
+import { getMinutes } from "features/title-details/public";
 import { Link } from "react-router-dom";
 import { mediaWatchTo } from "../navigation";
 

@@ -1,6 +1,7 @@
 import { Alert, Box, CircularProgress } from "@mui/material";
 import React, { useEffect, useRef, useState } from "react";
-import { resolveExtraURL, TitleExtra } from "../../plex/discover";
+import { resolveExtraURL } from "../api/titleExtras";
+import { TitleExtra } from "../model/titleExtras";
 
 export default function ExtraPlayer({
   extra,

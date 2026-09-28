@@ -8,8 +8,8 @@ import {
   Typography,
 } from "@mui/material";
 import React, { useState } from "react";
-import { getOriginalDownloads, OriginalDownload } from "../../plex/download";
-import { useSessionStore } from "../../states/SessionState";
+import { getOriginalDownloads, OriginalDownload } from "../api/downloads";
+import { useSessionStore } from "states/SessionState";
 
 function formatBytes(bytes?: number): string {
   if (!bytes) return "Unknown size";

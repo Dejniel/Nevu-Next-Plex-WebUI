@@ -3,7 +3,7 @@ import {
   mergeTitleExtras,
   selectPrimaryTrailer,
   withoutExtra,
-} from "./discover";
+} from "./titleExtras";
 
 function extra(
   title: string,

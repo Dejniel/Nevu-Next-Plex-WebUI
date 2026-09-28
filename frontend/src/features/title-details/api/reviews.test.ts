@@ -1,11 +1,11 @@
 import axios from "axios";
-import { AuthStorage } from "../auth/AuthStorage";
+import { AuthStorage } from "auth/AuthStorage";
 import {
   deleteNevuReview,
   getNevuReviews,
   ReviewError,
   updateNevuReview,
-} from "./NevuReviews";
+} from "./reviews";
 
 jest.mock("axios");
 

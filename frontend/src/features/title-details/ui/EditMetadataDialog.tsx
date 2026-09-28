@@ -18,8 +18,8 @@ import {
   MetadataLockUpdate,
   MetadataUpdate,
   updateMetadata,
-} from "../../plex/metadata";
-import AppDialog from "../AppDialog";
+} from "../api/metadata";
+import AppDialog from "components/AppDialog";
 
 interface MetadataDraft {
   title: string;

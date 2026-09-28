@@ -1,5 +1,5 @@
-import { AuthStorage } from "../auth/AuthStorage";
-import { getOriginalDownloads, originalFilename } from "./download";
+import { AuthStorage } from "auth/AuthStorage";
+import { getOriginalDownloads, originalFilename } from "./downloads";
 
 beforeEach(() => {
   localStorage.clear();

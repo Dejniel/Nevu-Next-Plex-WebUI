@@ -3,7 +3,7 @@ import BigReader from "components/BigReader";
 import PerPlexedSync from "components/PerPlexedSync";
 import ToastManager from "components/ToastManager";
 import LibraryScreen from "components/LibraryScreen";
-import MetaScreen from "components/MetaScreen";
+import { TitleDetailsScreen } from "features/title-details/public";
 import ConfirmModal from "components/ConfirmModal";
 import AuthGate from "components/AuthGate";
 import ProfileBootstrapGate from "components/ProfileBootstrapGate";
@@ -84,7 +84,7 @@ function App() {
       <ToastManager />
       <LibraryScreen />
       <AppTitleManager />
-      <MetaScreen />
+      <TitleDetailsScreen />
       <ConfirmModal />
       <AppRoutes />
     </>

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { fetchDiscoverExtras } from "../api/titleExtras";
 import {
-  fetchDiscoverExtras,
   mergeTitleExtras,
   selectPrimaryTrailer,
   TitleExtra,
-} from "../plex/discover";
+} from "./titleExtras";
 
 export function useTitleExtras(item?: Plex.Metadata | null) {
   const [extras, setExtras] = useState<TitleExtra[]>([]);

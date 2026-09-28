@@ -41,6 +41,10 @@ features/library/
   public.ts  exports used by the rest of the application
 ```
 
+`features/title-details` follows the same boundary for title metadata, extras,
+reviews, downloads, and the details dialog. Playback-specific subtitles and
+media-version selection remain outside it until the playback feature moves.
+
 ## API and state rules
 
 - Plex authentication headers and HTTP error conversion live in

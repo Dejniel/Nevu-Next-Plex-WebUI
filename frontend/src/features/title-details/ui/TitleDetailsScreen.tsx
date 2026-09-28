@@ -41,7 +41,7 @@ import {
   HERO_IMAGE_WIDTHS,
   setMediaPlayedStatus,
   setMediaRating,
-} from "../plex";
+} from "plex";
 import {
   CheckCircleRounded,
   PlayArrowRounded,
@@ -52,35 +52,35 @@ import {
   CheckBoxRounded,
   EditRounded,
 } from "@mui/icons-material";
-import { durationToText } from "../common/Duration";
-import { HeroWatchListButton } from "./MovieItem";
+import { durationToText } from "common/Duration";
+import { HeroWatchListButton } from "components/MovieItem";
 import { alpha } from "@mui/material/styles";
 import { AnimatePresence, motion } from "framer-motion";
-import { useConfirmModal } from "./ConfirmModal";
-import { PlexCommunity } from "../plex/plexCommunity";
+import { useConfirmModal } from "components/ConfirmModal";
+import { PlexCommunity } from "../api/plexCommunity";
 import moment from "moment";
-import AddReviewModal from "./modals/AddReviewModal";
-import { getNevuReviews } from "../common/NevuReviews";
-import TitleOverview from "./title/TitleOverview";
-import TitleDetails from "./title/TitleDetails";
-import TitleMedia from "./title/TitleMedia";
-import EditMetadataDialog from "./title/EditMetadataDialog";
-import OriginalDownloadButton from "./title/OriginalDownloadButton";
+import AddReviewDialog from "./AddReviewDialog";
+import { getNevuReviews } from "../api/reviews";
+import TitleOverview from "./TitleOverview";
+import TitleDetails from "./TitleDetails";
+import TitleMedia from "./TitleMedia";
+import EditMetadataDialog from "./EditMetadataDialog";
+import OriginalDownloadButton from "./OriginalDownloadButton";
 import {
   applyMetadataUpdate,
   MetadataLockUpdate,
   MetadataUpdate,
-} from "../plex/metadata";
+} from "../api/metadata";
 import {
   withoutExtra,
-} from "../plex/discover";
-import { getTrackChoices } from "../plex/mediaVersions";
-import { useCanManageServer } from "../states/ServerAccess";
-import { useTitleExtras } from "../hooks/useTitleExtras";
+} from "../model/titleExtras";
+import { getTrackChoices } from "plex/mediaVersions";
+import { useCanManageServer } from "states/ServerAccess";
+import { useTitleExtras } from "../model/useTitleExtras";
 import ExpandableDescription from "./ExpandableDescription";
-import AppDialog from "./AppDialog";
-import { libraryBrowseTo, mediaWatchTo } from "../navigation";
-import StretchedLink from "./StretchedLink";
+import AppDialog from "components/AppDialog";
+import { libraryBrowseTo, mediaWatchTo } from "navigation";
+import StretchedLink from "components/StretchedLink";
 
 const DESKTOP_HERO_HEIGHT = "clamp(560px, 93.333vh, 960px)";
 
@@ -118,7 +118,7 @@ function TitleScore({
   );
 }
 
-function MetaScreen() {
+function TitleDetailsScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -1117,7 +1117,7 @@ function MetaScreen() {
   );
 }
 
-export default MetaScreen;
+export default TitleDetailsScreen;
 
 function EpisodesPage({
   data,
@@ -1723,7 +1723,7 @@ function RatingButton({
   return (
     <>
       {addReviewModalOpen && item && (
-        <AddReviewModal
+        <AddReviewDialog
           item={item}
           onClose={() => setAddReviewModalOpen(false)}
           onChanged={(value) => {

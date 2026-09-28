@@ -8,11 +8,11 @@ import {
 import { ArrowForwardRounded } from "@mui/icons-material";
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import MovieItem from "../MovieItem";
-import { getTranscodeImageURL } from "../../plex";
-import { TitleExtra } from "../../plex/discover";
+import MovieItem from "components/MovieItem";
+import { getTranscodeImageURL } from "plex";
+import { TitleExtra } from "../model/titleExtras";
 import ExtraPlayer from "./ExtraPlayer";
-import { libraryBrowseTo } from "../../navigation";
+import { libraryBrowseTo } from "navigation";
 
 function SectionTitle({
   children,
