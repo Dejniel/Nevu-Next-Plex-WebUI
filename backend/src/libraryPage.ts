@@ -24,17 +24,7 @@ const filters = new Set<LibraryFilter>([
     'all', 'unwatched', 'watched', 'recentlyAdded', 'onDeck', 'newest',
 ]);
 const itemTypes = new Set<LibraryItemType>(['movie', 'show', 'episode']);
-const sorts = new Set<LibrarySort>([
-    'title:asc',
-    'title:desc',
-    'addedAt:asc',
-    'addedAt:desc',
-    'year:asc',
-    'year:desc',
-    'updated:asc',
-    'updated:desc',
-    'random:desc',
-]);
+const plexSortExpression = /^[A-Za-z][A-Za-z0-9_.]*(?::(?:asc|desc|nullsFirst|nullsLast))?(?:,[A-Za-z][A-Za-z0-9_.]*(?::(?:asc|desc|nullsFirst|nullsLast))?)*$/;
 const typeNumbers: Record<LibraryItemType, number> = {
     movie: 1,
     show: 2,
@@ -270,6 +260,14 @@ function parseInteger(value: unknown) {
     return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
+function isValidPlexSort(value: string | undefined): value is LibrarySort {
+    return Boolean(value && value.length <= 512 && plexSortExpression.test(value));
+}
+
+function isRandomSort(value: LibrarySort) {
+    return value === 'random' || value === 'random:desc';
+}
+
 function parseRequest(query: express.Request['query']): ParsedRequest | null {
     const sectionId = parseInteger(query.sectionId);
     const offset = parseInteger(query.offset);
@@ -286,10 +284,10 @@ function parseRequest(query: express.Request['query']): ParsedRequest | null {
         offset === null || offset < 0 ||
         size === null || size < 1 || size > 256 ||
         !filter || !filters.has(filter) ||
-        !sort || !sorts.has(sort) ||
+        !isValidPlexSort(sort) ||
         (type && !itemTypes.has(type)) ||
         (refreshValue !== undefined && !['true', 'false', '1', '0'].includes(refreshValue)) ||
-        (sort === 'random:desc' && (!seed || !/^[a-zA-Z0-9_-]{1,64}$/.test(seed)))
+        (isRandomSort(sort) && (!seed || !/^[a-zA-Z0-9_-]{1,64}$/.test(seed)))
     ) return null;
 
     return {
@@ -304,7 +302,9 @@ function parseRequest(query: express.Request['query']): ParsedRequest | null {
     };
 }
 
-function plexSort(sort: Exclude<LibrarySort, 'random:desc'>) {
+function plexSort(sort: LibrarySort) {
+    if (sort === 'title:asc') return 'titleSort';
+    if (sort === 'title:desc') return 'titleSort:desc';
     if (sort === 'updated:asc') return 'updatedAt:asc';
     if (sort === 'updated:desc') return 'updatedAt:desc';
     return sort;
@@ -410,7 +410,7 @@ export function createLibraryPageRouter({
                 const container = await fetchContainer(
                     token,
                     request,
-                    'title:asc',
+                    'titleSort',
                     offset,
                     RANDOM_FETCH_SIZE,
                 );
@@ -517,7 +517,7 @@ export function createLibraryPageRouter({
         res.set('Cache-Control', 'private, no-store');
         try {
             let page: LibraryPageDto;
-            if (request.sort === 'random:desc') {
+            if (isRandomSort(request.sort)) {
                 const { key, catalog } = await getRandomCatalog(token, request);
                 const orderedItems = getRandomOrder(key, catalog, request.seed as string);
                 const items = orderedItems.slice(request.offset, request.offset + request.size);

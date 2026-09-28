@@ -149,7 +149,7 @@ test("random ranges share one stable server snapshot", async () => {
   let calls = 0;
   axios.get = async (_url, config) => {
     calls += 1;
-    assert.equal(config.params.sort, "title:asc");
+    assert.equal(config.params.sort, "titleSort");
     return {
       data: {
         MediaContainer: {
@@ -177,6 +177,43 @@ test("random ranges share one stable server snapshot", async () => {
     assert.equal(calls, 1);
     assert.deepEqual([...first.body.items, ...second.body.items], expected);
     assert.equal(first.body.generationId, second.body.generationId);
+  } finally {
+    axios.get = originalGet;
+  }
+});
+
+test("accepts Plex-declared sort expressions but rejects injected parameters", async () => {
+  const originalGet = axios.get;
+  let upstreamSort;
+  axios.get = async (_url, config) => {
+    upstreamSort = config.params.sort;
+    return { data: { MediaContainer: { offset: 0, totalSize: 0 } } };
+  };
+
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex:32400" });
+    const valid = await callRouter(router, {
+      sectionId: "2",
+      filter: "all",
+      type: "episode",
+      sort: "show.titleSort:desc,season.index:nullsLast,episode.index:nullsLast",
+      offset: "0",
+      size: "64",
+    });
+    assert.equal(valid.status, 200);
+    assert.equal(
+      upstreamSort,
+      "show.titleSort:desc,season.index:nullsLast,episode.index:nullsLast",
+    );
+
+    const invalid = await callRouter(router, {
+      sectionId: "2",
+      filter: "all",
+      sort: "titleSort:asc&X-Plex-Token=other",
+      offset: "0",
+      size: "64",
+    });
+    assert.equal(invalid.status, 400);
   } finally {
     axios.get = originalGet;
   }

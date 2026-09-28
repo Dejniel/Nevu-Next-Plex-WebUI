@@ -2,6 +2,7 @@ import type {
   LibraryCardDto,
   LibraryFilter,
   LibraryItemType,
+  LibrarySort,
 } from "@nevu/contracts";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { ShuffleRounded } from "@mui/icons-material";
@@ -26,12 +27,14 @@ import {
   useLibraryCardView,
 } from "../../components/LibraryCardViewControls";
 import LibraryViewToolbar from "../../components/LibraryViewToolbar";
-import {
-  LibrarySort,
-  normalizeLibrarySort,
-} from "../../components/LibrarySortDropDown";
 import { AuthStorage } from "../../auth/AuthStorage";
 import { getLibrary } from "../../plex";
+import {
+  defaultLibrarySort,
+  isRandomLibrarySort,
+  librarySortOptions,
+  normalizeLibrarySort,
+} from "../../plex/librarySort";
 import {
   getLibraryRandomSeed,
   replaceLibraryRandomSeed,
@@ -164,6 +167,35 @@ function BrowseLibraryContent({
     [library],
   );
 
+  const activeType = React.useMemo(() => {
+    if (!library?.Type?.length) return undefined;
+    const requestedType = primaryFilter === "all" && typeFilter !== "any"
+      ? typeFilter
+      : library.Type[0].type;
+    return library.Type.find((entry) => entry.type === requestedType) || library.Type[0];
+  }, [library, primaryFilter, typeFilter]);
+  const sortOptions = React.useMemo(
+    () => librarySortOptions(activeType?.Sort),
+    [activeType],
+  );
+  const sortStorageKey = `librarySort:${libraryID}:${activeType?.type || "default"}`;
+  const effectiveSort = sortOptions.some((option) => option.value === sortBy)
+    ? sortBy
+    : defaultLibrarySort(activeType?.Sort);
+
+  useEffect(() => {
+    if (!library) return;
+    const stored = localStorage.getItem(sortStorageKey);
+    const legacy = localStorage.getItem("sortBy");
+    const next = [stored, legacy]
+      .filter((value): value is string => Boolean(value))
+      .map(normalizeLibrarySort)
+      .find((candidate) => sortOptions.some((option) => option.value === candidate)) ||
+      defaultLibrarySort(activeType?.Sort);
+    setSortBy(next);
+    localStorage.setItem(sortStorageKey, next);
+  }, [activeType, library, sortOptions, sortStorageKey]);
+
   useEffect(() => {
     if (!library || typeFilter === "any" || availableTypes.has(typeFilter)) return;
     setTypeFilter("any");
@@ -185,12 +217,12 @@ function BrowseLibraryContent({
     if (!baseQuery) return null;
     return {
       ...baseQuery,
-      sort: sortBy,
-      ...(sortBy === "random:desc" && {
+      sort: effectiveSort,
+      ...(isRandomLibrarySort(effectiveSort) && {
         seed: getLibraryRandomSeed(baseQuery.profileKey, baseQuery.sectionId),
       }),
     };
-  }, [baseQuery, seedRevision, sortBy]);
+  }, [baseQuery, effectiveSort, seedRevision]);
   const queryKey = React.useMemo(() => query ? libraryQueryKey(query) : null, [query]);
   const range = useLibraryRange(queryKey);
 
@@ -337,28 +369,20 @@ function BrowseLibraryContent({
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
               <Select
-                value={sortBy}
+                value={effectiveSort}
                 onChange={(event) => {
                   const value = event.target.value as LibrarySort;
                   setSortBy(value);
-                  localStorage.setItem("sortBy", value);
+                  localStorage.setItem(sortStorageKey, value);
                 }}
                 size="small"
                 sx={{ minWidth: 0 }}
               >
-                <MenuItem value="title:asc">Title (A-Z)</MenuItem>
-                <MenuItem value="title:desc">Title (Z-A)</MenuItem>
-                <Divider />
-                <MenuItem value="addedAt:asc">Date Added (Oldest)</MenuItem>
-                <MenuItem value="addedAt:desc">Date Added (Newest)</MenuItem>
-                <MenuItem value="year:asc">Year (Oldest)</MenuItem>
-                <MenuItem value="year:desc">Year (Newest)</MenuItem>
-                <MenuItem value="updated:asc">Date Updated (Oldest)</MenuItem>
-                <MenuItem value="updated:desc">Date Updated (Newest)</MenuItem>
-                <Divider />
-                <MenuItem value="random:desc">Random</MenuItem>
+                {sortOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                ))}
               </Select>
-              {sortBy === "random:desc" && baseQuery && (
+              {isRandomLibrarySort(effectiveSort) && baseQuery && (
                 <Tooltip title="Reshuffle">
                   <IconButton
                     size="small"
@@ -481,12 +505,67 @@ function BrowseLibraryContent({
 
 function CardSkeleton({ layout }: { layout: LibraryCardLayout }) {
   return (
-    <Box>
-      <Skeleton
-        variant="rounded"
-        sx={{ width: "100%", aspectRatio: layout === "poster" ? "2/3" : "16/9", borderRadius: "8px" }}
-      />
-      <Box sx={{ height: 60 }} />
+    <Box
+      aria-hidden
+      sx={{
+        width: "100%",
+        overflow: "hidden",
+        backgroundColor: "rgba(18, 18, 22, 0.7)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: "8px",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+      }}
+    >
+      <Box
+        sx={{
+          width: "100%",
+          aspectRatio: layout === "poster" ? "2/3" : "16/9",
+          position: "relative",
+          overflow: "hidden",
+          backgroundColor: "#17191e",
+          boxShadow:
+            "inset 0 0 0 1px rgba(255,255,255,0.05), inset 0 -32px 56px rgba(0,0,0,0.24)",
+        }}
+      >
+        <Skeleton
+          animation="pulse"
+          variant="rectangular"
+          sx={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(255,255,255,0.055)",
+          }}
+        />
+      </Box>
+      <Box
+        sx={{
+          minHeight: 60,
+          px: "11px",
+          pt: "9px",
+          pb: "10px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          gap: "6px",
+        }}
+      >
+        <Skeleton
+          animation="pulse"
+          variant="rounded"
+          width="72%"
+          height={14}
+          sx={{ backgroundColor: "rgba(255,255,255,0.11)" }}
+        />
+        <Skeleton
+          animation="pulse"
+          variant="rounded"
+          width="46%"
+          height={9}
+          sx={{ backgroundColor: "rgba(255,255,255,0.065)" }}
+        />
+      </Box>
     </Box>
   );
 }

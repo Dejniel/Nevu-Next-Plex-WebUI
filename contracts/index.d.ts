@@ -8,16 +8,7 @@ export type LibraryFilter =
 
 export type LibraryItemType = "movie" | "show" | "episode";
 
-export type LibrarySort =
-  | "title:asc"
-  | "title:desc"
-  | "addedAt:asc"
-  | "addedAt:desc"
-  | "year:asc"
-  | "year:desc"
-  | "updated:asc"
-  | "updated:desc"
-  | "random:desc";
+export type LibrarySort = string;
 
 export interface LibraryGenreDto {
   id?: number;

@@ -8,6 +8,7 @@ import type {
 } from "@nevu/contracts";
 import { useSyncExternalStore } from "react";
 import { getLibraryPage, LibraryPageError } from "../plex/libraryPage";
+import { isRandomLibrarySort } from "../plex/librarySort";
 
 export const LIBRARY_RANGE_SIZE = 64;
 const MAX_CACHED_QUERIES = 8;
@@ -156,7 +157,7 @@ export class LibraryRangeStore {
         demand: new Set(),
         consumers: 1,
         acceptAfterSequence: 0,
-        requiresCatalogRefresh: query.sort === "random:desc",
+        requiresCatalogRefresh: isRandomLibrarySort(query.sort),
         catalogRefreshInFlight: false,
         revision: 0,
         snapshot: EMPTY_SNAPSHOT,
@@ -310,7 +311,7 @@ export class LibraryRangeStore {
 
   private invalidateState(state: QueryState) {
     state.acceptAfterSequence = this.sequence;
-    state.requiresCatalogRefresh = state.query.sort === "random:desc";
+    state.requiresCatalogRefresh = isRandomLibrarySort(state.query.sort);
     state.errors.clear();
     if (state.totalSize === 0) {
       state.totalSize = null;
