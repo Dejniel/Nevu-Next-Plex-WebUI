@@ -60,7 +60,13 @@ export default function LibraryViewToolbar({
           minWidth: 0,
         }}
       >
-        <Box sx={{ gridArea: { lg: "controls" } }}>
+        <Box
+          sx={{
+            gridArea: { lg: "controls" },
+            minWidth: 0,
+            flex: { xs: "1 1 auto", lg: "initial" },
+          }}
+        >
           <LibraryCardViewControls
             layout={cardView.layout}
             size={cardView.size}

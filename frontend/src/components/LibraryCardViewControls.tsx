@@ -71,7 +71,7 @@ export function LibraryCardViewControls({
         justifyContent: "center",
         gap: { xs: 0.75, sm: 1.25 },
         minWidth: 0,
-        flex: { xs: "1 1 auto", lg: "0 0 auto" },
+        width: "100%",
       }}
     >
       <Box
@@ -79,12 +79,12 @@ export function LibraryCardViewControls({
           display: "flex",
           alignItems: "center",
           gap: 0.5,
-          minWidth: { xs: 94, sm: 180 },
+          minWidth: 0,
           maxWidth: 210,
-          flex: "1 1 auto",
+          flex: "1 1 210px",
         }}
       >
-        <GridViewRounded sx={{ fontSize: 16, opacity: 0.65 }} />
+        <GridViewRounded sx={{ fontSize: 16, opacity: 0.65, flexShrink: 0 }} />
         <Slider
           aria-label="Library card size"
           min={0}
@@ -95,15 +95,16 @@ export function LibraryCardViewControls({
           onChangeCommitted={(_, value) => onSizeCommit(value as number)}
           size="small"
           sx={{
-            minWidth: { xs: 48, sm: 90 },
+            minWidth: 0,
             maxWidth: 150,
+            flex: "1 1 90px",
             "& .MuiSlider-rail": {
               backgroundColor: "rgba(255,255,255,0.42)",
               opacity: 1,
             },
           }}
         />
-        <GridViewRounded sx={{ fontSize: 22, opacity: 0.8 }} />
+        <GridViewRounded sx={{ fontSize: 22, opacity: 0.8, flexShrink: 0 }} />
       </Box>
 
       <ToggleButtonGroup
@@ -114,6 +115,7 @@ export function LibraryCardViewControls({
           if (value) onLayoutChange(value);
         }}
         aria-label="Library card layout"
+        sx={{ flexShrink: 0 }}
       >
         <Tooltip title="Landscape cards">
           <ToggleButton value="landscape" aria-label="Landscape cards">
