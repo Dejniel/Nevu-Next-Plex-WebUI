@@ -1,7 +1,7 @@
 import { MoreVertRounded, PlayArrowRounded } from "@mui/icons-material";
 import { CircularProgress, IconButton, Tooltip } from "@mui/material";
 import { MediaCard, type MediaCardProps } from "entities/media/public";
-import { getMediaMetadata, setMediaPlayedStatus } from "entities/media/model";
+import { setMediaPlayedStatus } from "entities/media/model";
 import { useCanManageServer, useServerSession } from "features/session/public";
 import { WatchlistButton } from "features/watchlist/public";
 import React, { useEffect, useMemo, useState } from "react";
@@ -10,6 +10,10 @@ import { mediaDetailsTo } from "shared/lib/navigation";
 import { useBigReader, useConfirmModal } from "shared/ui";
 import { getOriginalDownloads } from "../model/downloads";
 import { resolvePlaybackTarget } from "../model/playbackTarget";
+import {
+  StaleMediaMetadataRequestError,
+  useLazyMediaMetadata,
+} from "../model/useLazyMediaMetadata";
 import { applyMetadataUpdate } from "../api/metadata";
 import { unmatchMetadata } from "../api/matching";
 import EditMetadataDialog from "./EditMetadataDialog";
@@ -54,48 +58,19 @@ export default function ActionableMediaCard({
   const [playLoading, setPlayLoading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [matchOpen, setMatchOpen] = useState(false);
-  const [fullMetadata, setFullMetadata] = useState<Plex.Metadata | null>(null);
-  const [metadataStatus, setMetadataStatus] = useState<
-    "idle" | "loading" | "loaded" | "failed"
-  >("idle");
-  const metadataRequest = React.useRef(0);
-  const metadataPromise = React.useRef<Promise<Plex.Metadata> | null>(null);
+  const {
+    data: fullMetadata,
+    status: metadataStatus,
+    load: loadFullMetadata,
+    invalidate: invalidateMetadata,
+    update: updateMetadata,
+  } = useLazyMediaMetadata(item);
 
   useEffect(() => {
-    metadataRequest.current += 1;
-    metadataPromise.current = null;
     setDisplayItem(item);
-    setFullMetadata(null);
-    setMetadataStatus("idle");
     setEditOpen(false);
-
-    return () => {
-      metadataRequest.current += 1;
-    };
+    setMatchOpen(false);
   }, [item]);
-
-  const loadFullMetadata = async () => {
-    if (fullMetadata) return fullMetadata;
-    if (metadataPromise.current) return metadataPromise.current;
-
-    setMetadataStatus("loading");
-    const request = ++metadataRequest.current;
-    const pending = getMediaMetadata(displayItem.ratingKey);
-    metadataPromise.current = pending;
-    try {
-      const metadata = await pending;
-      if (request !== metadataRequest.current)
-        throw new Error("The selected media item changed.");
-      setFullMetadata(metadata);
-      setMetadataStatus("loaded");
-      return metadata;
-    } catch (error) {
-      if (request === metadataRequest.current) setMetadataStatus("failed");
-      throw error;
-    } finally {
-      if (metadataPromise.current === pending) metadataPromise.current = null;
-    }
-  };
 
   const menuOpen = anchor !== null;
   const openMenu = (nextAnchor: MediaMenuAnchor) => {
@@ -154,7 +129,8 @@ export default function ActionableMediaCard({
     try {
       await loadFullMetadata();
       setEditOpen(true);
-    } catch {
+    } catch (error) {
+      if (error instanceof StaleMediaMetadataRequestError) return;
       useBigReader.getState().setBigReader(
         "Nevu could not load this item's editable metadata.",
       );
@@ -166,20 +142,16 @@ export default function ActionableMediaCard({
       title: "Unmatch metadata",
       message: `Remove the current metadata match from "${displayItem.title}"?`,
       onConfirm: async () => {
-        const request = ++metadataRequest.current;
-        metadataPromise.current = null;
-        setMetadataStatus("idle");
-        setFullMetadata(null);
         try {
+          invalidateMetadata();
           await unmatchMetadata(displayItem.ratingKey);
-          const metadata = await getMediaMetadata(displayItem.ratingKey);
-          if (request !== metadataRequest.current) return;
+          // Discard any metadata loaded while Plex was still unmatching.
+          invalidateMetadata();
+          const metadata = await loadFullMetadata();
           setDisplayItem(metadata);
-          setFullMetadata(metadata);
-          setMetadataStatus("loaded");
           refetchData?.();
-        } catch {
-          if (request !== metadataRequest.current) return;
+        } catch (error) {
+          if (error instanceof StaleMediaMetadataRequestError) return;
           useBigReader.getState().setBigReader(
             "Plex could not unmatch this item.",
           );
@@ -280,7 +252,7 @@ export default function ActionableMediaCard({
               changes,
               lockChanges,
             );
-            setFullMetadata(updated);
+            updateMetadata(updated);
             setDisplayItem(updated);
             refetchData?.();
           }}
@@ -293,16 +265,13 @@ export default function ActionableMediaCard({
           open
           onClose={() => setMatchOpen(false)}
           onMatched={(candidate) => {
-            metadataRequest.current += 1;
-            metadataPromise.current = null;
+            invalidateMetadata();
             setDisplayItem((current) => ({
               ...current,
               guid: candidate.guid,
               title: candidate.name,
               year: candidate.year ?? current.year,
             }));
-            setFullMetadata(null);
-            setMetadataStatus("idle");
             refetchData?.();
           }}
         />

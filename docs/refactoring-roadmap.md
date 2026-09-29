@@ -35,19 +35,13 @@ It is not a second rewrite and should not drive file movement for its own sake.
 
 ## Recommended next steps
 
-### 1. Extract the lazy media metadata resource
+### 1. Lazy media metadata resource — complete
 
-`ActionableMediaCard` currently owns the cached full metadata, request status,
-in-flight promise sharing, stale-response generation, and invalidation after
-Match or Unmatch.
-
-- Move that lifecycle into a focused `useLazyMediaMetadata` hook owned by
-  `features/media-actions`.
-- Expose only `data`, `status`, `load`, `invalidate`, and a local update method.
-- Keep concurrent callers on one request and prevent a response for an old card
-  from replacing the current item.
-- Cover request reuse, invalidation, failure retry, and stale responses with
-  focused tests.
+`features/media-actions/model/useLazyMediaMetadata` owns the card-local cache,
+request status, concurrent request sharing, and stale-response protection.
+The card uses `data`, `status`, `load`, `invalidate`, and `update`; Match and
+Unmatch invalidate the resource, while editing updates it locally. Focused tests
+cover request reuse, retry, invalidation, item changes, and local edits.
 
 ### 2. Model media action capabilities and watched state
 
