@@ -1,6 +1,6 @@
 import type { To } from "react-router-dom";
 
-interface AppLocation {
+export interface AppLocation {
   pathname: string;
   search: string;
   hash?: string;
