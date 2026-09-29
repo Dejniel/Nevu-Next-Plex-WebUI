@@ -33,8 +33,6 @@ import {
 import React, { JSX, useEffect, useState } from "react";
 import {
   getMediaMetadata,
-  getMediaChildren,
-  getMediaByGuid,
   getResponsiveTranscodeImageProps,
   getTranscodeImageURL,
   DETAIL_POSTER_IMAGE_WIDTHS,
@@ -54,7 +52,6 @@ import {
 } from "@mui/icons-material";
 import { durationInMinutes, durationToText } from "shared/lib/duration";
 import { HeroWatchlistButton } from "features/watchlist/public";
-import { getTrackChoices } from "entities/media/model";
 import { alpha } from "@mui/material/styles";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppDialog, StretchedLink, useConfirmModal } from "shared/ui";
@@ -79,18 +76,9 @@ import { useCanManageServer } from "features/session/public";
 import { useTitleExtras } from "../model/useTitleExtras";
 import ExpandableDescription from "./ExpandableDescription";
 import { libraryBrowseTo, mediaWatchTo } from "shared/lib/navigation";
+import { useTitleDetailsData } from "../model/useTitleDetailsData";
 
 const DESKTOP_HERO_HEIGHT = "clamp(560px, 93.333vh, 960px)";
-
-function trackLanguages(data: Plex.Metadata, streamType: 2 | 3) {
-  return Array.from(
-    new Set(
-      getTrackChoices(data, streamType)
-        .map(({ stream }) => stream.language || stream.displayTitle)
-        .filter(Boolean),
-    ),
-  );
-}
 
 function TitleScore({
   label,
@@ -123,29 +111,31 @@ function TitleDetailsScreen() {
   const canManageServer = useCanManageServer();
   const posterRef = React.useRef<HTMLDivElement>(null);
 
-  const [loading, setLoading] = useState<boolean>(true);
-  const [data, setData] = useState<Plex.Metadata | undefined>(undefined);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
   const [page, setPage] = useState<number>(0);
   const [reviewRevision, setReviewRevision] = useState(0);
-
-  const [selectedSeason, setSelectedSeason] = useState<number>(0);
-  const [episodes, setEpisodes] = useState<Plex.Metadata[] | null>();
-
-  const [languages, setLanguages] = useState<string[] | null>(null);
-  const [subTitles, setSubTitles] = useState<string[] | null>(null);
-
   const [editMetadataOpen, setEditMetadataOpen] = useState(false);
   const [metadataSaved, setMetadataSaved] = useState(false);
+
+  const mid = searchParams.get("mid");
+  const plexGuid = searchParams.get("pguid");
+  const {
+    data,
+    episodes,
+    languages,
+    loadError,
+    loading,
+    refetchEpisodes,
+    resolvedRatingKey,
+    selectedSeason,
+    setData,
+    setSelectedSeason,
+    subtitles,
+  } = useTitleDetailsData(mid, plexGuid);
   const {
     extras,
     loading: extrasLoading,
     primaryTrailer,
   } = useTitleExtras(data);
-
-  const mid = searchParams.get("mid");
-  const plexGuid = searchParams.get("pguid");
 
   const closeDetails = () => {
     const next = new URLSearchParams(searchParams);
@@ -155,140 +145,20 @@ function TitleDetailsScreen() {
   };
 
   useEffect(() => {
-    let active = true;
-    setData(undefined);
-    setLoading(true);
-    setLoadError(null);
-    setEpisodes(null);
-    setSelectedSeason(0);
-    setLanguages(null);
-    setSubTitles(null);
+    if (!resolvedRatingKey) return;
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("pguid");
+      next.set("mid", resolvedRatingKey);
+      return next;
+    }, { replace: true });
+  }, [resolvedRatingKey, setSearchParams]);
+
+  useEffect(() => {
     setPage(0);
     setEditMetadataOpen(false);
     setMetadataSaved(false);
-
-    if (!mid && !plexGuid) {
-      setLoading(false);
-      return;
-    }
-
-    if (!mid && plexGuid) {
-      void getMediaByGuid(plexGuid)
-        .then((localItem) => {
-          if (!active) return;
-          if (!localItem) {
-            setLoadError("This title is not available on this Plex server.");
-            setLoading(false);
-            return;
-          }
-
-          setSearchParams((current) => {
-            const next = new URLSearchParams(current);
-            next.delete("pguid");
-            next.set("mid", localItem.ratingKey.toString());
-            return next;
-          }, { replace: true });
-        })
-        .catch(() => {
-          if (!active) return;
-          setLoadError("Could not resolve this title on the Plex server.");
-          setLoading(false);
-        });
-
-      return () => {
-        active = false;
-      };
-    }
-
-    void getMediaMetadata(mid as string)
-      .then((res) => {
-        if (!active) return;
-        if (!res) throw new Error("Metadata not found");
-
-        const seasons = [...(res.Children?.Metadata || [])];
-        setSelectedSeason(
-          res.OnDeck?.Metadata?.parentIndex ??
-            seasons.sort((a, b) => {
-              if (a.index === 0) return 1;
-              if (b.index === 0) return -1;
-              return a.index - b.index;
-            })?.[0]?.index ??
-            1
-        );
-        setData(res);
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!active) return;
-        setLoadError("Could not load this title from the Plex server.");
-        setLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-    // Only URL identity changes should restart metadata loading.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mid, plexGuid]);
-
-  useEffect(() => {
-    if (languages || subTitles) return;
-    if (!data) return;
-
-    switch (data.type) {
-      case "show":
-        {
-          if (!episodes) return;
-
-          // get the first episode to get the languages and subtitles
-          const firstEpisode = episodes[0];
-
-          // you need to request the full metadata for the episode to get the media info
-          getMediaMetadata(firstEpisode.ratingKey).then((res) => {
-            setLanguages(trackLanguages(res, 2));
-            setSubTitles(trackLanguages(res, 3));
-          });
-        }
-        break;
-      case "movie":
-        setLanguages(trackLanguages(data, 2));
-        setSubTitles(trackLanguages(data, 3));
-        break;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data?.ratingKey, episodes]);
-
-  useEffect(() => {
-    setEpisodes(null);
-    if (!data) return;
-
-    const season = data?.Children?.Metadata?.find(
-      (child) => child.index === selectedSeason
-    );
-
-    console.log("Loading data for season", season);
-
-    if (data?.type === "show" && season?.ratingKey) {
-      getMediaChildren(season?.ratingKey as string).then((res) => {
-        setEpisodes(res);
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSeason, data]);
-
-  const refetchEpisodes = () => {
-    if (!data) return;
-
-    const season = data?.Children?.Metadata?.find(
-      (child) => child.index === selectedSeason
-    );
-
-    if (data?.type === "show" && season?.ratingKey) {
-      getMediaChildren(season?.ratingKey as string).then((res) => {
-        setEpisodes(res);
-      });
-    }
-  };
 
   const remainingExtras = withoutExtra(extras, primaryTrailer);
   const directors = (data?.Director || [])
@@ -886,7 +756,7 @@ function TitleDetailsScreen() {
                 ))}
               </Box>
 
-              <Collapse in={Boolean(languages || subTitles)}>
+              <Collapse in={Boolean(languages || subtitles)}>
                 <Box sx={{ mt: 1 }}>
                   <Box
                     sx={{
@@ -931,12 +801,12 @@ function TitleDetailsScreen() {
                       gap: 0.5,
                     }}
                   >
-                    {subTitles && subTitles.length > 0 && (
+                    {subtitles && subtitles.length > 0 && (
                       <>
                         <Typography color="text.secondary">
                           Subtitles:{" "}
                         </Typography>
-                        {subTitles.slice(0, 10).map((lang, index) => (
+                        {subtitles.slice(0, 10).map((lang, index) => (
                           <Typography
                             key={index}
                             sx={{
@@ -945,7 +815,7 @@ function TitleDetailsScreen() {
                             }}
                           >
                             {lang}
-                            {index + 1 === subTitles.slice(0, 10).length
+                            {index + 1 === subtitles.slice(0, 10).length
                               ? ""
                               : ","}
                           </Typography>
@@ -1078,7 +948,6 @@ function TitleDetailsScreen() {
                 data={data}
                 episodes={episodes}
                 refetchEpisodes={refetchEpisodes}
-                navigate={navigate}
               />
             )}
             {page === 2 && data && (
@@ -1119,12 +988,10 @@ function EpisodesPage({
   data,
   episodes,
   refetchEpisodes,
-  navigate,
 }: {
   data: Plex.Metadata | undefined;
   episodes: Plex.Metadata[] | null | undefined;
   refetchEpisodes: () => void;
-  navigate: (path: string) => void;
 }) {
   const [selectedEpisodes, setSelectedEpisodes] = useState<Plex.Metadata[]>([]);
   const [selectMode, setSelectMode] = useState<boolean>(false);
