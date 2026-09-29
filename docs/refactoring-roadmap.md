@@ -1,305 +1,93 @@
 # Frontend refactoring roadmap
 
-Status: 2026-09-29
+Status: active, incremental
 
-## Why this work exists
+The feature-based migration is complete. This roadmap covers targeted
+maintenance that lowers regression risk or makes planned product work easier.
+It is not a second rewrite and should not drive file movement for its own sake.
 
-The frontend grew around horizontal directories (`components`, `pages`,
-`plex`, and `states`). A single workflow consequently spans several unrelated
-folders, Plex requests are easy to issue directly from UI code, and changing a
-screen often requires understanding much more of the application than the
-screen itself.
+## Priorities
 
-The goal is to organize the frontend around user-visible workflows with clear
-ownership of API calls, state, domain logic, and UI. This is an incremental
-architecture migration, not a rewrite and not an attempt to minimize the line
-count at any cost.
+### Current focus
 
-The target rules and dependency direction are documented in
-[`architecture.md`](architecture.md).
-
-## Desired end state
+- Simplify reusable media actions and make their loading and permission rules
+  explicit and testable.
+- Continue reducing large composition components only when the affected area is
+  already changing for a product feature.
 
-```text
-src/
-  app/                 bootstrap, providers, routes, theme, application shell
-  entities/<entity>/   reusable domain data, model helpers, and domain UI
-  features/<feature>/  complete user workflows: API, model/state, and UI
-  shared/              domain-neutral API transport, UI primitives, utilities
-```
-
-The important outcomes are:
-
-- A workflow can be understood and changed mostly inside one feature.
-- Plex/backend requests have one owner and do not originate ad hoc in UI.
-- Code outside a feature uses its narrow `public.ts`, not internal paths.
-- Reusable media concepts live in `entities`, not in an arbitrary feature.
-- Global state is limited to genuine session/application state.
-- Legacy directories disappear as their actual consumers are migrated.
-- User-visible behavior remains stable while the structure changes.
-
-## Completed foundation
-
-### Application and library boundary
-
-Commit `c38eb63` (`Refactor frontend around feature boundaries`):
-
-- Split bootstrap, providers, routes, configuration, and theme into `app`.
-- Added the shared authenticated Plex client and backend URL module.
-- Moved the complete browse/library workflow into `features/library`.
-- Added the first documented feature boundary and public entry point.
-
-### Title details
-
-Commit `aa9277c` (`Move title details into a feature module`):
-
-- Moved metadata, extras, reviews, downloads, editing, and details UI into
-  `features/title-details`.
-- Removed the corresponding scattered component, hook, and Plex modules.
-- Exposed only the routed/details surface required by other modules.
-
-### Shared media entity
-
-Commit `c09e9cf` (`Extract the shared media entity`):
-
-- Created `entities/media` for media models, artwork/version helpers, preview
-  state, cards, and watchlist controls shared by multiple workflows.
-- Added separate `public.ts` and headless `model.ts` entry points so model/API
-  code does not accidentally load React UI.
-
-### Playback
-
-Commit `8b8956c` (`Move playback into a feature module`):
-
-- Moved the routed player, episode browser, queue controls, tuning controls,
-  subtitle search, stream requests, and presentation helpers into
-  `features/playback`.
-- Removed the old playback files and playback request functions from the
-  catch-all Plex module.
-- Kept watch-together synchronization outside playback intentionally; it is a
-  separate cross-session workflow.
-
-### Watch-together synchronization
-
-Commit `1558a2b` (`Extract watch-together synchronization feature`):
-
-- Moved the socket transport, connection state, room dialog, waiting room, and
-  synchronization notifications into `features/watch-together`.
-- Replaced direct Socket.IO access in playback with a small public controller.
-- Removed the old event emitter, unused playback cache, and scattered sync
-  components/state.
-- Added model and connection-lifecycle tests.
-
-### Playback media controller
-
-Commit `9f2a7f2` (`Extract playback media controller`):
-
-- Moved metadata loading, queue context, source URL construction, quality,
-  media-version selection, track preferences, and downloaded-subtitle
-  activation into a single playback-owned controller.
-- Added request-generation guards so stale item/source requests cannot replace
-  current playback state.
-- Kept queue/show context valid across quick source changes instead of letting
-  a quality change cancel it.
-- Extracted the playback information overlay and settings popover from the
-  routed player screen.
-- Follow-up hardening restored the intended API-to-model dependency direction,
-  gave the settings UI a narrow controller view model, and made subtitle
-  attachment stop cleanly when the active item or source changes.
-
-### Architecture guardrails
-
-- Cross-feature and cross-entity imports are checked automatically: consumers
-  use `public.ts`, or an explicitly approved root `model.ts` headless entry
-  point.
-- Layer direction is checked automatically, with only the session request
-  context allowed as an entity-to-feature dependency.
-- New root-level runtime modules are rejected so legacy horizontal buckets do
-  not grow back under new names.
-- Playback transport URL construction lives in `api`; quality, subtitle
-  contracts, and pure selection helpers live in `model`.
-
-### Playback interaction controller
-
-- Player runtime state, resume handling, volume persistence, and the minimal
-  player adapter live outside the routed screen.
-- UI controls and keyboard shortcuts execute the same playback commands for
-  play/pause, seeking, volume, fullscreen, markers, navigation, and completion.
-- Timeline and transcode-session reporting is isolated, prevents overlapping
-  requests, and cannot block navigation after a failed final report.
-- The next-episode overlay receives a typed action instead of knowing about the
-  player ref, router, and Plex query format.
-
-### Playback controls layout
-
-- The control bar, progress and volume controls, settings popover, marker
-  actions, visibility timing, and cursor behavior live in one playback-owned UI
-  component.
-- The controls consume the existing media, runtime, and command controllers;
-  they do not duplicate playback state or create another controller layer.
-- Marker presentation uses the same active-marker model as keyboard commands
-  instead of scanning metadata separately for every action.
-- The routed playback screen is now a small composition boundary responsible
-  for synchronization, errors, informational overlay timing, and mounting the
-  actual player.
-
-### Home discovery
-
-- The routed home screen, hero presentation, random hero selection, genre
-  shelves, and their Plex requests live together in `features/home`.
-- Home composes the public library shelf, media, and title-details contracts
-  instead of duplicating their card, watchlist, or trailer behavior.
-- Home requests now fail explicitly and stale results cannot replace the
-  current profile's content after settings or library navigation change.
-- The old home page, hero components, global recommendation-shelf type, and
-  Plex-level home helper were removed.
-
-### Authentication and Plex sessions
-
-- Login, Plex PIN exchange, Plex Home profile selection, persisted credentials,
-  server identity, and management capability checks live in `features/session`.
-- The active Plex user and profile now come from one session store; the old
-  duplicate user and server session stores were removed.
-- Session changes have an explicit revision used to reinitialize profile-owned
-  settings, libraries, and watchlist data without coupling the session feature
-  to those legacy stores.
-- Stale profile and server requests cannot restore data after a profile switch,
-  and unmounting the authenticated application closes Watch Together sessions.
-
-### Settings, search, and library navigation
-
-Commits `baa2456`, `fc4e5ac`, and `1f562fe`:
-
-- Moved account, playback, sharing, library administration, and user settings
-  into `features/settings`.
-- Created the reusable `entities/library` model/API boundary and moved pinning,
-  ordering, and library menu behavior into `features/library-navigation`.
-- Moved search requests, stale-response handling, result partitioning, and both
-  search entry points into `features/search`.
-
-### Application bar decomposition
-
-Commit `deea922`:
-
-- Moved search input, suggestions, keyboard navigation, and result routing into
-  `features/search`, with focused tests for route selection.
-- Moved responsive library links, overflow navigation, library action state,
-  and library reload handling into `features/library-navigation`.
-- Reduced the application bar to shell composition, account controls, and the
-  mobile drawer; desktop and mobile feature variants no longer mount together.
-
-### Title details data orchestration
-
-Commit `fd3d0a6`:
-
-- Moved title identity resolution, metadata loading, initial season selection,
-  episode loading, and track-language discovery into one feature-owned model.
-- Added cancellation guards so stale season, title, and track requests cannot
-  replace the current dialog state.
-- Removed duplicated episode fetching and covered season selection and track
-  normalization with focused tests.
-
-### Watchlist and legacy cleanup
-
-Commits `143ff6e`, `89b1557`, `c79345b`, `76a15b3`, `7c5885d`, and `a8b6ae8`:
-
-- Removed the catch-all `plex/index.ts` after assigning media, library, rating,
-  and image operations to their owners.
-- Moved Plex Discover watchlist API, profile-aware state, and watchlist UI into
-  `features/watchlist`; removed the global event emitter and stale mutation
-  races.
-- Moved the application bar and startup diagnostics into `app`, and generic
-  dialogs, links, notifications, and loading UI into `shared/ui`.
-- Split `QuickFunctions.ts` into session-owned authenticated Plex requests,
-  media include parameters, and focused shared query, platform, and identifier
-  utilities.
-- Removed the executable `components`, `pages`, `states`, `common`, and legacy
-  `plex` modules. `plex/plex.d.ts` remains only as the global Plex data contract.
-- Moved shared route builders under `shared/lib/navigation`.
-
-### Reusable media actions
-
-- Reduced the shared media card to presentation, artwork, and preview behavior.
-- Moved playback resolution, watchlist and watched-state actions, original-file
-  downloads, and reusable card menus into `features/media-actions`.
-- Added Plex metadata editing, Match/Fix Match, and Unmatch as tested,
-  manager-only workflows and split the primary title actions and rating control
-  out of the details screen.
-
-At this point `app`, `home`, `library`, `title-details`, `playback`,
-`watch-together`, `session`, `settings`, `search`, `library-navigation`, and
-`watchlist`, together with `media-actions` and the shared `media` and `library`
-entities, form the active frontend structure.
-
-## Current state and constraints
-
-- All product workflows expose public entry points. Non-UI consumers may use
-  only the explicitly approved root `model.ts` contracts checked by
-  `architectureBoundaries.test.ts`.
-- The session headless model is a deliberate cross-cutting dependency for the
-  current Plex token and request context. Do not add unrelated behavior to it.
-- `frontend/src/plex/plex.d.ts` is a type declaration, not a compatibility
-  implementation. Runtime code must not be added back under `plex`.
-- Playback intentionally consumes the public watch-together controller. It
-  must not reach into socket transport, room state internals, or sync UI.
-- `TODO.md` and `BRUDNOPIS.md` are personal, untracked planning files. Do not
-  add or rewrite them as part of this roadmap.
-
-## Next steps
-
-The structural migration is complete. Further work should be incremental and
-driven by an actual maintenance or product need rather than moving files for
-its own sake.
-
-### 1. Reduce oversized composition components
-
-When modifying them for product work, extract coherent sections from the media
-card and title-details screen. Keep state and behavior with the owning workflow;
-do not split components solely to reduce line counts.
-
-### 2. Improve Plex contracts
-
-Gradually replace the global `Plex` namespace with imported, request-specific
-types. This is intentionally separate from the feature migration because it
-has a broad compile-time surface and little immediate user-visible benefit.
-
-## Definition of done for each migration
-
-A feature migration is complete only when:
-
-1. API, model/state, and UI ownership are clear inside the feature.
-2. External imports go through `public.ts` (or an intentional headless entity
-   entry point).
-3. The old files/adapters have no callers and are removed.
-4. Pure transformations and request contracts retain focused unit tests.
-5. The full frontend test suite and production build pass.
-6. The affected workflow is smoke-tested in the disposable test container.
-7. The change is recorded as a focused local commit before starting the next
-   workflow.
-
-Avoid combining architecture migration with visual redesign or new product
-behavior. If behavior must change, make it an explicit separate commit so a
-regression can be identified and reverted independently.
-
-## Resume checklist
-
-Before continuing after a break:
-
-```bash
-git status --short
-git log -8 --oneline
-cd frontend
-npm test -- --watchAll=false
-npm run build
-```
-
-Then select one coherent maintenance or product change, inspect its callers,
-and preserve the established ownership boundary. Do not refactor solely to
-reduce file counts or line counts.
-
-Current verified baseline:
-
-- tests: 62 suites, 195 tests passing;
-- production build: passing;
-- disposable validation container: `nevu-refactor-test` on host port `3101`;
-- production `nevu-next` on port `32400` was not modified by this refactor.
+### Later
+
+- Improve request-specific Plex types and gradually retire the global `Plex`
+  namespace.
+- Revisit match state management when matching gains more criteria, providers,
+  or support for additional media types.
+
+## Working rules
+
+- Preserve the dependency direction documented in
+  [`architecture.md`](architecture.md).
+- Keep transport in `api`, pure decisions and transitions in `model`, and UI
+  coordination in `ui`.
+- Prefer one clear owner over generic abstractions shared by unrelated flows.
+- Add focused tests for pure logic and request contracts; do not refactor solely
+  to make component rendering tests possible.
+- Complete one coherent slice, remove the replaced implementation, and keep the
+  application runnable between slices.
+
+## Recommended starting slices
+
+### 1. Extract the lazy media metadata resource
+
+`ActionableMediaCard` currently owns the cached full metadata, request status,
+in-flight promise sharing, stale-response generation, and invalidation after
+Match or Unmatch.
+
+- Move that lifecycle into a focused `useLazyMediaMetadata` hook owned by
+  `features/media-actions`.
+- Expose only `data`, `status`, `load`, `invalidate`, and a local update method.
+- Keep concurrent callers on one request and prevent a response for an old card
+  from replacing the current item.
+- Cover request reuse, invalidation, failure retry, and stale responses with
+  focused tests.
+
+### 2. Model media action capabilities and watched state
+
+Rules for local versus Plex.tv items, server management, media type, matching,
+and downloads are currently evaluated in more than one UI component.
+
+- Add a pure capability model for Edit, Match, Unmatch, Download, View Similar,
+  and watched-state actions.
+- Move `isMediaWatched` out of the menu component.
+- Add a pure watched-state transition used by both cards and title details.
+- Test representative movie, show, episode, remote-source, and non-manager
+  combinations.
+
+### 3. Isolate matching state when the workflow expands
+
+The current dialog is acceptable for title, year, and language matching. Before
+adding identifier searches, provider selection, or episode matching:
+
+- move criteria, results, selection, loading, errors, and request generations
+  into a `useMetadataMatch` controller;
+- keep candidate normalization and request construction in the existing model
+  and API modules;
+- leave the dialog responsible only for rendering and user events.
+
+### 4. Reduce title-details composition incrementally
+
+`TitleDetailsScreen` remains the largest composition surface. Split it by
+coherent workflows as those workflows change, starting with tab routing and
+episode actions. Do not divide static markup into thin wrapper components only
+to reduce the line count.
+
+### 5. Improve Plex contracts gradually
+
+Replace global `Plex` types with imported request and view models one endpoint
+family at a time. Start where a product change already requires understanding a
+response shape; avoid a repository-wide type-only rewrite.
+
+## Completion criteria
+
+A refactoring slice is complete when ownership is clearer, the old path is
+removed, focused tests and the production build pass, and the affected workflow
+has been checked in the disposable test container.
