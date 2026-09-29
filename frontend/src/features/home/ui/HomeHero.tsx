@@ -15,7 +15,7 @@ import {
 import {
   getResponsiveTranscodeImageProps,
   HERO_IMAGE_WIDTHS,
-} from "plex";
+} from "entities/media/model";
 import { ExtraPlayer, useTitleExtras } from "features/title-details/public";
 import { alpha } from "@mui/material/styles";
 import { HOME_CONTENT_GUTTER, homeHeroContentSx } from "./homeHeroLayout";

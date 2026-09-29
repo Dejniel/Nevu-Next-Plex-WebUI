@@ -1,7 +1,7 @@
 import {
   getResponsiveTranscodeImageProps,
   transcodeHeight,
-} from "./images";
+} from "./mediaImages";
 
 beforeEach(() => {
   localStorage.clear();

@@ -10,9 +10,9 @@ import LibraryViewToolbar from "./LibraryViewToolbar";
 import MovieItemSlider from "./MovieItemSlider";
 import {
   getLibrary,
-  getLibraryDir,
+  getLibraryDirectory,
   getLibrarySecondary,
-} from "plex";
+} from "../api/libraryDirectories";
 import {
   matchRecommendationDirectory,
   pickPreferredTag,
@@ -50,7 +50,7 @@ async function getItems(
   props?: { [key: string]: string | number },
 ) {
   try {
-    return (await getLibraryDir(path, props)).Metadata || [];
+    return (await getLibraryDirectory(path, props)).Metadata || [];
   } catch (error) {
     console.error(`Could not load recommendation context ${path}`, error);
     return [];

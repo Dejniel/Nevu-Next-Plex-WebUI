@@ -30,7 +30,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { getTranscodeImageURL } from "../plex";
+import { getTranscodeImageURL } from "entities/media/model";
 import {
   BookmarkRounded,
   FavoriteRounded,

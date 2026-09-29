@@ -5,6 +5,7 @@ const SOURCE_ROOT = __dirname;
 const HEADLESS_FEATURE_ENTRYPOINTS = new Set([
   "session",
   "settings",
+  "library",
   "library-navigation",
   "search",
   "watch-together",

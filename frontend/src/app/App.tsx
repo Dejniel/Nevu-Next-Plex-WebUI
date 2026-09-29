@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import BigReader from "components/BigReader";
-import LibraryScreen from "components/LibraryScreen";
+import { LibraryScreen } from "features/library/public";
 import { TitleDetailsScreen } from "features/title-details/public";
 import { WatchTogetherFeature } from "features/watch-together/public";
 import {

@@ -1,16 +1,16 @@
 import { Alert, Box, CircularProgress, Grid } from "@mui/material";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { getLibraryDir } from "../plex";
 import { MediaCard } from "entities/media/public";
 import { useInView } from "react-intersection-observer";
-import { LibrarySortDropDown,
-  LibrarySort,
+import type { LibrarySort } from "@nevu/contracts";
+import LibrarySortDropDown, {
   normalizeLibrarySort,
   sortMetadata,
-} from "features/library/public";
-import { useWatchListCache } from "../states/WatchListCache";
-import AppDialog from "./AppDialog";
+} from "./LibrarySortDropDown";
+import { useWatchListCache } from "states/WatchListCache";
+import AppDialog from "components/AppDialog";
+import { getLibraryDirectory } from "../api/libraryDirectories";
 
 function LibraryScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -27,7 +27,11 @@ function LibraryScreen() {
   const bkey = searchParams.has("bkey")
     ? decodeURIComponent(searchParams.get("bkey") as string)
     : null;
-  const browseProps = parseBrowseProps(searchParams.get("bprops"));
+  const browsePropsValue = searchParams.get("bprops");
+  const browseProps = useMemo(
+    () => parseBrowseProps(browsePropsValue),
+    [browsePropsValue],
+  );
 
   const close = () => {
     const next = new URLSearchParams(searchParams);
@@ -72,7 +76,7 @@ function LibraryScreen() {
         }
         break;
       default:
-        getLibraryDir(bkey, browseProps)
+        getLibraryDirectory(bkey, browseProps)
           .then((data) => {
             setLibrary(data);
             setLoading(false);
@@ -85,7 +89,7 @@ function LibraryScreen() {
 
         break;
     }
-  }, [bkey, searchParams]);
+  }, [bkey, browseProps]);
 
   if (bkey)
     return (

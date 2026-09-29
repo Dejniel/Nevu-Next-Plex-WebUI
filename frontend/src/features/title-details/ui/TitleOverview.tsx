@@ -9,7 +9,7 @@ import { ArrowForwardRounded } from "@mui/icons-material";
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { MediaCard } from "entities/media/public";
-import { getTranscodeImageURL } from "plex";
+import { getTranscodeImageURL } from "entities/media/model";
 import { TitleExtra } from "../model/titleExtras";
 import ExtraPlayer from "./ExtraPlayer";
 import { libraryBrowseTo } from "navigation";

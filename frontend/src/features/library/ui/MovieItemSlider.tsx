@@ -1,6 +1,6 @@
 import { Alert, Box, Button, Skeleton, Typography } from "@mui/material";
 import React from "react";
-import { getLibraryDir } from "plex";
+import { getLibraryDirectory } from "../api/libraryDirectories";
 import { ArrowForwardIosRounded } from "@mui/icons-material";
 import { Link, To, useLocation } from "react-router-dom";
 import { shuffleArray } from "common/ArrayExtra";
@@ -103,7 +103,7 @@ function MovieItemSlider({
   const fetchData = async () => {
     if (!dir) return;
 
-    getLibraryDir(dir).then((res) => {
+    getLibraryDirectory(dir).then((res) => {
       if (!res.Metadata) return;
 
       setItems(shuffle ? shuffleArray(res.Metadata) : res.Metadata);

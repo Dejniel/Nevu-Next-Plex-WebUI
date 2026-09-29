@@ -23,7 +23,7 @@ import { useLibraryCardView } from "./LibraryCardViewControls";
 import { WindowLibraryCollectionGrid } from "./LibraryCollectionGrid";
 import LibraryViewToolbar from "./LibraryViewToolbar";
 import { AuthStorage } from "features/session/model";
-import { getLibrary } from "plex";
+import { getLibrary } from "../api/libraryDirectories";
 import { createLibraryFilterExpression } from "../model/libraryFilterExpression";
 import {
   LIBRARY_FILTER_MODE_PARAM,

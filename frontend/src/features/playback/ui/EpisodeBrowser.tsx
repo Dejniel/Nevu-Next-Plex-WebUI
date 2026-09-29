@@ -19,7 +19,8 @@ import {
 } from "@mui/material";
 import React, { useEffect } from "react";
 import { useState } from "react";
-import { getLibraryDir, getTranscodeImageURL } from "plex";
+import { getTranscodeImageURL } from "entities/media/model";
+import { getLibraryDirectory } from "features/library/model";
 import { durationInMinutes } from "common/Duration";
 import { Link } from "react-router-dom";
 import { mediaWatchTo } from "navigation";
@@ -48,7 +49,7 @@ function EpisodeBrowser({
 
     (async () => {
       const getSeasons = new Promise<Plex.Metadata[]>((resolve) => {
-        getLibraryDir(
+        getLibraryDirectory(
           `/library/metadata/${item.grandparentRatingKey}/children`
         ).then((data) => {
           if (!data?.Metadata) return;
@@ -57,7 +58,7 @@ function EpisodeBrowser({
       });
 
       const getEpisodes = new Promise<Plex.Metadata[]>((resolve) => {
-        getLibraryDir(
+        getLibraryDirectory(
           `/library/metadata/${item.grandparentRatingKey}/allLeaves`
         ).then((data) => {
           if (!data?.Metadata) return;

@@ -32,15 +32,16 @@ import {
   useNavigate,
 } from "react-router-dom";
 import {
-  getTranscodeImageURL,
   getResponsiveTranscodeImageProps,
-  getLibraryMeta,
-  getLibraryMetaChildren,
-  getItemByGUID,
-  setMediaPlayedStatus,
   LANDSCAPE_IMAGE_WIDTHS,
   POSTER_IMAGE_WIDTHS,
-} from "plex";
+} from "../model/mediaImages";
+import {
+  getMediaMetadata,
+  getMediaChildren,
+  getMediaByGuid,
+  setMediaPlayedStatus,
+} from "../api/media";
 import { durationToText } from "common/Duration";
 import { useBigReader } from "components/BigReader";
 import { create } from "zustand";
@@ -177,7 +178,7 @@ function MediaCard({
   useEffect(() => {
     if (hovered && previewEnabled) {
       hoverTimerRef.current = setTimeout(async () => {
-        const data = await getLibraryMeta(item.ratingKey);
+        const data = await getMediaMetadata(item.ratingKey);
         if (!data) return;
         if (hoveredRef.current === false) return;
 
@@ -226,7 +227,7 @@ function MediaCard({
 
     let PlexTvSrcData: Plex.Metadata | null = null;
     if (PlexTvSource) {
-      PlexTvSrcData = await getItemByGUID(item.guid);
+      PlexTvSrcData = await getMediaByGuid(item.guid);
 
       if (!PlexTvSrcData) {
         useBigReader
@@ -253,7 +254,7 @@ function MediaCard({
         break;
       case "show":
         {
-          const data = await getLibraryMeta(localItem.ratingKey);
+          const data = await getMediaMetadata(localItem.ratingKey);
 
           if (!data) {
             setPlayButtonLoading(false);
@@ -275,7 +276,7 @@ function MediaCard({
             if (data.Children?.size === 0 || !data.Children?.Metadata[0])
               return setPlayButtonLoading(false);
             // play first episode
-            const episodes = await getLibraryMetaChildren(
+            const episodes = await getMediaChildren(
               data.Children?.Metadata[0].ratingKey
             );
             if (episodes?.length === 0) return setPlayButtonLoading(false);

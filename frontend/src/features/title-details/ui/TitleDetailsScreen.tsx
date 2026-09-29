@@ -32,16 +32,16 @@ import {
 } from "react-router-dom";
 import React, { JSX, useEffect, useState } from "react";
 import {
-  getLibraryMeta,
-  getLibraryMetaChildren,
-  getItemByGUID,
+  getMediaMetadata,
+  getMediaChildren,
+  getMediaByGuid,
   getResponsiveTranscodeImageProps,
   getTranscodeImageURL,
   DETAIL_POSTER_IMAGE_WIDTHS,
   HERO_IMAGE_WIDTHS,
   setMediaPlayedStatus,
-  setMediaRating,
-} from "plex";
+} from "entities/media/model";
+import { setMediaRating } from "../api/rating";
 import {
   CheckCircleRounded,
   PlayArrowRounded,
@@ -177,7 +177,7 @@ function TitleDetailsScreen() {
     }
 
     if (!mid && plexGuid) {
-      void getItemByGUID(plexGuid)
+      void getMediaByGuid(plexGuid)
         .then((localItem) => {
           if (!active) return;
           if (!localItem) {
@@ -204,7 +204,7 @@ function TitleDetailsScreen() {
       };
     }
 
-    void getLibraryMeta(mid as string)
+    void getMediaMetadata(mid as string)
       .then((res) => {
         if (!active) return;
         if (!res) throw new Error("Metadata not found");
@@ -248,7 +248,7 @@ function TitleDetailsScreen() {
           const firstEpisode = episodes[0];
 
           // you need to request the full metadata for the episode to get the media info
-          getLibraryMeta(firstEpisode.ratingKey).then((res) => {
+          getMediaMetadata(firstEpisode.ratingKey).then((res) => {
             setLanguages(trackLanguages(res, 2));
             setSubTitles(trackLanguages(res, 3));
           });
@@ -275,7 +275,7 @@ function TitleDetailsScreen() {
     console.log("Loading data for season", season);
 
     if (data?.type === "show" && season?.ratingKey) {
-      getLibraryMetaChildren(season?.ratingKey as string).then((res) => {
+      getMediaChildren(season?.ratingKey as string).then((res) => {
         setEpisodes(res);
       });
     }
@@ -290,7 +290,7 @@ function TitleDetailsScreen() {
     );
 
     if (data?.type === "show" && season?.ratingKey) {
-      getLibraryMetaChildren(season?.ratingKey as string).then((res) => {
+      getMediaChildren(season?.ratingKey as string).then((res) => {
         setEpisodes(res);
       });
     }
@@ -329,7 +329,7 @@ function TitleDetailsScreen() {
     setMetadataSaved(true);
 
     if (mid)
-      void getLibraryMeta(mid)
+      void getMediaMetadata(mid)
         .then((metadata) => setData(metadata))
         .catch(() => undefined);
   };
@@ -708,7 +708,7 @@ function TitleDetailsScreen() {
                           }`
                         );
                       } else {
-                        const firstSeason = await getLibraryMetaChildren(
+                        const firstSeason = await getMediaChildren(
                           data?.Children?.Metadata[0]?.ratingKey as string
                         );
 

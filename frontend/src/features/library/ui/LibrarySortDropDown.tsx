@@ -5,7 +5,6 @@ import {
   DEFAULT_LIBRARY_SORT,
   isRandomLibrarySort,
   librarySortOptions,
-  normalizeLibrarySort,
 } from "../model/librarySort";
 
 export type { LibrarySort } from "@nevu/contracts";

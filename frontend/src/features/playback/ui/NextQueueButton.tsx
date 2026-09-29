@@ -9,7 +9,7 @@ import {
 } from "@mui/material";
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { getTranscodeImageURL } from "plex";
+import { getTranscodeImageURL } from "entities/media/model";
 
 export default function NextQueueButton({
   queue,

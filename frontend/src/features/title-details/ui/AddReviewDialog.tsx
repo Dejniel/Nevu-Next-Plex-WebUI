@@ -21,7 +21,7 @@ import {
   updateNevuReview,
 } from "../api/reviews";
 import { config } from "app/config";
-import { setMediaRating } from "plex";
+import { setMediaRating } from "../api/rating";
 import { useAuthSession } from "features/session/public";
 import AppDialog from "components/AppDialog";
 

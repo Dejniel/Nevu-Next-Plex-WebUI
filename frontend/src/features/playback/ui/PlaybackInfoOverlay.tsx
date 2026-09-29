@@ -1,6 +1,6 @@
 import { Box, Typography, useTheme } from "@mui/material";
 import { durationToText } from "common/Duration";
-import { getTranscodeImageURL } from "plex";
+import { getTranscodeImageURL } from "entities/media/model";
 
 function MediaFacts({ metadata }: { metadata: Plex.Metadata }) {
   const facts = [

@@ -1,4 +1,5 @@
 export { default as Browse } from "./ui/Browse";
+export { default as LibraryScreen } from "./ui/LibraryScreen";
 export { default as MovieItemSlider } from "./ui/MovieItemSlider";
 export {
   default as LibrarySortDropDown,
