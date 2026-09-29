@@ -1,7 +1,12 @@
 import { BookmarkBorderRounded, BookmarkRounded } from "@mui/icons-material";
-import { Button, CircularProgress, IconButton } from "@mui/material";
-import type { MediaCardProps } from "entities/media/public";
-import { MediaCard } from "entities/media/public";
+import {
+  Button,
+  CircularProgress,
+  IconButton,
+  ListItemIcon,
+  ListItemText,
+  MenuItem,
+} from "@mui/material";
 import type { MediaItemData } from "entities/media/model";
 import React from "react";
 import { useWatchlist } from "../model/watchlistStore";
@@ -12,9 +17,9 @@ function useWatchlistToggle(item: MediaItemData) {
   const remove = useWatchlist((state) => state.remove);
   const [loading, setLoading] = React.useState(false);
 
-  const toggle = async (event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
+  const toggle = async (event?: React.SyntheticEvent) => {
+    event?.preventDefault();
+    event?.stopPropagation();
     if (loading) return;
 
     setLoading(true);
@@ -90,11 +95,35 @@ export function HeroWatchlistButton({ item }: { item: Plex.Metadata }) {
   );
 }
 
-export function WatchlistMediaCard(props: MediaCardProps) {
+export function WatchlistMenuItem({
+  item,
+  onDone,
+}: {
+  item: MediaItemData;
+  onDone?: () => void;
+}) {
+  const { loading, selected, toggle } = useWatchlistToggle(item);
+
   return (
-    <MediaCard
-      {...props}
-      overlayActions={<WatchlistButton item={props.item} />}
-    />
+    <MenuItem
+      disabled={loading}
+      onClick={async (event) => {
+        await toggle(event);
+        onDone?.();
+      }}
+    >
+      <ListItemIcon>
+        {loading ? (
+          <CircularProgress size={18} color="inherit" />
+        ) : selected ? (
+          <BookmarkRounded fontSize="small" />
+        ) : (
+          <BookmarkBorderRounded fontSize="small" />
+        )}
+      </ListItemIcon>
+      <ListItemText>
+        {selected ? "Remove from Watchlist" : "Add to Watchlist"}
+      </ListItemText>
+    </MenuItem>
   );
 }

@@ -9,19 +9,16 @@ import {
   Collapse,
   Divider,
   Grid,
-  IconButton,
   LinearProgress,
   ListItemIcon,
   Menu,
   MenuItem,
   Paper,
-  Popover,
   Rating,
   Select,
   Skeleton,
   Snackbar,
   Stack,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import {
@@ -39,31 +36,26 @@ import {
   HERO_IMAGE_WIDTHS,
   setMediaPlayedStatus,
 } from "entities/media/model";
-import { setMediaRating } from "../api/rating";
 import {
   CheckCircleRounded,
   PlayArrowRounded,
   CheckCircleOutlineRounded,
-  StarRounded,
   StarOutlineRounded,
   CheckBoxOutlineBlankRounded,
   CheckBoxRounded,
-  EditRounded,
 } from "@mui/icons-material";
 import { durationInMinutes, durationToText } from "shared/lib/duration";
-import { HeroWatchlistButton } from "features/watchlist/public";
 import { alpha } from "@mui/material/styles";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppDialog, StretchedLink, useConfirmModal } from "shared/ui";
 import { PlexCommunity } from "../api/plexCommunity";
 import moment from "moment";
-import AddReviewDialog from "./AddReviewDialog";
 import { getNevuReviews } from "../api/reviews";
 import TitleOverview from "./TitleOverview";
 import TitleDetails from "./TitleDetails";
 import TitleMedia from "./TitleMedia";
 import EditMetadataDialog from "./EditMetadataDialog";
-import OriginalDownloadButton from "./OriginalDownloadButton";
+import { MatchMetadataDialog } from "features/media-actions/public";
 import {
   applyMetadataUpdate,
   MetadataLockUpdate,
@@ -77,6 +69,7 @@ import { useTitleExtras } from "../model/useTitleExtras";
 import ExpandableDescription from "./ExpandableDescription";
 import { libraryBrowseTo, mediaWatchTo } from "shared/lib/navigation";
 import { useTitleDetailsData } from "../model/useTitleDetailsData";
+import TitlePrimaryActions from "./TitlePrimaryActions";
 
 const DESKTOP_HERO_HEIGHT = "clamp(560px, 93.333vh, 960px)";
 
@@ -107,14 +100,14 @@ function TitleScore({
 function TitleDetailsScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
-  const navigate = useNavigate();
   const canManageServer = useCanManageServer();
   const posterRef = React.useRef<HTMLDivElement>(null);
 
   const [page, setPage] = useState<number>(0);
   const [reviewRevision, setReviewRevision] = useState(0);
   const [editMetadataOpen, setEditMetadataOpen] = useState(false);
-  const [metadataSaved, setMetadataSaved] = useState(false);
+  const [matchOpen, setMatchOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const mid = searchParams.get("mid");
   const plexGuid = searchParams.get("pguid");
@@ -157,7 +150,8 @@ function TitleDetailsScreen() {
   useEffect(() => {
     setPage(0);
     setEditMetadataOpen(false);
-    setMetadataSaved(false);
+    setMatchOpen(false);
+    setNotice(null);
   }, [mid, plexGuid]);
 
   const remainingExtras = withoutExtra(extras, primaryTrailer);
@@ -190,7 +184,7 @@ function TitleDetailsScreen() {
     setData((current) =>
       current ? applyMetadataUpdate(current, changes, lockChanges) : current,
     );
-    setMetadataSaved(true);
+    setNotice("Metadata saved");
 
     if (mid)
       void getMediaMetadata(mid)
@@ -544,177 +538,18 @@ function TitleDetailsScreen() {
                   mt: 2,
                 }}
               >
-                <Button
-                  variant="contained"
-                  sx={{
-                    height: "38px",
-                    fontWeight: "bold",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    gap: 1,
-                    transition: "all 0.2s ease-in-out",
-                  }}
-                  onClick={async () => {
-                    if (data?.type === "movie")
-                      navigate(
-                        `/watch/${data?.ratingKey}${
-                          data?.viewOffset ? `?t=${data?.viewOffset}` : ""
-                        }`
-                      );
-
-                    if (data?.type === "show") {
-                      if (data?.OnDeck && data?.OnDeck.Metadata) {
-                        navigate(
-                          `/watch/${data?.OnDeck.Metadata.ratingKey}${
-                            data?.OnDeck.Metadata.viewOffset
-                              ? `?t=${data?.OnDeck.Metadata.viewOffset}`
-                              : ""
-                          }`
-                        );
-                      } else {
-                        const firstSeason = await getMediaChildren(
-                          data?.Children?.Metadata[0]?.ratingKey as string
-                        );
-
-                        if (firstSeason)
-                          navigate(`/watch/${firstSeason[0].ratingKey}`);
-                      }
-                    }
-                  }}
-                >
-                  <PlayArrowRounded fontSize="medium" /> Play{" "}
-                  {data?.type === "show" &&
-                    data?.OnDeck &&
-                    data?.OnDeck.Metadata &&
-                    `${
-                      data?.Children?.size && data?.Children?.size > 1
-                        ? `S${data?.OnDeck.Metadata.parentIndex}`
-                        : ""
-                    }E${data?.OnDeck.Metadata.index}`}
-                </Button>
-
-                {data && <OriginalDownloadButton data={data} />}
-
-                <Tooltip placement="top" arrow title="Watchlist">
-                  <HeroWatchlistButton item={data as Plex.Metadata} />
-                </Tooltip>
-
-                {canManageServer && (
-                  <Tooltip placement="top" arrow title="Edit metadata">
-                    <IconButton
-                      aria-label="Edit metadata"
-                      onClick={() => setEditMetadataOpen(true)}
-                      sx={{
-                        width: 38,
-                        height: 38,
-                        borderRadius: 1,
-                        bgcolor: "rgba(18, 25, 39, 0.8)",
-                        border: "1px solid rgba(255,255,255,0.2)",
-                      }}
-                    >
-                      <EditRounded fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-
                 {data && (
-                  <RatingButton
-                    item={data}
-                    onReviewChanged={() => setReviewRevision((value) => value + 1)}
+                  <TitlePrimaryActions
+                    canManageServer={canManageServer}
+                    data={data}
+                    onDataChanged={setData}
+                    onEditMetadata={() => setEditMetadataOpen(true)}
+                    onMatch={() => setMatchOpen(true)}
+                    onReviewChanged={() =>
+                      setReviewRevision((value) => value + 1)
+                    }
                   />
                 )}
-
-                <Tooltip
-                  placement="top"
-                  arrow
-                  title={
-                    `Mark as ` +
-                    (data?.type === "movie"
-                      ? !Boolean(data?.viewCount)
-                        ? "watched"
-                        : "unwatched"
-                      : data?.viewedLeafCount === data?.leafCount
-                      ? "unwatched"
-                      : "watched")
-                  }
-                >
-                  <Button
-                    variant="contained"
-                    sx={{
-                      height: "38px",
-                      fontWeight: "bold",
-                      letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                      transition: "all 0.2s ease-in-out",
-                      display: "flex",
-                      gap: 1,
-                    }}
-                    onClick={async () => {
-                      if (!data) return;
-                      let state = "unwatched";
-
-                      if (data?.type === "movie" && (data?.viewCount ?? 0) > 0)
-                        state = "watched";
-                      if (
-                        data?.type === "show" &&
-                        data?.viewedLeafCount === data?.leafCount
-                      )
-                        state = "watched";
-
-                      useConfirmModal.getState().setModal({
-                        title: `Mark as ${
-                          state === "unwatched" ? "watched" : "unwatched"
-                        }`,
-                        message: `Are you sure you want to mark ${
-                          data?.title
-                        } as ${
-                          state === "unwatched" ? "watched" : "unwatched"
-                        }?`,
-                        onConfirm: async () => {
-                          switch (data.type) {
-                            case "movie":
-                              data.viewCount = !Boolean(data.viewCount) ? 1 : 0;
-                              setData({ ...data });
-                              await setMediaPlayedStatus(
-                                Boolean(data.viewCount),
-                                data.ratingKey
-                              );
-                              break;
-                            case "show":
-                              const newViewedLeafCount =
-                                data.viewedLeafCount === data.leafCount
-                                  ? 0
-                                  : data.leafCount;
-                              data.viewedLeafCount = newViewedLeafCount;
-                              setData({ ...data });
-                              await setMediaPlayedStatus(
-                                newViewedLeafCount === data.leafCount,
-                                data.ratingKey
-                              );
-                              break;
-                            default:
-                              break;
-                          }
-                        },
-                        onCancel: () => {},
-                      });
-                    }}
-                  >
-                    {data?.type === "movie" ? (
-                      !((data?.viewCount ?? 0) > 0) ? (
-                        <CheckCircleOutlineRounded fontSize="small" />
-                      ) : (
-                        <CheckCircleRounded fontSize="small" />
-                      )
-                    ) : data?.type === "show" ? (
-                      data?.viewedLeafCount === data?.leafCount ? (
-                        <CheckCircleRounded fontSize="small" />
-                      ) : (
-                        <CheckCircleOutlineRounded fontSize="small" />
-                      )
-                    ) : null}
-                  </Button>
-                </Tooltip>
               </Box>
 
               <Box
@@ -971,11 +806,32 @@ function TitleDetailsScreen() {
             onSaved={metadataWasSaved}
           />
         )}
+        {data && canManageServer && matchOpen && (
+          <MatchMetadataDialog
+            item={data}
+            open
+            onClose={() => setMatchOpen(false)}
+            onMatched={async (candidate) => {
+              setData((current) => current ? {
+                ...current,
+                guid: candidate.guid,
+                title: candidate.name,
+                year: candidate.year ?? current.year,
+              } : current);
+              setNotice("Match applied. Plex is refreshing metadata.");
+              try {
+                setData(await getMediaMetadata(data.ratingKey));
+              } catch {
+                // The library cache is invalidated; a later load will fetch it again.
+              }
+            }}
+          />
+        )}
         <Snackbar
-          open={metadataSaved}
+          open={Boolean(notice)}
           autoHideDuration={4000}
-          onClose={() => setMetadataSaved(false)}
-          message="Metadata saved"
+          onClose={() => setNotice(null)}
+          message={notice}
         />
       </Box>
     </AppDialog>
@@ -1566,125 +1422,6 @@ function MetaPageReviews({
         </Box>
       ) : null}
     </Box>
-  );
-}
-
-function RatingButton({
-  item,
-  onReviewChanged,
-}: {
-  item: Plex.Metadata;
-  onReviewChanged?: () => void;
-}): JSX.Element {
-  const [rating, setRating] = useState<number | null>(
-    (item.userRating && item.userRating / 2) ?? null
-  );
-
-  const [addReviewModalOpen, setAddReviewModalOpen] = useState<boolean>(false);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-
-  return (
-    <>
-      {addReviewModalOpen && item && (
-        <AddReviewDialog
-          item={item}
-          onClose={() => setAddReviewModalOpen(false)}
-          onChanged={(value) => {
-            setRating(value);
-            item.userRating = value ? value * 2 : undefined;
-            onReviewChanged?.();
-          }}
-        />
-      )}
-      <Popover
-        anchorEl={anchorEl}
-        open={anchorEl !== null}
-        onClick={() => {
-          setAnchorEl(null);
-        }}
-        anchorOrigin={{
-          vertical: "top",
-          horizontal: "center",
-        }}
-        transformOrigin={{
-          vertical: "bottom",
-          horizontal: "center",
-        }}
-        sx={{
-          "& .MuiPopover-paper": {
-            padding: 1,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 1,
-            backgroundColor: (theme) => theme.palette.background.paper,
-          },
-        }}
-      >
-        <Rating
-          name="simple-controlled"
-          value={rating}
-          precision={0.5}
-          size="large"
-          onChange={(e, v) => {
-            setRating(v);
-
-            if (v === null) return;
-
-            item.rating = v * 2;
-            setMediaRating(v * 2, item.ratingKey);
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-          }}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setRating(null);
-            item.rating = undefined;
-            setMediaRating(-1, item.ratingKey);
-          }}
-        />
-
-        <Button
-          variant="contained"
-          size="small"
-          onClick={() => {
-            setAddReviewModalOpen(true);
-            setAnchorEl(null);
-          }}
-        >
-          Add Review
-        </Button>
-      </Popover>
-      <Button
-        variant="contained"
-        sx={{
-          height: "38px",
-          fontWeight: "bold",
-          letterSpacing: "0.1em",
-          textTransform: "uppercase",
-          transition: "all 0.2s ease-in-out",
-          display: "flex",
-          gap: 1,
-        }}
-        onClick={(e) => {
-          setAnchorEl(e.currentTarget);
-        }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setRating(null);
-          item.rating = undefined;
-          setMediaRating(-1, item.ratingKey);
-        }}
-      >
-        {rating ? (
-          <StarRounded fontSize="small" />
-        ) : (
-          <StarOutlineRounded fontSize="small" />
-        )}
-      </Button>
-    </>
   );
 }
 

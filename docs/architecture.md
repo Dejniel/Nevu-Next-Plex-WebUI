@@ -69,8 +69,10 @@ Plex authentication, Plex Home selection, persisted credentials, the active
 user, server-level identity, capabilities, and authenticated Plex request
 context. `features/settings`, `features/search`,
 `features/library-navigation`, and `features/watchlist` own their corresponding
-workflows. `entities/library` owns reusable library data and administration
-requests.
+workflows. `features/media-actions` owns reusable card actions, metadata
+matching, original-file downloads, and playback-target resolution while
+the shared `MediaCard` remains presentation-focused. `entities/library` owns
+reusable library data and administration requests.
 
 `architectureBoundaries.test.ts` enforces public entry points, layer direction,
 and the absence of new root-level runtime modules. Add a headless feature

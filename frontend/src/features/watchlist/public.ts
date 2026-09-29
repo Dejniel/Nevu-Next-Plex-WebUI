@@ -2,5 +2,5 @@ export { useWatchlist } from "./model/watchlistStore";
 export {
   HeroWatchlistButton,
   WatchlistButton,
-  WatchlistMediaCard,
+  WatchlistMenuItem,
 } from "./ui/WatchlistButtons";

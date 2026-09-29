@@ -1,8 +1,5 @@
 import {
-  PlayArrowRounded,
   CheckCircleOutlineRounded,
-  RecommendRounded,
-  CheckCircleRounded,
   VolumeOffRounded,
   VolumeUpRounded,
   StarRounded,
@@ -16,34 +13,20 @@ import {
   Box,
   Typography,
   Tooltip,
-  CircularProgress,
   LinearProgress,
-  Menu,
-  MenuItem,
-  Divider,
-  ListItemIcon,
   IconButton,
   Skeleton,
 } from "@mui/material";
 import React, { JSX, memo, useEffect } from "react";
-import {
-  Link,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import {
   getResponsiveTranscodeImageProps,
   LANDSCAPE_IMAGE_WIDTHS,
   POSTER_IMAGE_WIDTHS,
 } from "../model/mediaImages";
-import {
-  getMediaMetadata,
-  getMediaChildren,
-  getMediaByGuid,
-  setMediaPlayedStatus,
-} from "../api/media";
+import { getMediaMetadata } from "../api/media";
 import { durationToText } from "shared/lib/duration";
-import { StretchedLink, useBigReader, useConfirmModal } from "shared/ui";
+import { StretchedLink } from "shared/ui";
 import { create } from "zustand";
 import { usePreviewPlayer } from "../model/PreviewPlayerState";
 import ReactPlayer from "react-player";
@@ -53,7 +36,7 @@ import { AuthStorage } from "features/session/model";
 import { mediaQualityBadge } from "../model/mediaVersions";
 import { mediaArtworkPath } from "../model/mediaArtwork";
 import { alpha } from "@mui/material/styles";
-import { libraryBrowseTo, mediaDetailsTo } from "shared/lib/navigation";
+import { mediaDetailsTo } from "shared/lib/navigation";
 import type { MediaItemData } from "../model/media";
 
 interface MediaCardPreviewPlaybackState {
@@ -78,11 +61,11 @@ export interface MediaCardProps {
   itemsPerPage?: number;
   index?: number;
   PlexTvSource?: boolean;
-  refetchData?: () => void;
   layout?: "landscape" | "poster";
   imageSizes?: string;
   imageLoading?: "eager" | "lazy";
   overlayActions?: React.ReactNode;
+  onContextMenu?: React.MouseEventHandler<HTMLDivElement>;
 }
 
 function MediaCard({
@@ -90,21 +73,14 @@ function MediaCard({
   itemsPerPage,
   index,
   PlexTvSource,
-  refetchData,
   layout = "landscape",
   imageSizes,
   imageLoading = "lazy",
   overlayActions,
+  onContextMenu,
 }: MediaCardProps): JSX.Element {
   const location = useLocation();
-  const navigate = useNavigate();
   const { MetaScreenPlayerMuted } = usePreviewPlayer();
-
-  const [playButtonLoading, setPlayButtonLoading] = React.useState(false);
-  const [contextMenu, setContextMenu] = React.useState<{
-    mouseX: number;
-    mouseY: number;
-  } | null>(null);
 
   const [hovered, setHovered] = React.useState(false);
   const hoveredRef = React.useRef(hovered);
@@ -218,221 +194,8 @@ function MediaCard({
     hoveredRef.current = hovered;
   }, [hovered]);
 
-  const handleClose = () => {
-    setContextMenu(null);
-  };
-
-  const handlePlay = async () => {
-    if (!item) return;
-    setPlayButtonLoading(true);
-
-    let PlexTvSrcData: Plex.Metadata | null = null;
-    if (PlexTvSource) {
-      PlexTvSrcData = await getMediaByGuid(item.guid);
-
-      if (!PlexTvSrcData) {
-        useBigReader
-          .getState()
-          .setBigReader(`"${item.title}" is not available on this Plex Server`);
-        return;
-      }
-    }
-
-    if (PlexTvSource && !PlexTvSrcData) return;
-
-    let localItem = PlexTvSource ? (PlexTvSrcData as Plex.Metadata) : item;
-
-    switch (item.type) {
-      case "movie":
-      case "episode":
-        navigate(
-          `/watch/${localItem.ratingKey}${
-            localItem.viewOffset ? `?t=${localItem.viewOffset}` : ""
-          }`
-        );
-
-        setPlayButtonLoading(false);
-        break;
-      case "show":
-        {
-          const data = await getMediaMetadata(localItem.ratingKey);
-
-          if (!data) {
-            setPlayButtonLoading(false);
-            return;
-          }
-
-          if (data.OnDeck?.Metadata) {
-            navigate(
-              `/watch/${data.OnDeck.Metadata.ratingKey}${
-                data.OnDeck.Metadata.viewOffset
-                  ? `?t=${data.OnDeck.Metadata.viewOffset}`
-                  : ""
-              }`
-            );
-
-            setPlayButtonLoading(false);
-            return;
-          } else {
-            if (data.Children?.size === 0 || !data.Children?.Metadata[0])
-              return setPlayButtonLoading(false);
-            // play first episode
-            const episodes = await getMediaChildren(
-              data.Children?.Metadata[0].ratingKey
-            );
-            if (episodes?.length === 0) return setPlayButtonLoading(false);
-
-            navigate(`/watch/${episodes[0].ratingKey}`);
-          }
-        }
-        break;
-    }
-  };
-
-  // 300 x 170
   return (
-    <>
-      <Menu
-        open={contextMenu !== null}
-        onClose={handleClose}
-        anchorReference="anchorPosition"
-        anchorPosition={
-          contextMenu !== null
-            ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
-            : undefined
-        }
-      >
-        <Typography
-          sx={{
-            fontSize: "1rem",
-            fontWeight: "bold",
-            px: 1,
-            maxWidth: "200px",
-            textOverflow: "ellipsis",
-            overflow: "hidden",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {item.title}
-        </Typography>
-
-        <Divider
-          sx={{
-            my: 1,
-          }}
-        />
-
-        <MenuItem
-          onClick={async (e) => {
-            e.stopPropagation();
-            await handlePlay();
-            handleClose();
-          }}
-        >
-          <ListItemIcon>
-            <PlayArrowRounded fontSize="small" />
-          </ListItemIcon>
-          Play
-        </MenuItem>
-        <MenuItem
-          component={Link}
-          to={libraryBrowseTo(
-            location,
-            `/library/metadata/${
-              item.type === "episode"
-                ? item.grandparentRatingKey
-                : item.ratingKey
-            }/similar`,
-          )}
-          onClick={handleClose}
-        >
-          <ListItemIcon>
-            <RecommendRounded fontSize="small" />
-          </ListItemIcon>
-          View Similar
-        </MenuItem>
-
-        <Divider
-          sx={{
-            my: 1,
-          }}
-        />
-
-        <MenuItem
-          onClick={async () => {
-            if (!item) return;
-
-            useConfirmModal.getState().setModal({
-              title: `Mark as Watched`,
-              message: `Are you sure you want to mark "${item.title}" as Watched?`,
-              onConfirm: async () => {
-                switch (item.type) {
-                  case "movie":
-                  case "episode":
-                    item.viewCount = 1;
-                    await setMediaPlayedStatus(true, item.ratingKey);
-                    break;
-                  case "show":
-                    item.viewedLeafCount = item.leafCount;
-                    await setMediaPlayedStatus(true, item.ratingKey);
-                    break;
-                  default:
-                    break;
-                }
-
-                handleClose();
-                refetchData?.();
-              },
-              onCancel: () => {
-                handleClose();
-              },
-            });
-          }}
-        >
-          <ListItemIcon>
-            <CheckCircleRounded fontSize="small" />
-          </ListItemIcon>
-          Mark as Watched
-        </MenuItem>
-        <MenuItem
-          onClick={async () => {
-            if (!item) return;
-
-            useConfirmModal.getState().setModal({
-              title: `Mark as Unwatched`,
-              message: `Are you sure you want to mark "${item.title}" as Unwatched?`,
-              onConfirm: async () => {
-                switch (item.type) {
-                  case "movie":
-                  case "episode":
-                    item.viewCount = 0;
-                    await setMediaPlayedStatus(false, item.ratingKey);
-                    break;
-                  case "show":
-                    item.viewedLeafCount = 0;
-                    await setMediaPlayedStatus(false, item.ratingKey);
-                    break;
-                  default:
-                    break;
-                }
-
-                handleClose();
-                refetchData?.();
-              },
-              onCancel: () => {
-                handleClose();
-              },
-            });
-          }}
-        >
-          <ListItemIcon>
-            <CheckCircleOutlineRounded fontSize="small" />
-          </ListItemIcon>
-          Mark as Unwatched
-        </MenuItem>
-      </Menu>
-
-      <Box
+    <Box
         sx={{
           display: "flex",
           flexDirection: "column",
@@ -484,17 +247,7 @@ function MediaCard({
               `0 0 0 2px ${alpha(theme.palette.primary.main, 0.7)}`,
           },
         }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setContextMenu(
-            contextMenu === null
-              ? {
-                  mouseX: e.clientX + 2,
-                  mouseY: e.clientY - 6,
-                }
-              : null
-          );
-        }}
+        onContextMenu={onContextMenu}
         onMouseEnter={() => {
           setHovered(true);
         }}
@@ -616,7 +369,7 @@ function MediaCard({
               inset: 0,
               background:
                 "linear-gradient(0deg, rgba(0,0,0,0.6) 0%, transparent 40%)",
-              opacity: 0,
+              opacity: { xs: 1, md: 0 },
               transition: "opacity 0.3s ease",
               display: "flex",
               flexDirection: "row",
@@ -628,34 +381,6 @@ function MediaCard({
               pointerEvents: "none",
             }}
           >
-            <IconButton
-              size="small"
-              sx={{
-                backgroundColor: "rgba(18, 25, 39, 0.55)",
-                backdropFilter: "blur(12px)",
-                border: "1px solid rgba(255,255,255,0.15)",
-                color: "#fff",
-                width: "30px",
-                height: "30px",
-                pointerEvents: "auto",
-                transition: "background-color 0.2s ease",
-                "&:hover": {
-                  backgroundColor: "rgba(18, 25, 39, 0.8)",
-                },
-              }}
-              disabled={playButtonLoading}
-              onClick={async (e) => {
-                e.stopPropagation();
-                await handlePlay();
-              }}
-            >
-              {playButtonLoading ? (
-                <CircularProgress size={14} color="inherit" />
-              ) : (
-                <PlayArrowRounded sx={{ fontSize: "18px" }} />
-              )}
-            </IconButton>
-
             {overlayActions}
           </Box>
 
@@ -877,7 +602,6 @@ function MediaCard({
           </Box>
         </Box>
       </Box>
-    </>
   );
 }
 

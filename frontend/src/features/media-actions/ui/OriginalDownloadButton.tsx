@@ -1,39 +1,8 @@
 import { DownloadRounded } from "@mui/icons-material";
-import {
-  Box,
-  IconButton,
-  Menu,
-  MenuItem,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import { Box, IconButton, Menu, MenuItem, Tooltip, Typography } from "@mui/material";
 import React, { useState } from "react";
-import { getOriginalDownloads, OriginalDownload } from "../api/downloads";
 import { useServerSession } from "features/session/public";
-
-function formatBytes(bytes?: number): string {
-  if (!bytes) return "Unknown size";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const index = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-    units.length - 1,
-  );
-  return `${(bytes / 1024 ** index).toFixed(index > 2 ? 1 : 0)} ${units[index]}`;
-}
-
-function downloadDetails(download: OriginalDownload): string {
-  const resolution = download.media.videoResolution
-    ? `${download.media.videoResolution}${/^\d+$/.test(download.media.videoResolution) ? "p" : ""}`
-    : null;
-  return [
-    resolution,
-    download.part.container?.toUpperCase() ||
-      download.media.container?.toUpperCase(),
-    formatBytes(download.part.size),
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
+import { formatDownloadDetails, getOriginalDownloads } from "../model/downloads";
 
 const buttonStyle = {
   width: 38,
@@ -43,11 +12,7 @@ const buttonStyle = {
   border: "1px solid rgba(255,255,255,0.2)",
 };
 
-export default function OriginalDownloadButton({
-  data,
-}: {
-  data: Plex.Metadata;
-}) {
+export default function OriginalDownloadButton({ data }: { data: Plex.Metadata }) {
   const allowDownloads = useServerSession(
     (state) => state.server?.allowSync === true,
   );
@@ -86,11 +51,7 @@ export default function OriginalDownloadButton({
           <DownloadRounded fontSize="small" />
         </IconButton>
       </Tooltip>
-      <Menu
-        anchorEl={anchor}
-        open={Boolean(anchor)}
-        onClose={() => setAnchor(null)}
-      >
+      <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
         {downloads.map((download) => (
           <MenuItem
             key={`${download.media.id}:${download.part.id}`}
@@ -104,7 +65,7 @@ export default function OriginalDownloadButton({
             <Box sx={{ minWidth: 0 }}>
               <Typography noWrap>{download.filename}</Typography>
               <Typography variant="body2" color="text.secondary">
-                {downloadDetails(download)}
+                {formatDownloadDetails(download)}
               </Typography>
             </Box>
           </MenuItem>

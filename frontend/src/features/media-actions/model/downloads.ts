@@ -8,6 +8,28 @@ export interface OriginalDownload {
   part: Plex.Part;
 }
 
+export function formatDownloadDetails(download: OriginalDownload): string {
+  const bytes = download.part.size;
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const index = bytes
+    ? Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+    : 0;
+  const size = bytes
+    ? `${(bytes / 1024 ** index).toFixed(index > 2 ? 1 : 0)} ${units[index]}`
+    : "Unknown size";
+  const resolution = download.media.videoResolution
+    ? `${download.media.videoResolution}${/^\d+$/.test(download.media.videoResolution) ? "p" : ""}`
+    : null;
+  return [
+    resolution,
+    download.part.container?.toUpperCase() ||
+      download.media.container?.toUpperCase(),
+    size,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 function fallbackFilename(data: Plex.Metadata, part: Plex.Part): string {
   const title = Array.from(
     (data.title || "plex-media").replace(/[<>:"/\\|?*]/g, "_"),
@@ -16,10 +38,7 @@ function fallbackFilename(data: Plex.Metadata, part: Plex.Part): string {
   return part.container ? `${title}.${part.container}` : title;
 }
 
-export function originalFilename(
-  data: Plex.Metadata,
-  part: Plex.Part,
-): string {
+export function originalFilename(data: Plex.Metadata, part: Plex.Part): string {
   return part.file?.split(/[\\/]/).pop() || fallbackFilename(data, part);
 }
 

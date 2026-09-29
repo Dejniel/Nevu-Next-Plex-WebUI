@@ -8,7 +8,7 @@ import {
 import { ArrowForwardRounded } from "@mui/icons-material";
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { WatchlistMediaCard } from "features/watchlist/public";
+import { ActionableMediaCard } from "features/media-actions/public";
 import { getTranscodeImageURL } from "entities/media/model";
 import { TitleExtra } from "../model/titleExtras";
 import ExtraPlayer from "./ExtraPlayer";
@@ -164,7 +164,7 @@ export default function TitleOverview({
           >
             {related.map((item) => (
               <Box key={item.ratingKey}>
-                <WatchlistMediaCard item={item} />
+                <ActionableMediaCard item={item} />
               </Box>
             ))}
           </HorizontalRail>

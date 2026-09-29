@@ -4,7 +4,7 @@ import { getLibraryDirectory } from "../api/libraryDirectories";
 import { ArrowForwardIosRounded } from "@mui/icons-material";
 import { Link, To, useLocation } from "react-router-dom";
 import { shuffleArray } from "shared/lib/arrays";
-import { WatchlistMediaCard } from "features/watchlist/public";
+import { ActionableMediaCard } from "features/media-actions/public";
 import {
   getLibraryCardWidth,
   LibraryCardLayout,
@@ -271,7 +271,7 @@ function MovieItemSlider({
 
             if (i >= start && i < end) {
               return (
-                <WatchlistMediaCard
+                <ActionableMediaCard
                   key={item.ratingKey}
                   item={item}
                   itemsPerPage={itemsPerPage}

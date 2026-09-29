@@ -1,7 +1,7 @@
 import { Alert, Box, CircularProgress, Grid } from "@mui/material";
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { WatchlistMediaCard } from "features/watchlist/public";
+import { ActionableMediaCard } from "features/media-actions/public";
 import { useInView } from "react-intersection-observer";
 import type { LibrarySort } from "@nevu/contracts";
 import LibrarySortDropDown, {
@@ -191,7 +191,7 @@ function Element({ item, plexTv }: { item: Plex.Metadata; plexTv?: boolean }) {
   return (
     <div ref={ref}>
       {inView && (
-        <WatchlistMediaCard
+        <ActionableMediaCard
           item={item}
           PlexTvSource={plexTv}
           imageLoading="eager"

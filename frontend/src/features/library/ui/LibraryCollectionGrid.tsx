@@ -12,7 +12,7 @@ import {
   LibraryRangeSnapshot,
   useLibraryQueryRange,
 } from "../model/LibraryRangeStore";
-import { WatchlistMediaCard } from "features/watchlist/public";
+import { ActionableMediaCard } from "features/media-actions/public";
 import {
   getLibraryCardWidth,
   LibraryCardLayout,
@@ -395,7 +395,7 @@ function LibraryGridBody({
                 sx={{ width: `min(100%, ${model.targetCardWidth}px)`, justifySelf: "center" }}
               >
                 {item ? (
-                  <WatchlistMediaCard
+                  <ActionableMediaCard
                     item={item}
                     layout={layout}
                     imageSizes={model.cardImageSizes}
