@@ -6,6 +6,7 @@ const HEADLESS_FEATURE_ENTRYPOINTS = new Set([
   "session",
   "settings",
   "library-navigation",
+  "search",
   "watch-together",
 ]);
 const SOURCE_EXTENSION = /\.(ts|tsx)$/;

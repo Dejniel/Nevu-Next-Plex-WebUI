@@ -1,52 +1,19 @@
-import { Box, CircularProgress, Grid, Typography } from "@mui/material";
-import React, { useEffect, useState } from "react";
+import { Alert, Box, CircularProgress, Grid, Typography } from "@mui/material";
+import React, { useMemo } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import { getSearch } from "../plex";
 import { MediaCard } from "entities/media/public";
-import { libraryBrowseTo } from "../navigation";
+import { libraryBrowseTo } from "navigation";
+import { partitionSearchResults } from "../model/searchResults";
+import { usePlexSearch } from "../model/usePlexSearch";
 
-export default function Search() {
+export default function SearchScreen() {
   const { query } = useParams();
   const location = useLocation();
-
-  const [results, setResults] = useState<Plex.Metadata[] | null>(null);
-  const [directories, setDirectories] = useState<Plex.Directory[] | null>(null);
-
-  useEffect(() => {
-    setResults(null);
-    setDirectories(null);
-
-    if (!query) return;
-
-    const delayDebounceFn = setTimeout(() => {
-      getSearch(query).then((res) => {
-        if (!res) return setResults([]);
-        setResults(
-          res
-            .filter(
-              (item) =>
-                item.Metadata && ["movie", "show"].includes(item.Metadata.type)
-            )
-            .map((item) => item.Metadata)
-            .filter(
-              (metadata): metadata is Plex.Metadata => metadata !== undefined
-            )
-        );
-
-        setDirectories(
-          res
-            .filter((item) => item.Directory)
-            .map((item) => item.Directory)
-            .filter(
-              (directory): directory is Plex.Directory =>
-                directory !== undefined
-            )
-        );
-      });
-    }, 500); // Adjust the delay as needed
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [query]);
+  const search = usePlexSearch(query ?? "");
+  const { media, directories } = useMemo(
+    () => partitionSearchResults(search.results),
+    [search.results],
+  );
 
   return (
     <Box
@@ -75,10 +42,11 @@ export default function Search() {
         )}
       </Typography>
 
-      {!results && <CircularProgress sx={{ mt: 4 }} />}
+      {search.loading && <CircularProgress sx={{ mt: 4 }} />}
+      {search.error && <Alert severity="error" sx={{ mt: 3 }}>{search.error}</Alert>}
 
       <Grid container spacing={2} sx={{ mt: 2, width: "100%" }}>
-        {directories && directories.length > 0 && (
+        {directories.length > 0 && (
           <>
             <Grid key={"dir"} size={{ xs: 12 }}>
               <Typography variant="h4">Categories</Typography>
@@ -100,8 +68,8 @@ export default function Search() {
           </>
         )}
 
-        {results &&
-          results.map((item) => (
+        {!search.loading &&
+          media.map((item) => (
             <Grid
               key={item.ratingKey}
               size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2 }}

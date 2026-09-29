@@ -63,30 +63,6 @@ export async function getLibraryMetaChildren(id: string): Promise<Plex.Metadata[
 }
 
 /**
- * Fetches search results from the Plex library based on the provided query.
- *
- * @param query - The search query string.
- * @returns A promise that resolves to an array of Plex search results.
- *
- * The function constructs a URL with the search query and additional parameters,
- * including collections, extras, search types (movies, other videos, TV), and a limit of 100 results.
- * It also includes the Plex access token from local storage for authentication.
- *
- * @throws Will throw an error if the request fails.
- */
-export async function getSearch(query: string): Promise<Plex.SearchResult[]> {
-    const res = await authedGet(`/library/search?${queryBuilder({
-        query,
-        "includeCollections": 1,
-        "includeExtras": 1,
-        "searchTypes": "movies,otherVideos,tv",
-        "limit": 100,
-        "X-Plex-Token": AuthStorage.getServerToken() as string
-    })}`);
-    return res.MediaContainer.SearchResult;
-}
-
-/**
  * Sets the media played status for a given rating key.
  *
  * This function sends a request to either scrobble or unscrobble a media item

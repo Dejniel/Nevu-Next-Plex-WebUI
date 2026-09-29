@@ -30,7 +30,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { getSearch, getTranscodeImageURL } from "../plex";
+import { getTranscodeImageURL } from "../plex";
 import {
   BookmarkRounded,
   FavoriteRounded,
@@ -62,6 +62,7 @@ import {
   normalizeLibraryNavigation,
   NavigationLibrary,
 } from "features/library-navigation/public";
+import { searchSuggestions, usePlexSearch } from "features/search/model";
 import { libraryBrowseTo, mediaDetailsTo } from "../navigation";
 import StretchedLink from "./StretchedLink";
 
@@ -574,10 +575,12 @@ function SearchBar({ onResultSelected, inDrawer }: { onResultSelected?: () => vo
   const searchOpen = Boolean(searchAnchorEl);
   const searchAnchorElRef = React.useRef<HTMLElement | null>(null);
   const [searchValue, setSearchValue] = React.useState("");
-  const [searchResults, setSearchResults] = React.useState<Plex.SearchResult[]>(
-    []
+  const search = usePlexSearch(searchValue);
+  const searchResults = React.useMemo(
+    () => searchSuggestions(search.results),
+    [search.results],
   );
-  const [searchLoading, setSearchLoading] = React.useState(false);
+  const searchLoading = search.loading;
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -613,44 +616,7 @@ function SearchBar({ onResultSelected, inDrawer }: { onResultSelected?: () => vo
     searchAnchorElRef.current = searchAnchorEl;
   }, [searchAnchorEl]);
 
-  useEffect(() => {
-    setSelectedIndex(null);
-    if (searchValue.length === 0) {
-      setSearchResults([]);
-      return;
-    }
-
-    setSearchLoading(true);
-
-    const delayDebounceFn = setTimeout(() => {
-      getSearch(searchValue).then((res) => {
-        if (!res) {
-          setSearchLoading(false);
-          return setSearchResults([]);
-        }
-        setSearchResults(
-          res
-            .filter(
-              (item) =>
-                (item.Metadata &&
-                  ["movie", "show"].includes(item.Metadata.type)) ||
-                item.Directory
-            )
-            .sort((a, b) => {
-              // directories first
-              if (a.Directory && !b.Directory) return -1;
-              if (!a.Directory && b.Directory) return 1;
-              return 0;
-            })
-            .slice(0, 8)
-        );
-
-        setSearchLoading(false);
-      });
-    }, 500); // Adjust the delay as needed
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchValue]);
+  useEffect(() => setSelectedIndex(null), [searchValue]);
 
   return (
     <>
