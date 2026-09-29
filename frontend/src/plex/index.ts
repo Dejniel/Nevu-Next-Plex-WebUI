@@ -31,14 +31,6 @@ export async function getLibrary(key: string): Promise<Plex.MediaContainer> {
 }
 
 /**
- * @deprecated This function is deprecated. Use `getLibraryDir` instead.
- */
-export async function getLibraryMedia(path: string): Promise<Plex.Metadata[]> {
-    const res = await authedGet(`/library${path}`);
-    return res.MediaContainer.Metadata;
-}
-
-/**
  * Fetches the items from the library directory.
  *
  * @param {string} key - The uri to identify the library directory. e.g. /library/sections/1/all
@@ -75,21 +67,6 @@ export async function getLibraryMetaChildren(id: string): Promise<Plex.Metadata[
     return res.MediaContainer.Metadata;
 
 }
-
-export async function getSimilar(id: string): Promise<Plex.Metadata[]> {
-    if (!id) return [];
-    const res = await authedGet(`/library/metadata/${id}/similar?${queryBuilder({
-        limit: 10,
-        excludeFields: "summary",
-        includeMarkerCounts: 1,
-        includeRelated: 1,
-        includeExternalMedia: 1,
-        async: 1,
-        ...getXPlexProps()
-    })}`);
-    return res.MediaContainer.Metadata;
-}
-
 
 /**
  * Fetches search results from the Plex library based on the provided query.

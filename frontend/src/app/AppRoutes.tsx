@@ -3,7 +3,6 @@ import { Route, Routes } from "react-router-dom";
 import AppBar from "components/AppBar";
 import { HomeScreen } from "features/home/public";
 import { Browse } from "features/library/public";
-import Library from "pages/Library";
 import Search from "pages/Search";
 import Settings from "pages/Settings";
 import { PlaybackScreen } from "features/playback/public";
@@ -24,10 +23,6 @@ export default function AppRoutes() {
           <Route path="/watch/:itemID" element={<PlaybackScreen />} />
           <Route path="/search/:query?" element={<Search />} />
           <Route path="/sync/waitingroom" element={<WaitingRoomScreen />} />
-          <Route
-            path="/library/:libraryKey/dir/:dir/:subdir?"
-            element={<Library />}
-          />
           <Route path="/settings/*" element={<Settings />} />
         </Routes>
       </Box>
