@@ -20,15 +20,15 @@ import {
 } from "../api/playback";
 import {
   downloadSubtitle,
-  findAttachedSubtitle,
-  SubtitleSearchResult,
 } from "../api/subtitles";
+import { buildPlaybackSourceUrl } from "../api/playbackSource";
 import {
-  buildPlaybackSourceUrl,
   parseStoredPlaybackQuality,
   persistPlaybackQuality,
-  PlaybackQuality,
-} from "./playbackSource";
+} from "./playbackQuality";
+import type { PlaybackQuality } from "./playbackQuality";
+import { findAttachedSubtitle } from "./subtitles";
+import type { SubtitleSearchResult } from "./subtitles";
 
 interface PlaybackMediaOptions {
   itemID?: string;
@@ -335,15 +335,27 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     if (!itemID || !metadata || !activeVersion)
       throw new Error("No active media file is available.");
 
-    await downloadSubtitle(metadata.ratingKey, activeVersion.media.id, subtitle);
+    const operationID = operation.current;
+    const mediaItemID = activeVersion.media.id;
+    await downloadSubtitle(metadata.ratingKey, mediaItemID, subtitle);
     for (let attempt = 0; attempt < 40; attempt += 1) {
+      if (
+        operation.current !== operationID ||
+        callbacks.current.itemID !== itemID
+      )
+        return;
       if (attempt > 0)
         await new Promise((resolve) => window.setTimeout(resolve, 500));
+      if (
+        operation.current !== operationID ||
+        callbacks.current.itemID !== itemID
+      )
+        return;
       const refreshed = await getPlaybackMetadata(itemID);
       if (!refreshed) continue;
       const choice = findAttachedSubtitle(
         refreshed,
-        activeVersion.media.id,
+        mediaItemID,
         subtitle,
       );
       if (!choice) continue;
@@ -361,7 +373,6 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     playQueue,
     url,
     quality,
-    activeMediaIndex,
     activeVersion,
     mediaVersions,
     audioChoices,
@@ -374,3 +385,5 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     downloadOnDemandSubtitle,
   };
 }
+
+export type PlaybackMediaController = ReturnType<typeof usePlaybackMedia>;

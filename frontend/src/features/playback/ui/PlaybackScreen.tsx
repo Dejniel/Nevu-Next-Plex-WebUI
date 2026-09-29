@@ -72,24 +72,7 @@ function PlaybackScreen() {
   const [buffering, setBuffering] = useState(false);
   const [showError, setShowError] = useState<string | false>(false);
 
-  const {
-    metadata,
-    showMetadata,
-    playQueue,
-    url,
-    quality,
-    activeMediaIndex,
-    activeVersion,
-    mediaVersions,
-    audioChoices,
-    subtitleChoices,
-    selectQuality,
-    selectMediaVersion,
-    selectAudioTrack,
-    selectSubtitleTrack,
-    disableSubtitles,
-    downloadOnDemandSubtitle,
-  } = usePlaybackMedia({
+  const playbackMedia = usePlaybackMedia({
     itemID,
     getCurrentTime: () => player.current?.getCurrentTime() ?? 0,
     onSourceChanging: () => setReady(false),
@@ -98,6 +81,12 @@ function PlaybackScreen() {
     },
     setError: setShowError,
   });
+  const {
+    metadata,
+    showMetadata,
+    playQueue,
+    url,
+  } = playbackMedia;
 
   const {
     room,
@@ -444,20 +433,8 @@ function PlaybackScreen() {
         <PlaybackSettingsPopover
           open={showTune}
           anchorEl={tuneButtonRef.current}
-          metadata={metadata}
-          activeMediaIndex={activeMediaIndex}
-          activeVersion={activeVersion}
-          mediaVersions={mediaVersions}
-          audioChoices={audioChoices}
-          subtitleChoices={subtitleChoices}
-          quality={quality}
+          media={playbackMedia}
           onClose={() => setShowTune(false)}
-          onSelectQuality={selectQuality}
-          onSelectMediaVersion={selectMediaVersion}
-          onSelectAudioTrack={selectAudioTrack}
-          onSelectSubtitleTrack={selectSubtitleTrack}
-          onDisableSubtitles={disableSubtitles}
-          onDownloadSubtitle={downloadOnDemandSubtitle}
         />
         {(() => {
           if (!metadata) return <CenteredSpinner />;

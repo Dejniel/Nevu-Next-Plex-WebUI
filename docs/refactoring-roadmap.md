@@ -103,6 +103,17 @@ Commit `9f2a7f2` (`Extract playback media controller`):
   a quality change cancel it.
 - Extracted the playback information overlay and settings popover from the
   routed player screen.
+- Follow-up hardening restored the intended API-to-model dependency direction,
+  gave the settings UI a narrow controller view model, and made subtitle
+  attachment stop cleanly when the active item or source changes.
+
+### Architecture guardrails
+
+- Cross-feature and cross-entity imports are checked automatically: consumers
+  use `public.ts`, or an explicitly approved root `model.ts` headless entry
+  point.
+- Playback transport URL construction lives in `api`; quality, subtitle
+  contracts, and pure selection helpers live in `model`.
 
 At this point `app`, `library`, `title-details`, `playback`,
 `watch-together`, and the shared `media` entity form the reference structure
@@ -240,7 +251,7 @@ directory.
 
 Current verified baseline:
 
-- tests: 37 suites, 138 tests passing;
+- tests: 40 suites, 141 tests passing;
 - production build: passing;
 - disposable validation container: `nevu-refactor-test` on host port `3101`;
 - production `nevu-next` on port `32400` was not modified by this refactor.

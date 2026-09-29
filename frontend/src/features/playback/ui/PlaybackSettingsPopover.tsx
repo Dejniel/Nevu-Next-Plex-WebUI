@@ -1,14 +1,9 @@
 import { SearchRounded } from "@mui/icons-material";
 import { alpha, Divider, Paper, Popover, useTheme } from "@mui/material";
 import { useEffect, useState } from "react";
-import {
-  MediaVersion,
-  mediaVersionDetails,
-  TrackChoice,
-} from "entities/media/model";
-import { SubtitleSearchResult } from "../api/subtitles";
+import { mediaVersionDetails } from "entities/media/model";
 import { getPlaybackQualityOptions } from "../model/playbackPresentation";
-import { PlaybackQuality } from "../model/playbackSource";
+import type { PlaybackMediaController } from "../model/usePlaybackMedia";
 import SubtitleSearchPanel from "./SubtitleSearchPanel";
 import {
   tuneSettingTab,
@@ -17,45 +12,51 @@ import {
   TuneSectionLabel,
 } from "./TuneControls";
 
+type PlaybackSettingsMedia = Pick<
+  PlaybackMediaController,
+  | "metadata"
+  | "activeVersion"
+  | "mediaVersions"
+  | "audioChoices"
+  | "subtitleChoices"
+  | "quality"
+  | "selectQuality"
+  | "selectMediaVersion"
+  | "selectAudioTrack"
+  | "selectSubtitleTrack"
+  | "disableSubtitles"
+  | "downloadOnDemandSubtitle"
+>;
+
 interface PlaybackSettingsPopoverProps {
   open: boolean;
   anchorEl: HTMLElement | null;
-  metadata: Plex.Metadata | null;
-  activeMediaIndex: number;
-  activeVersion?: MediaVersion;
-  mediaVersions: MediaVersion[];
-  audioChoices: TrackChoice[];
-  subtitleChoices: TrackChoice[];
-  quality: PlaybackQuality;
+  media: PlaybackSettingsMedia;
   onClose: () => void;
-  onSelectQuality: (quality: PlaybackQuality) => Promise<void>;
-  onSelectMediaVersion: (version: MediaVersion) => Promise<void>;
-  onSelectAudioTrack: (choice: TrackChoice) => Promise<void>;
-  onSelectSubtitleTrack: (choice: TrackChoice) => Promise<unknown>;
-  onDisableSubtitles: () => Promise<void>;
-  onDownloadSubtitle: (subtitle: SubtitleSearchResult) => Promise<void>;
 }
 
 export default function PlaybackSettingsPopover({
   open,
   anchorEl,
-  metadata,
-  activeMediaIndex,
-  activeVersion,
-  mediaVersions,
-  audioChoices,
-  subtitleChoices,
-  quality,
+  media,
   onClose,
-  onSelectQuality,
-  onSelectMediaVersion,
-  onSelectAudioTrack,
-  onSelectSubtitleTrack,
-  onDisableSubtitles,
-  onDownloadSubtitle,
 }: PlaybackSettingsPopoverProps) {
   const theme = useTheme();
   const [page, setPage] = useState(0);
+  const {
+    metadata,
+    activeVersion,
+    mediaVersions,
+    audioChoices,
+    subtitleChoices,
+    quality,
+    selectQuality,
+    selectMediaVersion,
+    selectAudioTrack,
+    selectSubtitleTrack,
+    disableSubtitles,
+    downloadOnDemandSubtitle,
+  } = media;
 
   useEffect(() => {
     if (!open) setPage(0);
@@ -104,12 +105,15 @@ export default function PlaybackSettingsPopover({
                 {mediaVersions.map((version) => (
                   <TuneOption
                     key={version.media.id || version.mediaIndex}
-                    selected={version.mediaIndex === activeMediaIndex}
+                    selected={
+                      version.mediaIndex === activeVersion.mediaIndex &&
+                      version.partIndex === activeVersion.partIndex
+                    }
                     primary={`Version ${version.mediaIndex + 1}`}
                     secondary={mediaVersionDetails(version)}
                     onClick={() => {
                       setPage(0);
-                      void onSelectMediaVersion(version);
+                      void selectMediaVersion(version);
                     }}
                   />
                 ))}
@@ -128,7 +132,7 @@ export default function PlaybackSettingsPopover({
                 secondary={qualityOption.extra}
                 onClick={() => {
                   setPage(0);
-                  void onSelectQuality({
+                  void selectQuality({
                     bitrate: qualityOption.original
                       ? undefined
                       : qualityOption.bitrate,
@@ -146,7 +150,8 @@ export default function PlaybackSettingsPopover({
               <TuneOption
                 key={`${choice.mediaIndex}:${choice.part.id}:${choice.stream.id}`}
                 selected={
-                  choice.mediaIndex === activeMediaIndex &&
+                  choice.mediaIndex === activeVersion.mediaIndex &&
+                  choice.partIndex === activeVersion.partIndex &&
                   Boolean(choice.stream.selected)
                 }
                 primary={
@@ -161,7 +166,7 @@ export default function PlaybackSettingsPopover({
                 }
                 onClick={() => {
                   setPage(0);
-                  void onSelectAudioTrack(choice);
+                  void selectAudioTrack(choice);
                 }}
               />
             ))}
@@ -180,14 +185,15 @@ export default function PlaybackSettingsPopover({
               primary="None"
               onClick={() => {
                 setPage(0);
-                void onDisableSubtitles();
+                void disableSubtitles();
               }}
             />
             {subtitleChoices.map((choice) => (
               <TuneOption
                 key={`${choice.mediaIndex}:${choice.part.id}:${choice.stream.id}`}
                 selected={
-                  choice.mediaIndex === activeMediaIndex &&
+                  choice.mediaIndex === activeVersion.mediaIndex &&
+                  choice.partIndex === activeVersion.partIndex &&
                   Boolean(choice.stream.selected)
                 }
                 primary={
@@ -202,7 +208,7 @@ export default function PlaybackSettingsPopover({
                 }
                 onClick={() => {
                   setPage(0);
-                  void onSelectSubtitleTrack(choice);
+                  void selectSubtitleTrack(choice);
                 }}
               />
             ))}
@@ -227,7 +233,7 @@ export default function PlaybackSettingsPopover({
               metadata={metadata}
               version={activeVersion}
               onDownload={async (subtitle) => {
-                await onDownloadSubtitle(subtitle);
+                await downloadOnDemandSubtitle(subtitle);
                 setPage(3);
               }}
             />

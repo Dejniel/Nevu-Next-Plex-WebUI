@@ -1,4 +1,4 @@
-import { parseStoredPlaybackQuality } from "./playbackSource";
+import { parseStoredPlaybackQuality } from "./playbackQuality";
 
 describe("stored playback quality", () => {
   it("restores a valid bitrate", () => {

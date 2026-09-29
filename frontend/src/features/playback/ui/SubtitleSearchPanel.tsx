@@ -20,13 +20,13 @@ import {
   Typography,
 } from "@mui/material";
 import React from "react";
-import { MediaVersion } from "entities/media/model";
-import {
-  defaultSubtitleSearchTitle,
-  searchSubtitles,
+import type { MediaVersion } from "entities/media/model";
+import { searchSubtitles } from "../api/subtitles";
+import { defaultSubtitleSearchTitle } from "../model/subtitles";
+import type {
   SubtitleSearchPreference,
   SubtitleSearchResult,
-} from "../api/subtitles";
+} from "../model/subtitles";
 
 const LANGUAGES = [
   ["ar", "Arabic"],

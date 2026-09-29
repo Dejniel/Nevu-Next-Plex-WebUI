@@ -33,10 +33,13 @@ internals.
 
 ## Feature boundaries
 
-Each feature exposes its supported surface through `public.ts`. Code outside a
-feature imports from that file instead of reaching into `api`, `model`, or `ui`.
-Files inside the same feature use direct relative imports so their ownership is
-visible and barrel-file cycles are avoided.
+Each feature exposes its supported UI surface through `public.ts`. Code outside
+a feature imports from that file instead of reaching into `api`, `model`, or
+`ui`. A root `model.ts` may expose a deliberately headless contract when a
+state-only consumer must not evaluate the feature's UI graph; currently only
+`watch-together` needs this exception. Files inside the same feature use direct
+relative imports so their ownership is visible and barrel-file cycles are
+avoided.
 
 Entities expose their supported UI through `public.ts` and may additionally
 expose a headless `model.ts` entry point. API and model code should use the
@@ -60,6 +63,11 @@ selection, playback requests, subtitle search, queue controls, and the routed
 player screen. `features/watch-together` owns the cross-session connection,
 protocol adapter, room dialog, waiting room, notifications, and player-facing
 synchronization controller.
+
+`architectureBoundaries.test.ts` enforces these entry points for cross-module
+imports. Add a headless feature exception there only when there is a concrete
+non-UI consumer and importing `public.ts` would introduce a UI dependency or
+cycle.
 
 ## API and state rules
 

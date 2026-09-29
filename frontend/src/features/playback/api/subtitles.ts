@@ -1,35 +1,9 @@
 import { AuthStorage } from "auth/AuthStorage";
 import { ProxiedRequest } from "shared/api/backend";
-import { TrackChoice, getTrackChoices } from "entities/media/model";
-
-export type SubtitleSearchPreference = 0 | 1 | 2 | 3;
-
-export interface SubtitleSearchCriteria {
-  language: string;
-  title?: string;
-  mediaItemID: number;
-  hearingImpaired: SubtitleSearchPreference;
-  forced: SubtitleSearchPreference;
-}
-
-export interface SubtitleSearchResult {
-  id: number;
-  key: string;
-  streamType: 3;
-  codec: string;
-  language?: string;
-  languageTag?: string;
-  languageCode: string;
-  providerTitle?: string;
-  score?: string | number;
-  title: string;
-  displayTitle?: string;
-  extendedDisplayTitle?: string;
-  hearingImpaired?: boolean;
-  forced?: boolean;
-  perfectMatch?: boolean;
-  downloaded?: boolean;
-}
+import type {
+  SubtitleSearchCriteria,
+  SubtitleSearchResult,
+} from "../model/subtitles";
 
 export class SubtitleSearchError extends Error {
   constructor(message: string, public readonly status?: number) {
@@ -70,12 +44,6 @@ function subtitleError(status: number, operation: "search" | "download") {
       : "Plex could not download this subtitle.",
     status,
   );
-}
-
-export function defaultSubtitleSearchTitle(file?: string) {
-  if (!file) return "";
-  const filename = file.split(/[\\/]/).pop() || "";
-  return filename.replace(/\.[^.]+$/, "");
 }
 
 export function buildSubtitleSearchPath(
@@ -141,21 +109,4 @@ export async function downloadSubtitle(
   );
   if (response.status < 200 || response.status >= 300)
     throw subtitleError(response.status, "download");
-}
-
-export function findAttachedSubtitle(
-  metadata: Plex.Metadata,
-  mediaItemID: number,
-  result: SubtitleSearchResult,
-): TrackChoice | undefined {
-  const choices = getTrackChoices(metadata, 3).filter(
-    (choice) => choice.media.id === mediaItemID,
-  );
-
-  return choices.find(
-    (choice) =>
-      choice.stream.id === result.id ||
-      (choice.stream.title === result.title &&
-        choice.stream.languageCode === result.languageCode),
-  );
 }
