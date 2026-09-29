@@ -188,6 +188,17 @@ Commit `deea922`:
 - Reduced the application bar to shell composition, account controls, and the
   mobile drawer; desktop and mobile feature variants no longer mount together.
 
+### Title details data orchestration
+
+Commit `fd3d0a6`:
+
+- Moved title identity resolution, metadata loading, initial season selection,
+  episode loading, and track-language discovery into one feature-owned model.
+- Added cancellation guards so stale season, title, and track requests cannot
+  replace the current dialog state.
+- Removed duplicated episode fetching and covered season selection and track
+  normalization with focused tests.
+
 ### Watchlist and legacy cleanup
 
 Commits `143ff6e`, `89b1557`, `c79345b`, `76a15b3`, `7c5885d`, and `a8b6ae8`:
@@ -279,7 +290,7 @@ reduce file counts or line counts.
 
 Current verified baseline:
 
-- tests: 58 suites, 182 tests passing;
+- tests: 59 suites, 185 tests passing;
 - production build: passing;
 - disposable validation container: `nevu-refactor-test` on host port `3101`;
 - production `nevu-next` on port `32400` was not modified by this refactor.
