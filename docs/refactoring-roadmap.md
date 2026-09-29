@@ -177,6 +177,17 @@ Commits `baa2456`, `fc4e5ac`, and `1f562fe`:
 - Moved search requests, stale-response handling, result partitioning, and both
   search entry points into `features/search`.
 
+### Application bar decomposition
+
+Commit `deea922`:
+
+- Moved search input, suggestions, keyboard navigation, and result routing into
+  `features/search`, with focused tests for route selection.
+- Moved responsive library links, overflow navigation, library action state,
+  and library reload handling into `features/library-navigation`.
+- Reduced the application bar to shell composition, account controls, and the
+  mobile drawer; desktop and mobile feature variants no longer mount together.
+
 ### Watchlist and legacy cleanup
 
 Commits `143ff6e`, `89b1557`, `c79345b`, `76a15b3`, `7c5885d`, and `a8b6ae8`:
@@ -222,9 +233,9 @@ its own sake.
 
 ### 1. Reduce oversized composition components
 
-When modifying them for product work, extract coherent sections from the app
-bar, media card, and title-details screen. Keep state and behavior with the
-owning workflow; do not split components solely to reduce line counts.
+When modifying them for product work, extract coherent sections from the media
+card and title-details screen. Keep state and behavior with the owning workflow;
+do not split components solely to reduce line counts.
 
 ### 2. Improve Plex contracts
 
@@ -268,7 +279,7 @@ reduce file counts or line counts.
 
 Current verified baseline:
 
-- tests: 57 suites, 178 tests passing;
+- tests: 58 suites, 181 tests passing;
 - production build: passing;
 - disposable validation container: `nevu-refactor-test` on host port `3101`;
 - production `nevu-next` on port `32400` was not modified by this refactor.
