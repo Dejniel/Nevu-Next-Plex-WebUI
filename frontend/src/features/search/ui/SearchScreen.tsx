@@ -1,7 +1,7 @@
 import { Alert, Box, CircularProgress, Grid, Typography } from "@mui/material";
 import React, { useMemo } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import { MediaCard } from "entities/media/public";
+import { WatchlistMediaCard } from "features/watchlist/public";
 import { libraryBrowseTo } from "navigation";
 import { partitionSearchResults } from "../model/searchResults";
 import { usePlexSearch } from "../model/usePlexSearch";
@@ -74,7 +74,7 @@ export default function SearchScreen() {
               key={item.ratingKey}
               size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2 }}
             >
-              <MediaCard item={item} />
+              <WatchlistMediaCard item={item} />
             </Grid>
           ))}
       </Grid>

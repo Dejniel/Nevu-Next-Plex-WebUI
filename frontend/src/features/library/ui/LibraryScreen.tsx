@@ -1,14 +1,14 @@
 import { Alert, Box, CircularProgress, Grid } from "@mui/material";
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { MediaCard } from "entities/media/public";
+import { WatchlistMediaCard } from "features/watchlist/public";
 import { useInView } from "react-intersection-observer";
 import type { LibrarySort } from "@nevu/contracts";
 import LibrarySortDropDown, {
   normalizeLibrarySort,
   sortMetadata,
 } from "./LibrarySortDropDown";
-import { useWatchListCache } from "states/WatchListCache";
+import { useWatchlist } from "features/watchlist/model";
 import AppDialog from "components/AppDialog";
 import { getLibraryDirectory } from "../api/libraryDirectories";
 
@@ -61,7 +61,7 @@ function LibraryScreen() {
     switch (bkey) {
       case "/plextv/watchlist":
         {
-          const watchlist = useWatchListCache.getState().watchListCache;
+          const watchlist = useWatchlist.getState().items;
           setLibrary({
             size: watchlist.length,
             title1: "Watchlist",
@@ -191,7 +191,11 @@ function Element({ item, plexTv }: { item: Plex.Metadata; plexTv?: boolean }) {
   return (
     <div ref={ref}>
       {inView && (
-        <MediaCard item={item} PlexTvSource={plexTv} imageLoading="eager" />
+        <WatchlistMediaCard
+          item={item}
+          PlexTvSource={plexTv}
+          imageLoading="eager"
+        />
       )}
       {!inView && (
         <Box style={{ width: "100%" }}>

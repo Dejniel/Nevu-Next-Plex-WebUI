@@ -57,7 +57,6 @@ import { alpha } from "@mui/material/styles";
 import { libraryBrowseTo, mediaDetailsTo } from "navigation";
 import StretchedLink from "components/StretchedLink";
 import type { MediaItemData } from "../model/media";
-import { WatchListButton } from "./WatchlistButton";
 
 interface MediaCardPreviewPlaybackState {
   url: string;
@@ -76,6 +75,18 @@ export const useMovieItemPreviewPlayback =
     setState: (state: { url: string; playing: boolean }) => set(state),
   }));
 
+export interface MediaCardProps {
+  item: MediaItemData;
+  itemsPerPage?: number;
+  index?: number;
+  PlexTvSource?: boolean;
+  refetchData?: () => void;
+  layout?: "landscape" | "poster";
+  imageSizes?: string;
+  imageLoading?: "eager" | "lazy";
+  overlayActions?: React.ReactNode;
+}
+
 function MediaCard({
   item,
   itemsPerPage,
@@ -85,16 +96,8 @@ function MediaCard({
   layout = "landscape",
   imageSizes,
   imageLoading = "lazy",
-}: {
-  item: MediaItemData;
-  itemsPerPage?: number;
-  index?: number;
-  PlexTvSource?: boolean;
-  refetchData?: () => void;
-  layout?: "landscape" | "poster";
-  imageSizes?: string;
-  imageLoading?: "eager" | "lazy";
-}): JSX.Element {
+  overlayActions,
+}: MediaCardProps): JSX.Element {
   const location = useLocation();
   const navigate = useNavigate();
   const { MetaScreenPlayerMuted } = usePreviewPlayer();
@@ -655,7 +658,7 @@ function MediaCard({
               )}
             </IconButton>
 
-            <WatchListButton item={item} />
+            {overlayActions}
           </Box>
 
           {/* Mute button for preview */}

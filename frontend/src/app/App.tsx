@@ -11,7 +11,7 @@ import {
 } from "features/session/public";
 import ConfirmModal from "components/ConfirmModal";
 import Startup, { useStartupState } from "pages/Startup";
-import { useWatchListCache } from "states/WatchListCache";
+import { useWatchlist } from "features/watchlist/model";
 import { useLibraries } from "entities/library/model";
 import AppRoutes from "./AppRoutes";
 
@@ -69,14 +69,14 @@ function App() {
   const sessionRevision = useAuthSession((state) => state.revision);
 
   useEffect(() => {
-    useWatchListCache.getState().reset();
-    void useWatchListCache.getState().loadWatchListCache();
+    useWatchlist.getState().reset();
+    void useWatchlist.getState().load();
     useLibraries.getState().reset();
     void useLibraries.getState().load();
     void useServerSession.getState().refresh();
 
     const interval = setInterval(() => {
-      void useWatchListCache.getState().loadWatchListCache();
+      void useWatchlist.getState().load();
     }, 60000);
 
     return () => clearInterval(interval);

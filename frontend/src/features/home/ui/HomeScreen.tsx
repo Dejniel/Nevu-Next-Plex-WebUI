@@ -2,13 +2,13 @@ import { Box, Skeleton } from "@mui/material";
 import { MovieItemSlider } from "features/library/public";
 import React from "react";
 import { useUserSettings } from "features/settings/model";
-import { useWatchListCache } from "states/WatchListCache";
+import { useWatchlist } from "features/watchlist/model";
 import { useHomeDiscovery } from "../model/useHomeDiscovery";
 import HomeHero from "./HomeHero";
 import { homeHeroContentSx } from "./homeHeroLayout";
 
 export default function HomeScreen() {
-  const { watchListCache } = useWatchListCache();
+  const watchlist = useWatchlist((state) => state.items);
   const { settings } = useUserSettings();
   const { shelves, hero, heroLoading, clearHero } =
     useHomeDiscovery(settings);
@@ -49,10 +49,10 @@ export default function HomeScreen() {
           link="/library/onDeck"
         />
 
-        {watchListCache.length > 0 && (
+        {watchlist.length > 0 && (
           <MovieItemSlider
             title="Watchlist"
-            data={watchListCache}
+            data={watchlist}
             plexTvSource
             link="/plextv/watchlist"
           />

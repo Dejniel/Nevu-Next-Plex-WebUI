@@ -1,37 +1,43 @@
 import { BookmarkBorderRounded, BookmarkRounded } from "@mui/icons-material";
 import { Button, CircularProgress, IconButton } from "@mui/material";
+import type { MediaCardProps } from "entities/media/public";
+import { MediaCard } from "entities/media/public";
+import type { MediaItemData } from "entities/media/model";
 import React from "react";
-import {
-  useWatchListCache,
-  WatchListCacheEmitter,
-} from "states/WatchListCache";
-import type { MediaItemData } from "../model/media";
+import { useWatchlist } from "../model/watchlistStore";
 
 function useWatchlistToggle(item: MediaItemData) {
-  const watchlist = useWatchListCache();
+  const selected = useWatchlist((state) => state.has(item.guid));
+  const add = useWatchlist((state) => state.add);
+  const remove = useWatchlist((state) => state.remove);
   const [loading, setLoading] = React.useState(false);
-  const selected = watchlist.isOnWatchList(item.guid);
 
-  const toggle = (event: React.MouseEvent) => {
+  const toggle = async (event: React.MouseEvent) => {
+    event.preventDefault();
     event.stopPropagation();
     if (loading) return;
 
     setLoading(true);
-    WatchListCacheEmitter.once("watchListUpdate", () => setLoading(false));
-
-    if (selected) watchlist.removeItem(item.guid);
-    else watchlist.addItem(item as Plex.Metadata);
+    try {
+      if (selected) await remove(item.guid);
+      else await add(item as Plex.Metadata);
+    } catch (error) {
+      console.error("Unable to update Plex watchlist", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return { loading, selected, toggle };
 }
 
-export function WatchListButton({ item }: { item: MediaItemData }) {
+export function WatchlistButton({ item }: { item: MediaItemData }) {
   const { loading, selected, toggle } = useWatchlistToggle(item);
 
   return (
     <IconButton
       size="small"
+      aria-label={selected ? "Remove from watchlist" : "Add to watchlist"}
       sx={{
         backgroundColor: "rgba(18, 25, 39, 0.55)",
         backdropFilter: "blur(12px)",
@@ -43,6 +49,7 @@ export function WatchListButton({ item }: { item: MediaItemData }) {
         transition: "background-color 0.2s ease",
         "&:hover": { backgroundColor: "rgba(18, 25, 39, 0.8)" },
       }}
+      disabled={loading}
       onClick={toggle}
     >
       {loading ? (
@@ -56,19 +63,20 @@ export function WatchListButton({ item }: { item: MediaItemData }) {
   );
 }
 
-export function HeroWatchListButton({ item }: { item: Plex.Metadata }) {
+export function HeroWatchlistButton({ item }: { item: Plex.Metadata }) {
   const { loading, selected, toggle } = useWatchlistToggle(item);
 
   return (
     <Button
       variant="contained"
+      aria-label={selected ? "Remove from watchlist" : "Add to watchlist"}
       sx={{
         fontWeight: "bold",
         letterSpacing: "0.1em",
         textTransform: "uppercase",
-        transition: "all 0.2s ease-in-out",
         height: "38.5px",
       }}
+      disabled={loading}
       onClick={toggle}
     >
       {loading ? (
@@ -79,5 +87,14 @@ export function HeroWatchListButton({ item }: { item: Plex.Metadata }) {
         <BookmarkBorderRounded fontSize="small" />
       )}
     </Button>
+  );
+}
+
+export function WatchlistMediaCard(props: MediaCardProps) {
+  return (
+    <MediaCard
+      {...props}
+      overlayActions={<WatchlistButton item={props.item} />}
+    />
   );
 }

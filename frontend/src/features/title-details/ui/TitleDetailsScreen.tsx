@@ -53,9 +53,7 @@ import {
   EditRounded,
 } from "@mui/icons-material";
 import { durationInMinutes, durationToText } from "common/Duration";
-import {
-  HeroWatchListButton,
-} from "entities/media/public";
+import { HeroWatchlistButton } from "features/watchlist/public";
 import { getTrackChoices } from "entities/media/model";
 import { alpha } from "@mui/material/styles";
 import { AnimatePresence, motion } from "framer-motion";
@@ -732,7 +730,7 @@ function TitleDetailsScreen() {
                 {data && <OriginalDownloadButton data={data} />}
 
                 <Tooltip placement="top" arrow title="Watchlist">
-                  <HeroWatchListButton item={data as Plex.Metadata} />
+                  <HeroWatchlistButton item={data as Plex.Metadata} />
                 </Tooltip>
 
                 {canManageServer && (

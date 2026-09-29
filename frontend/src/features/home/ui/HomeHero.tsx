@@ -8,10 +8,8 @@ import {
 import { Box, Typography, Button, IconButton, Skeleton } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import {
-  HeroWatchListButton,
-  usePreviewPlayer,
-} from "entities/media/public";
+import { usePreviewPlayer } from "entities/media/public";
+import { HeroWatchlistButton } from "features/watchlist/public";
 import {
   getResponsiveTranscodeImageProps,
   HERO_IMAGE_WIDTHS,
@@ -383,7 +381,7 @@ function HomeHero({
               </Typography>
             </Button>
 
-            <HeroWatchListButton item={item} />
+            <HeroWatchlistButton item={item} />
           </Box>
         </Box>
       </Box>
