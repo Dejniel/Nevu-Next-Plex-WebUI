@@ -150,15 +150,27 @@ Commit `9f2a7f2` (`Extract playback media controller`):
 - The old home page, hero components, global recommendation-shelf type, and
   Plex-level home helper were removed.
 
+### Authentication and Plex sessions
+
+- Login, Plex PIN exchange, Plex Home profile selection, persisted credentials,
+  server identity, and management capability checks live in `features/session`.
+- The active Plex user and profile now come from one session store; the old
+  duplicate user and server session stores were removed.
+- Session changes have an explicit revision used to reinitialize profile-owned
+  settings, libraries, and watchlist data without coupling the session feature
+  to those legacy stores.
+- Stale profile and server requests cannot restore data after a profile switch,
+  and unmounting the authenticated application closes Watch Together sessions.
+
 At this point `app`, `home`, `library`, `title-details`, `playback`,
-`watch-together`, and the shared `media` entity form the reference structure
-for subsequent work.
+`watch-together`, `session`, and the shared `media` entity form the reference
+structure for subsequent work.
 
 ## Current state and constraints
 
 - `features/home`, `features/library`, `features/title-details`,
-  `features/playback`, and `features/watch-together` expose public entry points.
-  External callers must not import their internals.
+  `features/playback`, `features/watch-together`, and `features/session` expose
+  public entry points. External callers must not import their internals.
 - `frontend/src/plex/index.ts` is still a compatibility module. Do not expand
   it; move operations to the feature that owns them when touching a workflow.
 - `frontend/src/components`, `pages`, `plex`, and `states` still contain mixed
@@ -178,18 +190,7 @@ Treat the following as a default sequence, not a fixed specification. Recheck
 the dependencies and expected payoff before each stage. Each migration should
 still follow a vertical workflow rather than bulk-moving an old directory.
 
-### 1. Consolidate authentication and profiles
-
-Give login, startup, Plex PIN flow, profile bootstrap/picker, server access,
-and user session state a deliberate boundary. Decide based on actual coupling
-whether this is one `features/session` module or separate `auth` and
-`profiles` features. Do not preserve both `auth` and `states` wrappers around
-the same data.
-
-Session state is one of the few valid application-wide stores. Keep persisted
-credentials and active Plex Home profile handling out of presentation code.
-
-### 2. Extract settings and administration
+### 1. Extract settings and administration
 
 Move account, playback, sharing, library administration, and server settings
 from `pages/settings`, `components/settings`, and Plex helpers into a settings
@@ -200,7 +201,7 @@ Library CRUD may depend on reusable library entities/API contracts, but the
 administration UI should not be added to the browse feature merely because
 both mention libraries.
 
-### 3. Finish smaller workflows
+### 2. Finish smaller workflows
 
 Migrate the remaining routed workflows according to their behavior:
 
@@ -212,7 +213,7 @@ Migrate the remaining routed workflows according to their behavior:
 Only after their consumers are gone should the corresponding legacy Plex,
 page, component, hook, and state files be removed.
 
-### 4. Close the compatibility layer
+### 3. Close the compatibility layer
 
 When no feature depends on `plex/index.ts`, delete it and import the shared
 transport or feature-owned API explicitly. At the same time:

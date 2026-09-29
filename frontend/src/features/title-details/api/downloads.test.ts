@@ -1,4 +1,4 @@
-import { AuthStorage } from "auth/AuthStorage";
+import { AuthStorage } from "features/session/model";
 import { getOriginalDownloads, originalFilename } from "./downloads";
 
 beforeEach(() => {

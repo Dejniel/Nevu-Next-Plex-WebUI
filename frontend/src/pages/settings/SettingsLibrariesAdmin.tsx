@@ -57,7 +57,7 @@ import {
   updateLibrary,
 } from "../../plex/libraries";
 import { notifyLibrariesChanged } from "../../states/LibrariesState";
-import { useCanManageServer } from "../../states/ServerAccess";
+import { useCanManageServer } from "features/session/public";
 
 const ROOT_BROWSE_KEY = "/services/browse/Lw==";
 const LIBRARY_TYPES: Array<{ value: ManagedLibraryType; label: string }> = [

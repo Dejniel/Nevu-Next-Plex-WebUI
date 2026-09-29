@@ -1,9 +1,9 @@
 import { Alert, Box, Button, CircularProgress } from "@mui/material";
 import React, { ReactNode, useEffect } from "react";
-import Login from "../pages/Login";
-import ProfilePicker from "../pages/ProfilePicker";
-import { useAuthSession } from "../states/AuthSessionState";
-import { PLEX_SESSION_INVALID_EVENT } from "features/library/public";
+import { useAuthSession } from "../model/authSession";
+import { PLEX_SESSION_INVALID_EVENT } from "../model/sessionEvents";
+import LoginScreen from "./LoginScreen";
+import ProfilePickerScreen from "./ProfilePickerScreen";
 
 export function LoadingScreen() {
   return (
@@ -21,7 +21,7 @@ export function LoadingScreen() {
   );
 }
 
-export default function AuthGate({ children }: { children: ReactNode }) {
+export default function SessionGate({ children }: { children: ReactNode }) {
   const { status, error, initialize, signOut } = useAuthSession();
 
   useEffect(() => {
@@ -37,9 +37,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   }, [initialize]);
 
   if (status === "initializing") return <LoadingScreen />;
-  if (status === "signedOut") return <Login />;
+  if (status === "signedOut") return <LoginScreen />;
   if (status === "selectingProfile" || status === "unlocking")
-    return <ProfilePicker />;
+    return <ProfilePickerScreen />;
 
   if (status === "error") {
     return (

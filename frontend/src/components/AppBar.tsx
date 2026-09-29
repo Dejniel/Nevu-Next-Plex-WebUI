@@ -31,7 +31,6 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { getSearch, getTranscodeImageURL } from "../plex";
-import { useUserSessionStore } from "../states/UserSession";
 import {
   BookmarkRounded,
   FavoriteRounded,
@@ -52,7 +51,7 @@ import {
 import { config } from "app/config";
 import { useBigReader } from "./BigReader";
 import { useUserSettings } from "../states/UserSettingsState";
-import { useAuthSession } from "../states/AuthSessionState";
+import { useAuthSession } from "features/session/public";
 import { SPONSOR_URL } from "../projectLinks";
 import { useLibraries, LIBRARIES_CHANGED_EVENT } from "../states/LibrariesState";
 import { normalizeLibraryNavigation, NavigationLibrary } from "../plex/libraryNavigation";
@@ -86,8 +85,7 @@ function Appbar() {
   const { room } = useWatchTogetherSession();
   const { settings } = useUserSettings();
 
-  const { user } = useUserSessionStore();
-  const { activeProfile, switchProfile, signOut } = useAuthSession();
+  const { activeProfile, activeUser, switchProfile, signOut } = useAuthSession();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -112,7 +110,6 @@ function Appbar() {
   const open = Boolean(anchorEl);
 
   useEffect(() => {
-    void loadLibraries();
     const reload = () => void loadLibraries();
     window.addEventListener(LIBRARIES_CHANGED_EVENT, reload);
     return () => window.removeEventListener(LIBRARIES_CHANGED_EVENT, reload);
@@ -177,7 +174,7 @@ function Appbar() {
             fontSize: 18,
           }}
         >
-          {user?.friendlyName || user?.title || activeProfile?.title}
+          {activeUser?.friendlyName || activeUser?.title || activeProfile?.title}
         </Typography>
 
         <Divider />

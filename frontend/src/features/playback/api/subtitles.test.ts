@@ -1,4 +1,4 @@
-import { AuthStorage } from "auth/AuthStorage";
+import { AuthStorage } from "features/session/model";
 import { ProxiedRequest } from "shared/api/backend";
 import {
   buildSubtitleDownloadPath,

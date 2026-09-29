@@ -1,5 +1,5 @@
-import { useAuthSession } from "./AuthSessionState";
-import { useSessionStore } from "./SessionState";
+import { useAuthSession } from "./authSession";
+import { useServerSession } from "./serverSession";
 
 export function canManageServer(
   isPlexHomeOwner: boolean,
@@ -12,7 +12,7 @@ export function useCanManageServer() {
   const isPlexHomeOwner = useAuthSession(
     (state) => Boolean(state.activeProfile?.isOwner),
   );
-  const hasServerPermission = useSessionStore(
+  const hasServerPermission = useServerSession(
     (state) => state.canManageServer,
   );
   return canManageServer(isPlexHomeOwner, hasServerPermission);

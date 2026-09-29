@@ -2,10 +2,9 @@ import axios from "axios";
 import {
   buildPlexAuthUrl,
   getHomeProfiles,
-  getLoggedInUser,
   getPin,
   switchHomeProfile,
-} from "./auth";
+} from "./plexAuth";
 
 jest.mock("axios");
 
@@ -49,12 +48,6 @@ describe("buildPlexAuthUrl", () => {
       undefined,
       { headers: { Accept: "application/json" } },
     );
-  });
-
-  it("does not request user data before an account token exists", async () => {
-    await expect(getLoggedInUser()).resolves.toBeNull();
-
-    expect(mockedAxios.get).not.toHaveBeenCalled();
   });
 
   it("returns the owner and Plex Home users only", async () => {

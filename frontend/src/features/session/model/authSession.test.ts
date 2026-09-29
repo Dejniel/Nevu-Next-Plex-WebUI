@@ -1,45 +1,34 @@
-import { AuthStorage, HomeProfile } from "../auth/AuthStorage";
 import {
   getHomeProfiles,
   getPlexUser,
   resolveServerToken,
   switchHomeProfile,
-} from "../plex/auth";
-import { useAuthSession } from "./AuthSessionState";
+  validateServerToken,
+} from "../api/plexAuth";
+import { AuthStorage, HomeProfile } from "./authStorage";
+import { useAuthSession } from "./authSession";
 
-jest.mock("../plex/auth", () => ({
+jest.mock("../api/plexAuth", () => ({
   getHomeProfiles: jest.fn(),
   getPlexUser: jest.fn(),
   resolveServerToken: jest.fn(),
   switchHomeProfile: jest.fn(),
   validateServerToken: jest.fn(),
 }));
-jest.mock("features/watch-together/model", () => ({
-  useWatchTogetherSession: { getState: () => ({ disconnect: jest.fn() }) },
-}));
-jest.mock("./UserSession", () => ({
-  useUserSessionStore: { getState: () => ({ reset: jest.fn() }) },
-}));
-jest.mock("./UserSettingsState", () => ({
-  useUserSettings: { getState: () => ({ reset: jest.fn() }) },
-}));
-jest.mock("./WatchListCache", () => ({
-  useWatchListCache: { getState: () => ({ reset: jest.fn() }) },
-}));
-jest.mock("./SessionState", () => ({
-  useSessionStore: {
-    getState: () => ({ reset: jest.fn(), fetchPlexServer: jest.fn() }),
-  },
-}));
-jest.mock("./LibrariesState", () => ({
-  useLibraries: { getState: () => ({ reset: jest.fn() }) },
-}));
 
 const owner = {
   id: 1,
+  uuid: "owner",
   title: "Owner",
   protected: true,
   restricted: false,
+} as Plex.UserData;
+const member = {
+  id: 2,
+  uuid: "member",
+  title: "Home user",
+  protected: true,
+  restricted: true,
 } as Plex.UserData;
 const profile: HomeProfile = {
   id: 2,
@@ -52,19 +41,20 @@ const profile: HomeProfile = {
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
-  jest.clearAllMocks();
+  jest.resetAllMocks();
   useAuthSession.setState({
     status: "initializing",
     profiles: [],
     ownerUser: null,
     activeProfile: null,
+    activeUser: null,
+    revision: 0,
     rememberProfile: true,
     error: null,
-    clearError: useAuthSession.getState().clearError,
   });
 });
 
-describe("AuthSessionState", () => {
+describe("auth session", () => {
   it("shows the profile picker after validating the owner", async () => {
     AuthStorage.setOwnerToken("owner-token");
     (getPlexUser as jest.Mock).mockResolvedValue(owner);
@@ -76,21 +66,50 @@ describe("AuthSessionState", () => {
     expect(useAuthSession.getState().profiles).toEqual([profile]);
   });
 
-  it("stores the selected Home profile as one active session", async () => {
+  it("stores the selected Home profile and its active user", async () => {
     AuthStorage.setOwnerToken("owner-token");
     (switchHomeProfile as jest.Mock).mockResolvedValue("profile-token");
     (resolveServerToken as jest.Mock).mockResolvedValue("server-token");
+    (getPlexUser as jest.Mock).mockResolvedValue(member);
 
     await expect(
       useAuthSession.getState().selectProfile(profile, "1234"),
     ).resolves.toBe(true);
 
-    expect(useAuthSession.getState().status).toBe("ready");
+    expect(useAuthSession.getState()).toMatchObject({
+      status: "ready",
+      activeProfile: profile,
+      activeUser: member,
+      revision: 1,
+    });
     expect(AuthStorage.getActiveSession()).toEqual({
       profile,
       accountToken: "profile-token",
       serverToken: "server-token",
     });
+  });
+
+  it("restores a remembered session and renews an invalid server token", async () => {
+    AuthStorage.setOwnerToken("owner-token");
+    AuthStorage.saveActiveSession({
+      profile,
+      accountToken: "profile-token",
+      serverToken: "old-server-token",
+    });
+    (getPlexUser as jest.Mock)
+      .mockResolvedValueOnce(owner)
+      .mockResolvedValueOnce(member);
+    (validateServerToken as jest.Mock).mockResolvedValue(false);
+    (resolveServerToken as jest.Mock).mockResolvedValue("new-server-token");
+
+    await useAuthSession.getState().initialize();
+
+    expect(useAuthSession.getState()).toMatchObject({
+      status: "ready",
+      activeUser: member,
+      revision: 1,
+    });
+    expect(AuthStorage.getServerToken()).toBe("new-server-token");
   });
 
   it("keeps saved credentials when Plex is temporarily unavailable", async () => {

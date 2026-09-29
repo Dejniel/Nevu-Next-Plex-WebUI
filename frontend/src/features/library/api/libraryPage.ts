@@ -1,10 +1,11 @@
 import type { LibraryPageDto, LibraryPageRequest } from "@nevu/contracts";
 import axios from "axios";
-import { AuthStorage } from "auth/AuthStorage";
+import {
+  AuthStorage,
+  PLEX_SESSION_INVALID_EVENT,
+} from "features/session/model";
 import { getBackendURL } from "shared/api/backend";
 import { normalizeLibraryFilterExpression } from "../model/libraryFilterExpression";
-
-export const PLEX_SESSION_INVALID_EVENT = "nevu:plex-session-invalid";
 
 export class LibraryPageError extends Error {
   constructor(

@@ -1,5 +1,5 @@
 import axios from "axios";
-import { AuthStorage, HomeProfile } from "../auth/AuthStorage";
+import { AuthStorage, HomeProfile } from "features/session/model";
 import {
   defaultUserSettings,
   useUserSettings,

@@ -28,7 +28,7 @@ import {
   serializeLibraryNavigation,
 } from "../../plex/libraryNavigation";
 import { useUserSettings } from "../../states/UserSettingsState";
-import { useCanManageServer } from "../../states/ServerAccess";
+import { useCanManageServer } from "features/session/public";
 import LibraryOrderDialog from "./LibraryOrderDialog";
 
 interface Props {

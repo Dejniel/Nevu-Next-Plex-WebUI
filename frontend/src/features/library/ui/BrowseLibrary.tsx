@@ -22,7 +22,7 @@ import { LibraryFilterSelect } from "./LibraryFilterControls";
 import { useLibraryCardView } from "./LibraryCardViewControls";
 import { WindowLibraryCollectionGrid } from "./LibraryCollectionGrid";
 import LibraryViewToolbar from "./LibraryViewToolbar";
-import { AuthStorage } from "auth/AuthStorage";
+import { AuthStorage } from "features/session/model";
 import { getLibrary } from "plex";
 import { createLibraryFilterExpression } from "../model/libraryFilterExpression";
 import {

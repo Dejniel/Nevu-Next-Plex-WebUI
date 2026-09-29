@@ -1,4 +1,4 @@
-import { canManageServer } from "./ServerAccess";
+import { canManageServer } from "./serverAccess";
 
 it("allows server management only to an owner with the Plex manage capability", () => {
   expect(canManageServer(true, true)).toBe(true);

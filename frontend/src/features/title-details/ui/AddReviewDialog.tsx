@@ -22,7 +22,7 @@ import {
 } from "../api/reviews";
 import { config } from "app/config";
 import { setMediaRating } from "plex";
-import { useUserSessionStore } from "states/UserSession";
+import { useAuthSession } from "features/session/public";
 import AppDialog from "components/AppDialog";
 
 function errorMessage(error: unknown, fallback: string) {
@@ -44,6 +44,7 @@ function AddReviewDialog({
   onClose: () => void;
   onChanged?: (rating: number | null) => void;
 }) {
+  const activeUserID = useAuthSession((state) => state.activeUser?.uuid);
   const [initialLoading, setInitialLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [operationError, setOperationError] = useState<string | null>(null);
@@ -68,7 +69,7 @@ function AddReviewDialog({
       try {
         const reviews = await getNevuReviews(
           item.guid,
-          useUserSessionStore.getState().user?.uuid,
+          activeUserID,
         );
         if (cancelled) return;
         const review =
@@ -90,7 +91,7 @@ function AddReviewDialog({
     return () => {
       cancelled = true;
     };
-  }, [item.guid, item.ratingKey, item.userRating]);
+  }, [activeUserID, item.guid, item.ratingKey, item.userRating]);
 
   const handleSave = async () => {
     const message = reviewText.trim();

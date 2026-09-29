@@ -1,5 +1,5 @@
 import axios from "axios";
-import { AuthStorage } from "../auth/AuthStorage";
+import { AuthStorage } from "features/session/model";
 import {
   browseLibraryFolders,
   createLibrary,

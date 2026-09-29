@@ -77,7 +77,7 @@ import {
 import {
   withoutExtra,
 } from "../model/titleExtras";
-import { useCanManageServer } from "states/ServerAccess";
+import { useCanManageServer } from "features/session/public";
 import { useTitleExtras } from "../model/useTitleExtras";
 import ExpandableDescription from "./ExpandableDescription";
 import AppDialog from "components/AppDialog";

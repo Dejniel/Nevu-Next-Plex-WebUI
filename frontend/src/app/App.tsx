@@ -3,13 +3,16 @@ import BigReader from "components/BigReader";
 import LibraryScreen from "components/LibraryScreen";
 import { TitleDetailsScreen } from "features/title-details/public";
 import { WatchTogetherFeature } from "features/watch-together/public";
+import {
+  ProfileBootstrapGate,
+  SessionGate,
+  useAuthSession,
+  useServerSession,
+} from "features/session/public";
 import ConfirmModal from "components/ConfirmModal";
-import AuthGate from "components/AuthGate";
-import ProfileBootstrapGate from "components/ProfileBootstrapGate";
 import Startup, { useStartupState } from "pages/Startup";
 import { useWatchListCache } from "states/WatchListCache";
-import { useSessionStore } from "states/SessionState";
-import { useUserSessionStore } from "states/UserSession";
+import { useLibraries } from "states/LibrariesState";
 import AppRoutes from "./AppRoutes";
 
 function AppManager() {
@@ -35,26 +38,25 @@ function AppManager() {
   }
 
   return (
-    <AuthGate>
+    <SessionGate>
       <ProfileBootstrapGate>
         <App />
       </ProfileBootstrapGate>
-    </AuthGate>
+    </SessionGate>
   );
 }
 
 function AppTitleManager() {
-  const { PlexServer } = useSessionStore();
+  const server = useServerSession((state) => state.server);
 
   useEffect(() => {
-    console.log(PlexServer);
-    if (!PlexServer?.friendlyName) return;
+    if (!server?.friendlyName) return;
 
     const capitalizedFriendlyName =
-      PlexServer.friendlyName.charAt(0).toUpperCase() +
-      PlexServer.friendlyName.slice(1);
+      server.friendlyName.charAt(0).toUpperCase() +
+      server.friendlyName.slice(1);
     document.title = `${capitalizedFriendlyName} - Nevu`;
-  }, [PlexServer]);
+  }, [server]);
 
   useEffect(() => {
     document.title = "Nevu";
@@ -64,17 +66,21 @@ function AppTitleManager() {
 }
 
 function App() {
+  const sessionRevision = useAuthSession((state) => state.revision);
+
   useEffect(() => {
-    useUserSessionStore.getState().loadUser();
-    useWatchListCache.getState().loadWatchListCache();
-    useSessionStore.getState().fetchPlexServer();
+    useWatchListCache.getState().reset();
+    void useWatchListCache.getState().loadWatchListCache();
+    useLibraries.getState().reset();
+    void useLibraries.getState().load();
+    void useServerSession.getState().refresh();
 
     const interval = setInterval(() => {
-      useWatchListCache.getState().loadWatchListCache();
+      void useWatchListCache.getState().loadWatchListCache();
     }, 60000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [sessionRevision]);
 
   return (
     <>

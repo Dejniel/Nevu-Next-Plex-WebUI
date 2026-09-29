@@ -2,7 +2,7 @@ import { Box, Button, Divider, Typography } from "@mui/material";
 import { SwitchAccountRounded } from "@mui/icons-material";
 import React from "react";
 import CheckBoxOption from "../../components/settings/CheckBoxOption";
-import { useAuthSession } from "../../states/AuthSessionState";
+import { useAuthSession } from "features/session/public";
 
 export default function SettingsAccount() {
   const {

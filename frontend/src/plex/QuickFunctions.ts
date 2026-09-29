@@ -1,6 +1,5 @@
 import { platformCache } from "../common/DesktopApp";
-import { useSessionStore } from "../states/SessionState";
-import { AuthStorage } from "../auth/AuthStorage";
+import { AuthStorage, useServerSession } from "features/session/model";
 import { APP_VERSION } from "../appVersion";
 import { PlexClient, PlexRequestError } from "shared/api/PlexClient";
 
@@ -50,8 +49,8 @@ export function getXPlexProps() {
         "X-Plex-Token": AuthStorage.getServerToken(),
         "X-Plex-Language": "en",
         "X-Plex-Session-Id": sessionStorage.getItem("sessionID"),
-        "X-Plex-Session-Identifier": useSessionStore.getState().XPlexSessionID,
-        "session": useSessionStore.getState().sessionID,
+        "X-Plex-Session-Identifier": useServerSession.getState().plexSessionID,
+        "session": useServerSession.getState().sessionID,
     }
 }
 

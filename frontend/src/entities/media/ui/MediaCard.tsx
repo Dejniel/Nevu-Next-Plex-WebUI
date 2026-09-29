@@ -49,7 +49,7 @@ import ReactPlayer from "react-player";
 import { useConfirmModal } from "components/ConfirmModal";
 import { getBackendURL } from "shared/api/backend";
 import { queryBuilder } from "plex/QuickFunctions";
-import { AuthStorage } from "auth/AuthStorage";
+import { AuthStorage } from "features/session/model";
 import { mediaQualityBadge } from "../model/mediaVersions";
 import { mediaArtworkPath } from "../model/mediaArtwork";
 import { alpha } from "@mui/material/styles";

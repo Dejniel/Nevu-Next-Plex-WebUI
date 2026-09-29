@@ -22,8 +22,9 @@ app -> features -> entities -> shared
 
 A feature may temporarily use legacy modules such as `plex`, `components`, or
 `states` while those areas are migrated. Legacy infrastructure must not import
-feature UI. Cross-cutting notifications belong in `shared`, which prevents
-cycles between old infrastructure and new feature state.
+feature UI. Cross-cutting notifications belong in a headless public feature
+contract or `shared`, which prevents cycles between old infrastructure and new
+feature state.
 
 A feature-to-feature dependency is allowed only for a concrete workflow
 integration and must use the dependency's public entry point. For example,
@@ -36,10 +37,10 @@ internals.
 Each feature exposes its supported UI surface through `public.ts`. Code outside
 a feature imports from that file instead of reaching into `api`, `model`, or
 `ui`. A root `model.ts` may expose a deliberately headless contract when a
-state-only consumer must not evaluate the feature's UI graph; currently only
-`watch-together` needs this exception. Files inside the same feature use direct
-relative imports so their ownership is visible and barrel-file cycles are
-avoided.
+state-only consumer must not evaluate the feature's UI graph; `session` and
+`watch-together` currently need this exception. Files inside the same feature
+use direct relative imports so their ownership is visible and barrel-file
+cycles are avoided.
 
 Entities expose their supported UI through `public.ts` and may additionally
 expose a headless `model.ts` entry point. API and model code should use the
@@ -64,7 +65,9 @@ player screen. `features/watch-together` owns the cross-session connection,
 protocol adapter, room dialog, waiting room, notifications, and player-facing
 synchronization controller. `features/home` owns the routed discovery screen,
 hero selection and presentation, and composition of home shelves while reusing
-the public library, media, and title-details surfaces.
+the public library, media, and title-details surfaces. `features/session` owns
+Plex authentication, Plex Home selection, persisted credentials, the active
+user, and server-level identity and capabilities.
 
 `architectureBoundaries.test.ts` enforces these entry points for cross-module
 imports. Add a headless feature exception there only when there is a concrete

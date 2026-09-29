@@ -31,7 +31,7 @@ import {
   SharingLibrary,
   updateShare,
 } from "../../plex/sharing";
-import { useCanManageServer } from "../../states/ServerAccess";
+import { useCanManageServer } from "features/session/public";
 
 interface ShareEditorProps {
   open: boolean;

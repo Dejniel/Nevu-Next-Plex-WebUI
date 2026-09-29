@@ -10,11 +10,11 @@ import {
 } from "@mui/material";
 import { LockRounded, LogoutRounded } from "@mui/icons-material";
 import React, { useEffect, useRef, useState } from "react";
-import { HomeProfile } from "../auth/AuthStorage";
-import AppDialog from "../components/AppDialog";
-import { useAuthSession } from "../states/AuthSessionState";
+import AppDialog from "components/AppDialog";
+import type { HomeProfile } from "../model/authStorage";
+import { useAuthSession } from "../model/authSession";
 
-export default function ProfilePicker() {
+export default function ProfilePickerScreen() {
   const { profiles, status, error, selectProfile, signOut, clearError } = useAuthSession();
   const [selectedProfile, setSelectedProfile] = useState<HomeProfile | null>(null);
   const [pin, setPin] = useState("");

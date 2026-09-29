@@ -8,12 +8,11 @@ import {
 } from "@mui/material";
 import React, { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getAccessToken, getPin } from "../plex";
-import { authErrorMessage } from "../auth/AuthError";
-import { buildPlexAuthUrl } from "../plex/auth";
-import { useAuthSession } from "../states/AuthSessionState";
+import { buildPlexAuthUrl, getAccessToken, getPin } from "../api/plexAuth";
+import { authErrorMessage } from "../model/authError";
+import { useAuthSession } from "../model/authSession";
 
-export default function Login() {
+export default function LoginScreen() {
   const [query] = useSearchParams();
   const navigate = useNavigate();
   const [error, setError] = React.useState<string | null>(null);

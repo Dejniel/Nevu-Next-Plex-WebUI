@@ -1,4 +1,4 @@
-import { ActivePlexSession, AuthStorage } from "./AuthStorage";
+import { ActivePlexSession, AuthStorage } from "./authStorage";
 
 const session: ActivePlexSession = {
   profile: {

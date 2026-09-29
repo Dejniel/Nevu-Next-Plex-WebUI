@@ -1,9 +1,11 @@
 import axios from "axios";
-import { AuthStorage } from "../../../auth/AuthStorage";
+import {
+  AuthStorage,
+  PLEX_SESSION_INVALID_EVENT,
+} from "features/session/model";
 import {
   getLibraryPage,
   LibraryPageError,
-  PLEX_SESSION_INVALID_EVENT,
 } from "./libraryPage";
 import { normalizeLibraryFilterExpression } from "../model/libraryFilterExpression";
 

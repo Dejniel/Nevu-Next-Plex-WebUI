@@ -1,8 +1,8 @@
 import { Alert, Box, Button } from "@mui/material";
-import React, { ReactNode, useEffect } from "react";
-import { useAuthSession } from "../states/AuthSessionState";
-import { useUserSettings } from "../states/UserSettingsState";
-import { LoadingScreen } from "./AuthGate";
+import React, { ReactNode, useEffect, useState } from "react";
+import { useUserSettings } from "states/UserSettingsState";
+import { useAuthSession } from "../model/authSession";
+import { LoadingScreen } from "./SessionGate";
 
 export default function ProfileBootstrapGate({
   children,
@@ -11,20 +11,30 @@ export default function ProfileBootstrapGate({
 }) {
   const activeProfile = useAuthSession((state) => state.activeProfile);
   const ownerUser = useAuthSession((state) => state.ownerUser);
+  const revision = useAuthSession((state) => state.revision);
   const status = useUserSettings((state) => state.status);
   const loadedProfileKey = useUserSettings((state) => state.profileKey);
   const error = useUserSettings((state) => state.error);
   const initialize = useUserSettings((state) => state.initialize);
+  const [startedBootstrap, setStartedBootstrap] = useState<string | null>(null);
 
   const profileKey =
     ownerUser && activeProfile ? `${ownerUser.id}:${activeProfile.id}` : null;
+  const bootstrapKey = profileKey ? `${revision}:${profileKey}` : null;
 
   useEffect(() => {
-    if (profileKey) void initialize(profileKey);
-  }, [initialize, profileKey]);
+    if (!profileKey || !bootstrapKey) {
+      setStartedBootstrap(null);
+      return;
+    }
+    useUserSettings.getState().reset();
+    setStartedBootstrap(bootstrapKey);
+    void initialize(profileKey);
+  }, [bootstrapKey, initialize, profileKey]);
 
   if (
     !profileKey ||
+    startedBootstrap !== bootstrapKey ||
     loadedProfileKey !== profileKey ||
     status === "idle" ||
     status === "loading"

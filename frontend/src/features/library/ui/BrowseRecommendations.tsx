@@ -3,7 +3,7 @@ import { Box, CircularProgress, Typography } from "@mui/material";
 import { motion } from "framer-motion";
 import React, { useEffect } from "react";
 import { useLocation, useParams, useSearchParams } from "react-router-dom";
-import { AuthStorage } from "auth/AuthStorage";
+import { AuthStorage } from "features/session/model";
 import { useLibraryCardView } from "./LibraryCardViewControls";
 import LibraryCollectionDialog from "./LibraryCollectionDialog";
 import LibraryViewToolbar from "./LibraryViewToolbar";

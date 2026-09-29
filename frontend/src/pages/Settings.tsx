@@ -6,7 +6,7 @@ import SettingsPlayback from "./settings/SettingsPlayback";
 import SettingsAccount from "./settings/SettingsAccount";
 import SettingsSharing from "./settings/SettingsSharing";
 import SettingsLibrariesAdmin from "./settings/SettingsLibrariesAdmin";
-import { useCanManageServer } from "../states/ServerAccess";
+import { useCanManageServer } from "features/session/public";
 
 function Settings() {
   const canManageServer = useCanManageServer();

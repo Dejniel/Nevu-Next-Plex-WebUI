@@ -17,7 +17,4 @@ export type {
   LibraryQuery,
   LibraryRangeSnapshot,
 } from "./model/LibraryRangeStore";
-export {
-  LibraryPageError,
-  PLEX_SESSION_INVALID_EVENT,
-} from "./api/libraryPage";
+export { LibraryPageError } from "./api/libraryPage";

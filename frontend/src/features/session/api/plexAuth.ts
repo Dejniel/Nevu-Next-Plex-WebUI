@@ -1,8 +1,8 @@
 import axios from "axios";
 import { XMLParser } from "fast-xml-parser";
-import { AuthStorage, HomeProfile } from "../auth/AuthStorage";
 import { ProxiedRequest } from "shared/api/backend";
-import { APP_VERSION } from "../appVersion";
+import { APP_VERSION } from "appVersion";
+import type { HomeProfile } from "../model/authStorage";
 
 const xmlParser = new XMLParser({
   attributeNamePrefix: "",
@@ -108,11 +108,6 @@ export async function getPlexUser(token: string): Promise<Plex.UserData | null> 
     }
     throw error;
   }
-}
-
-export async function getLoggedInUser(): Promise<Plex.UserData | null> {
-  const token = AuthStorage.getProfileAccountToken();
-  return token ? getPlexUser(token) : null;
 }
 
 export async function getHomeProfiles(

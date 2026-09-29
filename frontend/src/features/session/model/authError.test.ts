@@ -1,5 +1,5 @@
 import axios from "axios";
-import { authErrorMessage } from "./AuthError";
+import { authErrorMessage } from "./authError";
 
 function responseError(status: number, data?: unknown) {
   return new axios.AxiosError(

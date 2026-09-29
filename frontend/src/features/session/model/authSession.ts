@@ -1,23 +1,15 @@
 import { create } from "zustand";
-import {
-  AuthStorage,
-  HomeProfile,
-} from "../auth/AuthStorage";
-import { authErrorMessage } from "../auth/AuthError";
+import { clearLibraryCache } from "shared/lib/libraryCache";
 import {
   getHomeProfiles,
   getPlexUser,
   resolveServerToken,
   switchHomeProfile,
   validateServerToken,
-} from "../plex/auth";
-import { useWatchTogetherSession } from "features/watch-together/model";
-import { useUserSessionStore } from "./UserSession";
-import { useUserSettings } from "./UserSettingsState";
-import { useWatchListCache } from "./WatchListCache";
-import { useSessionStore } from "./SessionState";
-import { useLibraries } from "./LibrariesState";
-import { clearLibraryCache } from "shared/lib/libraryCache";
+} from "../api/plexAuth";
+import { authErrorMessage } from "./authError";
+import { AuthStorage, HomeProfile } from "./authStorage";
+import { useServerSession } from "./serverSession";
 
 export type AuthStatus =
   | "initializing"
@@ -32,6 +24,8 @@ interface AuthSessionState {
   profiles: HomeProfile[];
   ownerUser: Plex.UserData | null;
   activeProfile: HomeProfile | null;
+  activeUser: Plex.UserData | null;
+  revision: number;
   rememberProfile: boolean;
   error: string | null;
   initialize: () => Promise<void>;
@@ -43,14 +37,11 @@ interface AuthSessionState {
   clearError: () => void;
 }
 
-function resetProfileState() {
+let operationGeneration = 0;
+
+function resetSessionData() {
   clearLibraryCache();
-  useWatchTogetherSession.getState().disconnect();
-  useUserSessionStore.getState().reset();
-  useUserSettings.getState().reset();
-  useWatchListCache.getState().reset();
-  useSessionStore.getState().reset();
-  useLibraries.getState().reset();
+  useServerSession.getState().reset();
 }
 
 function profileFromUser(
@@ -73,16 +64,26 @@ export const useAuthSession = create<AuthSessionState>((set, get) => ({
   profiles: [],
   ownerUser: null,
   activeProfile: null,
+  activeUser: null,
+  revision: 0,
   rememberProfile: AuthStorage.getRememberProfile(),
   error: null,
 
   initialize: async () => {
+    const generation = ++operationGeneration;
     set({ status: "initializing", error: null });
     AuthStorage.migrateLegacySession();
 
     const ownerToken = AuthStorage.getOwnerToken();
     if (!ownerToken) {
-      set({ status: "signedOut", ownerUser: null, activeProfile: null });
+      resetSessionData();
+      set({
+        status: "signedOut",
+        profiles: [],
+        ownerUser: null,
+        activeProfile: null,
+        activeUser: null,
+      });
       return;
     }
 
@@ -90,17 +91,22 @@ export const useAuthSession = create<AuthSessionState>((set, get) => ({
     try {
       ownerUser = await getPlexUser(ownerToken);
     } catch (error) {
-      set({ status: "error", error: authErrorMessage(error, "account") });
+      if (generation === operationGeneration)
+        set({ status: "error", error: authErrorMessage(error, "account") });
       return;
     }
+    if (generation !== operationGeneration) return;
 
     if (!ownerUser) {
       AuthStorage.clearAll();
+      resetSessionData();
       set({
         status: "error",
         error: "The saved Plex session has expired. Sign in again.",
+        profiles: [],
         ownerUser: null,
         activeProfile: null,
+        activeUser: null,
       });
       return;
     }
@@ -109,10 +115,13 @@ export const useAuthSession = create<AuthSessionState>((set, get) => ({
     if (activeSession) {
       try {
         const activeUser = await getPlexUser(activeSession.accountToken);
+        if (generation !== operationGeneration) return;
+
         if (activeUser) {
           let serverToken = activeSession.serverToken;
           if (!(await validateServerToken(serverToken)))
             serverToken = await resolveServerToken(activeSession.accountToken);
+          if (generation !== operationGeneration) return;
 
           const activeProfile =
             activeSession.profile ?? profileFromUser(activeUser, ownerUser);
@@ -121,31 +130,39 @@ export const useAuthSession = create<AuthSessionState>((set, get) => ({
             accountToken: activeSession.accountToken,
             serverToken,
           });
-          set({
+          resetSessionData();
+          set((state) => ({
             status: "ready",
             ownerUser,
             activeProfile,
+            activeUser,
+            revision: state.revision + 1,
             rememberProfile: AuthStorage.getRememberProfile(),
-          });
+            error: null,
+          }));
           return;
         }
       } catch (error) {
-        set({
-          status: "error",
-          error: authErrorMessage(error, "server"),
-          ownerUser,
-        });
+        if (generation === operationGeneration)
+          set({
+            status: "error",
+            error: authErrorMessage(error, "server"),
+            ownerUser,
+          });
         return;
       }
       AuthStorage.clearActiveSession();
+      resetSessionData();
     }
 
     try {
       const profiles = await getHomeProfiles(ownerToken, ownerUser);
+      if (generation !== operationGeneration) return;
       set({
         profiles,
         ownerUser,
         activeProfile: null,
+        activeUser: null,
         rememberProfile: AuthStorage.getRememberProfile(),
         status: "selectingProfile",
       });
@@ -153,21 +170,24 @@ export const useAuthSession = create<AuthSessionState>((set, get) => ({
       if (profiles.length === 1 && !profiles[0].protected)
         await get().selectProfile(profiles[0]);
     } catch (error) {
-      set({
-        status: "error",
-        error: authErrorMessage(error, "profiles"),
-        ownerUser,
-      });
+      if (generation === operationGeneration)
+        set({
+          status: "error",
+          error: authErrorMessage(error, "profiles"),
+          ownerUser,
+        });
     }
   },
 
   completeAccountLogin: async (token) => {
     AuthStorage.setOwnerToken(token);
     AuthStorage.clearActiveSession();
+    resetSessionData();
     await get().initialize();
   },
 
   selectProfile: async (profile, pin) => {
+    const generation = ++operationGeneration;
     const ownerToken = AuthStorage.getOwnerToken();
     if (!ownerToken) {
       set({ status: "signedOut" });
@@ -179,33 +199,53 @@ export const useAuthSession = create<AuthSessionState>((set, get) => ({
     try {
       accountToken = await switchHomeProfile(ownerToken, profile, pin);
     } catch (error) {
-      set({
-        status: "selectingProfile",
-        error: authErrorMessage(error, "profile"),
-      });
+      if (generation === operationGeneration)
+        set({
+          status: "selectingProfile",
+          error: authErrorMessage(error, "profile"),
+        });
       return false;
     }
 
     try {
-      const serverToken = await resolveServerToken(accountToken);
+      const [serverToken, activeUser] = await Promise.all([
+        resolveServerToken(accountToken),
+        getPlexUser(accountToken),
+      ]);
+      if (generation !== operationGeneration) return false;
+      if (!activeUser)
+        throw new Error("The selected Plex profile is no longer available.");
+
       AuthStorage.saveActiveSession({ profile, accountToken, serverToken });
-      resetProfileState();
-      void useSessionStore.getState().fetchPlexServer();
-      set({ status: "ready", activeProfile: profile, error: null });
+      resetSessionData();
+      set((state) => ({
+        status: "ready",
+        activeProfile: profile,
+        activeUser,
+        revision: state.revision + 1,
+        error: null,
+      }));
       return true;
     } catch (error) {
-      set({
-        status: "selectingProfile",
-        error: authErrorMessage(error, "server"),
-      });
+      if (generation === operationGeneration)
+        set({
+          status: "selectingProfile",
+          error: authErrorMessage(error, "server"),
+        });
       return false;
     }
   },
 
   switchProfile: async () => {
-    resetProfileState();
+    const generation = ++operationGeneration;
+    resetSessionData();
     AuthStorage.clearActiveSession();
-    set({ status: "initializing", activeProfile: null, error: null });
+    set({
+      status: "initializing",
+      activeProfile: null,
+      activeUser: null,
+      error: null,
+    });
 
     const ownerToken = AuthStorage.getOwnerToken();
     if (!ownerToken) {
@@ -215,25 +255,33 @@ export const useAuthSession = create<AuthSessionState>((set, get) => ({
 
     try {
       const ownerUser = get().ownerUser ?? (await getPlexUser(ownerToken));
+      if (generation !== operationGeneration) return;
       if (!ownerUser) {
         get().signOut();
         return;
       }
       const profiles = await getHomeProfiles(ownerToken, ownerUser);
+      if (generation !== operationGeneration) return;
       set({ status: "selectingProfile", profiles, ownerUser });
+
+      if (profiles.length === 1 && !profiles[0].protected)
+        await get().selectProfile(profiles[0]);
     } catch (error) {
-      set({ status: "error", error: authErrorMessage(error, "profiles") });
+      if (generation === operationGeneration)
+        set({ status: "error", error: authErrorMessage(error, "profiles") });
     }
   },
 
   signOut: () => {
-    resetProfileState();
+    operationGeneration += 1;
+    resetSessionData();
     AuthStorage.clearAll();
     set({
       status: "signedOut",
       profiles: [],
       ownerUser: null,
       activeProfile: null,
+      activeUser: null,
       error: null,
     });
   },

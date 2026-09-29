@@ -2,7 +2,7 @@ import axios from "axios";
 import { authedGet, getIncludeProps, getXPlexProps, queryBuilder } from "./QuickFunctions";
 import './plex.d.ts'
 import { ProxiedRequest } from "shared/api/backend";
-import { AuthStorage } from "../auth/AuthStorage";
+import { AuthStorage } from "features/session/model";
 import { invalidateLibraryCache } from "shared/lib/libraryCache";
 
 export {
@@ -14,7 +14,6 @@ export {
     DETAIL_POSTER_IMAGE_WIDTHS,
 } from "./images";
 
-export { getAccessToken, getLoggedInUser, getPin } from "./auth";
 
 axios.defaults.headers.common['accept'] = 'application/json';
 

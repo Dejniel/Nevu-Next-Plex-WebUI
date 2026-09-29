@@ -9,7 +9,7 @@ import {
 } from "@mui/material";
 import React, { useState } from "react";
 import { getOriginalDownloads, OriginalDownload } from "../api/downloads";
-import { useSessionStore } from "states/SessionState";
+import { useServerSession } from "features/session/public";
 
 function formatBytes(bytes?: number): string {
   if (!bytes) return "Unknown size";
@@ -48,8 +48,8 @@ export default function OriginalDownloadButton({
 }: {
   data: Plex.Metadata;
 }) {
-  const allowDownloads = useSessionStore(
-    (state) => state.PlexServer?.allowSync === true,
+  const allowDownloads = useServerSession(
+    (state) => state.server?.allowSync === true,
   );
   const downloads = getOriginalDownloads(data, allowDownloads);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);

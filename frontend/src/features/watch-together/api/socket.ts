@@ -1,5 +1,5 @@
 import { io, Socket } from "socket.io-client";
-import { AuthStorage } from "auth/AuthStorage";
+import { AuthStorage } from "features/session/model";
 import { getBackendURL, isDev } from "shared/api/backend";
 
 export function createWatchTogetherSocket(room?: string): Socket {

@@ -1,6 +1,6 @@
 import axios from "axios";
 import { queryBuilder } from "./QuickFunctions";
-import { AuthStorage } from "../auth/AuthStorage";
+import { AuthStorage } from "features/session/model";
 
 export namespace PlexTv {
     /**

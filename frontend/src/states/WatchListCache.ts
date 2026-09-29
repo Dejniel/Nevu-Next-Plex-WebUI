@@ -9,10 +9,12 @@ interface WatchListCacheState {
     setWatchListCache: (watchListCache: Plex.Metadata[]) => void;
     addItem: (item: Plex.Metadata) => void;
     removeItem: (item: string) => void;
-    loadWatchListCache: () => void;
+    loadWatchListCache: () => Promise<void>;
     isOnWatchList: (item: string) => boolean;
     reset: () => void;
 }
+
+let loadGeneration = 0;
 
 export const useWatchListCache = create<WatchListCacheState>((set) => ({
     watchListCache: [],
@@ -30,10 +32,14 @@ export const useWatchListCache = create<WatchListCacheState>((set) => ({
         WatchListCacheEmitter.emit("watchListUpdate", item);
     },
     loadWatchListCache: async () => {
+        const generation = ++loadGeneration;
         const watchList = await PlexTv.getWatchlist();
-        if(!watchList) return;
+        if(!watchList || generation !== loadGeneration) return;
         set({ watchListCache: watchList });
     },
     isOnWatchList: (item): boolean => useWatchListCache.getState().watchListCache.find((i) => i.guid === item) !== undefined,
-    reset: () => set({ watchListCache: [] }),
+    reset: () => {
+        loadGeneration += 1;
+        set({ watchListCache: [] });
+    },
 }));

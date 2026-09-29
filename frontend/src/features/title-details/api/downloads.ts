@@ -1,4 +1,4 @@
-import { AuthStorage } from "auth/AuthStorage";
+import { AuthStorage } from "features/session/model";
 import { getBackendURL } from "shared/api/backend";
 
 export interface OriginalDownload {

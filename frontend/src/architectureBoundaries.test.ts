@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 
 const SOURCE_ROOT = __dirname;
-const HEADLESS_FEATURE_ENTRYPOINTS = new Set(["watch-together"]);
+const HEADLESS_FEATURE_ENTRYPOINTS = new Set(["session", "watch-together"]);
 const SOURCE_EXTENSION = /\.(ts|tsx)$/;
 const IMPORT = /(?:from\s+|import\s*\()\s*["']([^"']+)["']/g;
 
