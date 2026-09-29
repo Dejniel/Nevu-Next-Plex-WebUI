@@ -1,14 +1,14 @@
 import { Box, Typography } from "@mui/material";
 import React from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import SettingsInfo from "./settings/SettingsInfo";
-import SettingsPlayback from "./settings/SettingsPlayback";
-import SettingsAccount from "./settings/SettingsAccount";
-import SettingsSharing from "./settings/SettingsSharing";
-import SettingsLibrariesAdmin from "./settings/SettingsLibrariesAdmin";
+import SettingsInfo from "./SettingsInfo";
+import SettingsPlayback from "./SettingsPlayback";
+import SettingsAccount from "./SettingsAccount";
+import SettingsSharing from "./SettingsSharing";
+import SettingsLibrariesAdmin from "./SettingsLibrariesAdmin";
 import { useCanManageServer } from "features/session/public";
 
-function Settings() {
+function SettingsScreen() {
   const canManageServer = useCanManageServer();
 
   return (
@@ -88,7 +88,7 @@ function Settings() {
   );
 }
 
-export default Settings;
+export default SettingsScreen;
 
 function SettingsDivider({ title }: { title: string }) {
   return (

@@ -1,7 +1,7 @@
 import { Typography, Box } from "@mui/material";
 import React from "react";
-import CheckBoxOption from "../../components/settings/CheckBoxOption";
-import { useUserSettings } from "../../states/UserSettingsState";
+import { useUserSettings } from "../model/userSettings";
+import CheckBoxOption from "./CheckBoxOption";
 
 function SettingsPlayback() {
   const { settings, setSetting } = useUserSettings();

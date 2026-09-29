@@ -4,7 +4,7 @@ import AppBar from "components/AppBar";
 import { HomeScreen } from "features/home/public";
 import { Browse } from "features/library/public";
 import Search from "pages/Search";
-import Settings from "pages/Settings";
+import { SettingsScreen } from "features/settings/public";
 import { PlaybackScreen } from "features/playback/public";
 import { WaitingRoomScreen } from "features/watch-together/public";
 
@@ -23,7 +23,7 @@ export default function AppRoutes() {
           <Route path="/watch/:itemID" element={<PlaybackScreen />} />
           <Route path="/search/:query?" element={<Search />} />
           <Route path="/sync/waitingroom" element={<WaitingRoomScreen />} />
-          <Route path="/settings/*" element={<Settings />} />
+          <Route path="/settings/*" element={<SettingsScreen />} />
         </Routes>
       </Box>
     </>

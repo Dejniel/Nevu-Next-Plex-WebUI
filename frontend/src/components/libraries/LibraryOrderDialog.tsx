@@ -20,7 +20,7 @@ import {
   normalizeLibraryNavigation,
   serializeLibraryNavigation,
 } from "../../plex/libraryNavigation";
-import { useUserSettings } from "../../states/UserSettingsState";
+import { useUserSettings } from "features/settings/model";
 
 interface Props {
   open: boolean;

@@ -39,8 +39,8 @@ import {
 } from "@mui/material";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
-import AppDialog from "../../components/AppDialog";
-import ConfirmDialog from "../../components/ConfirmDialog";
+import AppDialog from "components/AppDialog";
+import ConfirmDialog from "components/ConfirmDialog";
 import {
   browseLibraryFolders,
   createLibrary,
@@ -55,8 +55,8 @@ import {
   ManagedLibraryType,
   runLibraryAction,
   updateLibrary,
-} from "../../plex/libraries";
-import { notifyLibrariesChanged } from "../../states/LibrariesState";
+} from "../api/libraryAdmin";
+import { notifyLibrariesChanged } from "states/LibrariesState";
 import { useCanManageServer } from "features/session/public";
 
 const ROOT_BROWSE_KEY = "/services/browse/Lw==";

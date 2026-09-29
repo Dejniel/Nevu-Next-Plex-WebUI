@@ -9,7 +9,7 @@ import {
   LibraryManagementError,
   runLibraryAction,
   updateLibrary,
-} from "./libraries";
+} from "./libraryAdmin";
 
 jest.mock("axios");
 

@@ -50,7 +50,7 @@ import {
 } from "features/watch-together/public";
 import { config } from "app/config";
 import { useBigReader } from "./BigReader";
-import { useUserSettings } from "../states/UserSettingsState";
+import { useUserSettings } from "features/settings/model";
 import { useAuthSession } from "features/session/public";
 import { SPONSOR_URL } from "../projectLinks";
 import { useLibraries, LIBRARIES_CHANGED_EVENT } from "../states/LibrariesState";

@@ -1,7 +1,5 @@
-import axios from "axios";
 import { create } from "zustand";
-import { AuthStorage } from "features/session/model";
-import { getBackendURL } from "shared/api/backend";
+import { loadUserSettings, saveUserSetting } from "../api/userSettings";
 
 export type UserSettingsStatus = "idle" | "loading" | "ready" | "error";
 export type UserSettings = Record<string, string>;
@@ -50,24 +48,6 @@ function cacheSettings(profileKey: string, settings: UserSettings) {
   }
 }
 
-function settingsFromResponse(data: unknown): UserSettings {
-  if (!Array.isArray(data)) return {};
-  const settings: UserSettings = {};
-  data.forEach((option) => {
-    if (
-      option &&
-      typeof option === "object" &&
-      "key" in option &&
-      "value" in option &&
-      typeof option.key === "string" &&
-      typeof option.value === "string"
-    ) {
-      settings[option.key] = option.value;
-    }
-  });
-  return settings;
-}
-
 interface UserSettingsState {
   status: UserSettingsStatus;
   profileKey: string | null;
@@ -98,7 +78,6 @@ export const useUserSettings = create<UserSettingsState>((set, get) => ({
 
     const generation = ++loadGeneration;
     const cached = readCachedSettings(profileKey);
-    const token = AuthStorage.getProfileAccountToken();
 
     set({
       status: "loading",
@@ -107,25 +86,14 @@ export const useUserSettings = create<UserSettingsState>((set, get) => ({
       error: null,
     });
 
-    if (!token) {
-      if (generation !== loadGeneration) return;
-      set({
-        status: "error",
-        error: "The active Plex profile is unavailable.",
-      });
-      return;
-    }
-
     try {
-      const response = await axios.get(`${getBackendURL()}/user/options`, {
-        headers: { "X-Plex-Token": token },
-      });
+      const loadedSettings = await loadUserSettings();
       if (generation !== loadGeneration || get().profileKey !== profileKey)
         return;
 
       const settings = {
         ...defaultUserSettings,
-        ...settingsFromResponse(response.data),
+        ...loadedSettings,
       };
       cacheSettings(profileKey, settings);
       set({ status: "ready", settings, error: null });
@@ -141,8 +109,7 @@ export const useUserSettings = create<UserSettingsState>((set, get) => ({
 
   setSetting: async (key, value) => {
     const { profileKey, settings } = get();
-    const token = AuthStorage.getProfileAccountToken();
-    if (profileKey === null || !token) return false;
+    if (profileKey === null) return false;
 
     const previousValue = settings[key];
     const writeGeneration = (writeGenerations.get(key) || 0) + 1;
@@ -153,11 +120,7 @@ export const useUserSettings = create<UserSettingsState>((set, get) => ({
     cacheSettings(profileKey, optimisticSettings);
 
     try {
-      await axios.post(
-        `${getBackendURL()}/user/options`,
-        { key, value },
-        { headers: { "X-Plex-Token": token } },
-      );
+      await saveUserSetting(key, value);
       return true;
     } catch {
       if (

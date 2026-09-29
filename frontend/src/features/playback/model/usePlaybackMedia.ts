@@ -10,7 +10,7 @@ import {
   TrackChoice,
   TrackPreference,
 } from "entities/media/model";
-import { useUserSettings } from "states/UserSettingsState";
+import { useUserSettings } from "features/settings/model";
 import {
   getPlaybackMetadata,
   getPlaybackQueueForItem,

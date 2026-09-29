@@ -4,7 +4,7 @@ import {
   defaultUserSettings,
   useUserSettings,
   userSettingsCacheKey,
-} from "./UserSettingsState";
+} from "./userSettings";
 
 jest.mock("axios");
 

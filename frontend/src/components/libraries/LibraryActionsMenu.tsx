@@ -20,14 +20,13 @@ import {
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import ConfirmDialog from "../ConfirmDialog";
-import { runLibraryAction } from "../../plex/libraries";
+import { runLibraryAction, useUserSettings } from "features/settings/model";
 import {
   LIBRARY_NAVIGATION_SETTING,
   NavigationLibrary,
   normalizeLibraryNavigation,
   serializeLibraryNavigation,
 } from "../../plex/libraryNavigation";
-import { useUserSettings } from "../../states/UserSettingsState";
 import { useCanManageServer } from "features/session/public";
 import LibraryOrderDialog from "./LibraryOrderDialog";
 

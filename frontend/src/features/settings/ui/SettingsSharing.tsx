@@ -21,8 +21,8 @@ import {
   Typography,
 } from "@mui/material";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import AppDialog from "../../components/AppDialog";
-import ConfirmDialog from "../../components/ConfirmDialog";
+import AppDialog from "components/AppDialog";
+import ConfirmDialog from "components/ConfirmDialog";
 import {
   createShare,
   deleteShare,
@@ -30,7 +30,7 @@ import {
   PlexShare,
   SharingLibrary,
   updateShare,
-} from "../../plex/sharing";
+} from "../api/sharing";
 import { useCanManageServer } from "features/session/public";
 
 interface ShareEditorProps {

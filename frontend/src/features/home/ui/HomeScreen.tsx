@@ -1,7 +1,7 @@
 import { Box, Skeleton } from "@mui/material";
 import { MovieItemSlider } from "features/library/public";
 import React from "react";
-import { useUserSettings } from "states/UserSettingsState";
+import { useUserSettings } from "features/settings/model";
 import { useWatchListCache } from "states/WatchListCache";
 import { useHomeDiscovery } from "../model/useHomeDiscovery";
 import HomeHero from "./HomeHero";

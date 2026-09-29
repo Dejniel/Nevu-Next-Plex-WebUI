@@ -1,7 +1,7 @@
 import { SkipNext } from "@mui/icons-material";
 import { alpha, Box, Button, Typography, useTheme } from "@mui/material";
 import { useState, useEffect } from "react";
-import { useUserSettings } from "states/UserSettingsState";
+import { useUserSettings } from "features/settings/model";
 
 function NextEpisodeOverlay({
   playing,

@@ -1,6 +1,6 @@
 import { Alert, Box, Button } from "@mui/material";
 import React, { ReactNode, useEffect, useState } from "react";
-import { useUserSettings } from "states/UserSettingsState";
+import { useUserSettings } from "features/settings/model";
 import { useAuthSession } from "../model/authSession";
 import { LoadingScreen } from "./SessionGate";
 

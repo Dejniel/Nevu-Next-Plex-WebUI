@@ -25,7 +25,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { VideoSeekSlider } from "react-video-seek-slider";
 import "react-video-seek-slider/styles.css";
 import { getTranscodeImageURL } from "plex";
-import { useUserSettings } from "states/UserSettingsState";
+import { useUserSettings } from "features/settings/model";
 import { activePlaybackMarker } from "../model/playbackNavigation";
 import { formatPlaybackTime } from "../model/playbackPresentation";
 import type { PlaybackCommandController } from "../model/usePlaybackCommands";
