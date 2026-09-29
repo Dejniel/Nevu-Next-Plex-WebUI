@@ -10,6 +10,9 @@ import { mediaDetailsTo } from "shared/lib/navigation";
 import { useBigReader, useConfirmModal } from "shared/ui";
 import { getOriginalDownloads } from "../model/downloads";
 import { resolvePlaybackTarget } from "../model/playbackTarget";
+import { applyMetadataUpdate } from "../api/metadata";
+import { unmatchMetadata } from "../api/matching";
+import EditMetadataDialog from "./EditMetadataDialog";
 import MatchMetadataDialog from "./MatchMetadataDialog";
 import MediaActionsMenu, {
   MediaMenuAnchor,
@@ -49,49 +52,68 @@ export default function ActionableMediaCard({
   const [displayItem, setDisplayItem] = useState(item);
   const [anchor, setAnchor] = useState<MediaMenuAnchor | null>(null);
   const [playLoading, setPlayLoading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [matchOpen, setMatchOpen] = useState(false);
   const [fullMetadata, setFullMetadata] = useState<Plex.Metadata | null>(null);
-  const [downloadStatus, setDownloadStatus] = useState<
+  const [metadataStatus, setMetadataStatus] = useState<
     "idle" | "loading" | "loaded" | "failed"
   >("idle");
   const metadataRequest = React.useRef(0);
+  const metadataPromise = React.useRef<Promise<Plex.Metadata> | null>(null);
 
   useEffect(() => {
     metadataRequest.current += 1;
+    metadataPromise.current = null;
     setDisplayItem(item);
     setFullMetadata(null);
-    setDownloadStatus("idle");
+    setMetadataStatus("idle");
+    setEditOpen(false);
 
     return () => {
       metadataRequest.current += 1;
     };
   }, [item]);
 
+  const loadFullMetadata = async () => {
+    if (fullMetadata) return fullMetadata;
+    if (metadataPromise.current) return metadataPromise.current;
+
+    setMetadataStatus("loading");
+    const request = ++metadataRequest.current;
+    const pending = getMediaMetadata(displayItem.ratingKey);
+    metadataPromise.current = pending;
+    try {
+      const metadata = await pending;
+      if (request !== metadataRequest.current)
+        throw new Error("The selected media item changed.");
+      setFullMetadata(metadata);
+      setMetadataStatus("loaded");
+      return metadata;
+    } catch (error) {
+      if (request === metadataRequest.current) setMetadataStatus("failed");
+      throw error;
+    } finally {
+      if (metadataPromise.current === pending) metadataPromise.current = null;
+    }
+  };
+
   const menuOpen = anchor !== null;
   const openMenu = (nextAnchor: MediaMenuAnchor) => {
     setAnchor(nextAnchor);
     if (
       PlexTvSource ||
-      !allowDownloads ||
-      downloadStatus === "loading" ||
-      downloadStatus === "loaded" ||
-      !["movie", "episode"].includes(displayItem.type)
+      metadataStatus === "loading" ||
+      metadataStatus === "loaded" ||
+      (!canManageServer &&
+        (!allowDownloads || !["movie", "episode"].includes(displayItem.type)))
     ) return;
-
-    setDownloadStatus("loading");
-    const request = ++metadataRequest.current;
-    void getMediaMetadata(displayItem.ratingKey)
-      .then((metadata) => {
-        if (request !== metadataRequest.current) return;
-        setFullMetadata(metadata);
-        setDownloadStatus("loaded");
-      })
-      .catch(() => {
-        if (request === metadataRequest.current) setDownloadStatus("failed");
-      });
+    void loadFullMetadata().catch(() => undefined);
   };
 
-  const detailsTarget = mediaDetailsTo(location, displayItem, PlexTvSource);
+  const detailsTarget = mediaDetailsTo(location, displayItem, PlexTvSource, {
+    exactItem: true,
+    tab: "media",
+  });
   const downloads = useMemo(
     () => fullMetadata ? getOriginalDownloads(fullMetadata, allowDownloads) : [],
     [allowDownloads, fullMetadata],
@@ -123,6 +145,45 @@ export default function ActionableMediaCard({
           ? { ...current, viewedLeafCount: watched ? current.leafCount : 0 }
           : { ...current, viewCount: watched ? 1 : 0 });
         refetchData?.();
+      },
+      onCancel: () => undefined,
+    });
+  };
+
+  const editMetadata = async () => {
+    try {
+      await loadFullMetadata();
+      setEditOpen(true);
+    } catch {
+      useBigReader.getState().setBigReader(
+        "Nevu could not load this item's editable metadata.",
+      );
+    }
+  };
+
+  const unmatch = () => {
+    useConfirmModal.getState().setModal({
+      title: "Unmatch metadata",
+      message: `Remove the current metadata match from "${displayItem.title}"?`,
+      onConfirm: async () => {
+        const request = ++metadataRequest.current;
+        metadataPromise.current = null;
+        setMetadataStatus("idle");
+        setFullMetadata(null);
+        try {
+          await unmatchMetadata(displayItem.ratingKey);
+          const metadata = await getMediaMetadata(displayItem.ratingKey);
+          if (request !== metadataRequest.current) return;
+          setDisplayItem(metadata);
+          setFullMetadata(metadata);
+          setMetadataStatus("loaded");
+          refetchData?.();
+        } catch {
+          if (request !== metadataRequest.current) return;
+          useBigReader.getState().setBigReader(
+            "Plex could not unmatch this item.",
+          );
+        }
       },
       onCancel: () => undefined,
     });
@@ -191,14 +252,38 @@ export default function ActionableMediaCard({
           canManageServer={canManageServer}
           detailsTarget={detailsTarget}
           downloads={downloads}
-          downloadsLoading={downloadStatus === "loading"}
+          downloadsLoading={
+            allowDownloads &&
+            ["movie", "episode"].includes(displayItem.type) &&
+            metadataStatus === "loading"
+          }
           item={displayItem}
           location={location}
           localItem={!PlexTvSource}
           onClose={() => setAnchor(null)}
+          onEditMetadata={() => void editMetadata()}
           onMatch={() => setMatchOpen(true)}
           onPlay={() => void play()}
           onSetWatched={setWatched}
+          onUnmatch={unmatch}
+        />
+      )}
+
+      {!PlexTvSource && editOpen && fullMetadata && (
+        <EditMetadataDialog
+          data={fullMetadata}
+          open
+          onClose={() => setEditOpen(false)}
+          onSaved={(changes, lockChanges) => {
+            const updated = applyMetadataUpdate(
+              fullMetadata,
+              changes,
+              lockChanges,
+            );
+            setFullMetadata(updated);
+            setDisplayItem(updated);
+            refetchData?.();
+          }}
         />
       )}
 
@@ -209,6 +294,7 @@ export default function ActionableMediaCard({
           onClose={() => setMatchOpen(false)}
           onMatched={(candidate) => {
             metadataRequest.current += 1;
+            metadataPromise.current = null;
             setDisplayItem((current) => ({
               ...current,
               guid: candidate.guid,
@@ -216,7 +302,7 @@ export default function ActionableMediaCard({
               year: candidate.year ?? current.year,
             }));
             setFullMetadata(null);
-            setDownloadStatus("idle");
+            setMetadataStatus("idle");
             refetchData?.();
           }}
         />

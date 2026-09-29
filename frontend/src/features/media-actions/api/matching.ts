@@ -62,3 +62,8 @@ export async function applyMetadataMatch(
   await plexClient.put(buildApplyMatchPath(ratingKey, candidate), {});
   invalidateLibraryCache();
 }
+
+export async function unmatchMetadata(ratingKey: string) {
+  await plexClient.put(itemPath(ratingKey, "unmatch"), {});
+  invalidateLibraryCache();
+}

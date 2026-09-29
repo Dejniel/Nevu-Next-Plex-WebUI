@@ -32,6 +32,23 @@ test("opens an episode at its show's details", () => {
   expect(new URLSearchParams(String(target.search)).get("mid")).toBe("show-1");
 });
 
+test("can address an exact item and a specific details tab", () => {
+  const target = mediaDetailsTo(
+    location,
+    {
+      ratingKey: "episode-1",
+      grandparentRatingKey: "show-1",
+      type: "episode",
+    },
+    false,
+    { exactItem: true, tab: "media" },
+  );
+  const params = new URLSearchParams(String(target.search));
+
+  expect(params.get("mid")).toBe("episode-1");
+  expect(params.get("detailsTab")).toBe("media");
+});
+
 test("keeps a Plex.tv item addressable until its guid is resolved", () => {
   const target = mediaDetailsTo(
     location,
@@ -44,9 +61,9 @@ test("keeps a Plex.tv item addressable until its guid is resolved", () => {
   expect(params.has("mid")).toBe(false);
 });
 
-test("builds browse links and removes an open details dialog", () => {
+test("builds browse links and removes all open details state", () => {
   const target = libraryBrowseTo(
-    { ...location, search: "?view=browse&mid=42" },
+    { ...location, search: "?view=browse&mid=42&detailsTab=details" },
     "/library/sections/1/all",
     { title: "Movies" }
   );
@@ -54,6 +71,7 @@ test("builds browse links and removes an open details dialog", () => {
 
   expect(params.get("view")).toBe("browse");
   expect(params.has("mid")).toBe(false);
+  expect(params.has("detailsTab")).toBe(false);
   expect(params.get("bkey")).toBe("/library/sections/1/all");
   expect(JSON.parse(params.get("bprops") || "{}")).toEqual({ title: "Movies" });
 });

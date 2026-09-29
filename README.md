@@ -31,7 +31,7 @@ Nevu Next is a modified fork of [Ipmake/NevuForPlex](https://github.com/Ipmake/N
 - **Firefox-compatible trailer playback** with Plex Discover fallback when a local trailer is unavailable.
 - **Playback-state controls** for watchlists and marking movies, shows, seasons, or episodes as played or unplayed.
 - **Metadata administration** with title, sort title, original title, summary, tagline, studio, release date, year, and content-rating editing plus Plex field lock and unlock controls.
-- **Plex metadata matching** with editable search criteria, provider candidates, and manager-only Match/Fix Match actions.
+- **Plex metadata matching** with editable search criteria, provider candidates, and manager-only Match, Fix Match, and Unmatch actions.
 - **Plex library administration** for server managers: create, edit, and delete libraries; browse server folders; scan files; refresh metadata; analyze media; and empty library trash.
 - **Library sharing management** for granting, updating, and removing another Plex user's access without leaving Nevu Next.
 - **Original-file downloads** when the active Plex account is allowed to download media.

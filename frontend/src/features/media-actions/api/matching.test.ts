@@ -5,6 +5,7 @@ import {
   buildApplyMatchPath,
   buildMatchSearchPath,
   searchMetadataMatches,
+  unmatchMetadata,
 } from "./matching";
 
 jest.mock("features/session/model", () => ({
@@ -61,6 +62,18 @@ it("applies the selected match and invalidates cached library pages", async () =
   );
   expect(plexClient.put).toHaveBeenCalledWith(
     buildApplyMatchPath("42", candidate),
+    {},
+  );
+  expect(invalidateLibraryCache).toHaveBeenCalledTimes(1);
+});
+
+it("unmatches an item and invalidates cached library pages", async () => {
+  (plexClient.put as jest.Mock).mockResolvedValue({});
+
+  await unmatchMetadata("12/3");
+
+  expect(plexClient.put).toHaveBeenCalledWith(
+    "/library/metadata/12%2F3/unmatch",
     {},
   );
   expect(invalidateLibraryCache).toHaveBeenCalledTimes(1);

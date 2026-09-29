@@ -222,8 +222,9 @@ Commits `143ff6e`, `89b1557`, `c79345b`, `76a15b3`, `7c5885d`, and `a8b6ae8`:
 - Reduced the shared media card to presentation, artwork, and preview behavior.
 - Moved playback resolution, watchlist and watched-state actions, original-file
   downloads, and reusable card menus into `features/media-actions`.
-- Added Plex metadata Match/Fix Match as a tested, manager-only workflow and
-  split the primary title actions and rating control out of the details screen.
+- Added Plex metadata editing, Match/Fix Match, and Unmatch as tested,
+  manager-only workflows and split the primary title actions and rating control
+  out of the details screen.
 
 At this point `app`, `home`, `library`, `title-details`, `playback`,
 `watch-together`, `session`, `settings`, `search`, `library-navigation`, and
@@ -298,7 +299,7 @@ reduce file counts or line counts.
 
 Current verified baseline:
 
-- tests: 62 suites, 193 tests passing;
+- tests: 62 suites, 195 tests passing;
 - production build: passing;
 - disposable validation container: `nevu-refactor-test` on host port `3101`;
 - production `nevu-next` on port `32400` was not modified by this refactor.

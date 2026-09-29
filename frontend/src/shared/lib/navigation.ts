@@ -14,6 +14,18 @@ interface NavigableMedia {
   viewOffset?: number;
 }
 
+export type MediaDetailsTab =
+  | "overview"
+  | "episodes"
+  | "details"
+  | "reviews"
+  | "media";
+
+export interface MediaDetailsOptions {
+  exactItem?: boolean;
+  tab?: MediaDetailsTab;
+}
+
 function withQuery(
   location: AppLocation,
   update: (params: URLSearchParams) => void
@@ -32,13 +44,16 @@ function withQuery(
 export function mediaDetailsTo(
   location: AppLocation,
   item: NavigableMedia,
-  plexTvSource = false
+  plexTvSource = false,
+  options: MediaDetailsOptions = {},
 ): To {
   return withQuery(location, (params) => {
     params.delete("bkey");
     params.delete("bprops");
     params.delete("mid");
     params.delete("pguid");
+    params.delete("detailsTab");
+    if (options.tab) params.set("detailsTab", options.tab);
 
     if (plexTvSource && item.guid) {
       params.set("pguid", item.guid);
@@ -46,7 +61,7 @@ export function mediaDetailsTo(
     }
 
     const ratingKey =
-      item.type === "episode" && item.grandparentRatingKey
+      !options.exactItem && item.type === "episode" && item.grandparentRatingKey
         ? item.grandparentRatingKey
         : item.ratingKey;
     params.set("mid", ratingKey);
@@ -61,6 +76,7 @@ export function libraryBrowseTo(
   return withQuery(location, (params) => {
     params.delete("mid");
     params.delete("pguid");
+    params.delete("detailsTab");
     params.set("bkey", key);
 
     if (props && Object.keys(props).length > 0) {

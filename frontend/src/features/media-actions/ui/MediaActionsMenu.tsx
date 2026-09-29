@@ -3,7 +3,9 @@ import {
   CheckCircleOutlineRounded,
   CheckCircleRounded,
   DownloadRounded,
+  EditRounded,
   InfoOutlined,
+  LinkOffRounded,
   PlayArrowRounded,
   RecommendRounded,
 } from "@mui/icons-material";
@@ -26,7 +28,10 @@ import {
   formatDownloadDetails,
   type OriginalDownload,
 } from "../model/downloads";
-import { matchActionLabel } from "../model/matching";
+import {
+  isMatchedMetadata,
+  matchActionLabel,
+} from "../model/matching";
 
 export interface MediaMenuAnchor {
   element?: HTMLElement;
@@ -49,9 +54,11 @@ export default function MediaActionsMenu({
   location,
   localItem,
   onClose,
+  onEditMetadata,
   onMatch,
   onPlay,
   onSetWatched,
+  onUnmatch,
 }: {
   anchor: MediaMenuAnchor | null;
   canManageServer: boolean;
@@ -62,9 +69,11 @@ export default function MediaActionsMenu({
   location: AppLocation;
   localItem: boolean;
   onClose: () => void;
+  onEditMetadata: () => void;
   onMatch: () => void;
   onPlay: () => void;
   onSetWatched: (watched: boolean) => void;
+  onUnmatch: () => void;
 }) {
   const watched = isMediaWatched(item);
   const similarRatingKey =
@@ -150,6 +159,18 @@ export default function MediaActionsMenu({
 
       {(canMatch || localItem) && <Divider />}
 
+      {localItem && canManageServer && (
+        <MenuItem
+          onClick={() => {
+            onClose();
+            onEditMetadata();
+          }}
+        >
+          <ListItemIcon><EditRounded fontSize="small" /></ListItemIcon>
+          <ListItemText>Edit Metadata…</ListItemText>
+        </MenuItem>
+      )}
+
       {canMatch && (
         <MenuItem
           onClick={() => {
@@ -159,6 +180,18 @@ export default function MediaActionsMenu({
         >
           <ListItemIcon><AutoFixHighRounded fontSize="small" /></ListItemIcon>
           <ListItemText>{matchActionLabel(item)}…</ListItemText>
+        </MenuItem>
+      )}
+
+      {canMatch && isMatchedMetadata(item) && (
+        <MenuItem
+          onClick={() => {
+            onClose();
+            onUnmatch();
+          }}
+        >
+          <ListItemIcon><LinkOffRounded fontSize="small" /></ListItemIcon>
+          <ListItemText>Unmatch</ListItemText>
         </MenuItem>
       )}
 

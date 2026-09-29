@@ -54,13 +54,13 @@ import { getNevuReviews } from "../api/reviews";
 import TitleOverview from "./TitleOverview";
 import TitleDetails from "./TitleDetails";
 import TitleMedia from "./TitleMedia";
-import EditMetadataDialog from "./EditMetadataDialog";
-import { MatchMetadataDialog } from "features/media-actions/public";
 import {
   applyMetadataUpdate,
-  MetadataLockUpdate,
-  MetadataUpdate,
-} from "../api/metadata";
+  EditMetadataDialog,
+  MatchMetadataDialog,
+  type MetadataLockUpdate,
+  type MetadataUpdate,
+} from "features/media-actions/public";
 import {
   withoutExtra,
 } from "../model/titleExtras";
@@ -72,6 +72,13 @@ import { useTitleDetailsData } from "../model/useTitleDetailsData";
 import TitlePrimaryActions from "./TitlePrimaryActions";
 
 const DESKTOP_HERO_HEIGHT = "clamp(560px, 93.333vh, 960px)";
+const detailsPages: Record<string, number> = {
+  overview: 0,
+  episodes: 1,
+  details: 2,
+  reviews: 3,
+  media: 4,
+};
 
 function TitleScore({
   label,
@@ -111,6 +118,7 @@ function TitleDetailsScreen() {
 
   const mid = searchParams.get("mid");
   const plexGuid = searchParams.get("pguid");
+  const requestedPage = detailsPages[searchParams.get("detailsTab") || ""] ?? 0;
   const {
     data,
     episodes,
@@ -134,6 +142,7 @@ function TitleDetailsScreen() {
     const next = new URLSearchParams(searchParams);
     next.delete("mid");
     next.delete("pguid");
+    next.delete("detailsTab");
     setSearchParams(next);
   };
 
@@ -148,7 +157,10 @@ function TitleDetailsScreen() {
   }, [resolvedRatingKey, setSearchParams]);
 
   useEffect(() => {
-    setPage(0);
+    setPage(requestedPage);
+  }, [mid, plexGuid, requestedPage]);
+
+  useEffect(() => {
     setEditMetadataOpen(false);
     setMatchOpen(false);
     setNotice(null);
