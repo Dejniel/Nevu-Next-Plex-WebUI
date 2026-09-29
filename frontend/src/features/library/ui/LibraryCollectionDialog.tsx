@@ -14,7 +14,7 @@ import {
   LibraryQuery,
   libraryRangeStore,
 } from "../model/LibraryRangeStore";
-import AppDialog from "components/AppDialog";
+import { AppDialog } from "shared/ui";
 import {
   LibraryCardViewControls,
   useLibraryCardView,

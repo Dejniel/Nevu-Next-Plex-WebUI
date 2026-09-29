@@ -23,7 +23,7 @@ import {
 import { config } from "app/config";
 import { setMediaRating } from "../api/rating";
 import { useAuthSession } from "features/session/public";
-import AppDialog from "components/AppDialog";
+import { AppDialog } from "shared/ui";
 
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;

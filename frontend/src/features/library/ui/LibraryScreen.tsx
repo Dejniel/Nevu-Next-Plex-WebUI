@@ -9,7 +9,7 @@ import LibrarySortDropDown, {
   sortMetadata,
 } from "./LibrarySortDropDown";
 import { useWatchlist } from "features/watchlist/model";
-import AppDialog from "components/AppDialog";
+import { AppDialog } from "shared/ui";
 import { getLibraryDirectory } from "../api/libraryDirectories";
 
 function LibraryScreen() {

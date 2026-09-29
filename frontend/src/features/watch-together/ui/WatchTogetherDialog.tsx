@@ -11,7 +11,7 @@ import {
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import AppDialog from "components/AppDialog";
+import { AppDialog } from "shared/ui";
 import { useWatchTogetherDialog } from "../model/dialog";
 import { useWatchTogetherSession } from "../model/session";
 

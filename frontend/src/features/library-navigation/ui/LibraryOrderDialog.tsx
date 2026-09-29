@@ -13,7 +13,7 @@ import {
 } from "@mui/icons-material";
 import { Reorder, useDragControls } from "framer-motion";
 import React, { useEffect, useState } from "react";
-import AppDialog from "components/AppDialog";
+import { AppDialog } from "shared/ui";
 import {
   LIBRARY_NAVIGATION_SETTING,
   NavigationLibrary,

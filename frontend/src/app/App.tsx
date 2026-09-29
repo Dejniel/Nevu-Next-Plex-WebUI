@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import BigReader from "components/BigReader";
+import { BigReader, ConfirmModal } from "shared/ui";
 import { LibraryScreen } from "features/library/public";
 import { TitleDetailsScreen } from "features/title-details/public";
 import { WatchTogetherFeature } from "features/watch-together/public";
@@ -9,7 +9,6 @@ import {
   useAuthSession,
   useServerSession,
 } from "features/session/public";
-import ConfirmModal from "components/ConfirmModal";
 import Startup, { useStartupState } from "./startup/Startup";
 import { useWatchlist } from "features/watchlist/model";
 import { useLibraries } from "entities/library/model";

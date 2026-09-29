@@ -10,7 +10,7 @@ import {
 } from "@mui/material";
 import { LockRounded, LogoutRounded } from "@mui/icons-material";
 import React, { useEffect, useRef, useState } from "react";
-import AppDialog from "components/AppDialog";
+import { AppDialog } from "shared/ui";
 import type { HomeProfile } from "../model/authStorage";
 import { useAuthSession } from "../model/authSession";
 

@@ -57,7 +57,7 @@ import { HeroWatchlistButton } from "features/watchlist/public";
 import { getTrackChoices } from "entities/media/model";
 import { alpha } from "@mui/material/styles";
 import { AnimatePresence, motion } from "framer-motion";
-import { useConfirmModal } from "components/ConfirmModal";
+import { AppDialog, StretchedLink, useConfirmModal } from "shared/ui";
 import { PlexCommunity } from "../api/plexCommunity";
 import moment from "moment";
 import AddReviewDialog from "./AddReviewDialog";
@@ -78,9 +78,7 @@ import {
 import { useCanManageServer } from "features/session/public";
 import { useTitleExtras } from "../model/useTitleExtras";
 import ExpandableDescription from "./ExpandableDescription";
-import AppDialog from "components/AppDialog";
 import { libraryBrowseTo, mediaWatchTo } from "navigation";
-import StretchedLink from "components/StretchedLink";
 
 const DESKTOP_HERO_HEIGHT = "clamp(560px, 93.333vh, 960px)";
 

@@ -19,7 +19,7 @@ import {
   MetadataUpdate,
   updateMetadata,
 } from "../api/metadata";
-import AppDialog from "components/AppDialog";
+import { AppDialog } from "shared/ui";
 
 interface MetadataDraft {
   title: string;

@@ -1,10 +1,9 @@
 import { Box, Button, Typography } from "@mui/material";
-import CenteredSpinner from "components/CenteredSpinner";
+import { AppDialog, CenteredSpinner } from "shared/ui";
 import { useWatchTogetherPlayback } from "features/watch-together/public";
 import React, { useEffect, useRef, useState } from "react";
 import ReactPlayer from "react-player";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import AppDialog from "components/AppDialog";
 import { usePlaybackCommands } from "../model/usePlaybackCommands";
 import { usePlaybackMedia } from "../model/usePlaybackMedia";
 import { usePlaybackRuntime } from "../model/usePlaybackRuntime";

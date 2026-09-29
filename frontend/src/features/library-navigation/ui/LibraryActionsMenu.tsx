@@ -19,7 +19,7 @@ import {
 } from "@mui/material";
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import ConfirmDialog from "components/ConfirmDialog";
+import { ConfirmDialog } from "shared/ui";
 import { runLibraryAction } from "entities/library/model";
 import { useUserSettings } from "features/settings/model";
 import {

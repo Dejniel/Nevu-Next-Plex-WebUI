@@ -39,8 +39,7 @@ import {
 } from "@mui/material";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
-import AppDialog from "components/AppDialog";
-import ConfirmDialog from "components/ConfirmDialog";
+import { AppDialog, ConfirmDialog } from "shared/ui";
 import {
   browseLibraryFolders,
   createLibrary,

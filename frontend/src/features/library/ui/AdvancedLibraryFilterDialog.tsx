@@ -27,7 +27,7 @@ import {
   MAX_LIBRARY_FILTERS,
   normalizeLibraryFilters,
 } from "../model/libraryFilters";
-import AppDialog from "components/AppDialog";
+import { AppDialog } from "shared/ui";
 
 interface FilterDraft {
   id: number;

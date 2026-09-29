@@ -49,7 +49,7 @@ import {
   useWatchTogetherSession,
 } from "features/watch-together/public";
 import { config } from "app/config";
-import { useBigReader } from "components/BigReader";
+import { StretchedLink, useBigReader } from "shared/ui";
 import { useUserSettings } from "features/settings/model";
 import { useAuthSession } from "features/session/public";
 import { SPONSOR_URL } from "projectLinks";
@@ -64,7 +64,6 @@ import {
 } from "features/library-navigation/public";
 import { searchSuggestions, usePlexSearch } from "features/search/model";
 import { libraryBrowseTo, mediaDetailsTo } from "navigation";
-import StretchedLink from "components/StretchedLink";
 
 const BarSide: SxProps<Theme> = {
   display: "flex",

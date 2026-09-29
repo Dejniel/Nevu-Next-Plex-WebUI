@@ -43,11 +43,10 @@ import {
   setMediaPlayedStatus,
 } from "../api/media";
 import { durationToText } from "common/Duration";
-import { useBigReader } from "components/BigReader";
+import { StretchedLink, useBigReader, useConfirmModal } from "shared/ui";
 import { create } from "zustand";
 import { usePreviewPlayer } from "../model/PreviewPlayerState";
 import ReactPlayer from "react-player";
-import { useConfirmModal } from "components/ConfirmModal";
 import { getBackendURL } from "shared/api/backend";
 import { queryBuilder } from "plex/QuickFunctions";
 import { AuthStorage } from "features/session/model";
@@ -55,7 +54,6 @@ import { mediaQualityBadge } from "../model/mediaVersions";
 import { mediaArtworkPath } from "../model/mediaArtwork";
 import { alpha } from "@mui/material/styles";
 import { libraryBrowseTo, mediaDetailsTo } from "navigation";
-import StretchedLink from "components/StretchedLink";
 import type { MediaItemData } from "../model/media";
 
 interface MediaCardPreviewPlaybackState {
