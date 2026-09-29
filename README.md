@@ -154,3 +154,6 @@ Checks:
 (cd backend && npm run build)
 docker build -t nevu-next:test .
 ```
+
+See the [testing guide](docs/testing.md) for check scope and a standalone Plex
+and Nevu environment.

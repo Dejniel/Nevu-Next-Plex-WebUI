@@ -1,0 +1,36 @@
+name: nevu-test
+
+services:
+  plex:
+    image: ${PLEX_TEST_IMAGE:-plexinc/pms-docker:latest}
+    restart: "no"
+    ports:
+      - "127.0.0.1:${PLEX_TEST_PORT:-32401}:32400"
+    environment:
+      PLEX_CLAIM: ${PLEX_TEST_CLAIM:-}
+      ADVERTISE_IP: http://${PLEX_TEST_HOST:-localhost}:${PLEX_TEST_PORT:-32401}/
+    volumes:
+      - plex-config:/config
+      - plex-transcode:/transcode
+      - ${PLEX_TEST_MEDIA_PATH:?Set PLEX_TEST_MEDIA_PATH to a sample media directory}:/data:ro
+
+  nevu:
+    image: nevu-next:test
+    restart: "no"
+    build:
+      context: .
+    depends_on:
+      - plex
+    ports:
+      - "127.0.0.1:${NEVU_TEST_PORT:-3101}:3000"
+    environment:
+      PLEX_SERVER: http://plex:32400
+      PORT: ${NEVU_TEST_PORT:-3101}
+      LISTEN_PORT: 3000
+    volumes:
+      - nevu-data:/app/data
+
+volumes:
+  plex-config:
+  plex-transcode:
+  nevu-data:

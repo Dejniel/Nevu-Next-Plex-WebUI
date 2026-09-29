@@ -1,7 +1,8 @@
 # Frontend architecture
 
-The frontend is organized around vertical feature modules. New work should
-follow the structure below and preserve the established ownership boundaries.
+The frontend currently uses vertical feature modules. The conventions below
+aim to make ownership clear and limit coupling; they can evolve when a change
+benefits from a different structure.
 
 ## Layers
 
@@ -21,21 +22,19 @@ app -> features -> entities -> shared
 
 Runtime legacy modules have been removed. `plex/plex.d.ts` remains only as the
 global Plex response contract while those types are migrated incrementally.
-Do not add runtime helpers back under `plex` or recreate top-level `components`,
-`pages`, `states`, or `common` directories.
+Prefer feature-owned runtime code over the former horizontal `components`,
+`pages`, `states`, `common`, and `plex` directories.
 
-A feature-to-feature dependency is allowed only for a concrete workflow
-integration and must use the dependency's public entry point. For example,
-playback consumes the watch-together playback controller without knowing its
-Socket.IO protocol or UI. Do not use this exception to build chains of feature
-internals.
+Feature-to-feature integration normally uses public entry points. For example,
+playback consumes the watch-together controller without knowing its Socket.IO
+protocol or UI. Prefer narrow contracts over chains of feature internals.
 
 ## Feature boundaries
 
 Each feature exposes its supported UI surface through `public.ts`. Code outside
 a feature imports from that file instead of reaching into `api`, `model`, or
 `ui`. A root `model.ts` may expose a deliberately headless contract when a
-state-only consumer must not evaluate the feature's UI graph. The approved set
+state-only consumer would otherwise load the feature's UI graph. The current set
 is encoded in `architectureBoundaries.test.ts`; session additionally provides
 the current authenticated Plex request context across layers. Files inside the
 same feature use direct relative imports so their ownership is visible and
@@ -74,32 +73,27 @@ editing and matching, original-file downloads, and playback-target resolution
 while the shared `MediaCard` remains presentation-focused. `entities/library`
 owns reusable library data and administration requests.
 
-`architectureBoundaries.test.ts` enforces public entry points, layer direction,
-and the absence of new root-level runtime modules. Add a headless feature
-exception there only when there is a concrete non-UI consumer and importing
-`public.ts` would introduce a UI dependency or cycle.
+`architectureBoundaries.test.ts` checks the current entry-point and dependency
+conventions. Update those checks alongside intentional architecture changes.
+Headless entry points help non-UI consumers avoid UI dependencies or cycles.
 
-## API and state rules
+## API and state conventions
 
 - Plex transport and HTTP error conversion live in `shared/api/PlexClient.ts`;
   token and Plex session parameters are supplied by the headless session model.
 - Feature API modules translate transport data into the feature contract.
-- Server data caches are feature-owned. Global stores should contain session or
-  application state, not copies of feature query results.
-- Pure parsing, normalization, and query-key functions stay in `model` and have
-  focused unit tests.
-- Components do not create ad hoc Plex requests when a feature API already owns
-  that operation.
+- Prefer feature-owned server data caches and global stores for session or
+  application state.
+- Keep pure parsing, normalization, and query-key functions in `model`, with
+  focused tests where useful.
+- Reuse feature API operations instead of duplicating requests in components.
 
-## Change workflow
+## Making changes
 
-1. Identify the feature or entity that owns the behavior.
-2. Keep request code, model/state, and UI within that boundary.
-3. Expose only the necessary surface through `public.ts` or an approved
-   headless `model.ts`.
-4. Remove superseded adapters once no caller depends on them.
-5. Run focused tests, the full suite when shared behavior changes, and a
-   production build before committing.
+Use existing ownership as a starting point, expose the needed contracts, and
+remove superseded implementations once their callers have migrated. Choose the
+scope that makes the resulting code clearer, including broader refactors when
+useful. Prefer abstractions with concrete consumers over speculative layers.
 
-Avoid creating empty layers or generic abstractions in anticipation of future
-features. A shared abstraction is justified only after it has a concrete user.
+See [testing.md](testing.md) for verification appropriate to the change and
+available environment.

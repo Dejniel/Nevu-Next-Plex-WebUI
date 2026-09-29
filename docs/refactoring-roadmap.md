@@ -1,6 +1,6 @@
 # Frontend refactoring roadmap
 
-Status: active, incremental
+Status: active
 
 The feature-based migration is complete. This roadmap covers targeted
 maintenance that lowers regression risk or makes planned product work easier.
@@ -12,8 +12,8 @@ It is not a second rewrite and should not drive file movement for its own sake.
 
 - Simplify reusable media actions and make their loading and permission rules
   explicit and testable.
-- Continue reducing large composition components only when the affected area is
-  already changing for a product feature.
+- Reduce large composition components where it clarifies a workflow or supports
+  planned product work.
 
 ### Later
 
@@ -22,19 +22,18 @@ It is not a second rewrite and should not drive file movement for its own sake.
 - Revisit match state management when matching gains more criteria, providers,
   or support for additional media types.
 
-## Working rules
+## Working approach
 
-- Preserve the dependency direction documented in
-  [`architecture.md`](architecture.md).
-- Keep transport in `api`, pure decisions and transitions in `model`, and UI
+- Use the conventions in [`architecture.md`](architecture.md) as a starting
+  point; adapt ownership when the resulting design is clearer.
+- Prefer transport in `api`, pure decisions and transitions in `model`, and UI
   coordination in `ui`.
 - Prefer one clear owner over generic abstractions shared by unrelated flows.
 - Add focused tests for pure logic and request contracts; do not refactor solely
   to make component rendering tests possible.
-- Complete one coherent slice, remove the replaced implementation, and keep the
-  application runnable between slices.
+- Remove replaced implementations once their callers have migrated.
 
-## Recommended starting slices
+## Recommended next steps
 
 ### 1. Extract the lazy media metadata resource
 
@@ -73,12 +72,12 @@ adding identifier searches, provider selection, or episode matching:
   and API modules;
 - leave the dialog responsible only for rendering and user events.
 
-### 4. Reduce title-details composition incrementally
+### 4. Reduce title-details composition
 
-`TitleDetailsScreen` remains the largest composition surface. Split it by
-coherent workflows as those workflows change, starting with tab routing and
-episode actions. Do not divide static markup into thin wrapper components only
-to reduce the line count.
+`TitleDetailsScreen` remains the largest composition surface. Tab routing and
+episode actions are useful candidates for clearer ownership, independently or
+alongside product changes. Splitting static markup just to reduce the line count
+offers little benefit.
 
 ### 5. Improve Plex contracts gradually
 
@@ -86,8 +85,8 @@ Replace global `Plex` types with imported request and view models one endpoint
 family at a time. Start where a product change already requires understanding a
 response shape; avoid a repository-wide type-only rewrite.
 
-## Completion criteria
+## Verification
 
-A refactoring slice is complete when ownership is clearer, the old path is
-removed, focused tests and the production build pass, and the affected workflow
-has been checked in the disposable test container.
+Choose checks for the affected behavior using [testing.md](testing.md). Record
+the results and any unverified scenarios; access to a particular server or
+container is not a prerequisite for every refactor.

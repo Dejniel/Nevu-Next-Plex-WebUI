@@ -231,18 +231,18 @@ At this point `app`, `home`, `library`, `title-details`, `playback`,
 `watchlist`, together with `media-actions` and the shared `media` and `library`
 entities, form the active frontend structure.
 
-## Resulting constraints
+## Resulting conventions
 
-- All product workflows expose public entry points. Non-UI consumers may use
-  only the explicitly approved root `model.ts` contracts checked by
+- All product workflows expose public entry points. Non-UI consumers use
+  the current headless `model.ts` contracts checked by
   `architectureBoundaries.test.ts`.
 - The session headless model is a deliberate cross-cutting dependency for the
-  current Plex token and request context. Do not add unrelated behavior to it.
+  current Plex token and request context.
 - `frontend/src/plex/plex.d.ts` is a type declaration, not a compatibility
-  implementation. Runtime code must not be added back under `plex`.
+  implementation; runtime code now belongs to feature, entity, or shared modules.
 - Playback intentionally consumes the public watch-together controller. It
-  must not reach into socket transport, room state internals, or sync UI.
+  does not depend on socket transport, room state internals, or sync UI.
 
 Future structural work is tracked separately in
 [`refactoring-roadmap.md`](refactoring-roadmap.md). Current dependency and
-ownership rules remain documented in [`architecture.md`](architecture.md).
+ownership conventions remain documented in [`architecture.md`](architecture.md).
