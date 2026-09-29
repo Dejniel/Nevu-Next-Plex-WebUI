@@ -17,7 +17,7 @@ RUN npm run build
 
 FROM ${NODE_IMAGE} AS backend-base
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl openssl \
+    && apt-get install -y --no-install-recommends ca-certificates curl openssl tini \
     && rm -rf /var/lib/apt/lists/*
 
 FROM backend-base AS backend-build
@@ -63,4 +63,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
         if [ "${TLS_SELF_SIGNED:-false}" = "true" ] || [ -n "${TLS_CERT_PATH:-}" ]; then scheme=https; fi; \
         curl --insecure --fail --silent "${scheme}://127.0.0.1:${LISTEN_PORT}/status" | grep --quiet '"ready":true' || exit 1
 
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["./run.sh"]
