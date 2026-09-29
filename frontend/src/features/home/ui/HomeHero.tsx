@@ -15,13 +15,13 @@ import {
 import {
   getResponsiveTranscodeImageProps,
   HERO_IMAGE_WIDTHS,
-} from "../plex";
+} from "plex";
 import { ExtraPlayer, useTitleExtras } from "features/title-details/public";
 import { alpha } from "@mui/material/styles";
 import { HOME_CONTENT_GUTTER, homeHeroContentSx } from "./homeHeroLayout";
-import { mediaDetailsTo, mediaWatchTo } from "../navigation";
+import { mediaDetailsTo, mediaWatchTo } from "navigation";
 
-function HeroDisplay({
+function HomeHero({
   item,
   onArtworkError,
 }: {
@@ -414,4 +414,4 @@ function HeroDisplay({
   );
 }
 
-export default HeroDisplay;
+export default HomeHero;

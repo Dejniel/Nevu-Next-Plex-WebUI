@@ -2,7 +2,8 @@ import {
   hasHeroArtwork,
   heroCandidates,
   randomLibraryWindow,
-} from "./homeHero";
+  shuffled,
+} from "./homeDiscovery";
 
 const candidates = [
   { ratingKey: "missing" },
@@ -50,4 +51,10 @@ it("wraps the window at the end and handles small or empty libraries", () => {
     wrapSize: 2,
   });
   expect(randomLibraryWindow(0)).toBeNull();
+});
+
+it("shuffles a copy without mutating the source", () => {
+  const source = [1, 2, 3, 4];
+  expect(shuffled(source, () => 0)).toEqual([2, 3, 4, 1]);
+  expect(source).toEqual([1, 2, 3, 4]);
 });

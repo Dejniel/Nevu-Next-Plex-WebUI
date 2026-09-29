@@ -139,15 +139,26 @@ Commit `9f2a7f2` (`Extract playback media controller`):
   for synchronization, errors, informational overlay timing, and mounting the
   actual player.
 
-At this point `app`, `library`, `title-details`, `playback`,
+### Home discovery
+
+- The routed home screen, hero presentation, random hero selection, genre
+  shelves, and their Plex requests live together in `features/home`.
+- Home composes the public library shelf, media, and title-details contracts
+  instead of duplicating their card, watchlist, or trailer behavior.
+- Home requests now fail explicitly and stale results cannot replace the
+  current profile's content after settings or library navigation change.
+- The old home page, hero components, global recommendation-shelf type, and
+  Plex-level home helper were removed.
+
+At this point `app`, `home`, `library`, `title-details`, `playback`,
 `watch-together`, and the shared `media` entity form the reference structure
 for subsequent work.
 
 ## Current state and constraints
 
-- `features/library`, `features/title-details`, `features/playback`, and
-  `features/watch-together` expose public entry points. External callers must
-  not import their internals.
+- `features/home`, `features/library`, `features/title-details`,
+  `features/playback`, and `features/watch-together` expose public entry points.
+  External callers must not import their internals.
 - `frontend/src/plex/index.ts` is still a compatibility module. Do not expand
   it; move operations to the feature that owns them when touching a workflow.
 - `frontend/src/components`, `pages`, `plex`, and `states` still contain mixed
@@ -167,17 +178,7 @@ Treat the following as a default sequence, not a fixed specification. Recheck
 the dependencies and expected payoff before each stage. Each migration should
 still follow a vertical workflow rather than bulk-moving an old directory.
 
-### 1. Extract home discovery
-
-Move the home workflow (`Home`, `HeroDisplay`, hero selection/media logic, and
-home shelves) into `features/home`. Reuse library query/model code through its
-public contract or move genuinely reusable media-query concepts to an entity;
-do not duplicate library pagination and artwork logic.
-
-This step should leave home hero loading, trailer behavior, and shelf browsing
-unchanged.
-
-### 2. Consolidate authentication and profiles
+### 1. Consolidate authentication and profiles
 
 Give login, startup, Plex PIN flow, profile bootstrap/picker, server access,
 and user session state a deliberate boundary. Decide based on actual coupling
@@ -188,7 +189,7 @@ the same data.
 Session state is one of the few valid application-wide stores. Keep persisted
 credentials and active Plex Home profile handling out of presentation code.
 
-### 3. Extract settings and administration
+### 2. Extract settings and administration
 
 Move account, playback, sharing, library administration, and server settings
 from `pages/settings`, `components/settings`, and Plex helpers into a settings
@@ -199,7 +200,7 @@ Library CRUD may depend on reusable library entities/API contracts, but the
 administration UI should not be added to the browse feature merely because
 both mention libraries.
 
-### 4. Finish smaller workflows
+### 3. Finish smaller workflows
 
 Migrate the remaining routed workflows according to their behavior:
 
@@ -211,7 +212,7 @@ Migrate the remaining routed workflows according to their behavior:
 Only after their consumers are gone should the corresponding legacy Plex,
 page, component, hook, and state files be removed.
 
-### 5. Close the compatibility layer
+### 4. Close the compatibility layer
 
 When no feature depends on `plex/index.ts`, delete it and import the shared
 transport or feature-owned API explicitly. At the same time:

@@ -62,7 +62,9 @@ reviews, downloads, and the details dialog. `features/playback` owns stream
 selection, playback requests, subtitle search, queue controls, and the routed
 player screen. `features/watch-together` owns the cross-session connection,
 protocol adapter, room dialog, waiting room, notifications, and player-facing
-synchronization controller.
+synchronization controller. `features/home` owns the routed discovery screen,
+hero selection and presentation, and composition of home shelves while reusing
+the public library, media, and title-details surfaces.
 
 `architectureBoundaries.test.ts` enforces these entry points for cross-module
 imports. Add a headless feature exception there only when there is a concrete
