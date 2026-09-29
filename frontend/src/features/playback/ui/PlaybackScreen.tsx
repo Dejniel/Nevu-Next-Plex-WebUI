@@ -1,18 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { getTranscodeImageURL } from "plex";
 import {
-  getLibraryDir,
-  getLibraryMeta,
-  getTranscodeImageURL,
-} from "plex";
-import {
-  getPlayQueue,
-  getServerPreferences,
-  getStreamProps,
   getTimelineUpdate,
-  getUniversalDecision,
-  putAudioStream,
-  putSubtitleStream,
   sendUniversalPing,
 } from "../api/playback";
 import CenteredSpinner from "components/CenteredSpinner";
@@ -20,129 +10,38 @@ import {
   alpha,
   Box,
   Button,
-  Divider,
   Fade,
   IconButton,
   Paper,
   Popover,
-  Popper,
   Slider,
   Typography,
   useTheme,
 } from "@mui/material";
 import ReactPlayer from "react-player";
-import {
-  getIncludeProps,
-  getXPlexProps,
-  queryBuilder,
-} from "plex/QuickFunctions";
+import { queryBuilder } from "plex/QuickFunctions";
 import {
   ArrowBackIosNewRounded,
   FullscreenRounded,
   PauseRounded,
   PeopleRounded,
   PlayArrowRounded,
-  SearchRounded,
   SkipNext,
   TuneRounded,
   VolumeUpRounded,
 } from "@mui/icons-material";
 import { VideoSeekSlider } from "react-video-seek-slider";
 import "react-video-seek-slider/styles.css";
-import { useSessionStore } from "states/SessionState";
-import { durationToText } from "common/Duration";
 import { useWatchTogetherPlayback } from "features/watch-together/public";
 import EpisodeBrowser from "./EpisodeBrowser";
 import { useUserSettings } from "states/UserSettingsState";
 import NextEpisodeOverlay from "./NextEpisodeOverlay";
-import { getBackendURL } from "shared/api/backend";
-import { platformCache } from "common/DesktopApp";
-import {
-  chooseBestMediaVersion,
-  findPreferredStream,
-  getMediaVersions,
-  getTrackChoices,
-  MediaVersion,
-  mediaVersionDetails,
-  parseTrackPreference,
-  preferenceFromStream,
-  TrackPreference,
-} from "entities/media/model";
-import SubtitleSearchPanel from "./SubtitleSearchPanel";
 import AppDialog from "components/AppDialog";
-import {
-  downloadSubtitle,
-  findAttachedSubtitle,
-  SubtitleSearchResult,
-} from "../api/subtitles";
-import {
-  formatPlaybackTime,
-  getPlaybackQualityOptions,
-} from "../model/playbackPresentation";
+import { formatPlaybackTime } from "../model/playbackPresentation";
+import { usePlaybackMedia } from "../model/usePlaybackMedia";
 import NextQueueButton from "./NextQueueButton";
-import {
-  tuneSettingTab,
-  TuneAction,
-  TuneOption,
-  TuneSectionLabel,
-} from "./TuneControls";
-
-let SessionID = "";
-
-const getUrl = (
-  data: Plex.Metadata,
-  quality: { bitrate?: number; auto?: boolean },
-  version?: MediaVersion,
-) => {
-  const selected = version || getMediaVersions(data)[0];
-  const bitrate = quality
-    ? quality.bitrate
-    : parseInt(localStorage.getItem("quality") ?? "10000");
-  if (bitrate === -1 && selected)
-    return `${getBackendURL()}/dynproxy${selected.part.key}?${queryBuilder({
-      ...getXPlexProps(),
-    })}`;
-
-  return `${getBackendURL()}/dynproxy/video/:/transcode/universal/start.${
-    platformCache.isDesktop ? "m3u8" : "mpd"
-  }?${queryBuilder({
-    ...getStreamProps(data.ratingKey as string, {
-      ...(quality.bitrate && {
-        maxVideoBitrate: bitrate,
-      }),
-      mediaIndex: selected?.mediaIndex ?? 0,
-      partIndex: selected?.partIndex ?? 0,
-    }),
-  })}`;
-};
-
-function preferenceScope(data: Plex.Metadata) {
-  return data.grandparentRatingKey || data.ratingKey;
-}
-
-function storedTrackPreference(data: Plex.Metadata, kind: "AUDIO" | "SUBTITLE") {
-  return parseTrackPreference(
-    useUserSettings.getState().settings[
-      `MEDIA_PREF_${kind}-${preferenceScope(data)}`
-    ],
-  );
-}
-
-async function applyTrackPreferences(
-  version: MediaVersion,
-  audioPreference: TrackPreference | null,
-  subtitlePreference: TrackPreference | null,
-) {
-  const audio = findPreferredStream(version, 2, audioPreference);
-  if (audio) await putAudioStream(version.part.id, audio.id);
-
-  if (subtitlePreference?.index === -1) {
-    await putSubtitleStream(version.part.id, 0);
-    return;
-  }
-  const subtitle = findPreferredStream(version, 3, subtitlePreference);
-  if (subtitle) await putSubtitleStream(version.part.id, subtitle.id);
-}
+import PlaybackInfoOverlay from "./PlaybackInfoOverlay";
+import PlaybackSettingsPopover from "./PlaybackSettingsPopover";
 
 function PlaybackScreen() {
   const { itemID } = useParams<{ itemID: string }>();
@@ -150,31 +49,12 @@ function PlaybackScreen() {
   const theme = useTheme();
   const navigate = useNavigate();
 
-  const { sessionID } = useSessionStore();
   const { settings } = useUserSettings();
-
-  const [metadata, setMetadata] = useState<Plex.Metadata | null>(null);
-  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
-  const [activePartIndex, setActivePartIndex] = useState(0);
-  const [showmetadata, setShowMetadata] = useState<Plex.Metadata | null>(null);
-  const [playQueue, setPlayQueue] = useState<Plex.Metadata[] | null>(null); // [current, ...next]
   const player = useRef<ReactPlayer | null>(null);
-  const [quality, setQuality] = useState<{
-    bitrate?: number;
-    auto?: boolean;
-  }>({
-    ...(localStorage.getItem("quality") && {
-      bitrate: parseInt(localStorage.getItem("quality") ?? "10000"),
-    }),
-  });
-  const [url, setURL] = useState<string>("");
-
   const [volume, setVolume] = useState<number>(
     parseInt(localStorage.getItem("volume") ?? "100"),
   );
-
   const lastAppliedTime = useRef<number>(0);
-
   const [playing, setPlaying] = useState(true);
   const playingRef = useRef(playing);
   const [ready, setReady] = useState(false);
@@ -187,13 +67,37 @@ function PlaybackScreen() {
   const volumePopoverOpen = Boolean(volumePopoverAnchor);
 
   const [showTune, setShowTune] = useState(false);
-  const [tunePage, setTunePage] = useState<number>(0); // 0: menu, 1: video, 2: audio, 3: subtitles, 4: subtitle search
   const tuneButtonRef = useRef<HTMLButtonElement | null>(null);
-
   const playbackBarRef = useRef<HTMLDivElement | null>(null);
-
   const [buffering, setBuffering] = useState(false);
   const [showError, setShowError] = useState<string | false>(false);
+
+  const {
+    metadata,
+    showMetadata,
+    playQueue,
+    url,
+    quality,
+    activeMediaIndex,
+    activeVersion,
+    mediaVersions,
+    audioChoices,
+    subtitleChoices,
+    selectQuality,
+    selectMediaVersion,
+    selectAudioTrack,
+    selectSubtitleTrack,
+    disableSubtitles,
+    downloadOnDemandSubtitle,
+  } = usePlaybackMedia({
+    itemID,
+    getCurrentTime: () => player.current?.getCurrentTime() ?? 0,
+    onSourceChanging: () => setReady(false),
+    requestResumeAt: (time) => {
+      seekToAfterLoad.current = time;
+    },
+    setError: setShowError,
+  });
 
   const {
     room,
@@ -223,70 +127,6 @@ function PlaybackScreen() {
   useEffect(() => {
     setControlElementsVisible(volumePopoverOpen || showTune);
   }, [volumePopoverOpen, showTune]);
-
-  const loadMetadata = async (itemID: string) => {
-    const mediacontainer = await getLibraryDir(`/library/metadata/${itemID}`, {
-      ...getIncludeProps(),
-    });
-    const loadedMetadata = mediacontainer.Metadata?.[0] ?? null;
-    if (!["movie", "episode"].includes(loadedMetadata?.type as string)) {
-      console.error("Invalid metadata type");
-      return null;
-    }
-
-    setMetadata(loadedMetadata);
-    if (loadedMetadata.type === "episode") {
-      getLibraryMeta(loadedMetadata.grandparentRatingKey as string).then((show) => {
-        setShowMetadata(show);
-      });
-    }
-
-    const serverPreferences = await getServerPreferences();
-
-    getPlayQueue(
-      `server://${
-        serverPreferences.machineIdentifier
-      }/com.plexapp.plugins.library/library/metadata/${
-        loadedMetadata.ratingKey
-      }`,
-    ).then((queue) => {
-      setPlayQueue(queue);
-    });
-    return loadedMetadata;
-  };
-
-  const restartPlayback = async (
-    version: MediaVersion,
-    nextQuality = quality,
-    configure?: () => Promise<void>,
-  ) => {
-    if (!itemID || !metadata) return;
-    const currentTime = player.current?.getCurrentTime() ?? 0;
-    if (configure) await configure();
-
-    setActiveMediaIndex(version.mediaIndex);
-    setActivePartIndex(version.partIndex);
-    await getUniversalDecision(itemID, {
-      maxVideoBitrate: nextQuality.bitrate,
-      autoAdjustQuality: nextQuality.auto,
-      mediaIndex: version.mediaIndex,
-      partIndex: version.partIndex,
-    });
-    const refreshed = await loadMetadata(itemID);
-    const refreshedVersion = refreshed
-      ? getMediaVersions(refreshed).find(
-          (candidate) =>
-            candidate.mediaIndex === version.mediaIndex &&
-            candidate.partIndex === version.partIndex,
-        )
-      : undefined;
-
-    seekToAfterLoad.current = currentTime;
-    setURL("");
-    setTimeout(() => {
-      setURL(getUrl(refreshed || metadata, nextQuality, refreshedVersion || version));
-    }, 100);
-  };
 
   const [showControls, setShowControls] = useState(true);
   useEffect(() => {
@@ -369,7 +209,6 @@ function PlaybackScreen() {
   }, [buffering, itemID, pauseTogether, playing]);
 
   useEffect(() => {
-    let active = true;
     const style = document.createElement("style");
     style.innerHTML = `
       .ui-video-seek-slider .track .main .connect {
@@ -380,64 +219,10 @@ function PlaybackScreen() {
       }
     `;
     document.head.appendChild(style);
-
-    (async () => {
-      setReady(false);
-
-      if (!itemID) return;
-
-      const initialMetadata = await getLibraryMeta(itemID);
-
-      const autoMatchTracks =
-        useUserSettings.getState().settings["AUTO_MATCH_TRACKS"] === "true";
-      const audioPreference = autoMatchTracks
-        ? storedTrackPreference(initialMetadata, "AUDIO")
-        : null;
-      const subtitlePreference = autoMatchTracks
-        ? storedTrackPreference(initialMetadata, "SUBTITLE")
-        : null;
-      const version = chooseBestMediaVersion(
-        initialMetadata,
-        audioPreference,
-        subtitlePreference,
-      );
-      if (!version) {
-        setShowError("No playable media version is available.");
-        return;
-      }
-
-      if (autoMatchTracks)
-        await applyTrackPreferences(version, audioPreference, subtitlePreference);
-
-      await getUniversalDecision(itemID, {
-        maxVideoBitrate: quality.bitrate,
-        autoAdjustQuality: quality.auto,
-        mediaIndex: version.mediaIndex,
-        partIndex: version.partIndex,
-      });
-      const loadedMetadata = await loadMetadata(itemID);
-      if (!active || !loadedMetadata) return;
-
-      const loadedVersion =
-        getMediaVersions(loadedMetadata).find(
-          (candidate) => candidate.mediaIndex === version.mediaIndex,
-        ) || version;
-      setActiveMediaIndex(version.mediaIndex);
-      setActivePartIndex(version.partIndex);
-      setURL(getUrl(loadedMetadata, quality, loadedVersion));
-      setShowError(false);
-    })();
-
     return () => {
-      active = false;
       style.remove();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itemID, theme.palette.primary.main]);
-
-  useEffect(() => {
-    SessionID = sessionID;
-  }, [sessionID]);
+  }, [theme.palette.primary.main]);
 
   useEffect(() => {
     if (!player.current) return;
@@ -565,113 +350,6 @@ function PlaybackScreen() {
     };
   }, [metadata, navigate, pauseTogether, playQueue, resumeTogether, seekTogether]);
 
-  const mediaVersions = metadata ? getMediaVersions(metadata) : [];
-  const activeVersion =
-    mediaVersions.find(
-      (version) =>
-        version.mediaIndex === activeMediaIndex &&
-        version.partIndex === activePartIndex,
-    ) || mediaVersions[0];
-  const audioChoices = metadata ? getTrackChoices(metadata, 2) : [];
-  const subtitleChoices = metadata ? getTrackChoices(metadata, 3) : [];
-
-  const selectedPreference = (streamType: 2 | 3) => {
-    const stream = activeVersion?.part.Stream?.find(
-      (candidate) => candidate.streamType === streamType && candidate.selected,
-    );
-    if (stream) return preferenceFromStream(stream);
-    return streamType === 3
-      ? ({ index: -1, title: "None" } satisfies TrackPreference)
-      : null;
-  };
-
-  const selectMediaVersion = async (version: MediaVersion) => {
-    const autoMatch = settings.AUTO_MATCH_TRACKS === "true";
-    await restartPlayback(version, quality, async () => {
-      if (!metadata || !autoMatch) return;
-      await applyTrackPreferences(
-        version,
-        storedTrackPreference(metadata, "AUDIO"),
-        storedTrackPreference(metadata, "SUBTITLE"),
-      );
-    });
-  };
-
-  const selectAudioTrack = async (choice: (typeof audioChoices)[number]) => {
-    if (!metadata) return;
-    const preference = preferenceFromStream(choice.stream);
-    void useUserSettings.getState().setSetting(
-      `MEDIA_PREF_AUDIO-${preferenceScope(metadata)}`,
-      JSON.stringify(preference),
-    );
-    const subtitlePreference = selectedPreference(3);
-    await restartPlayback(choice, quality, async () => {
-      await putAudioStream(choice.part.id, choice.stream.id);
-      if (subtitlePreference)
-        await applyTrackPreferences(choice, null, subtitlePreference);
-    });
-  };
-
-  const selectSubtitleTrack = async (
-    choice: (typeof subtitleChoices)[number],
-  ) => {
-    if (!metadata) return;
-    const preference = preferenceFromStream(choice.stream);
-    void useUserSettings.getState().setSetting(
-      `MEDIA_PREF_SUBTITLE-${preferenceScope(metadata)}`,
-      JSON.stringify(preference),
-    );
-    const audioPreference = selectedPreference(2);
-    await restartPlayback(choice, quality, async () => {
-      await putSubtitleStream(choice.part.id, choice.stream.id);
-      if (audioPreference)
-        await applyTrackPreferences(choice, audioPreference, null);
-    });
-  };
-
-  const disableSubtitles = async () => {
-    if (!metadata || !activeVersion) return;
-    void useUserSettings.getState().setSetting(
-      `MEDIA_PREF_SUBTITLE-${preferenceScope(metadata)}`,
-      JSON.stringify({ index: -1, title: "None" } satisfies TrackPreference),
-    );
-    await restartPlayback(activeVersion, quality, () =>
-      putSubtitleStream(activeVersion.part.id, 0),
-    );
-  };
-
-  const downloadOnDemandSubtitle = async (subtitle: SubtitleSearchResult) => {
-    if (!itemID || !metadata || !activeVersion)
-      throw new Error("No active media file is available.");
-
-    await downloadSubtitle(
-      metadata.ratingKey,
-      activeVersion.media.id,
-      subtitle,
-    );
-
-    for (let attempt = 0; attempt < 40; attempt += 1) {
-      if (attempt > 0)
-        await new Promise((resolve) => window.setTimeout(resolve, 500));
-
-      const refreshed = await getLibraryMeta(itemID);
-      const choice = findAttachedSubtitle(
-        refreshed,
-        activeVersion.media.id,
-        subtitle,
-      );
-      if (!choice) continue;
-
-      await selectSubtitleTrack(choice);
-      setTunePage(3);
-      return;
-    }
-
-    throw new Error(
-      "Plex accepted the download, but the subtitle did not become available in time.",
-    );
-  };
-
   return (
     <>
       <AppDialog
@@ -755,523 +433,32 @@ function PlaybackScreen() {
         >
           <CenteredSpinner />
         </Box>
-        <Box
-          sx={{
-            width: "100vw",
-            height: "100vh",
-            position: "absolute",
-            padding: "10px",
-            left: "0",
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "flex-start",
-            px: "8vw",
-            gap: "4vw",
-            opacity: showInfo ? 1 : 0,
-            transition: "all 0.6s cubic-bezier(0.23, 1, 0.32, 1)",
-            zIndex: 1000,
-            pointerEvents: "none",
-            ...(metadata &&
-              metadata?.type === "movie" && {
-                justifyContent: "center",
-                padding: "0",
-              }),
-          }}
-        >
-          <img
-            src={`${getTranscodeImageURL(
-              metadata?.thumb as string,
-              1500,
-              1500,
-            )}`}
-            alt=""
-            style={{
-              height: "25vw",
-              width: "auto",
-              objectFit: "cover",
-              borderRadius: "1rem",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
-              transform: `translateX(${
-                showInfo ? 0 : -40
-              }vw) perspective(1000px) rotateY(${showInfo ? 0 : -30}deg)`,
-              transition: "transform 0.7s cubic-bezier(0.23, 1, 0.32, 1)",
-              transitionDelay: "0.2s",
-              border: "2px solid rgba(255,255,255,0.1)",
-            }}
+        {metadata && (
+          <PlaybackInfoOverlay
+            metadata={metadata}
+            showMetadata={showMetadata}
+            visible={showInfo}
           />
-          <Box
-            sx={{
-              width: "45vw",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-start",
-              justifyContent: "center",
-              textAlign: "left",
-              transform: `translateX(${showInfo ? 0 : -80}vw)`,
-              transition: "transform 0.6s cubic-bezier(0.23, 1, 0.32, 1)",
-              transitionDelay: "0.1s",
-            }}
-          >
-            {metadata && metadata?.type === "episode" && (
-              <>
-                <Typography
-                  sx={{
-                    fontSize: "0.9vw",
-                    color: theme.palette.primary.main,
-                    fontWeight: 500,
-                    letterSpacing: "0.05em",
-                    textTransform: "uppercase",
-                    mb: 0.5,
-                  }}
-                >
-                  {showmetadata?.childCount &&
-                    showmetadata?.childCount > 1 &&
-                    `Season ${metadata.parentIndex}`}
-                </Typography>
+        )}
 
-                <Typography
-                  sx={{
-                    fontSize: "2.5vw",
-                    fontWeight: 700,
-                    color: "#FFF",
-                    letterSpacing: "-0.01em",
-                    lineHeight: 1.1,
-                    textShadow: "0 2px 4px rgba(0,0,0,0.3)",
-                  }}
-                >
-                  {metadata?.grandparentTitle}
-                </Typography>
-
-                <Typography
-                  sx={{
-                    fontSize: "1.2vw",
-                    fontWeight: 600,
-                    color: "rgba(255,255,255,0.9)",
-                    mt: 2,
-                    mb: 0.5,
-                  }}
-                >
-                  {metadata?.title}{" "}
-                  <span style={{ opacity: 0.6 }}>· EP.{metadata?.index}</span>
-                </Typography>
-
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                    justifyContent: "flex-start",
-                    mt: 0,
-                    mb: 1,
-                    gap: 2,
-                  }}
-                >
-                  {metadata.year && (
-                    <Typography
-                      sx={{
-                        fontSize: "0.8vw",
-                        fontWeight: 400,
-                        color: "rgba(255,255,255,0.7)",
-                      }}
-                    >
-                      {metadata.year}
-                    </Typography>
-                  )}
-                  {metadata.rating && (
-                    <Typography
-                      sx={{
-                        fontSize: "0.8vw",
-                        fontWeight: 400,
-                        color: "rgba(255,255,255,0.7)",
-                      }}
-                    >
-                      {metadata.rating}
-                    </Typography>
-                  )}
-                  {metadata.contentRating && (
-                    <Typography
-                      sx={{
-                        fontSize: "0.7vw",
-                        fontWeight: 500,
-                        color: "rgba(255,255,255,0.9)",
-                        border: `1px solid rgba(255,255,255,0.3)`,
-                        borderRadius: "4px",
-                        px: 1,
-                        py: 0.3,
-                      }}
-                    >
-                      {metadata.contentRating}
-                    </Typography>
-                  )}
-                  {metadata.duration &&
-                    ["episode", "movie"].includes(metadata.type) && (
-                      <Typography
-                        sx={{
-                          fontSize: "0.9vw",
-                          fontWeight: 400,
-                          color: "rgba(255,255,255,0.7)",
-                        }}
-                      >
-                        {durationToText(metadata.duration)}
-                      </Typography>
-                    )}
-                </Box>
-
-                <Typography
-                  sx={{
-                    fontSize: "1vw",
-                    color: "rgba(255,255,255,0.8)",
-                    lineHeight: 1.6,
-                    maxWidth: "90%",
-                    position: "relative",
-                    "&:before": {
-                      content: '""',
-                      position: "absolute",
-                      left: "-20px",
-                      top: "8px",
-                      bottom: "8px",
-                      width: "3px",
-                      background: theme.palette.primary.main,
-                      borderRadius: "4px",
-                      opacity: 0.8,
-                    },
-                  }}
-                >
-                  {metadata?.summary}
-                </Typography>
-              </>
-            )}
-            {metadata && metadata?.type === "movie" && (
-              <>
-                <Typography
-                  sx={{
-                    fontSize: "3.5vw",
-                    fontWeight: 700,
-                    color: "#FFF",
-                    letterSpacing: "-0.02em",
-                    lineHeight: 1.1,
-                    textShadow: "0 2px 4px rgba(0,0,0,0.3)",
-                  }}
-                >
-                  {metadata?.title}
-                </Typography>
-
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                    justifyContent: "flex-start",
-                    mt: 2,
-                    mb: 3,
-                    gap: 2,
-                  }}
-                >
-                  {metadata.year && (
-                    <Typography
-                      sx={{
-                        fontSize: "0.8vw",
-                        fontWeight: 400,
-                        color: "rgba(255,255,255,0.7)",
-                      }}
-                    >
-                      {metadata.year}
-                    </Typography>
-                  )}
-                  {metadata.rating && (
-                    <Typography
-                      sx={{
-                        fontSize: "0.8vw",
-                        fontWeight: 400,
-                        color: "rgba(255,255,255,0.7)",
-                      }}
-                    >
-                      {metadata.rating}
-                    </Typography>
-                  )}
-                  {metadata.contentRating && (
-                    <Typography
-                      sx={{
-                        fontSize: "0.7vw",
-                        fontWeight: 500,
-                        color: "rgba(255,255,255,0.9)",
-                        border: `1px solid rgba(255,255,255,0.3)`,
-                        borderRadius: "4px",
-                        px: 1,
-                        py: 0.3,
-                      }}
-                    >
-                      {metadata.contentRating}
-                    </Typography>
-                  )}
-                  {metadata.duration &&
-                    ["episode", "movie"].includes(metadata.type) && (
-                      <Typography
-                        sx={{
-                          fontSize: "0.8vw",
-                          fontWeight: 400,
-                          color: "rgba(255,255,255,0.7)",
-                        }}
-                      >
-                        {durationToText(metadata.duration)}
-                      </Typography>
-                    )}
-                </Box>
-
-                {metadata?.tagline && (
-                  <Typography
-                    sx={{
-                      fontSize: "1vw",
-                      fontWeight: 600,
-                      color: theme.palette.primary.main,
-                      mt: 1,
-                      mb: 2,
-                      fontStyle: "italic",
-                    }}
-                  >
-                    {metadata?.tagline}
-                  </Typography>
-                )}
-                <Typography
-                  sx={{
-                    fontSize: "1vw",
-                    color: "rgba(255,255,255,0.8)",
-                    lineHeight: 1.6,
-                    maxWidth: "90%",
-                    position: "relative",
-                    "&:before": {
-                      content: '""',
-                      position: "absolute",
-                      left: "-20px",
-                      top: "8px",
-                      bottom: "8px",
-                      width: "3px",
-                      background: theme.palette.primary.main,
-                      borderRadius: "4px",
-                      opacity: 0.8,
-                    },
-                  }}
-                >
-                  {metadata?.summary}
-                </Typography>
-              </>
-            )}
-          </Box>
-        </Box>
-
-        <Popover
+        <PlaybackSettingsPopover
           open={showTune}
           anchorEl={tuneButtonRef.current}
-          onClose={() => {
-            setShowTune(false);
-            setTunePage(0);
-          }}
-          anchorOrigin={{
-            vertical: "top",
-            horizontal: "center",
-          }}
-          transformOrigin={{
-            vertical: "bottom",
-            horizontal: "center",
-          }}
-          sx={{
-            "& .MuiPaper-root": {
-              overflow: "hidden",
-              borderRadius: 1,
-              background: "transparent",
-            },
-          }}
-        >
-          <Paper
-            sx={{
-              width:
-                tunePage === 4
-                  ? { xs: "calc(100vw - 24px)", sm: 520 }
-                  : 350,
-              maxWidth: "calc(100vw - 24px)",
-              maxHeight: "min(70vh, 600px)",
-              overflowY: "auto",
-              userSelect: "none",
-              backdropFilter: "blur(20px)",
-              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-            }}
-          >
-            {tunePage === 0 && (
-              <>
-                {tuneSettingTab(setTunePage, {
-                  pageNum: 1,
-                  text: "Video",
-                })}
-                {tuneSettingTab(setTunePage, {
-                  pageNum: 2,
-                  text: "Audio",
-                })}
-                {tuneSettingTab(setTunePage, {
-                  pageNum: 3,
-                  text: "Subtitles",
-                })}
-              </>
-            )}
-
-            {tunePage === 1 && activeVersion && (
-              <>
-                {tuneSettingTab(setTunePage, {
-                  pageNum: 0,
-                  text: "Back",
-                })}
-                {mediaVersions.length > 1 && (
-                  <>
-                    <TuneSectionLabel>Source</TuneSectionLabel>
-                    {mediaVersions.map((version) => (
-                      <TuneOption
-                        key={version.media.id || version.mediaIndex}
-                        selected={version.mediaIndex === activeMediaIndex}
-                        primary={`Version ${version.mediaIndex + 1}`}
-                        secondary={mediaVersionDetails(version)}
-                        onClick={async () => {
-                          setTunePage(0);
-                          await selectMediaVersion(version);
-                        }}
-                      />
-                    ))}
-                    <Divider />
-                  </>
-                )}
-                <TuneSectionLabel>Streaming quality</TuneSectionLabel>
-                {getPlaybackQualityOptions(
-                  activeVersion.media.videoResolution,
-                  `${Math.floor(activeVersion.media.bitrate / 1000)}Mbps`,
-                ).map((qualityOption) => (
-                  <TuneOption
-                    key={`${qualityOption.title}:${qualityOption.bitrate}`}
-                    selected={qualityOption.bitrate === quality.bitrate}
-                    primary={qualityOption.title}
-                    secondary={qualityOption.extra}
-                    onClick={async () => {
-                      setTunePage(0);
-                      const nextQuality = {
-                        bitrate: qualityOption.original
-                          ? undefined
-                          : qualityOption.bitrate,
-                        auto: undefined,
-                      };
-                      setQuality(nextQuality);
-                      if (qualityOption.original)
-                        localStorage.removeItem("quality");
-                      else if (qualityOption.bitrate)
-                        localStorage.setItem(
-                          "quality",
-                          qualityOption.bitrate.toString(),
-                        );
-                      await restartPlayback(activeVersion, nextQuality);
-                    }}
-                  />
-                ))}
-              </>
-            )}
-
-            {tunePage === 2 && activeVersion && (
-              <>
-                {tuneSettingTab(setTunePage, {
-                  pageNum: 0,
-                  text: "Back",
-                })}
-                {audioChoices.map((choice) => (
-                  <TuneOption
-                    key={`${choice.mediaIndex}:${choice.part.id}:${choice.stream.id}`}
-                    selected={
-                      choice.mediaIndex === activeMediaIndex &&
-                      Boolean(choice.stream.selected)
-                    }
-                    primary={
-                      choice.stream.extendedDisplayTitle ||
-                      choice.stream.displayTitle ||
-                      `Audio ${choice.stream.index + 1}`
-                    }
-                    secondary={
-                      mediaVersions.length > 1
-                        ? `Version ${choice.mediaIndex + 1} · ${mediaVersionDetails(choice)}`
-                        : undefined
-                    }
-                    onClick={async () => {
-                      setTunePage(0);
-                      await selectAudioTrack(choice);
-                    }}
-                  />
-                ))}
-              </>
-            )}
-
-            {tunePage === 3 && activeVersion && (
-              <>
-                {tuneSettingTab(setTunePage, {
-                  pageNum: 0,
-                  text: "Back",
-                })}
-                <TuneOption
-                  selected={
-                    !activeVersion.part.Stream?.some(
-                      (stream) => stream.streamType === 3 && stream.selected,
-                    )
-                  }
-                  primary="None"
-                  onClick={async () => {
-                    setTunePage(0);
-                    await disableSubtitles();
-                  }}
-                />
-                {subtitleChoices.map((choice) => (
-                  <TuneOption
-                    key={`${choice.mediaIndex}:${choice.part.id}:${choice.stream.id}`}
-                    selected={
-                      choice.mediaIndex === activeMediaIndex &&
-                      Boolean(choice.stream.selected)
-                    }
-                    primary={
-                      choice.stream.extendedDisplayTitle ||
-                      choice.stream.displayTitle ||
-                      `Subtitle ${choice.stream.index + 1}`
-                    }
-                    secondary={
-                      mediaVersions.length > 1
-                        ? `Version ${choice.mediaIndex + 1} · ${mediaVersionDetails(choice)}`
-                        : undefined
-                    }
-                    onClick={async () => {
-                      setTunePage(0);
-                      await selectSubtitleTrack(choice);
-                    }}
-                  />
-                ))}
-                <Divider />
-                <TuneAction
-                  icon={<SearchRounded fontSize="small" />}
-                  primary="Find subtitles…"
-                  secondary="Search Plex subtitle providers"
-                  onClick={() => setTunePage(4)}
-                />
-              </>
-            )}
-
-            {tunePage === 4 && activeVersion && metadata && (
-              <>
-                {tuneSettingTab(setTunePage, {
-                  pageNum: 3,
-                  text: "Find subtitles",
-                })}
-                <SubtitleSearchPanel
-                  key={`${metadata.ratingKey}:${activeVersion.media.id}:${activeVersion.part.id}`}
-                  metadata={metadata}
-                  version={activeVersion}
-                  onDownload={downloadOnDemandSubtitle}
-                />
-              </>
-            )}
-          </Paper>
-        </Popover>
+          metadata={metadata}
+          activeMediaIndex={activeMediaIndex}
+          activeVersion={activeVersion}
+          mediaVersions={mediaVersions}
+          audioChoices={audioChoices}
+          subtitleChoices={subtitleChoices}
+          quality={quality}
+          onClose={() => setShowTune(false)}
+          onSelectQuality={selectQuality}
+          onSelectMediaVersion={selectMediaVersion}
+          onSelectAudioTrack={selectAudioTrack}
+          onSelectSubtitleTrack={selectSubtitleTrack}
+          onDisableSubtitles={disableSubtitles}
+          onDownloadSubtitle={downloadOnDemandSubtitle}
+        />
         {(() => {
           if (!metadata) return <CenteredSpinner />;
 
@@ -1826,7 +1013,6 @@ function PlaybackScreen() {
                           }}
                           onClick={(event) => {
                             setShowTune(!showTune);
-                            setTunePage(0);
                             tuneButtonRef.current = event.currentTarget;
                           }}
                         >

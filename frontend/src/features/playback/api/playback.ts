@@ -117,3 +117,25 @@ export async function getPlayQueue(uri: string): Promise<Plex.Metadata[]> {
   );
   return response.MediaContainer.Metadata;
 }
+
+export async function getPlaybackMetadata(
+  itemID: string,
+): Promise<Plex.Metadata | null> {
+  const response = await authedGet(
+    `/library/metadata/${itemID}?${queryBuilder({
+      ...getIncludeProps(),
+      ...getXPlexProps(),
+    })}`,
+  );
+  return response?.MediaContainer?.Metadata?.[0] ?? null;
+}
+
+export async function getPlaybackQueueForItem(
+  metadata: Plex.Metadata,
+): Promise<Plex.Metadata[]> {
+  const preferences = await getServerPreferences();
+  return getPlayQueue(
+    `server://${preferences.machineIdentifier}` +
+      `/com.plexapp.plugins.library/library/metadata/${metadata.ratingKey}`,
+  );
+}
