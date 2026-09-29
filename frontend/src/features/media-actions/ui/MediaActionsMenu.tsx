@@ -17,7 +17,7 @@ import {
   Menu,
   MenuItem,
 } from "@mui/material";
-import type { MediaItemData } from "entities/media/model";
+import { isMediaWatched, type MediaItemData } from "entities/media/model";
 import { WatchlistMenuItem } from "features/watchlist/public";
 import React from "react";
 import { Link } from "react-router-dom";
@@ -28,31 +28,22 @@ import {
   formatDownloadDetails,
   type OriginalDownload,
 } from "../model/downloads";
-import {
-  isMatchedMetadata,
-  matchActionLabel,
-} from "../model/matching";
+import { matchActionLabel } from "../model/matching";
+import type { MediaActionCapabilities } from "../model/mediaActionCapabilities";
 
 export interface MediaMenuAnchor {
   element?: HTMLElement;
   position?: { top: number; left: number };
 }
 
-export function isMediaWatched(item: MediaItemData) {
-  if (item.type === "show")
-    return Boolean(item.leafCount && item.viewedLeafCount === item.leafCount);
-  return Boolean(item.viewCount);
-}
-
 export default function MediaActionsMenu({
   anchor,
-  canManageServer,
+  capabilities,
   detailsTarget,
   downloads,
   downloadsLoading,
   item,
   location,
-  localItem,
   onClose,
   onEditMetadata,
   onMatch,
@@ -61,13 +52,12 @@ export default function MediaActionsMenu({
   onUnmatch,
 }: {
   anchor: MediaMenuAnchor | null;
-  canManageServer: boolean;
+  capabilities: MediaActionCapabilities;
   detailsTarget: To;
   downloads: OriginalDownload[];
   downloadsLoading: boolean;
   item: MediaItemData;
   location: AppLocation;
-  localItem: boolean;
   onClose: () => void;
   onEditMetadata: () => void;
   onMatch: () => void;
@@ -76,10 +66,7 @@ export default function MediaActionsMenu({
   onUnmatch: () => void;
 }) {
   const watched = isMediaWatched(item);
-  const similarRatingKey =
-    item.type === "episode" ? item.grandparentRatingKey : item.ratingKey;
-  const canMatch =
-    localItem && canManageServer && ["movie", "show"].includes(item.type);
+  const { similarRatingKey } = capabilities;
 
   return (
     <Menu
@@ -102,7 +89,7 @@ export default function MediaActionsMenu({
 
       <WatchlistMenuItem item={item} onDone={onClose} />
 
-      {localItem && (
+      {capabilities.canSetWatched && (
         <MenuItem
           onClick={() => {
             onClose();
@@ -120,7 +107,7 @@ export default function MediaActionsMenu({
         </MenuItem>
       )}
 
-      {localItem && similarRatingKey && (
+      {similarRatingKey && (
         <MenuItem
           component={Link}
           to={libraryBrowseTo(
@@ -134,13 +121,13 @@ export default function MediaActionsMenu({
         </MenuItem>
       )}
 
-      {downloadsLoading && (
+      {capabilities.canDownload && downloadsLoading && (
         <MenuItem disabled>
           <ListItemIcon><CircularProgress size={18} color="inherit" /></ListItemIcon>
           <ListItemText>Loading original file…</ListItemText>
         </MenuItem>
       )}
-      {!downloadsLoading && downloads.map((download) => (
+      {capabilities.canDownload && !downloadsLoading && downloads.map((download) => (
         <MenuItem
           key={`${download.media.id}:${download.part.id}`}
           component="a"
@@ -157,9 +144,9 @@ export default function MediaActionsMenu({
         </MenuItem>
       ))}
 
-      {(canMatch || localItem) && <Divider />}
+      {(capabilities.canSetWatched || capabilities.canEditMetadata) && <Divider />}
 
-      {localItem && canManageServer && (
+      {capabilities.canEditMetadata && (
         <MenuItem
           onClick={() => {
             onClose();
@@ -171,7 +158,7 @@ export default function MediaActionsMenu({
         </MenuItem>
       )}
 
-      {canMatch && (
+      {capabilities.canMatch && (
         <MenuItem
           onClick={() => {
             onClose();
@@ -183,7 +170,7 @@ export default function MediaActionsMenu({
         </MenuItem>
       )}
 
-      {canMatch && isMatchedMetadata(item) && (
+      {capabilities.canUnmatch && (
         <MenuItem
           onClick={() => {
             onClose();

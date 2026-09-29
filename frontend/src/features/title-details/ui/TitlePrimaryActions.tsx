@@ -6,11 +6,12 @@ import {
   PlayArrowRounded,
 } from "@mui/icons-material";
 import { Button, CircularProgress, IconButton, Tooltip } from "@mui/material";
-import { setMediaPlayedStatus } from "entities/media/model";
+import { applyMediaWatchedState, isMediaWatched, setMediaPlayedStatus } from "entities/media/model";
 import {
   matchActionLabel,
   OriginalDownloadButton,
   resolvePlaybackTarget,
+  type MediaActionCapabilities,
 } from "features/media-actions/public";
 import { HeroWatchlistButton } from "features/watchlist/public";
 import React, { useState } from "react";
@@ -26,21 +27,15 @@ const iconButtonStyle = {
   border: "1px solid rgba(255,255,255,0.2)",
 };
 
-function isWatched(data: Plex.Metadata) {
-  return data.type === "show"
-    ? Boolean(data.leafCount && data.viewedLeafCount === data.leafCount)
-    : Boolean(data.viewCount);
-}
-
 export default function TitlePrimaryActions({
-  canManageServer,
+  capabilities,
   data,
   onDataChanged,
   onEditMetadata,
   onMatch,
   onReviewChanged,
 }: {
-  canManageServer: boolean;
+  capabilities: MediaActionCapabilities;
   data: Plex.Metadata;
   onDataChanged: (data: Plex.Metadata) => void;
   onEditMetadata: () => void;
@@ -49,8 +44,7 @@ export default function TitlePrimaryActions({
 }) {
   const navigate = useNavigate();
   const [playLoading, setPlayLoading] = useState(false);
-  const watched = isWatched(data);
-  const canMatch = canManageServer && ["movie", "show"].includes(data.type);
+  const watched = isMediaWatched(data);
 
   const play = async () => {
     if (playLoading) return;
@@ -75,9 +69,7 @@ export default function TitlePrimaryActions({
       }?`,
       onConfirm: async () => {
         await setMediaPlayedStatus(nextWatched, data.ratingKey);
-        onDataChanged(data.type === "show"
-          ? { ...data, viewedLeafCount: nextWatched ? data.leafCount : 0 }
-          : { ...data, viewCount: nextWatched ? 1 : 0 });
+        onDataChanged(applyMediaWatchedState(data, nextWatched));
       },
       onCancel: () => undefined,
     });
@@ -101,13 +93,13 @@ export default function TitlePrimaryActions({
             : ""}E${data.OnDeck.Metadata.index}`}
       </Button>
 
-      <OriginalDownloadButton data={data} />
+      <OriginalDownloadButton data={data} canDownload={capabilities.canDownload} />
 
       <Tooltip placement="top" arrow title="Watchlist">
         <HeroWatchlistButton item={data} />
       </Tooltip>
 
-      {canManageServer && (
+      {capabilities.canEditMetadata && (
         <Tooltip placement="top" arrow title="Edit metadata">
           <IconButton
             aria-label="Edit metadata"
@@ -119,7 +111,7 @@ export default function TitlePrimaryActions({
         </Tooltip>
       )}
 
-      {canMatch && (
+      {capabilities.canMatch && (
         <Tooltip placement="top" arrow title={matchActionLabel(data)}>
           <IconButton
             aria-label={matchActionLabel(data)}
@@ -133,7 +125,7 @@ export default function TitlePrimaryActions({
 
       <TitleRatingButton item={data} onReviewChanged={onReviewChanged} />
 
-      <Tooltip
+      {capabilities.canSetWatched && <Tooltip
         placement="top"
         arrow
         title={`Mark as ${watched ? "unwatched" : "watched"}`}
@@ -147,7 +139,7 @@ export default function TitlePrimaryActions({
             ? <CheckCircleRounded fontSize="small" />
             : <CheckCircleOutlineRounded fontSize="small" />}
         </IconButton>
-      </Tooltip>
+      </Tooltip>}
     </>
   );
 }

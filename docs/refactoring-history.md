@@ -227,6 +227,8 @@ Commits `143ff6e`, `89b1557`, `c79345b`, `76a15b3`, `7c5885d`, and `a8b6ae8`:
   out of the details screen.
 - Extracted the card's lazy metadata lifecycle into `useLazyMediaMetadata`,
   including guarded request sharing, invalidation, retries, and local updates.
+- Centralized media action availability and shared immutable watched-state
+  updates across cards, title details, and episode rows.
 
 At this point `app`, `home`, `library`, `title-details`, `playback`,
 `watch-together`, `session`, `settings`, `search`, `library-navigation`, and

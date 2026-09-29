@@ -35,6 +35,7 @@ import { queryBuilder } from "shared/lib/query";
 import { AuthStorage } from "features/session/model";
 import { mediaQualityBadge } from "../model/mediaVersions";
 import { mediaArtworkPath } from "../model/mediaArtwork";
+import { isMediaWatched } from "../model/mediaWatchedState";
 import { alpha } from "@mui/material/styles";
 import { mediaDetailsTo } from "shared/lib/navigation";
 import type { MediaItemData } from "../model/media";
@@ -424,10 +425,7 @@ function MediaCard({
           )}
 
           {/* Watched badge */}
-          {((item.type === "show" && item.leafCount === item.viewedLeafCount) ||
-            (item.type === "movie" &&
-              item?.viewCount !== undefined &&
-              item.viewCount > 0)) && (
+          {isMediaWatched(item) && (
             <Box
               sx={{
                 position: "absolute",

@@ -1,7 +1,7 @@
 import { MoreVertRounded, PlayArrowRounded } from "@mui/icons-material";
 import { CircularProgress, IconButton, Tooltip } from "@mui/material";
 import { MediaCard, type MediaCardProps } from "entities/media/public";
-import { setMediaPlayedStatus } from "entities/media/model";
+import { applyMediaWatchedState, setMediaPlayedStatus } from "entities/media/model";
 import { useCanManageServer, useServerSession } from "features/session/public";
 import { WatchlistButton } from "features/watchlist/public";
 import React, { useEffect, useMemo, useState } from "react";
@@ -10,6 +10,7 @@ import { mediaDetailsTo } from "shared/lib/navigation";
 import { useBigReader, useConfirmModal } from "shared/ui";
 import { getOriginalDownloads } from "../model/downloads";
 import { resolvePlaybackTarget } from "../model/playbackTarget";
+import { getMediaActionCapabilities } from "../model/mediaActionCapabilities";
 import {
   StaleMediaMetadataRequestError,
   useLazyMediaMetadata,
@@ -65,6 +66,11 @@ export default function ActionableMediaCard({
     invalidate: invalidateMetadata,
     update: updateMetadata,
   } = useLazyMediaMetadata(item);
+  const capabilities = getMediaActionCapabilities(displayItem, {
+    localItem: !PlexTvSource,
+    canManageServer,
+    allowDownloads,
+  });
 
   useEffect(() => {
     setDisplayItem(item);
@@ -76,11 +82,9 @@ export default function ActionableMediaCard({
   const openMenu = (nextAnchor: MediaMenuAnchor) => {
     setAnchor(nextAnchor);
     if (
-      PlexTvSource ||
+      (!capabilities.canEditMetadata && !capabilities.canDownload) ||
       metadataStatus === "loading" ||
-      metadataStatus === "loaded" ||
-      (!canManageServer &&
-        (!allowDownloads || !["movie", "episode"].includes(displayItem.type)))
+      metadataStatus === "loaded"
     ) return;
     void loadFullMetadata().catch(() => undefined);
   };
@@ -90,8 +94,8 @@ export default function ActionableMediaCard({
     tab: "media",
   });
   const downloads = useMemo(
-    () => fullMetadata ? getOriginalDownloads(fullMetadata, allowDownloads) : [],
-    [allowDownloads, fullMetadata],
+    () => fullMetadata ? getOriginalDownloads(fullMetadata, capabilities.canDownload) : [],
+    [capabilities.canDownload, fullMetadata],
   );
 
   const play = async () => {
@@ -115,11 +119,16 @@ export default function ActionableMediaCard({
         watched ? "Watched" : "Unwatched"
       }?`,
       onConfirm: async () => {
-        await setMediaPlayedStatus(watched, displayItem.ratingKey);
-        setDisplayItem((current) => current.type === "show"
-          ? { ...current, viewedLeafCount: watched ? current.leafCount : 0 }
-          : { ...current, viewCount: watched ? 1 : 0 });
-        refetchData?.();
+        try {
+          await setMediaPlayedStatus(watched, displayItem.ratingKey);
+          if (fullMetadata) updateMetadata(applyMediaWatchedState(fullMetadata, watched));
+          else invalidateMetadata();
+          setDisplayItem((current) => applyMediaWatchedState(current, watched));
+          refetchData?.();
+        } catch (error) {
+          if (error instanceof StaleMediaMetadataRequestError) return;
+          useBigReader.getState().setBigReader("Plex could not update this item's watched state.");
+        }
       },
       onCancel: () => undefined,
     });
@@ -221,17 +230,14 @@ export default function ActionableMediaCard({
       {anchor && (
         <MediaActionsMenu
           anchor={anchor}
-          canManageServer={canManageServer}
+          capabilities={capabilities}
           detailsTarget={detailsTarget}
           downloads={downloads}
           downloadsLoading={
-            allowDownloads &&
-            ["movie", "episode"].includes(displayItem.type) &&
-            metadataStatus === "loading"
+            capabilities.canDownload && metadataStatus === "loading"
           }
           item={displayItem}
           location={location}
-          localItem={!PlexTvSource}
           onClose={() => setAnchor(null)}
           onEditMetadata={() => void editMetadata()}
           onMatch={() => setMatchOpen(true)}
@@ -241,7 +247,7 @@ export default function ActionableMediaCard({
         />
       )}
 
-      {!PlexTvSource && editOpen && fullMetadata && (
+      {capabilities.canEditMetadata && editOpen && fullMetadata && (
         <EditMetadataDialog
           data={fullMetadata}
           open
@@ -259,7 +265,7 @@ export default function ActionableMediaCard({
         />
       )}
 
-      {!PlexTvSource && matchOpen && (
+      {capabilities.canMatch && matchOpen && (
         <MatchMetadataDialog
           item={displayItem}
           open

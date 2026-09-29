@@ -1,7 +1,6 @@
 import { DownloadRounded } from "@mui/icons-material";
 import { Box, IconButton, Menu, MenuItem, Tooltip, Typography } from "@mui/material";
 import React, { useState } from "react";
-import { useServerSession } from "features/session/public";
 import { formatDownloadDetails, getOriginalDownloads } from "../model/downloads";
 
 const buttonStyle = {
@@ -12,11 +11,14 @@ const buttonStyle = {
   border: "1px solid rgba(255,255,255,0.2)",
 };
 
-export default function OriginalDownloadButton({ data }: { data: Plex.Metadata }) {
-  const allowDownloads = useServerSession(
-    (state) => state.server?.allowSync === true,
-  );
-  const downloads = getOriginalDownloads(data, allowDownloads);
+export default function OriginalDownloadButton({
+  data,
+  canDownload,
+}: {
+  data: Plex.Metadata;
+  canDownload: boolean;
+}) {
+  const downloads = getOriginalDownloads(data, canDownload);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
 
   if (downloads.length === 0) return null;

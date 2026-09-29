@@ -29,11 +29,13 @@ import {
 } from "react-router-dom";
 import React, { JSX, useEffect, useState } from "react";
 import {
+  applyMediaWatchedState,
   getMediaMetadata,
   getResponsiveTranscodeImageProps,
   getTranscodeImageURL,
   DETAIL_POSTER_IMAGE_WIDTHS,
   HERO_IMAGE_WIDTHS,
+  isMediaWatched,
   setMediaPlayedStatus,
 } from "entities/media/model";
 import {
@@ -58,13 +60,14 @@ import {
   applyMetadataUpdate,
   EditMetadataDialog,
   MatchMetadataDialog,
+  getMediaActionCapabilities,
   type MetadataLockUpdate,
   type MetadataUpdate,
 } from "features/media-actions/public";
 import {
   withoutExtra,
 } from "../model/titleExtras";
-import { useCanManageServer } from "features/session/public";
+import { useCanManageServer, useServerSession } from "features/session/public";
 import { useTitleExtras } from "../model/useTitleExtras";
 import ExpandableDescription from "./ExpandableDescription";
 import { libraryBrowseTo, mediaWatchTo } from "shared/lib/navigation";
@@ -108,6 +111,7 @@ function TitleDetailsScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const canManageServer = useCanManageServer();
+  const allowDownloads = useServerSession((state) => state.server?.allowSync === true);
   const posterRef = React.useRef<HTMLDivElement>(null);
 
   const [page, setPage] = useState<number>(0);
@@ -132,6 +136,11 @@ function TitleDetailsScreen() {
     setSelectedSeason,
     subtitles,
   } = useTitleDetailsData(mid, plexGuid);
+  const capabilities = data ? getMediaActionCapabilities(data, {
+    localItem: true,
+    canManageServer,
+    allowDownloads,
+  }) : null;
   const {
     extras,
     loading: extrasLoading,
@@ -443,16 +452,7 @@ function TitleDetailsScreen() {
                   gap: 1,
                 }}
               >
-                {data?.type === "show" &&
-                  data?.leafCount === data?.viewedLeafCount && (
-                    <CheckCircleRounded
-                      sx={{
-                        color: (theme) => theme.palette.primary.light,
-                        fontSize: "large",
-                      }}
-                    />
-                  )}
-                {data?.type === "movie" && (data?.viewCount ?? 0) > 0 && (
+                {data && isMediaWatched(data) && (
                   <CheckCircleRounded
                     sx={{
                       color: (theme) => theme.palette.primary.light,
@@ -550,9 +550,9 @@ function TitleDetailsScreen() {
                   mt: 2,
                 }}
               >
-                {data && (
+                {data && capabilities && (
                   <TitlePrimaryActions
-                    canManageServer={canManageServer}
+                    capabilities={capabilities}
                     data={data}
                     onDataChanged={setData}
                     onEditMetadata={() => setEditMetadataOpen(true)}
@@ -810,7 +810,7 @@ function TitleDetailsScreen() {
             {page === 4 && data && <TitleMedia data={data} />}
           </AnimatePresence>
         </Box>
-        {data && canManageServer && (
+        {data && capabilities?.canEditMetadata && (
           <EditMetadataDialog
             data={data}
             open={editMetadataOpen}
@@ -818,7 +818,7 @@ function TitleDetailsScreen() {
             onSaved={metadataWasSaved}
           />
         )}
-        {data && canManageServer && matchOpen && (
+        {data && capabilities?.canMatch && matchOpen && (
           <MatchMetadataDialog
             item={data}
             open
@@ -934,9 +934,9 @@ function EpisodesPage({
                 message: `Are you sure you want to mark ${selectedEpisodes.length} episodes as watched?`,
                 onConfirm: async () => {
                   await Promise.all(
-                    selectedEpisodes.map(async (episode) => {
-                      setMediaPlayedStatus(true, episode.ratingKey);
-                    })
+                    selectedEpisodes.map((episode) =>
+                      setMediaPlayedStatus(true, episode.ratingKey),
+                    ),
                   );
                   refetchEpisodes();
                   setSelectMode(false);
@@ -961,9 +961,9 @@ function EpisodesPage({
                 message: `Are you sure you want to mark ${selectedEpisodes.length} episodes as unwatched?`,
                 onConfirm: async () => {
                   await Promise.all(
-                    selectedEpisodes.map(async (episode) => {
-                      await setMediaPlayedStatus(false, episode.ratingKey);
-                    })
+                    selectedEpisodes.map((episode) =>
+                      setMediaPlayedStatus(false, episode.ratingKey),
+                    ),
                   );
                   refetchEpisodes();
                   setSelectMode(false);
@@ -1438,7 +1438,7 @@ function MetaPageReviews({
 }
 
 function EpisodeItem({
-  item,
+  item: sourceItem,
   refetchData,
   selected,
   setSelected,
@@ -1452,6 +1452,8 @@ function EpisodeItem({
   selectMode?: boolean;
   setSelectMode?: (selectMode: boolean) => void;
 }): JSX.Element {
+  const [item, setItem] = useState(sourceItem);
+  useEffect(() => setItem(sourceItem), [sourceItem]);
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
@@ -1464,6 +1466,23 @@ function EpisodeItem({
 
   const handleClose = () => {
     setContextMenu(null);
+  };
+
+  const markWatched = (watched: boolean) => {
+    const label = watched ? "Watched" : "Unwatched";
+    useConfirmModal.getState().setModal({
+      title: `Mark as ${label}`,
+      message: `Are you sure you want to mark "${item.title}" as ${label}?`,
+      onConfirm: async () => {
+        await setMediaPlayedStatus(watched, item.ratingKey);
+        setItem((current) => current.ratingKey === item.ratingKey
+          ? applyMediaWatchedState(current, watched)
+          : current);
+        handleClose();
+        refetchData?.();
+      },
+      onCancel: handleClose,
+    });
   };
 
   const handleContextMenu = (event: React.MouseEvent) => {
@@ -1545,35 +1564,7 @@ function EpisodeItem({
         />
 
         <MenuItem
-          onClick={async () => {
-            if (!item) return;
-
-            useConfirmModal.getState().setModal({
-              title: `Mark as Watched`,
-              message: `Are you sure you want to mark "${item.title}" as Watched?`,
-              onConfirm: async () => {
-                switch (item.type) {
-                  case "movie":
-                  case "episode":
-                    item.viewCount = 1;
-                    await setMediaPlayedStatus(true, item.ratingKey);
-                    break;
-                  case "show":
-                    item.viewedLeafCount = item.leafCount;
-                    await setMediaPlayedStatus(true, item.ratingKey);
-                    break;
-                  default:
-                    break;
-                }
-
-                handleClose();
-                refetchData?.();
-              },
-              onCancel: () => {
-                handleClose();
-              },
-            });
-          }}
+          onClick={() => markWatched(true)}
         >
           <ListItemIcon>
             <CheckCircleRounded fontSize="small" />
@@ -1581,35 +1572,7 @@ function EpisodeItem({
           Mark as Watched
         </MenuItem>
         <MenuItem
-          onClick={async () => {
-            if (!item) return;
-
-            useConfirmModal.getState().setModal({
-              title: `Mark as Unwatched`,
-              message: `Are you sure you want to mark "${item.title}" as Unwatched?`,
-              onConfirm: async () => {
-                switch (item.type) {
-                  case "movie":
-                  case "episode":
-                    item.viewCount = 0;
-                    await setMediaPlayedStatus(false, item.ratingKey);
-                    break;
-                  case "show":
-                    item.viewedLeafCount = 0;
-                    await setMediaPlayedStatus(false, item.ratingKey);
-                    break;
-                  default:
-                    break;
-                }
-
-                handleClose();
-                refetchData?.();
-              },
-              onCancel: () => {
-                handleClose();
-              },
-            });
-          }}
+          onClick={() => markWatched(false)}
         >
           <ListItemIcon>
             <CheckCircleOutlineRounded fontSize="small" />
@@ -1729,7 +1692,7 @@ function EpisodeItem({
             }}
           />
 
-          {(item.viewOffset || (item.viewCount && item.viewCount >= 1)) && (
+          {(item.viewOffset || isMediaWatched(item)) && (
             <LinearProgress
               value={
                 item.viewOffset ? (item.viewOffset / item.duration) * 100 : 100

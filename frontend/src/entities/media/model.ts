@@ -31,3 +31,4 @@ export type {
   TrackPreference,
 } from "./model/mediaVersions";
 export type { MediaItemData } from "./model/media";
+export { applyMediaWatchedState, isMediaWatched } from "./model/mediaWatchedState";

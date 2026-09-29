@@ -19,3 +19,5 @@ export type {
   MetadataMatchCriteria,
 } from "./model/matching";
 export { resolvePlaybackTarget } from "./model/playbackTarget";
+export { getMediaActionCapabilities } from "./model/mediaActionCapabilities";
+export type { MediaActionCapabilities } from "./model/mediaActionCapabilities";

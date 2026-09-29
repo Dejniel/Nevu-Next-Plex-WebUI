@@ -43,17 +43,14 @@ The card uses `data`, `status`, `load`, `invalidate`, and `update`; Match and
 Unmatch invalidate the resource, while editing updates it locally. Focused tests
 cover request reuse, retry, invalidation, item changes, and local edits.
 
-### 2. Model media action capabilities and watched state
+### 2. Media action capabilities and watched state — complete
 
-Rules for local versus Plex.tv items, server management, media type, matching,
-and downloads are currently evaluated in more than one UI component.
-
-- Add a pure capability model for Edit, Match, Unmatch, Download, View Similar,
-  and watched-state actions.
-- Move `isMediaWatched` out of the menu component.
-- Add a pure watched-state transition used by both cards and title details.
-- Test representative movie, show, episode, remote-source, and non-manager
-  combinations.
+`features/media-actions/model/mediaActionCapabilities` decides availability for
+Edit, Match, Unmatch, Download, View Similar, and watched-state actions. Cards
+and title details use the same decisions. `entities/media` owns watched-state
+recognition and immutable updates, shared by cards, details, and episode rows.
+Tests cover media types, remote sources, management and download permissions,
+empty shows, and watched/unwatched transitions.
 
 ### 3. Isolate matching state when the workflow expands
 
