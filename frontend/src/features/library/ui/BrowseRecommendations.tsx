@@ -18,7 +18,7 @@ import {
   pickPreferredTag,
 } from "../model/libraryRecommendations";
 import { LibraryQuery } from "../model/LibraryRangeStore";
-import { recommendationShelfTo } from "navigation";
+import { recommendationShelfTo } from "shared/lib/navigation";
 
 interface RecommendationShelf {
   id: string;

@@ -63,7 +63,7 @@ import {
   NavigationLibrary,
 } from "features/library-navigation/public";
 import { searchSuggestions, usePlexSearch } from "features/search/model";
-import { libraryBrowseTo, mediaDetailsTo } from "navigation";
+import { libraryBrowseTo, mediaDetailsTo } from "shared/lib/navigation";
 
 const BarSide: SxProps<Theme> = {
   display: "flex",

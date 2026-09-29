@@ -12,7 +12,7 @@ import { WatchlistMediaCard } from "features/watchlist/public";
 import { getTranscodeImageURL } from "entities/media/model";
 import { TitleExtra } from "../model/titleExtras";
 import ExtraPlayer from "./ExtraPlayer";
-import { libraryBrowseTo } from "navigation";
+import { libraryBrowseTo } from "shared/lib/navigation";
 
 function SectionTitle({
   children,

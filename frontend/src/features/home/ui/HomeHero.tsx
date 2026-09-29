@@ -17,7 +17,7 @@ import {
 import { ExtraPlayer, useTitleExtras } from "features/title-details/public";
 import { alpha } from "@mui/material/styles";
 import { HOME_CONTENT_GUTTER, homeHeroContentSx } from "./homeHeroLayout";
-import { mediaDetailsTo, mediaWatchTo } from "navigation";
+import { mediaDetailsTo, mediaWatchTo } from "shared/lib/navigation";
 
 function HomeHero({
   item,

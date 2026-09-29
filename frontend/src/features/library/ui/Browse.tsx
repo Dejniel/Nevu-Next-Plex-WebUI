@@ -4,7 +4,7 @@ import { AnimatePresence } from "framer-motion";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import BrowseRecommendations from "./BrowseRecommendations";
 import BrowseLibrary from "./BrowseLibrary";
-import { libraryViewTo } from "navigation";
+import { libraryViewTo } from "shared/lib/navigation";
 
 type BrowsePages = "recommendations" | "browse";
 

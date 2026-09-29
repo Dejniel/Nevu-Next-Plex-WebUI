@@ -53,7 +53,7 @@ import { AuthStorage } from "features/session/model";
 import { mediaQualityBadge } from "../model/mediaVersions";
 import { mediaArtworkPath } from "../model/mediaArtwork";
 import { alpha } from "@mui/material/styles";
-import { libraryBrowseTo, mediaDetailsTo } from "navigation";
+import { libraryBrowseTo, mediaDetailsTo } from "shared/lib/navigation";
 import type { MediaItemData } from "../model/media";
 
 interface MediaCardPreviewPlaybackState {

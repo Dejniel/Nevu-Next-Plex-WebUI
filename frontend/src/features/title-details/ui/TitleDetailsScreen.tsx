@@ -78,7 +78,7 @@ import {
 import { useCanManageServer } from "features/session/public";
 import { useTitleExtras } from "../model/useTitleExtras";
 import ExpandableDescription from "./ExpandableDescription";
-import { libraryBrowseTo, mediaWatchTo } from "navigation";
+import { libraryBrowseTo, mediaWatchTo } from "shared/lib/navigation";
 
 const DESKTOP_HERO_HEIGHT = "clamp(560px, 93.333vh, 960px)";
 

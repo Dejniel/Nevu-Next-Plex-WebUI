@@ -13,7 +13,7 @@ import { getTranscodeImageURL } from "entities/media/model";
 import { durationToText } from "shared/lib/duration";
 import { extraTypeLabel, TitleExtra } from "../model/titleExtras";
 import ExtraPlayer from "./ExtraPlayer";
-import { libraryBrowseTo } from "navigation";
+import { libraryBrowseTo } from "shared/lib/navigation";
 
 function Detail({ label, value }: { label: string; value?: React.ReactNode }) {
   if (!value) return null;

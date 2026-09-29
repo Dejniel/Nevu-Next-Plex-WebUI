@@ -23,7 +23,7 @@ import { getTranscodeImageURL } from "entities/media/model";
 import { getLibraryDirectory } from "features/library/model";
 import { durationInMinutes } from "shared/lib/duration";
 import { Link } from "react-router-dom";
-import { mediaWatchTo } from "navigation";
+import { mediaWatchTo } from "shared/lib/navigation";
 
 function EpisodeBrowser({
   item,

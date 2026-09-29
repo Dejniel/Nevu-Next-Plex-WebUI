@@ -14,7 +14,7 @@ import {
   LibraryQuery,
   useLibraryQueryRange,
 } from "../model/LibraryRangeStore";
-import { libraryBrowseTo } from "navigation";
+import { libraryBrowseTo } from "shared/lib/navigation";
 
 const QUERY_SHELF_LIMIT = 40;
 

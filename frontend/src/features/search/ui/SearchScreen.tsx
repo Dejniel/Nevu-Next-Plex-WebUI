@@ -2,7 +2,7 @@ import { Alert, Box, CircularProgress, Grid, Typography } from "@mui/material";
 import React, { useMemo } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { WatchlistMediaCard } from "features/watchlist/public";
-import { libraryBrowseTo } from "navigation";
+import { libraryBrowseTo } from "shared/lib/navigation";
 import { partitionSearchResults } from "../model/searchResults";
 import { usePlexSearch } from "../model/usePlexSearch";
 
