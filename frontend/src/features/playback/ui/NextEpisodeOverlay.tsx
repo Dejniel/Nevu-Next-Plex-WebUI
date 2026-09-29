@@ -1,10 +1,10 @@
 import { SkipNext } from "@mui/icons-material";
 import { alpha, Box, Button, Typography, useTheme } from "@mui/material";
 import React, { useState, useEffect, useCallback } from "react";
-import { queryBuilder } from "../plex/QuickFunctions";
-import { useUserSettings } from "../states/UserSettingsState";
+import { queryBuilder } from "plex/QuickFunctions";
+import { useUserSettings } from "states/UserSettingsState";
 
-function PlaybackNextEPButton({
+function NextEpisodeOverlay({
   player,
   playing,
   playbackBarRef,
@@ -177,4 +177,4 @@ function PlaybackNextEPButton({
   );
 }
 
-export default PlaybackNextEPButton;
+export default NextEpisodeOverlay;

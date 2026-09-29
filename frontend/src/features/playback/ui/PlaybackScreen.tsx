@@ -3,17 +3,19 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   getLibraryDir,
   getLibraryMeta,
+  getTranscodeImageURL,
+} from "plex";
+import {
   getPlayQueue,
   getServerPreferences,
   getStreamProps,
   getTimelineUpdate,
-  getTranscodeImageURL,
   getUniversalDecision,
   putAudioStream,
   putSubtitleStream,
   sendUniversalPing,
-} from "../plex";
-import CenteredSpinner from "../components/CenteredSpinner";
+} from "../api/playback";
+import CenteredSpinner from "components/CenteredSpinner";
 import {
   alpha,
   Box,
@@ -25,7 +27,6 @@ import {
   Popover,
   Popper,
   Slider,
-  Theme,
   Typography,
   useTheme,
 } from "@mui/material";
@@ -34,36 +35,33 @@ import {
   getIncludeProps,
   getXPlexProps,
   queryBuilder,
-} from "../plex/QuickFunctions";
+} from "plex/QuickFunctions";
 import {
   ArrowBackIosNewRounded,
-  ArrowBackIosRounded,
-  CheckRounded,
   FullscreenRounded,
   PauseRounded,
   PeopleRounded,
   PlayArrowRounded,
   SearchRounded,
   SkipNext,
-  SkipNextRounded,
   TuneRounded,
   VolumeUpRounded,
 } from "@mui/icons-material";
 import { VideoSeekSlider } from "react-video-seek-slider";
 import "react-video-seek-slider/styles.css";
-import { useSessionStore } from "../states/SessionState";
-import { durationToText } from "../common/Duration";
+import { useSessionStore } from "states/SessionState";
+import { durationToText } from "common/Duration";
 import {
   SessionStateEmitter,
   useSyncSessionState,
-} from "../states/SyncSessionState";
-import { useSyncInterfaceState } from "../components/PerPlexedSync";
-import { absoluteDifference } from "../common/NumberExtra";
-import WatchShowChildView from "../components/WatchShowChildView";
-import { useUserSettings } from "../states/UserSettingsState";
-import PlaybackNextEPButton from "../components/PlaybackNextEPButton";
+} from "states/SyncSessionState";
+import { useSyncInterfaceState } from "components/PerPlexedSync";
+import { absoluteDifference } from "common/NumberExtra";
+import EpisodeBrowser from "./EpisodeBrowser";
+import { useUserSettings } from "states/UserSettingsState";
+import NextEpisodeOverlay from "./NextEpisodeOverlay";
 import { getBackendURL } from "shared/api/backend";
-import { platformCache } from "../common/DesktopApp";
+import { platformCache } from "common/DesktopApp";
 import {
   chooseBestMediaVersion,
   findPreferredStream,
@@ -75,16 +73,26 @@ import {
   preferenceFromStream,
   TrackPreference,
 } from "entities/media/model";
-import SubtitleSearchPanel from "../components/SubtitleSearchPanel";
-import AppDialog from "../components/AppDialog";
+import SubtitleSearchPanel from "./SubtitleSearchPanel";
+import AppDialog from "components/AppDialog";
 import {
   downloadSubtitle,
   findAttachedSubtitle,
   SubtitleSearchResult,
-} from "../plex/subtitles";
+} from "../api/subtitles";
+import {
+  formatPlaybackTime,
+  getPlaybackQualityOptions,
+} from "../model/playbackPresentation";
+import NextQueueButton from "./NextQueueButton";
+import {
+  tuneSettingTab,
+  TuneAction,
+  TuneOption,
+  TuneSectionLabel,
+} from "./TuneControls";
 
 let SessionID = "";
-export { SessionID };
 
 const getUrl = (
   data: Plex.Metadata,
@@ -141,7 +149,7 @@ async function applyTrackPreferences(
   if (subtitle) await putSubtitleStream(version.part.id, subtitle.id);
 }
 
-function Watch() {
+function PlaybackScreen() {
   const { itemID } = useParams<{ itemID: string }>();
   const [params] = useSearchParams();
   const theme = useTheme();
@@ -1152,15 +1160,15 @@ function Watch() {
           >
             {tunePage === 0 && (
               <>
-                {TuneSettingTab(theme, setTunePage, {
+                {tuneSettingTab(setTunePage, {
                   pageNum: 1,
                   text: "Video",
                 })}
-                {TuneSettingTab(theme, setTunePage, {
+                {tuneSettingTab(setTunePage, {
                   pageNum: 2,
                   text: "Audio",
                 })}
-                {TuneSettingTab(theme, setTunePage, {
+                {tuneSettingTab(setTunePage, {
                   pageNum: 3,
                   text: "Subtitles",
                 })}
@@ -1169,7 +1177,7 @@ function Watch() {
 
             {tunePage === 1 && activeVersion && (
               <>
-                {TuneSettingTab(theme, setTunePage, {
+                {tuneSettingTab(setTunePage, {
                   pageNum: 0,
                   text: "Back",
                 })}
@@ -1192,7 +1200,7 @@ function Watch() {
                   </>
                 )}
                 <TuneSectionLabel>Streaming quality</TuneSectionLabel>
-                {getCurrentVideoLevels(
+                {getPlaybackQualityOptions(
                   activeVersion.media.videoResolution,
                   `${Math.floor(activeVersion.media.bitrate / 1000)}Mbps`,
                 ).map((qualityOption) => (
@@ -1226,7 +1234,7 @@ function Watch() {
 
             {tunePage === 2 && activeVersion && (
               <>
-                {TuneSettingTab(theme, setTunePage, {
+                {tuneSettingTab(setTunePage, {
                   pageNum: 0,
                   text: "Back",
                 })}
@@ -1258,7 +1266,7 @@ function Watch() {
 
             {tunePage === 3 && activeVersion && (
               <>
-                {TuneSettingTab(theme, setTunePage, {
+                {tuneSettingTab(setTunePage, {
                   pageNum: 0,
                   text: "Back",
                 })}
@@ -1309,7 +1317,7 @@ function Watch() {
 
             {tunePage === 4 && activeVersion && metadata && (
               <>
-                {TuneSettingTab(theme, setTunePage, {
+                {tuneSettingTab(setTunePage, {
                   pageNum: 3,
                   text: "Find subtitles",
                 })}
@@ -1513,7 +1521,7 @@ function Watch() {
                     zIndex: 2,
                   }}
                 >
-                  <PlaybackNextEPButton
+                  <NextEpisodeOverlay
                     player={player}
                     playbackBarRef={playbackBarRef}
                     metadata={metadata}
@@ -1680,7 +1688,7 @@ function Watch() {
                           fontWeight: 500,
                         }}
                       >
-                        {getFormatedTime(progress)}
+                        {formatPlaybackTime(progress)}
                       </Typography>
 
                       <Box
@@ -1719,7 +1727,7 @@ function Watch() {
                           fontWeight: 500,
                         }}
                       >
-                        {getFormatedTime(
+                        {formatPlaybackTime(
                           (player.current?.getDuration() ?? 0) - progress,
                         )}
                       </Typography>
@@ -1771,7 +1779,7 @@ function Watch() {
                         </IconButton>
 
                         {playQueue && !(room && !isHost) && (
-                          <NextEPButton queue={playQueue} />
+                          <NextQueueButton queue={playQueue} />
                         )}
                       </Box>
 
@@ -1864,7 +1872,7 @@ function Watch() {
                         </IconButton>
 
                         {metadata.type === "episode" && !(room && !isHost) && (
-                          <WatchShowChildView
+                          <EpisodeBrowser
                             item={metadata}
                             controlElementsVisibleState={[
                               controlElementsVisible,
@@ -2121,435 +2129,4 @@ function Watch() {
   );
 }
 
-export default Watch;
-
-function NextEPButton({ queue }: { queue?: Plex.Metadata[] }) {
-  const navigate = useNavigate();
-
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-
-  if (!queue) return <></>;
-
-  return (
-    <>
-      <Popper
-        open={Boolean(anchorEl)}
-        anchorEl={anchorEl}
-        placement="top-start"
-        transition
-        sx={{
-          zIndex: 10000,
-          "& .MuiPaper-root": {
-            overflow: "hidden",
-            borderRadius: 1,
-            background: "transparent",
-          },
-        }}
-        modifiers={[
-          {
-            name: "offset",
-            options: {
-              offset: [0, 10],
-            },
-          },
-        ]}
-      >
-        {({ TransitionProps }) => (
-          <Fade {...TransitionProps} timeout={350}>
-            <Paper
-              sx={{
-                width: "35vw",
-                height: "auto",
-                aspectRatio: "32/8",
-                overflow: "hidden",
-
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "flex-start",
-                justifyContent: "flex-start",
-              }}
-            >
-              <img
-                src={`${getTranscodeImageURL(queue[1].thumb, 500, 500)}`}
-                alt=""
-                style={{
-                  height: "100%",
-                  aspectRatio: "16/9",
-                  width: "auto",
-                }}
-              />
-
-              <Box
-                sx={{
-                  width: "100%",
-                  height: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-start",
-                  justifyContent: "flex-start",
-                  p: 2,
-
-                  backgroundColor: "#00000088",
-                }}
-              >
-                <Typography
-                  sx={{
-                    fontSize: "0.7vw",
-                    fontWeight: "700",
-                    letterSpacing: "0.15em",
-                    color: (theme) => theme.palette.primary.main,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {queue[1].type}{" "}
-                  {queue[1].type === "episode" && queue[1].index}
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: "0.8vw",
-                    fontWeight: "bold",
-                    color: "#FFF",
-                  }}
-                >
-                  {queue[1].title}
-                </Typography>
-
-                <Typography
-                  sx={{
-                    mt: "2px",
-                    fontSize: "0.6vw",
-                    color: "#FFF",
-
-                    // max 5 lines
-                    display: "-webkit-box",
-                    WebkitLineClamp: 5,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {queue[1].summary}
-                </Typography>
-              </Box>
-            </Paper>
-          </Fade>
-        )}
-      </Popper>
-      {queue && queue[1] && (
-        <IconButton
-          onClick={() => {
-            navigate(`/watch/${queue[1].ratingKey}`);
-          }}
-          onKeyDown={(e) => {
-            e.preventDefault();
-          }}
-          onMouseEnter={(e) => setAnchorEl(e.currentTarget)}
-          onMouseLeave={() => setAnchorEl(null)}
-        >
-          <SkipNextRounded fontSize="small" />
-        </IconButton>
-      )}
-    </>
-  );
-}
-
-function TuneSectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <Typography
-      variant="caption"
-      color="text.secondary"
-      sx={{ display: "block", px: 2, pt: 1.5, pb: 0.5 }}
-    >
-      {children}
-    </Typography>
-  );
-}
-
-function TuneOption({
-  selected,
-  primary,
-  secondary,
-  onClick,
-}: {
-  selected: boolean;
-  primary: string;
-  secondary?: string;
-  onClick: () => void;
-}) {
-  return (
-    <Box
-      sx={{
-        display: "grid",
-        gridTemplateColumns: "24px minmax(0, 1fr)",
-        alignItems: "center",
-        gap: 1,
-        width: "100%",
-        minHeight: 50,
-        px: 2,
-        py: 1,
-        cursor: "pointer",
-        backgroundColor: "#00000088",
-        "&:hover": { backgroundColor: "#000000ee" },
-      }}
-      onClick={onClick}
-    >
-      <CheckRounded
-        sx={{ opacity: selected ? 1 : 0, color: "primary.main" }}
-        fontSize="small"
-      />
-      <Box sx={{ minWidth: 0, textAlign: "right" }}>
-        <Typography variant="body2" noWrap>{primary}</Typography>
-        {secondary && (
-          <Typography variant="caption" color="text.secondary" noWrap display="block">
-            {secondary}
-          </Typography>
-        )}
-      </Box>
-    </Box>
-  );
-}
-
-function TuneAction({
-  icon,
-  primary,
-  secondary,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  primary: string;
-  secondary?: string;
-  onClick: () => void;
-}) {
-  return (
-    <Box
-      component="button"
-      type="button"
-      sx={{
-        display: "grid",
-        gridTemplateColumns: "24px minmax(0, 1fr)",
-        alignItems: "center",
-        gap: 1,
-        width: "100%",
-        minHeight: 50,
-        px: 2,
-        py: 1,
-        border: 0,
-        color: "text.primary",
-        cursor: "pointer",
-        backgroundColor: "#00000088",
-        "&:hover": { backgroundColor: "#000000ee" },
-      }}
-      onClick={onClick}
-    >
-      <Box sx={{ display: "flex", color: "primary.main" }}>{icon}</Box>
-      <Box sx={{ minWidth: 0, textAlign: "right" }}>
-        <Typography variant="body2" noWrap>{primary}</Typography>
-        {secondary && (
-          <Typography variant="caption" color="text.secondary" noWrap display="block">
-            {secondary}
-          </Typography>
-        )}
-      </Box>
-    </Box>
-  );
-}
-
-function TuneSettingTab(
-  theme: Theme,
-  setTunePage: React.Dispatch<React.SetStateAction<number>>,
-  props: {
-    pageNum: number;
-    text: string;
-  },
-) {
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        width: "100%",
-        height: 50,
-        px: 2,
-        py: 1.5,
-        userSelect: "none",
-        cursor: "pointer",
-        transition: "all 0.3s ease-in-out",
-        backgroundColor: "#00000088",
-        "&:hover": {
-          transition: "all 0s ease-in-out",
-          backgroundColor: "#000000ee",
-        },
-      }}
-      onClick={() => {
-        setTunePage(props.pageNum);
-      }}
-    >
-      <ArrowBackIosRounded
-        sx={{
-          fontSize: 18,
-          color: "text.secondary",
-        }}
-      />
-      <Typography
-        variant="subtitle1"
-        sx={{
-          fontWeight: "medium",
-          flex: 1,
-          textAlign: "right",
-          color: "text.primary",
-        }}
-      >
-        {props.text}
-      </Typography>
-    </Box>
-  );
-}
-
-export function getFormatedTime(time: number) {
-  const hours = Math.floor(time / 3600);
-  const minutes = Math.floor((time % 3600) / 60);
-  const seconds = Math.floor(time % 60);
-
-  // only show hours if there are any
-  if (hours > 0)
-    return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds
-      .toString()
-      .padStart(2, "0")}`;
-
-  return `${minutes.toString().padStart(2, "0")}:${seconds
-    .toString()
-    .padStart(2, "0")}`;
-}
-
-export function getCurrentVideoLevels(
-  resolution: string,
-  extraForOriginal = "Auto",
-) {
-  const levels: {
-    title: string;
-    bitrate?: number;
-    extra: string;
-    original?: boolean;
-  }[] = [];
-
-  // if (platformCache.isDesktop)
-  //   levels.push({
-  //     title: "Direct Play (Original)",
-  //     bitrate: -1,
-  //     extra: extraForOriginal,
-  //   });
-
-  switch (resolution) {
-    case "720":
-      levels.push(
-        ...[
-          {
-            title: "Convert to 720p",
-            bitrate: 4000,
-            extra: "(High) 4Mbps",
-          },
-          {
-            title: "Convert to 720p",
-            bitrate: 3000,
-            extra: "(Medium) 3Mbps",
-          },
-          { title: "Convert to 720p", bitrate: 2000, extra: "2Mbps" },
-          { title: "Convert to 480p", bitrate: 1500, extra: "1.5Mbps" },
-          { title: "Convert to 360p", bitrate: 750, extra: "0.7Mbps" },
-          { title: "Convert to 240p", bitrate: 300, extra: "0.3Mbps" },
-        ],
-      );
-      break;
-    case "4k":
-      levels.push(
-        ...[
-          {
-            title: "Convert to 4K",
-            bitrate: 60000,
-            extra: "(High) 60Mbps",
-          },
-          {
-            title: "Convert to 4K",
-            bitrate: 40000,
-            extra: "(Medium) 40Mbps",
-          },
-          {
-            title: "Convert to 4K",
-            bitrate: 30000,
-            extra: "30Mbps",
-          },
-          {
-            title: "Convert to 1080p",
-            bitrate: 20000,
-            extra: "(High) 20Mbps",
-          },
-          {
-            title: "Convert to 1080p",
-            bitrate: 12000,
-            extra: "(Medium) 12Mbps",
-          },
-          {
-            title: "Convert to 1080p",
-            bitrate: 8000,
-            extra: "8Mbps",
-          },
-          {
-            title: "Convert to 720p",
-            bitrate: 4000,
-            extra: "(High) 4Mbps",
-          },
-          {
-            title: "Convert to 720p",
-            bitrate: 3000,
-            extra: "(Medium) 3Mbps",
-          },
-          { title: "Convert to 720p", bitrate: 2000, extra: "2Mbps" },
-          { title: "Convert to 480p", bitrate: 1500, extra: "1.5Mbps" },
-          { title: "Convert to 360p", bitrate: 750, extra: "0.7Mbps" },
-          { title: "Convert to 240p", bitrate: 300, extra: "0.3Mbps" },
-        ],
-      );
-      break;
-
-    case "1080":
-    default:
-      levels.push(
-        ...[
-          {
-            title: "Convert to 1080p",
-            bitrate: 20000,
-            extra: "(High) 20Mbps",
-          },
-          {
-            title: "Convert to 1080p",
-            bitrate: 12000,
-            extra: "(Medium) 12Mbps",
-          },
-          {
-            title: "Convert to 1080p",
-            bitrate: 8000,
-            extra: "8Mbps",
-          },
-          {
-            title: "Convert to 720p",
-            bitrate: 4000,
-            extra: "(High) 4Mbps",
-          },
-          {
-            title: "Convert to 720p",
-            bitrate: 3000,
-            extra: "(Medium) 3Mbps",
-          },
-          { title: "Convert to 720p", bitrate: 2000, extra: "2Mbps" },
-          { title: "Convert to 480p", bitrate: 1500, extra: "1.5Mbps" },
-          { title: "Convert to 360p", bitrate: 750, extra: "0.7Mbps" },
-          { title: "Convert to 240p", bitrate: 300, extra: "0.3Mbps" },
-        ],
-      );
-      break;
-  }
-
-  return levels;
-}
+export default PlaybackScreen;

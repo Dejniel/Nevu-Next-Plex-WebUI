@@ -26,7 +26,7 @@ import {
   searchSubtitles,
   SubtitleSearchPreference,
   SubtitleSearchResult,
-} from "../plex/subtitles";
+} from "../api/subtitles";
 
 const LANGUAGES = [
   ["ar", "Arabic"],

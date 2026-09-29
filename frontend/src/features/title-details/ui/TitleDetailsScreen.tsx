@@ -52,7 +52,7 @@ import {
   CheckBoxRounded,
   EditRounded,
 } from "@mui/icons-material";
-import { durationToText } from "common/Duration";
+import { durationInMinutes, durationToText } from "common/Duration";
 import {
   HeroWatchListButton,
 } from "entities/media/public";
@@ -2191,7 +2191,7 @@ function EpisodeItem({
                 fontSize: { xs: "0.85rem", sm: "1rem" },
               }}
             >
-              {getMinutes(item.duration)} Min.
+              {durationInMinutes(item.duration)} Min.
             </Box>
           </Box>
 
@@ -2271,14 +2271,4 @@ function TabButton({
       {text}
     </Typography>
   );
-}
-
-/**
- * Calculates the number of minutes from a given duration in milliseconds.
- *
- * @param duration The duration in milliseconds.
- * @returns The number of minutes.
- */
-export function getMinutes(duration: number): number {
-  return Math.floor(duration / 60000);
 }

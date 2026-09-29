@@ -9,6 +9,7 @@ legacy files can move incrementally when they are changed for a real feature.
 ```text
 src/
   app/                 application bootstrap, providers, routes, and theme
+  entities/<entity>/   reusable domain data, model helpers, and UI
   features/<feature>/  feature-owned API, model, state, and UI
   shared/              domain-neutral transport, UI primitives, and utilities
 ```
@@ -16,7 +17,7 @@ src/
 The intended dependency direction is:
 
 ```text
-app -> features -> shared
+app -> features -> entities -> shared
 ```
 
 A feature may temporarily use legacy modules such as `plex`, `components`, or
@@ -31,9 +32,11 @@ feature imports from that file instead of reaching into `api`, `model`, or `ui`.
 Files inside the same feature use direct relative imports so their ownership is
 visible and barrel-file cycles are avoided.
 
-Entities may additionally expose a headless `model.ts` entry point. API and
-model code should use it when importing the main `public.ts` would also load UI
-dependencies.
+Entities expose their supported UI through `public.ts` and may additionally
+expose a headless `model.ts` entry point. API and model code should use the
+headless entry point when importing `public.ts` would also load UI dependencies.
+`entities/media` owns reusable media data helpers and cards shared by library,
+title details, and playback.
 
 The library module is the reference implementation:
 
@@ -46,8 +49,10 @@ features/library/
 ```
 
 `features/title-details` follows the same boundary for title metadata, extras,
-reviews, downloads, and the details dialog. Playback-specific subtitles and
-media-version selection remain outside it until the playback feature moves.
+reviews, downloads, and the details dialog. `features/playback` owns stream
+selection, playback requests, subtitle search, queue controls, and the routed
+player screen. Watch-together synchronization remains separate because it is a
+cross-session subsystem rather than player presentation logic.
 
 ## API and state rules
 

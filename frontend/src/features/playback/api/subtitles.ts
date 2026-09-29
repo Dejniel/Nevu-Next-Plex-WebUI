@@ -1,4 +1,4 @@
-import { AuthStorage } from "../auth/AuthStorage";
+import { AuthStorage } from "auth/AuthStorage";
 import { ProxiedRequest } from "shared/api/backend";
 import { TrackChoice, getTrackChoices } from "entities/media/model";
 

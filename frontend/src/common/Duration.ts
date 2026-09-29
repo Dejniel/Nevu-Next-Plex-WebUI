@@ -4,3 +4,7 @@ export function durationToText(duration: number) {
   const minutes = totalMinutes % 60;
   return `${hours ? `${hours}h ` : ""}${minutes ? `${minutes}m` : ""}`.trim();
 }
+
+export function durationInMinutes(duration: number) {
+  return Math.floor(duration / 60000);
+}

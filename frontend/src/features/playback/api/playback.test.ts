@@ -1,4 +1,4 @@
-import { getStreamProps } from ".";
+import { getStreamProps } from "./playback";
 
 it("passes the selected Plex media and part indexes to the transcoder", () => {
   const props = getStreamProps("123", {

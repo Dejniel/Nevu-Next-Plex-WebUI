@@ -19,12 +19,12 @@ import {
 } from "@mui/material";
 import React, { useEffect } from "react";
 import { useState } from "react";
-import { getLibraryDir, getTranscodeImageURL } from "../plex";
-import { getMinutes } from "features/title-details/public";
+import { getLibraryDir, getTranscodeImageURL } from "plex";
+import { durationInMinutes } from "common/Duration";
 import { Link } from "react-router-dom";
-import { mediaWatchTo } from "../navigation";
+import { mediaWatchTo } from "navigation";
 
-function WatchShowChildView({
+function EpisodeBrowser({
   item,
   controlElementsVisibleState,
 }: {
@@ -388,7 +388,7 @@ function WatchShowChildView({
                                     color="text.secondary"
                                     sx={{ whiteSpace: "nowrap" }}
                                   >
-                                    {getMinutes(episode.duration)} min
+                                    {durationInMinutes(episode.duration)} min
                                   </Typography>
                                 </Box>
 
@@ -424,4 +424,4 @@ function WatchShowChildView({
   );
 }
 
-export default WatchShowChildView;
+export default EpisodeBrowser;
