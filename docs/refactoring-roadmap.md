@@ -112,6 +112,10 @@ Commit `9f2a7f2` (`Extract playback media controller`):
 - Cross-feature and cross-entity imports are checked automatically: consumers
   use `public.ts`, or an explicitly approved root `model.ts` headless entry
   point.
+- Layer direction is checked automatically, with only the session request
+  context allowed as an entity-to-feature dependency.
+- New root-level runtime modules are rejected so legacy horizontal buckets do
+  not grow back under new names.
 - Playback transport URL construction lives in `api`; quality, subtitle
   contracts, and pure selection helpers live in `model`.
 
@@ -162,23 +166,49 @@ Commit `9f2a7f2` (`Extract playback media controller`):
 - Stale profile and server requests cannot restore data after a profile switch,
   and unmounting the authenticated application closes Watch Together sessions.
 
+### Settings, search, and library navigation
+
+Commits `baa2456`, `fc4e5ac`, and `1f562fe`:
+
+- Moved account, playback, sharing, library administration, and user settings
+  into `features/settings`.
+- Created the reusable `entities/library` model/API boundary and moved pinning,
+  ordering, and library menu behavior into `features/library-navigation`.
+- Moved search requests, stale-response handling, result partitioning, and both
+  search entry points into `features/search`.
+
+### Watchlist and legacy cleanup
+
+Commits `143ff6e`, `89b1557`, `c79345b`, `76a15b3`, `7c5885d`, and `a8b6ae8`:
+
+- Removed the catch-all `plex/index.ts` after assigning media, library, rating,
+  and image operations to their owners.
+- Moved Plex Discover watchlist API, profile-aware state, and watchlist UI into
+  `features/watchlist`; removed the global event emitter and stale mutation
+  races.
+- Moved the application bar and startup diagnostics into `app`, and generic
+  dialogs, links, notifications, and loading UI into `shared/ui`.
+- Split `QuickFunctions.ts` into session-owned authenticated Plex requests,
+  media include parameters, and focused shared query, platform, and identifier
+  utilities.
+- Removed the executable `components`, `pages`, `states`, `common`, and legacy
+  `plex` modules. `plex/plex.d.ts` remains only as the global Plex data contract.
+- Moved shared route builders under `shared/lib/navigation`.
+
 At this point `app`, `home`, `library`, `title-details`, `playback`,
-`watch-together`, `session`, and the shared `media` entity form the reference
-structure for subsequent work.
+`watch-together`, `session`, `settings`, `search`, `library-navigation`, and
+`watchlist`, together with the shared `media` and `library` entities, form the
+active frontend structure.
 
 ## Current state and constraints
 
-- `features/home`, `features/library`, `features/title-details`,
-  `features/playback`, `features/watch-together`, and `features/session` expose
-  public entry points. External callers must not import their internals.
-- `frontend/src/plex/index.ts` is still a compatibility module. Do not expand
-  it; move operations to the feature that owns them when touching a workflow.
-- `frontend/src/components`, `pages`, `plex`, and `states` still contain mixed
-  legacy responsibilities. Their existence is temporary, but empty directory
-  removal is not itself a refactoring objective.
-- `PlaybackScreen.tsx` is now roughly 7.5 KB and only composes the playback
-  controllers, watch-together integration, overlays, error handling, and the
-  actual player.
+- All product workflows expose public entry points. Non-UI consumers may use
+  only the explicitly approved root `model.ts` contracts checked by
+  `architectureBoundaries.test.ts`.
+- The session headless model is a deliberate cross-cutting dependency for the
+  current Plex token and request context. Do not add unrelated behavior to it.
+- `frontend/src/plex/plex.d.ts` is a type declaration, not a compatibility
+  implementation. Runtime code must not be added back under `plex`.
 - Playback intentionally consumes the public watch-together controller. It
   must not reach into socket transport, room state internals, or sync UI.
 - `TODO.md` and `BRUDNOPIS.md` are personal, untracked planning files. Do not
@@ -186,46 +216,21 @@ structure for subsequent work.
 
 ## Next steps
 
-Treat the following as a default sequence, not a fixed specification. Recheck
-the dependencies and expected payoff before each stage. Each migration should
-still follow a vertical workflow rather than bulk-moving an old directory.
+The structural migration is complete. Further work should be incremental and
+driven by an actual maintenance or product need rather than moving files for
+its own sake.
 
-### 1. Extract settings and administration
+### 1. Reduce oversized composition components
 
-Move account, playback, sharing, library administration, and server settings
-from `pages/settings`, `components/settings`, and Plex helpers into a settings
-feature. Group API operations by capability instead of recreating one large
-`settingsApi.ts` or moving the old catch-all module unchanged.
+When modifying them for product work, extract coherent sections from the app
+bar, media card, and title-details screen. Keep state and behavior with the
+owning workflow; do not split components solely to reduce line counts.
 
-Library CRUD may depend on reusable library entities/API contracts, but the
-administration UI should not be added to the browse feature merely because
-both mention libraries.
+### 2. Improve Plex contracts
 
-### 2. Finish smaller workflows
-
-Migrate the remaining routed workflows according to their behavior:
-
-- search;
-- watchlist;
-- top-level library selection/navigation;
-- utility pages that are still product functionality.
-
-Only after their consumers are gone should the corresponding legacy Plex,
-page, component, hook, and state files be removed.
-
-### 3. Close the compatibility layer
-
-When no feature depends on `plex/index.ts`, delete it and import the shared
-transport or feature-owned API explicitly. At the same time:
-
-- move truly generic dialogs, links, spinners, and notifications to
-  `shared/ui`;
-- keep application-shell components in `app`;
-- remove obsolete adapters and empty legacy directories;
-- verify that no feature imports another feature's internal path.
-
-Do not create a generic repository/service framework solely to complete this
-step. Shared code must have more than one real consumer.
+Gradually replace the global `Plex` namespace with imported, request-specific
+types. This is intentionally separate from the feature migration because it
+has a broad compile-time surface and little immediate user-visible benefit.
 
 ## Definition of done for each migration
 
@@ -257,13 +262,13 @@ npm test -- --watchAll=false
 npm run build
 ```
 
-Then select exactly one item from **Next steps**, inspect all of its callers,
-and migrate it end to end. Do not start by moving all files from one legacy
-directory.
+Then select one coherent maintenance or product change, inspect its callers,
+and preserve the established ownership boundary. Do not refactor solely to
+reduce file counts or line counts.
 
 Current verified baseline:
 
-- tests: 44 suites, 147 tests passing;
+- tests: 57 suites, 178 tests passing;
 - production build: passing;
 - disposable validation container: `nevu-refactor-test` on host port `3101`;
 - production `nevu-next` on port `32400` was not modified by this refactor.
