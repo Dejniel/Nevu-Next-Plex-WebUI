@@ -10,7 +10,7 @@ import {
   useServerSession,
 } from "features/session/public";
 import ConfirmModal from "components/ConfirmModal";
-import Startup, { useStartupState } from "pages/Startup";
+import Startup, { useStartupState } from "./startup/Startup";
 import { useWatchlist } from "features/watchlist/model";
 import { useLibraries } from "entities/library/model";
 import AppRoutes from "./AppRoutes";

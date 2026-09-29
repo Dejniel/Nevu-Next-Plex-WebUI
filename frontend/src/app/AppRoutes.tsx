@@ -1,6 +1,6 @@
 import { Box } from "@mui/material";
 import { Route, Routes } from "react-router-dom";
-import AppBar from "components/AppBar";
+import AppBar from "./shell/AppBar";
 import { HomeScreen } from "features/home/public";
 import { Browse } from "features/library/public";
 import { SearchScreen } from "features/search/public";
