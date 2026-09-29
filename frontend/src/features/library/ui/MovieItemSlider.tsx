@@ -45,6 +45,8 @@ function MovieItemSlider({
   const [items, setItems] = React.useState<Plex.Metadata[] | null>(
     data ?? null
   );
+  const [directoryError, setDirectoryError] = React.useState(false);
+  const [attempt, setAttempt] = React.useState(0);
   const { queryKey, range: queryRange } = useLibraryQueryRange(query);
 
   React.useEffect(() => {
@@ -100,36 +102,41 @@ function MovieItemSlider({
     return () => window.removeEventListener("resize", handleResize);
   }, [calculateItemsPerPage]);
 
-  const fetchData = async () => {
-    if (!dir) return;
-
-    getLibraryDirectory(dir).then((res) => {
-      if (!res.Metadata) return;
-
-      setItems(shuffle ? shuffleArray(res.Metadata) : res.Metadata);
-    });
-  };
-
   React.useEffect(() => {
-    if (data) return setItems(data);
+    let active = true;
+    setDirectoryError(false);
+    if (data !== undefined) return setItems(data);
     if (query) return;
+    if (!dir) return setItems([]);
 
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, dir, query, shuffle]);
+    setItems(null);
+    void getLibraryDirectory(dir)
+      .then((res) => {
+        if (!active) return;
+        const metadata = res.Metadata ?? [];
+        setItems(shuffle ? shuffleArray(metadata) : metadata);
+      })
+      .catch(() => {
+        if (active) setDirectoryError(true);
+      });
+    return () => { active = false; };
+  }, [attempt, data, dir, query, shuffle]);
 
   React.useEffect(() => {
     setCurrPage(0);
   }, [data, dir, itemsPerPage, layout]);
 
   const queryError = queryRange.errors.get(0);
-  if (!displayedItems && queryError)
+  if (!displayedItems && (query ? queryError : directoryError))
     return (
       <Box sx={{ width: "100%", px: "2.5vw" }}>
         <Alert
           severity="error"
-          action={queryError.retryable && queryKey ? (
-            <Button color="inherit" onClick={() => libraryRangeStore.retry(queryKey, 0)}>
+          action={(query ? queryError?.retryable && queryKey : dir) ? (
+            <Button color="inherit" onClick={() => {
+              if (query && queryKey) libraryRangeStore.retry(queryKey, 0);
+              else setAttempt((current) => current + 1);
+            }}>
               Retry
             </Button>
           ) : undefined}
@@ -148,7 +155,7 @@ function MovieItemSlider({
       />
     );
 
-  if (query && queryRange.totalSize === 0) return null;
+  if (query ? queryRange.totalSize === 0 : displayedItems.length === 0) return null;
 
   const itemCount = displayedItems.slice(0, itemsPerPage * 5).length;
   const pageCount = Math.ceil(itemCount / itemsPerPage);

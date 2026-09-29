@@ -29,3 +29,20 @@ it("normalizes an omitted secondary directory collection", async () => {
 
   await expect(getLibrarySecondary("1", "genre")).resolves.toEqual([]);
 });
+
+it("normalizes an empty media directory without Metadata", async () => {
+  (authedGetStrict as jest.Mock).mockResolvedValue({ MediaContainer: { size: 0 } });
+
+  await expect(getLibraryDirectory("/library/onDeck")).resolves.toEqual({
+    size: 0,
+    Metadata: [],
+  });
+});
+
+it("rejects a missing container instead of treating it as an empty directory", async () => {
+  (authedGetStrict as jest.Mock).mockResolvedValue({});
+
+  await expect(getLibraryDirectory("/library/onDeck")).rejects.toThrow(
+    "Plex returned an invalid library directory",
+  );
+});

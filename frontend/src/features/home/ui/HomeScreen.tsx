@@ -1,17 +1,46 @@
-import { Box, Skeleton } from "@mui/material";
+import { Alert, Box, Button, Skeleton } from "@mui/material";
 import { MovieItemSlider } from "features/library/public";
+import { useCanManageServer } from "features/session/public";
 import React from "react";
 import { useUserSettings } from "features/settings/model";
 import { useWatchlist } from "features/watchlist/model";
 import { useHomeDiscovery } from "../model/useHomeDiscovery";
 import HomeHero from "./HomeHero";
+import HomeEmptyState from "./HomeEmptyState";
 import { homeHeroContentSx } from "./homeHeroLayout";
 
 export default function HomeScreen() {
   const watchlist = useWatchlist((state) => state.items);
+  const canManageServer = useCanManageServer();
   const { settings } = useUserSettings();
-  const { shelves, hero, heroLoading, clearHero } =
+  const { shelves, hero, heroLoading, catalogStatus, clearHero, refresh } =
     useHomeDiscovery(settings);
+
+  if (catalogStatus === "empty")
+    return (
+      <Box sx={{ width: "100%" }}>
+        <HomeEmptyState canManageServer={canManageServer} onRefresh={refresh} />
+        {watchlist.length > 0 && (
+          <Box sx={{ pb: 8 }}>
+            <MovieItemSlider
+              title="Watchlist"
+              data={watchlist}
+              plexTvSource
+              link="/plextv/watchlist"
+            />
+          </Box>
+        )}
+      </Box>
+    );
+
+  if (catalogStatus === "error")
+    return (
+      <Box sx={{ mt: "96px", px: { xs: 3, md: "5vw" } }}>
+        <Alert severity="error" action={<Button color="inherit" onClick={refresh}>Retry</Button>}>
+          Unable to load your Plex libraries. Please try again.
+        </Alert>
+      </Box>
+    );
 
   return (
     <Box

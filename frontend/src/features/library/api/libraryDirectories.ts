@@ -18,7 +18,9 @@ export async function getLibraryDirectory(
   const response = await authedGetStrict(
     `${key}?${queryBuilder({ ...props, ...getIncludeProps() })}`,
   );
-  return response.MediaContainer;
+  const container = response?.MediaContainer;
+  if (!container) throw new Error("Plex returned an invalid library directory");
+  return { ...container, Metadata: container.Metadata ?? [] };
 }
 
 export async function getLibrarySecondary(

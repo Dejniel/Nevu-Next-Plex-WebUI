@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { LIBRARIES_CHANGED_EVENT } from "entities/library/model";
 import type { UserSettings } from "features/settings/model";
 import { normalizeLibraryNavigation } from "features/library-navigation/model";
 import {
@@ -31,27 +32,44 @@ interface HomeDiscoveryState {
   shelves: HomeShelf[];
   hero: Plex.Metadata | null;
   heroLoading: boolean;
+  catalogStatus: "loading" | "ready" | "empty" | "error";
 }
 
 export function useHomeDiscovery(settings: UserSettings) {
   const generation = useRef(0);
+  const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<HomeDiscoveryState>({
     shelves: [],
     hero: null,
     heroLoading: true,
+    catalogStatus: "loading",
   });
+  const refresh = useCallback(() => setAttempt((current) => current + 1), []);
+
+  useEffect(() => {
+    window.addEventListener(LIBRARIES_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(LIBRARIES_CHANGED_EVENT, refresh);
+  }, [refresh]);
 
   useEffect(() => {
     const request = ++generation.current;
-    setState((current) => ({ ...current, hero: null, heroLoading: true }));
+    setState({ shelves: [], hero: null, heroLoading: true, catalogStatus: "loading" });
 
     void getHomeLibraries()
-      .then((allLibraries) => {
+      .then(async (allLibraries) => {
         if (generation.current !== request) return;
+        const mediaLibraries = allLibraries.filter((library) =>
+          ["movie", "show"].includes(library.type),
+        );
+        const hasMedia = await hasHomeMedia(mediaLibraries);
+        if (generation.current !== request) return;
+        if (!hasMedia) {
+          setState({ shelves: [], hero: null, heroLoading: false, catalogStatus: "empty" });
+          return;
+        }
+        setState((current) => ({ ...current, catalogStatus: "ready" }));
         const libraries = normalizeLibraryNavigation(
-          allLibraries.filter((library) =>
-            ["movie", "show"].includes(library.type),
-          ),
+          mediaLibraries,
           settings,
         ).pinned.slice(0, HOME_LIBRARY_LIMIT);
 
@@ -80,18 +98,32 @@ export function useHomeDiscovery(settings: UserSettings) {
       .catch((error) => {
         console.error("Unable to load home libraries", error);
         if (generation.current === request)
-          setState((current) => ({ ...current, heroLoading: false }));
+          setState((current) => ({ ...current, heroLoading: false, catalogStatus: "error" }));
       });
 
     return () => {
       generation.current += 1;
     };
-  }, [settings]);
+  }, [attempt, settings]);
 
   const clearHero = () =>
     setState((current) => ({ ...current, hero: null }));
 
-  return { ...state, clearHero };
+  return { ...state, clearHero, refresh };
+}
+
+async function hasHomeMedia(libraries: HomeLibrary[]) {
+  const results = await Promise.allSettled(
+    libraries.map((library) => getHomeLibraryWindow(library.key, 0, 1)),
+  );
+  if (results.some((result) => result.status === "fulfilled" && (
+    (result.value.Metadata?.length ?? 0) > 0 ||
+    (result.value.totalSize ?? result.value.size) > 0
+  ))) return true;
+
+  const failed = results.find((result) => result.status === "rejected");
+  if (failed?.status === "rejected") throw failed.reason;
+  return false;
 }
 
 async function loadHomeShelves(
