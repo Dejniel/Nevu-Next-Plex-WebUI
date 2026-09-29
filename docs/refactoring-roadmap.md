@@ -126,6 +126,19 @@ Commit `9f2a7f2` (`Extract playback media controller`):
 - The next-episode overlay receives a typed action instead of knowing about the
   player ref, router, and Plex query format.
 
+### Playback controls layout
+
+- The control bar, progress and volume controls, settings popover, marker
+  actions, visibility timing, and cursor behavior live in one playback-owned UI
+  component.
+- The controls consume the existing media, runtime, and command controllers;
+  they do not duplicate playback state or create another controller layer.
+- Marker presentation uses the same active-marker model as keyboard commands
+  instead of scanning metadata separately for every action.
+- The routed playback screen is now a small composition boundary responsible
+  for synchronization, errors, informational overlay timing, and mounting the
+  actual player.
+
 At this point `app`, `library`, `title-details`, `playback`,
 `watch-together`, and the shared `media` entity form the reference structure
 for subsequent work.
@@ -140,10 +153,9 @@ for subsequent work.
 - `frontend/src/components`, `pages`, `plex`, and `states` still contain mixed
   legacy responsibilities. Their existence is temporary, but empty directory
   removal is not itself a refactoring objective.
-- `PlaybackScreen.tsx` is still large (roughly 34 KB), but media/source
-  orchestration, player runtime, commands, reporting, and independent overlays
-  have moved out. Its remaining size is now predominantly controls and marker
-  presentation.
+- `PlaybackScreen.tsx` is now roughly 7.5 KB and only composes the playback
+  controllers, watch-together integration, overlays, error handling, and the
+  actual player.
 - Playback intentionally consumes the public watch-together controller. It
   must not reach into socket transport, room state internals, or sync UI.
 - `TODO.md` and `BRUDNOPIS.md` are personal, untracked planning files. Do not
@@ -155,16 +167,7 @@ Treat the following as a default sequence, not a fixed specification. Recheck
 the dependencies and expected payoff before each stage. Each migration should
 still follow a vertical workflow rather than bulk-moving an old directory.
 
-### 1. Extract the playback controls layout
-
-The media, runtime, reporting, and command controllers are complete. Move the
-remaining control bar, volume/settings popovers, marker actions, visibility,
-and cursor behavior into one playback-owned UI component. It should consume
-the existing controllers rather than introduce another state layer or repeat
-commands. Leave the routed screen responsible for composition, the error
-dialog, and mounting the actual `ReactPlayer`.
-
-### 2. Extract home discovery
+### 1. Extract home discovery
 
 Move the home workflow (`Home`, `HeroDisplay`, hero selection/media logic, and
 home shelves) into `features/home`. Reuse library query/model code through its
@@ -174,7 +177,7 @@ do not duplicate library pagination and artwork logic.
 This step should leave home hero loading, trailer behavior, and shelf browsing
 unchanged.
 
-### 3. Consolidate authentication and profiles
+### 2. Consolidate authentication and profiles
 
 Give login, startup, Plex PIN flow, profile bootstrap/picker, server access,
 and user session state a deliberate boundary. Decide based on actual coupling
@@ -185,7 +188,7 @@ the same data.
 Session state is one of the few valid application-wide stores. Keep persisted
 credentials and active Plex Home profile handling out of presentation code.
 
-### 4. Extract settings and administration
+### 3. Extract settings and administration
 
 Move account, playback, sharing, library administration, and server settings
 from `pages/settings`, `components/settings`, and Plex helpers into a settings
@@ -196,7 +199,7 @@ Library CRUD may depend on reusable library entities/API contracts, but the
 administration UI should not be added to the browse feature merely because
 both mention libraries.
 
-### 5. Finish smaller workflows
+### 4. Finish smaller workflows
 
 Migrate the remaining routed workflows according to their behavior:
 
@@ -208,7 +211,7 @@ Migrate the remaining routed workflows according to their behavior:
 Only after their consumers are gone should the corresponding legacy Plex,
 page, component, hook, and state files be removed.
 
-### 6. Close the compatibility layer
+### 5. Close the compatibility layer
 
 When no feature depends on `plex/index.ts`, delete it and import the shared
 transport or feature-owned API explicitly. At the same time:
