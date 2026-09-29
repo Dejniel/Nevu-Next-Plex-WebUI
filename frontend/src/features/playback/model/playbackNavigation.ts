@@ -1,4 +1,4 @@
-import { queryBuilder } from "plex/QuickFunctions";
+import { queryBuilder } from "shared/lib/query";
 
 export function playbackBrowsePath(metadata: Plex.Metadata) {
   const mediaID =

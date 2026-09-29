@@ -3,7 +3,7 @@ import React from "react";
 import { getLibraryDirectory } from "../api/libraryDirectories";
 import { ArrowForwardIosRounded } from "@mui/icons-material";
 import { Link, To, useLocation } from "react-router-dom";
-import { shuffleArray } from "common/ArrayExtra";
+import { shuffleArray } from "shared/lib/arrays";
 import { WatchlistMediaCard } from "features/watchlist/public";
 import {
   getLibraryCardWidth,

@@ -1,7 +1,8 @@
-import { platformCache } from "common/DesktopApp";
+import { platformCache } from "shared/lib/platform";
 import { getMediaVersions } from "entities/media/model";
 import type { MediaVersion } from "entities/media/model";
-import { getXPlexProps, queryBuilder } from "plex/QuickFunctions";
+import { getXPlexProps } from "features/session/model";
+import { queryBuilder } from "shared/lib/query";
 import { getBackendURL } from "shared/api/backend";
 import type { PlaybackQuality } from "../model/playbackQuality";
 import { getStreamProps } from "./playback";

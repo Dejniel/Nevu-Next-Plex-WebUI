@@ -1,5 +1,6 @@
 import { AuthStorage } from "features/session/model";
-import { getXPlexProps, queryBuilder } from "plex/QuickFunctions";
+import { getXPlexProps } from "features/session/model";
+import { queryBuilder } from "shared/lib/query";
 import { ProxiedRequest } from "shared/api/backend";
 
 export async function setMediaRating(

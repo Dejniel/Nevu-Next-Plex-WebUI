@@ -1,7 +1,7 @@
-import { plexClient } from "plex/QuickFunctions";
+import { plexClient } from "features/session/model";
 import { searchPlex } from "./search";
 
-jest.mock("plex/QuickFunctions", () => ({
+jest.mock("features/session/model", () => ({
   plexClient: { get: jest.fn() },
 }));
 

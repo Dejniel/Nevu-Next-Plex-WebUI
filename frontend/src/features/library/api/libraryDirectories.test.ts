@@ -1,13 +1,14 @@
-import { authedGetStrict } from "plex/QuickFunctions";
+import { authedGetStrict } from "features/session/model";
 import {
   getLibrary,
   getLibraryDirectory,
   getLibrarySecondary,
 } from "./libraryDirectories";
 
-jest.mock("plex/QuickFunctions", () => ({
+jest.mock("features/session/model", () => ({
   authedGetStrict: jest.fn(),
-  getIncludeProps: () => ({ includeDetails: 1 }),
+}));
+jest.mock("shared/lib/query", () => ({
   queryBuilder: () => "query",
 }));
 

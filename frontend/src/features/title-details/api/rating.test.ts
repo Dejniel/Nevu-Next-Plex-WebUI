@@ -2,8 +2,11 @@ import { AuthStorage } from "features/session/model";
 import { ProxiedRequest } from "shared/api/backend";
 import { setMediaRating } from "./rating";
 
-jest.mock("plex/QuickFunctions", () => ({
+jest.mock("features/session/model", () => ({
+  ...jest.requireActual("features/session/model"),
   getXPlexProps: () => ({}),
+}));
+jest.mock("shared/lib/query", () => ({
   queryBuilder: () => "rating-query",
 }));
 jest.mock("shared/api/backend", () => ({ ProxiedRequest: jest.fn() }));

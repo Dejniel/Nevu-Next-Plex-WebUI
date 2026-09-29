@@ -1,5 +1,5 @@
 import { Box, Typography, useTheme } from "@mui/material";
-import { durationToText } from "common/Duration";
+import { durationToText } from "shared/lib/duration";
 import { getTranscodeImageURL } from "entities/media/model";
 
 function MediaFacts({ metadata }: { metadata: Plex.Metadata }) {

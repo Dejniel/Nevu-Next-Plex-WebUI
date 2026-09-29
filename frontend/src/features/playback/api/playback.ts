@@ -1,12 +1,12 @@
-import { platformCache } from "common/DesktopApp";
+import { platformCache } from "shared/lib/platform";
 import {
   authedGet,
   authedPost,
   authedPut,
-  getIncludeProps,
   getXPlexProps,
-  queryBuilder,
-} from "plex/QuickFunctions";
+} from "features/session/model";
+import { getIncludeProps } from "entities/media/model";
+import { queryBuilder } from "shared/lib/query";
 
 export interface StreamLimitations {
   autoAdjustQuality?: boolean;

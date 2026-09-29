@@ -1,4 +1,4 @@
-import { plexClient } from "plex/QuickFunctions";
+import { plexClient } from "features/session/model";
 
 export async function searchPlex(query: string): Promise<Plex.SearchResult[]> {
   const params = new URLSearchParams({

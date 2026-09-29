@@ -1,7 +1,16 @@
-import * as plexRequests from "plex/QuickFunctions";
+import { authedGet } from "features/session/model";
 import { getPlaybackMetadata, getStreamProps } from "./playback";
 
-afterEach(() => jest.restoreAllMocks());
+jest.mock("features/session/model", () => ({
+  authedGet: jest.fn(),
+  authedPost: jest.fn(),
+  authedPut: jest.fn(),
+  getXPlexProps: () => ({}),
+}));
+
+const request = authedGet as jest.Mock;
+
+beforeEach(() => request.mockReset());
 
 it("passes the selected Plex media and part indexes to the transcoder", () => {
   const props = getStreamProps("123", {
@@ -19,7 +28,7 @@ it("passes the selected Plex media and part indexes to the transcoder", () => {
 
 it("returns metadata without filtering non-playable parent types", async () => {
   const show = { ratingKey: "9", type: "show", title: "Example" };
-  jest.spyOn(plexRequests, "authedGet").mockResolvedValue({
+  request.mockResolvedValue({
     MediaContainer: { Metadata: [show] },
   } as never);
 
@@ -27,7 +36,7 @@ it("returns metadata without filtering non-playable parent types", async () => {
 });
 
 it("returns null for an empty metadata response", async () => {
-  jest.spyOn(plexRequests, "authedGet").mockResolvedValue({
+  request.mockResolvedValue({
     MediaContainer: {},
   } as never);
 

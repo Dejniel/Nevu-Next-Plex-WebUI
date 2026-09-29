@@ -1,6 +1,6 @@
 import { AuthStorage } from "features/session/model";
 import { getBackendURL } from "shared/api/backend";
-import { queryBuilder } from "plex/QuickFunctions";
+import { queryBuilder } from "shared/lib/query";
 
 export const LANDSCAPE_IMAGE_WIDTHS = [320, 480, 640, 960, 1280] as const;
 export const POSTER_IMAGE_WIDTHS = [240, 360, 480, 720] as const;

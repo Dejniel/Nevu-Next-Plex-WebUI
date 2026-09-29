@@ -3,7 +3,7 @@ import {
   authedGet,
   authedGetStrict,
   PlexRequestError,
-} from "./QuickFunctions";
+} from "./plexRequests";
 
 jest.mock("shared/api/backend", () => ({ ProxiedRequest: jest.fn() }));
 

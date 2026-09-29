@@ -10,7 +10,7 @@ import { PlayArrowRounded } from "@mui/icons-material";
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { getTranscodeImageURL } from "entities/media/model";
-import { durationToText } from "common/Duration";
+import { durationToText } from "shared/lib/duration";
 import { extraTypeLabel, TitleExtra } from "../model/titleExtras";
 import ExtraPlayer from "./ExtraPlayer";
 import { libraryBrowseTo } from "navigation";

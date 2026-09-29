@@ -1,7 +1,13 @@
-import * as QuickFunctions from "../../../plex/QuickFunctions";
+import { authedGetStrict } from "features/session/model";
 import { getLibraryFilterValues } from "./libraryFilterValues";
 
-afterEach(() => jest.restoreAllMocks());
+jest.mock("features/session/model", () => ({
+  authedGetStrict: jest.fn(),
+}));
+
+const request = authedGetStrict as jest.Mock;
+
+beforeEach(() => request.mockReset());
 
 const source: Plex.Filter = {
   filter: "genre",
@@ -12,7 +18,7 @@ const source: Plex.Filter = {
 };
 
 it("extracts stable filter values from Plex fast keys", async () => {
-  jest.spyOn(QuickFunctions, "authedGetStrict").mockResolvedValue({
+  request.mockResolvedValue({
     MediaContainer: {
       Directory: [{
         key: "fallback",
@@ -28,7 +34,7 @@ it("extracts stable filter values from Plex fast keys", async () => {
 });
 
 it("propagates Plex failures while loading filter values", async () => {
-  jest.spyOn(QuickFunctions, "authedGetStrict").mockRejectedValue(
+  request.mockRejectedValue(
     new Error("offline"),
   );
 

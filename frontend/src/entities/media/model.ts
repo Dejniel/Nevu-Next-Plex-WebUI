@@ -1,4 +1,5 @@
 export { mediaArtworkPath } from "./model/mediaArtwork";
+export { getIncludeProps } from "./model/mediaIncludes";
 export {
   DETAIL_POSTER_IMAGE_WIDTHS,
   getResponsiveTranscodeImageProps,

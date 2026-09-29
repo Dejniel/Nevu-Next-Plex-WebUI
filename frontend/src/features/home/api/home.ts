@@ -1,9 +1,9 @@
 import {
   authedGetStrict,
-  getIncludeProps,
   getXPlexProps,
-  queryBuilder,
-} from "plex/QuickFunctions";
+} from "features/session/model";
+import { getIncludeProps } from "entities/media/model";
+import { queryBuilder } from "shared/lib/query";
 
 function container<T>(response: unknown): T {
   const value = response as { MediaContainer?: T } | null;

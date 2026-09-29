@@ -1,8 +1,8 @@
 import {
   authedGetStrict,
-  getIncludeProps,
-  queryBuilder,
-} from "plex/QuickFunctions";
+} from "features/session/model";
+import { getIncludeProps } from "entities/media/model";
+import { queryBuilder } from "shared/lib/query";
 
 export async function getLibrary(key: string): Promise<Plex.MediaContainer> {
   const response = await authedGetStrict(

@@ -42,13 +42,13 @@ import {
   getMediaByGuid,
   setMediaPlayedStatus,
 } from "../api/media";
-import { durationToText } from "common/Duration";
+import { durationToText } from "shared/lib/duration";
 import { StretchedLink, useBigReader, useConfirmModal } from "shared/ui";
 import { create } from "zustand";
 import { usePreviewPlayer } from "../model/PreviewPlayerState";
 import ReactPlayer from "react-player";
 import { getBackendURL } from "shared/api/backend";
-import { queryBuilder } from "plex/QuickFunctions";
+import { queryBuilder } from "shared/lib/query";
 import { AuthStorage } from "features/session/model";
 import { mediaQualityBadge } from "../model/mediaVersions";
 import { mediaArtworkPath } from "../model/mediaArtwork";

@@ -52,7 +52,7 @@ import {
   CheckBoxRounded,
   EditRounded,
 } from "@mui/icons-material";
-import { durationInMinutes, durationToText } from "common/Duration";
+import { durationInMinutes, durationToText } from "shared/lib/duration";
 import { HeroWatchlistButton } from "features/watchlist/public";
 import { getTrackChoices } from "entities/media/model";
 import { alpha } from "@mui/material/styles";
@@ -251,10 +251,8 @@ function TitleDetailsScreen() {
         }
         break;
       case "movie":
-        {
-          setLanguages(trackLanguages(data, 2));
-          setSubTitles(trackLanguages(data, 3));
-        }
+        setLanguages(trackLanguages(data, 2));
+        setSubTitles(trackLanguages(data, 3));
         break;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

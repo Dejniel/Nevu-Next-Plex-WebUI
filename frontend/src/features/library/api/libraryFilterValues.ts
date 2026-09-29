@@ -1,4 +1,4 @@
-import { authedGetStrict } from "plex/QuickFunctions";
+import { authedGetStrict } from "features/session/model";
 import type { LibraryFilterValueOption } from "../model/libraryFilters";
 
 function valueFromFastKey(directory: Plex.Directory, filter: string) {

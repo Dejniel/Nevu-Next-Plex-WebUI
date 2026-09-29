@@ -1,5 +1,5 @@
-import { getDeviceName, getPlatform, platformCache } from "common/DesktopApp";
-import { makeid, uuidv4 } from "plex/QuickFunctions";
+import { randomId, uuidV4 } from "shared/lib/identifiers";
+import { getDeviceName, getPlatform, platformCache } from "shared/lib/platform";
 
 async function detectPlatform() {
   const platformData = await getPlatform();
@@ -19,10 +19,10 @@ async function detectPlatform() {
 
 export function initializeRuntime() {
   if (!localStorage.getItem("clientID")) {
-    localStorage.setItem("clientID", makeid(24));
+    localStorage.setItem("clientID", randomId(24));
   }
 
-  sessionStorage.setItem("sessionID", uuidv4());
+  sessionStorage.setItem("sessionID", uuidV4());
 
   if (!localStorage.getItem("quality")) {
     localStorage.setItem("quality", "12000");

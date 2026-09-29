@@ -1,4 +1,4 @@
-import * as plexRequests from "plex/QuickFunctions";
+import { authedGetStrict } from "features/session/model";
 import {
   getHomeGenres,
   getHomeLibraries,
@@ -6,11 +6,18 @@ import {
   getHomeMetadata,
 } from "./home";
 
-afterEach(() => jest.restoreAllMocks());
+jest.mock("features/session/model", () => ({
+  authedGetStrict: jest.fn(),
+  getXPlexProps: () => ({}),
+}));
+
+const request = authedGetStrict as jest.Mock;
+
+beforeEach(() => request.mockReset());
 
 it("loads the Plex libraries used by home discovery", async () => {
   const libraries = [{ key: "1", title: "Movies", type: "movie" }];
-  const request = jest.spyOn(plexRequests, "authedGetStrict").mockResolvedValue({
+  request.mockResolvedValue({
     MediaContainer: { Directory: libraries },
   });
 
@@ -19,7 +26,7 @@ it("loads the Plex libraries used by home discovery", async () => {
 });
 
 it("builds encoded genre and metadata paths", async () => {
-  const request = jest.spyOn(plexRequests, "authedGetStrict").mockResolvedValue({
+  request.mockResolvedValue({
     MediaContainer: { Directory: [], Metadata: [] },
   });
 
@@ -35,7 +42,7 @@ it("builds encoded genre and metadata paths", async () => {
 });
 
 it("requests a bounded, consistently sorted hero window", async () => {
-  const request = jest.spyOn(plexRequests, "authedGetStrict").mockResolvedValue({
+  request.mockResolvedValue({
     MediaContainer: { size: 8, totalSize: 100, Metadata: [] },
   });
 
@@ -49,7 +56,7 @@ it("requests a bounded, consistently sorted hero window", async () => {
 });
 
 it("rejects malformed Plex responses", async () => {
-  jest.spyOn(plexRequests, "authedGetStrict").mockResolvedValue(null);
+  request.mockResolvedValue(null);
   await expect(getHomeLibraries()).rejects.toThrow(
     "Plex returned an invalid home response",
   );

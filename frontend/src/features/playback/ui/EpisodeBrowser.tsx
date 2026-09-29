@@ -21,7 +21,7 @@ import React, { useEffect } from "react";
 import { useState } from "react";
 import { getTranscodeImageURL } from "entities/media/model";
 import { getLibraryDirectory } from "features/library/model";
-import { durationInMinutes } from "common/Duration";
+import { durationInMinutes } from "shared/lib/duration";
 import { Link } from "react-router-dom";
 import { mediaWatchTo } from "navigation";
 

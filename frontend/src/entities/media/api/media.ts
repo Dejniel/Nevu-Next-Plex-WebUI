@@ -1,10 +1,10 @@
 import {
   authedGet,
   authedGetStrict,
-  getIncludeProps,
   getXPlexProps,
-  queryBuilder,
-} from "plex/QuickFunctions";
+} from "features/session/model";
+import { queryBuilder } from "shared/lib/query";
+import { getIncludeProps } from "../model/mediaIncludes";
 import { invalidateLibraryCache } from "shared/lib/libraryCache";
 
 export async function getMediaMetadata(id: string): Promise<Plex.Metadata> {

@@ -2,14 +2,16 @@ import { getStreamProps } from "./playback";
 import { buildPlaybackSourceUrl } from "./playbackSource";
 import type { MediaVersion } from "entities/media/model";
 
-jest.mock("common/DesktopApp", () => ({
+jest.mock("shared/lib/platform", () => ({
   platformCache: { isDesktop: false },
 }));
 jest.mock("shared/api/backend", () => ({
   getBackendURL: () => "http://backend",
 }));
-jest.mock("plex/QuickFunctions", () => ({
+jest.mock("features/session/model", () => ({
   getXPlexProps: () => ({ token: "session-token" }),
+}));
+jest.mock("shared/lib/query", () => ({
   queryBuilder: (values: Record<string, unknown>) =>
     new URLSearchParams(
       Object.entries(values).map(([key, value]) => [key, String(value)]),

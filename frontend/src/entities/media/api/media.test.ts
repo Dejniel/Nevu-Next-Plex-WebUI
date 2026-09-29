@@ -1,7 +1,7 @@
 import {
   authedGet,
   authedGetStrict,
-} from "plex/QuickFunctions";
+} from "features/session/model";
 import { invalidateLibraryCache } from "shared/lib/libraryCache";
 import {
   getMediaByGuid,
@@ -10,11 +10,12 @@ import {
   setMediaPlayedStatus,
 } from "./media";
 
-jest.mock("plex/QuickFunctions", () => ({
+jest.mock("features/session/model", () => ({
   authedGet: jest.fn(),
   authedGetStrict: jest.fn(),
-  getIncludeProps: () => ({}),
   getXPlexProps: () => ({}),
+}));
+jest.mock("shared/lib/query", () => ({
   queryBuilder: () => "query",
 }));
 jest.mock("shared/lib/libraryCache", () => ({

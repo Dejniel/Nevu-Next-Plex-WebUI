@@ -1,6 +1,6 @@
 import axios from "axios";
 import { AuthStorage } from "features/session/model";
-import { queryBuilder } from "plex/QuickFunctions";
+import { queryBuilder } from "shared/lib/query";
 import { getBackendURL } from "shared/api/backend";
 import { getDiscoverID, TitleExtra } from "../model/titleExtras";
 
