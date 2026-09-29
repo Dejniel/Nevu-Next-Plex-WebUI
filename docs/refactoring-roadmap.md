@@ -79,13 +79,26 @@ Commit `8b8956c` (`Move playback into a feature module`):
 - Kept watch-together synchronization outside playback intentionally; it is a
   separate cross-session workflow.
 
-At this point `app`, `library`, `title-details`, `playback`, and the shared
-`media` entity form the reference structure for subsequent work.
+### Watch-together synchronization
+
+Commit `1558a2b` (`Extract watch-together synchronization feature`):
+
+- Moved the socket transport, connection state, room dialog, waiting room, and
+  synchronization notifications into `features/watch-together`.
+- Replaced direct Socket.IO access in playback with a small public controller.
+- Removed the old event emitter, unused playback cache, and scattered sync
+  components/state.
+- Added model and connection-lifecycle tests.
+
+At this point `app`, `library`, `title-details`, `playback`,
+`watch-together`, and the shared `media` entity form the reference structure
+for subsequent work.
 
 ## Current state and constraints
 
-- `features/library`, `features/title-details`, and `features/playback` expose
-  public entry points. External callers must not import their internals.
+- `features/library`, `features/title-details`, `features/playback`, and
+  `features/watch-together` expose public entry points. External callers must
+  not import their internals.
 - `frontend/src/plex/index.ts` is still a compatibility module. Do not expand
   it; move operations to the feature that owns them when touching a workflow.
 - `frontend/src/components`, `pages`, `plex`, and `states` still contain mixed
@@ -94,9 +107,8 @@ At this point `app`, `library`, `title-details`, `playback`, and the shared
 - `PlaybackScreen.tsx` is still large (roughly 74 KB). Its external boundary is
   now correct, so it can be decomposed locally without affecting routing or
   Plex callers.
-- Watch-together code currently spans `PerPlexedSync`, `SyncSessionState`, and
-  related waiting-room/session UI. It must not be folded into the player just
-  because the player consumes it.
+- Playback intentionally consumes the public watch-together controller. It
+  must not reach into socket transport, room state internals, or sync UI.
 - `TODO.md` and `BRUDNOPIS.md` are personal, untracked planning files. Do not
   add or rewrite them as part of this roadmap.
 
@@ -105,22 +117,7 @@ At this point `app`, `library`, `title-details`, `playback`, and the shared
 Work in the following order. Each item is a vertical workflow migration, not a
 bulk move based only on the old directory name.
 
-### 1. Extract watch-together synchronization
-
-Create a feature such as `features/watch-together` and move the complete
-cross-session workflow into it:
-
-- synchronization session model and transport;
-- host/join/waiting-room behavior;
-- player integration component;
-- session-specific UI and tests.
-
-Expose only the player-facing controls/state and routed entry points through
-`public.ts`. Playback may consume that public API, but the synchronization
-feature must not import playback UI. Preserve the existing protocol and user
-behavior during this step.
-
-### 2. Decompose playback internally
+### 1. Decompose playback internally
 
 After the synchronization boundary is clean, reduce the responsibilities of
 `PlaybackScreen.tsx`. Extract only cohesive units that already exist in its
@@ -136,7 +133,7 @@ Keep these inside `features/playback` unless another concrete feature needs
 them. Prefer a small number of meaningful hooks/components over wrappers,
 decorative helpers, or one-variable abstractions.
 
-### 3. Extract home discovery
+### 2. Extract home discovery
 
 Move the home workflow (`Home`, `HeroDisplay`, hero selection/media logic, and
 home shelves) into `features/home`. Reuse library query/model code through its
@@ -146,7 +143,7 @@ do not duplicate library pagination and artwork logic.
 This step should leave home hero loading, trailer behavior, and shelf browsing
 unchanged.
 
-### 4. Consolidate authentication and profiles
+### 3. Consolidate authentication and profiles
 
 Give login, startup, Plex PIN flow, profile bootstrap/picker, server access,
 and user session state a deliberate boundary. Decide based on actual coupling
@@ -157,7 +154,7 @@ the same data.
 Session state is one of the few valid application-wide stores. Keep persisted
 credentials and active Plex Home profile handling out of presentation code.
 
-### 5. Extract settings and administration
+### 4. Extract settings and administration
 
 Move account, playback, sharing, library administration, and server settings
 from `pages/settings`, `components/settings`, and Plex helpers into a settings
@@ -168,7 +165,7 @@ Library CRUD may depend on reusable library entities/API contracts, but the
 administration UI should not be added to the browse feature merely because
 both mention libraries.
 
-### 6. Finish smaller workflows
+### 5. Finish smaller workflows
 
 Migrate the remaining routed workflows according to their behavior:
 
@@ -180,7 +177,7 @@ Migrate the remaining routed workflows according to their behavior:
 Only after their consumers are gone should the corresponding legacy Plex,
 page, component, hook, and state files be removed.
 
-### 7. Close the compatibility layer
+### 6. Close the compatibility layer
 
 When no feature depends on `plex/index.ts`, delete it and import the shared
 transport or feature-owned API explicitly. At the same time:
@@ -230,7 +227,7 @@ directory.
 
 Current verified baseline:
 
-- tests: 34 suites, 129 tests passing;
+- tests: 36 suites, 134 tests passing;
 - production build: passing;
 - disposable validation container: `nevu-refactor-test` on host port `3101`;
 - production `nevu-next` on port `32400` was not modified by this refactor.

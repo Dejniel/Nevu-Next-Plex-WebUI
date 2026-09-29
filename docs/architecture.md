@@ -25,6 +25,12 @@ A feature may temporarily use legacy modules such as `plex`, `components`, or
 feature UI. Cross-cutting notifications belong in `shared`, which prevents
 cycles between old infrastructure and new feature state.
 
+A feature-to-feature dependency is allowed only for a concrete workflow
+integration and must use the dependency's public entry point. For example,
+playback consumes the watch-together playback controller without knowing its
+Socket.IO protocol or UI. Do not use this exception to build chains of feature
+internals.
+
 ## Feature boundaries
 
 Each feature exposes its supported surface through `public.ts`. Code outside a
@@ -51,8 +57,9 @@ features/library/
 `features/title-details` follows the same boundary for title metadata, extras,
 reviews, downloads, and the details dialog. `features/playback` owns stream
 selection, playback requests, subtitle search, queue controls, and the routed
-player screen. Watch-together synchronization remains separate because it is a
-cross-session subsystem rather than player presentation logic.
+player screen. `features/watch-together` owns the cross-session connection,
+protocol adapter, room dialog, waiting room, notifications, and player-facing
+synchronization controller.
 
 ## API and state rules
 
