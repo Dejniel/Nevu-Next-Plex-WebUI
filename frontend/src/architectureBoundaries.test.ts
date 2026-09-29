@@ -27,10 +27,19 @@ function sourcePath(file: string) {
 }
 
 function targetPath(file: string, specifier: string) {
-  if (specifier.startsWith("features/") || specifier.startsWith("entities/"))
+  if (
+    specifier.startsWith("app/") ||
+    specifier.startsWith("features/") ||
+    specifier.startsWith("entities/") ||
+    specifier.startsWith("shared/")
+  )
     return specifier;
   if (!specifier.startsWith(".")) return null;
   return sourcePath(path.resolve(path.dirname(file), specifier));
+}
+
+function moduleLayer(relativePath: string) {
+  return relativePath.split("/")[0];
 }
 
 function moduleOwner(relativePath: string) {
@@ -74,5 +83,54 @@ describe("frontend module boundaries", () => {
     }
 
     expect(violations).toEqual([]);
+  });
+
+  it("keeps dependencies flowing toward shared infrastructure", () => {
+    const violations: string[] = [];
+
+    for (const file of sourceFiles(SOURCE_ROOT)) {
+      const source = sourcePath(file);
+      const sourceLayer = moduleLayer(source);
+      const contents = fs.readFileSync(file, "utf8");
+
+      for (const match of contents.matchAll(IMPORT)) {
+        const target = targetPath(file, match[1]);
+        if (!target) continue;
+        const targetLayer = moduleLayer(target);
+
+        const sharedViolation =
+          sourceLayer === "shared" && targetLayer !== "shared";
+        const entityViolation =
+          sourceLayer === "entities" &&
+          (targetLayer === "app" || targetLayer === "features") &&
+          target !== "features/session/model";
+        const featureViolation =
+          sourceLayer === "features" && targetLayer === "app";
+
+        if (sharedViolation || entityViolation || featureViolation)
+          violations.push(`${source} -> ${match[1]}`);
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+
+  it("keeps runtime modules inside an architectural layer", () => {
+    const allowedRootFiles = new Set([
+      "architectureBoundaries.test.ts",
+      "index.tsx",
+      "types.d.ts",
+    ]);
+    const rootRuntimeFiles = fs
+      .readdirSync(SOURCE_ROOT, { withFileTypes: true })
+      .filter(
+        (entry) =>
+          entry.isFile() &&
+          SOURCE_EXTENSION.test(entry.name) &&
+          !allowedRootFiles.has(entry.name),
+      )
+      .map((entry) => entry.name);
+
+    expect(rootRuntimeFiles).toEqual([]);
   });
 });

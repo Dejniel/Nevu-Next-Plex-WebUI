@@ -20,7 +20,7 @@ import {
   getNevuReviews,
   updateNevuReview,
 } from "../api/reviews";
-import { config } from "app/config";
+import { config } from "shared/config/runtime";
 import { setMediaRating } from "../api/rating";
 import { useAuthSession } from "features/session/public";
 import { AppDialog } from "shared/ui";

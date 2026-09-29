@@ -48,11 +48,11 @@ import {
   useWatchTogetherDialog,
   useWatchTogetherSession,
 } from "features/watch-together/public";
-import { config } from "app/config";
+import { config } from "shared/config/runtime";
 import { StretchedLink, useBigReader } from "shared/ui";
 import { useUserSettings } from "features/settings/model";
 import { useAuthSession } from "features/session/public";
-import { SPONSOR_URL } from "projectLinks";
+import { SPONSOR_URL } from "shared/config/projectLinks";
 import {
   LIBRARIES_CHANGED_EVENT,
   useLibraries,

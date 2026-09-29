@@ -1,4 +1,4 @@
-import { APP_VERSION } from "appVersion";
+import { APP_VERSION } from "shared/config/version";
 import {
   getBrowserName,
   getBrowserVersion,

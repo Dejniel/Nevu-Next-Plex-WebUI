@@ -8,7 +8,7 @@ import {
   PROJECT_ISSUES,
   PROJECT_REPOSITORY,
   SPONSOR_URL,
-} from "projectLinks";
+} from "shared/config/projectLinks";
 
 function SettingsInfo() {
   return (
