@@ -1,9 +1,8 @@
 import React, { useEffect } from "react";
 import BigReader from "components/BigReader";
-import PerPlexedSync from "components/PerPlexedSync";
-import ToastManager from "components/ToastManager";
 import LibraryScreen from "components/LibraryScreen";
 import { TitleDetailsScreen } from "features/title-details/public";
+import { WatchTogetherFeature } from "features/watch-together/public";
 import ConfirmModal from "components/ConfirmModal";
 import AuthGate from "components/AuthGate";
 import ProfileBootstrapGate from "components/ProfileBootstrapGate";
@@ -80,8 +79,7 @@ function App() {
   return (
     <>
       <BigReader />
-      <PerPlexedSync />
-      <ToastManager />
+      <WatchTogetherFeature />
       <LibraryScreen />
       <AppTitleManager />
       <TitleDetailsScreen />

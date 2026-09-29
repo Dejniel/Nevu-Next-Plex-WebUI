@@ -14,8 +14,8 @@ jest.mock("../plex/auth", () => ({
   switchHomeProfile: jest.fn(),
   validateServerToken: jest.fn(),
 }));
-jest.mock("./SyncSessionState", () => ({
-  useSyncSessionState: { getState: () => ({ disconnect: jest.fn() }) },
+jest.mock("features/watch-together/model", () => ({
+  useWatchTogetherSession: { getState: () => ({ disconnect: jest.fn() }) },
 }));
 jest.mock("./UserSession", () => ({
   useUserSessionStore: { getState: () => ({ reset: jest.fn() }) },

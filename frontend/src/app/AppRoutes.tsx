@@ -6,8 +6,8 @@ import Home from "pages/Home";
 import Library from "pages/Library";
 import Search from "pages/Search";
 import Settings from "pages/Settings";
-import WaitingRoom from "pages/WaitingRoom";
 import { PlaybackScreen } from "features/playback/public";
+import { WaitingRoomScreen } from "features/watch-together/public";
 
 export default function AppRoutes() {
   return (
@@ -23,7 +23,7 @@ export default function AppRoutes() {
           <Route path="/browse/:libraryID" element={<Browse />} />
           <Route path="/watch/:itemID" element={<PlaybackScreen />} />
           <Route path="/search/:query?" element={<Search />} />
-          <Route path="/sync/waitingroom" element={<WaitingRoom />} />
+          <Route path="/sync/waitingroom" element={<WaitingRoomScreen />} />
           <Route
             path="/library/:libraryKey/dir/:dir/:subdir?"
             element={<Library />}

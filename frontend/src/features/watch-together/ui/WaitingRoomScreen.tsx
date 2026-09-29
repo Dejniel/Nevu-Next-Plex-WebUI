@@ -1,14 +1,13 @@
 import { Box, Button, LinearProgress, Typography } from "@mui/material";
-import React, { useEffect } from "react";
-import { useSyncSessionState } from "../states/SyncSessionState";
-import { useSyncInterfaceState } from "../components/PerPlexedSync";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useWatchTogetherDialog } from "../model/dialog";
+import { sharedPlaybackPath } from "../model/playback";
+import { useWatchTogetherSession } from "../model/session";
 
-function WaitingRoom() {
-  const [loading, ] = React.useState(true);
-
-  const { room, isHost, socket } = useSyncSessionState();
-  const { setOpen } = useSyncInterfaceState();
+export default function WaitingRoomScreen() {
+  const { room, isHost, socket } = useWatchTogetherSession();
+  const setDialogOpen = useWatchTogetherDialog((state) => state.setOpen);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -18,10 +17,20 @@ function WaitingRoom() {
   useEffect(() => {
     if(!socket) return;
 
-    socket.once("RES_SYNC_RESYNC_PLAYBACK", (user, data: PerPlexed.Sync.PlayBackState) => {
+    const onPlayback = (
+      _user: PerPlexed.Sync.Member,
+      data: PerPlexed.Sync.PlayBackState,
+    ) => {
+      const path = sharedPlaybackPath(data);
+      if (!path) return;
       console.log("Playback resync received", data);
-      navigate(`/watch/${data.key}?t=${data.time}`);
-    })
+      navigate(path);
+    };
+
+    socket.once("RES_SYNC_RESYNC_PLAYBACK", onPlayback);
+    return () => {
+      socket.off("RES_SYNC_RESYNC_PLAYBACK", onPlayback);
+    };
   }, [navigate, socket]);
 
   return (
@@ -58,20 +67,16 @@ function WaitingRoom() {
         Waiting for host to start playback...
       </Typography>
 
-      {loading && (
-        <LinearProgress
-          sx={{
-            width: "200px",
-            marginTop: "20px",
-          }}
-        />
-      )}
+      <LinearProgress
+        sx={{
+          width: "200px",
+          marginTop: "20px",
+        }}
+      />
 
-      <Button onClick={() => setOpen(true)} sx={{ marginTop: "20px" }}>
+      <Button onClick={() => setDialogOpen(true)} sx={{ marginTop: "20px" }}>
         Open Sync Interface
       </Button>
     </Box>
   );
 }
-
-export default WaitingRoom;

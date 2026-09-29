@@ -11,7 +11,7 @@ import {
   switchHomeProfile,
   validateServerToken,
 } from "../plex/auth";
-import { useSyncSessionState } from "./SyncSessionState";
+import { useWatchTogetherSession } from "features/watch-together/model";
 import { useUserSessionStore } from "./UserSession";
 import { useUserSettings } from "./UserSettingsState";
 import { useWatchListCache } from "./WatchListCache";
@@ -45,7 +45,7 @@ interface AuthSessionState {
 
 function resetProfileState() {
   clearLibraryCache();
-  useSyncSessionState.getState().disconnect();
+  useWatchTogetherSession.getState().disconnect();
   useUserSessionStore.getState().reset();
   useUserSettings.getState().reset();
   useWatchListCache.getState().reset();

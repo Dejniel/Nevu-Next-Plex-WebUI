@@ -45,8 +45,10 @@ import {
   ShortcutRounded,
   SwitchAccountRounded,
 } from "@mui/icons-material";
-import { useSyncInterfaceState } from "./PerPlexedSync";
-import { useSyncSessionState } from "../states/SyncSessionState";
+import {
+  useWatchTogetherDialog,
+  useWatchTogetherSession,
+} from "features/watch-together/public";
 import { config } from "app/config";
 import { useBigReader } from "./BigReader";
 import { useUserSettings } from "../states/UserSettingsState";
@@ -81,7 +83,7 @@ const menuDotsSx = {
 function Appbar() {
   const [scrollAtTop, setScrollAtTop] = useState(true);
   const location = useLocation();
-  const { room } = useSyncSessionState();
+  const { room } = useWatchTogetherSession();
   const { settings } = useUserSettings();
 
   const { user } = useUserSessionStore();
@@ -196,7 +198,7 @@ function Appbar() {
         {!config.DISABLE_NEVU_SYNC && (
           <MenuItem
             onClick={() => {
-              useSyncInterfaceState.getState().setOpen(true);
+              useWatchTogetherDialog.getState().setOpen(true);
               setAnchorEl(null);
             }}
           >
@@ -398,7 +400,7 @@ S - Skip onscreen markers (intro, credits, etc)
         {room && (
           <IconButton
             onClick={() => {
-              useSyncInterfaceState.getState().setOpen(true);
+              useWatchTogetherDialog.getState().setOpen(true);
             }}
           >
             <PeopleRounded />
@@ -545,7 +547,7 @@ S - Skip onscreen markers (intro, credits, etc)
               <ListItem disablePadding>
                 <ListItemButton
                   onClick={() => {
-                    useSyncInterfaceState.getState().setOpen(true);
+                    useWatchTogetherDialog.getState().setOpen(true);
                     setDrawerOpen(false);
                   }}
                 >
