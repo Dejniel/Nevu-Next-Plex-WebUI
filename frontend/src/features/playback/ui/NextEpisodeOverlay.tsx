@@ -1,23 +1,18 @@
 import { SkipNext } from "@mui/icons-material";
 import { alpha, Box, Button, Typography, useTheme } from "@mui/material";
-import React, { useState, useEffect, useCallback } from "react";
-import { queryBuilder } from "plex/QuickFunctions";
+import { useState, useEffect } from "react";
 import { useUserSettings } from "states/UserSettingsState";
 
 function NextEpisodeOverlay({
-  player,
   playing,
-  playbackBarRef,
   metadata,
   playQueue,
-  navigate,
+  onAdvance,
 }: {
-  player: React.MutableRefObject<any>;
   playing: boolean;
-  playbackBarRef: React.MutableRefObject<HTMLDivElement | null>;
-  metadata: any;
-  playQueue: any;
-  navigate: (path: string) => void;
+  metadata: Plex.Metadata;
+  playQueue: Plex.Metadata[] | null;
+  onAdvance: () => void;
 }) {
   const theme = useTheme();
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -35,30 +30,6 @@ function NextEpisodeOverlay({
     }
   }, [metadata, playQueue, countdownDuration]);
 
-  const handleNavigation = useCallback(() => {
-    if (!player.current || !metadata?.Marker) return;
-
-    if (metadata.type === "movie")
-      return navigate(
-        `/browse/${metadata.librarySectionID}?${queryBuilder({
-          mid: metadata.ratingKey,
-        })}`
-      );
-
-    if (!playQueue) return;
-    const next = playQueue[1];
-    if (!next)
-      return navigate(
-        `/browse/${metadata.librarySectionID}?${queryBuilder({
-          mid: metadata.grandparentRatingKey,
-          pid: metadata.parentRatingKey,
-          iid: metadata.ratingKey,
-        })}`
-      );
-
-    navigate(`/watch/${next.ratingKey}?t=0`);
-  }, [player, metadata, playQueue, navigate]);
-
   const handleWatchCredits = () => {
     setCountdown(null);
     setShowWatchCredits(false);
@@ -70,7 +41,7 @@ function NextEpisodeOverlay({
 
     if (countdown <= 0) {
       // Auto-navigate when timer reaches 0
-      handleNavigation();
+      onAdvance();
       return;
     }
 
@@ -79,7 +50,7 @@ function NextEpisodeOverlay({
     }, 50);
 
     return () => clearTimeout(timer);
-  }, [countdown, showWatchCredits, playing, enableAutoNext, handleNavigation]);
+  }, [countdown, showWatchCredits, playing, enableAutoNext, onAdvance]);
 
   // Calculate progress percentage
   const progressPercentage =
@@ -118,7 +89,7 @@ function NextEpisodeOverlay({
           </Typography>
         </Button>
       )}
-      
+
       <Button
         sx={{
           px: 3,
@@ -140,7 +111,7 @@ function NextEpisodeOverlay({
           rgba(0,0,0,0.8) ${progressPercentage}%)`,
         }}
         variant="contained"
-        onClick={handleNavigation}
+        onClick={onAdvance}
       >
         <Box
           sx={{
@@ -163,8 +134,8 @@ function NextEpisodeOverlay({
             {metadata.type === "movie"
               ? "Skip Credits"
               : playQueue && playQueue[1]
-              ? `Next Episode`
-              : "Return to Show"}
+                ? "Next Episode"
+                : "Return to Show"}
             {countdown !== null && countdown > 0 && (
               <span style={{ marginLeft: "8px" }}>
                 ({Math.ceil(countdown)}s)

@@ -1,10 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { getTranscodeImageURL } from "plex";
-import {
-  getTimelineUpdate,
-  sendUniversalPing,
-} from "../api/playback";
 import CenteredSpinner from "components/CenteredSpinner";
 import {
   alpha,
@@ -19,7 +15,6 @@ import {
   useTheme,
 } from "@mui/material";
 import ReactPlayer from "react-player";
-import { queryBuilder } from "plex/QuickFunctions";
 import {
   ArrowBackIosNewRounded,
   FullscreenRounded,
@@ -38,7 +33,10 @@ import { useUserSettings } from "states/UserSettingsState";
 import NextEpisodeOverlay from "./NextEpisodeOverlay";
 import AppDialog from "components/AppDialog";
 import { formatPlaybackTime } from "../model/playbackPresentation";
+import { usePlaybackCommands } from "../model/usePlaybackCommands";
 import { usePlaybackMedia } from "../model/usePlaybackMedia";
+import { usePlaybackRuntime } from "../model/usePlaybackRuntime";
+import { usePlaybackTimeline } from "../model/usePlaybackTimeline";
 import NextQueueButton from "./NextQueueButton";
 import PlaybackInfoOverlay from "./PlaybackInfoOverlay";
 import PlaybackSettingsPopover from "./PlaybackSettingsPopover";
@@ -51,16 +49,16 @@ function PlaybackScreen() {
 
   const { settings } = useUserSettings();
   const player = useRef<ReactPlayer | null>(null);
-  const [volume, setVolume] = useState<number>(
-    parseInt(localStorage.getItem("volume") ?? "100"),
-  );
-  const lastAppliedTime = useRef<number>(0);
-  const [playing, setPlaying] = useState(true);
-  const playingRef = useRef(playing);
-  const [ready, setReady] = useState(false);
-  const seekToAfterLoad = useRef<number | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [buffered, setBuffered] = useState(0);
+  const playbackRuntime = usePlaybackRuntime({
+    getPlayer: () => player.current,
+  });
+  const {
+    playing,
+    progress,
+    buffered,
+    buffering,
+    volume,
+  } = playbackRuntime;
 
   const [volumePopoverAnchor, setVolumePopoverAnchor] =
     useState<HTMLButtonElement | null>(null);
@@ -69,16 +67,13 @@ function PlaybackScreen() {
   const [showTune, setShowTune] = useState(false);
   const tuneButtonRef = useRef<HTMLButtonElement | null>(null);
   const playbackBarRef = useRef<HTMLDivElement | null>(null);
-  const [buffering, setBuffering] = useState(false);
   const [showError, setShowError] = useState<string | false>(false);
 
   const playbackMedia = usePlaybackMedia({
     itemID,
-    getCurrentTime: () => player.current?.getCurrentTime() ?? 0,
-    onSourceChanging: () => setReady(false),
-    requestResumeAt: (time) => {
-      seekToAfterLoad.current = time;
-    },
+    getCurrentTime: playbackRuntime.getCurrentTime,
+    onSourceChanging: playbackRuntime.sourceChanging,
+    requestResumeAt: playbackRuntime.requestResumeAt,
     setError: setShowError,
   });
   const {
@@ -86,6 +81,7 @@ function PlaybackScreen() {
     showMetadata,
     playQueue,
     url,
+    activeVersion,
   } = playbackMedia;
 
   const {
@@ -100,15 +96,43 @@ function PlaybackScreen() {
   } = useWatchTogetherPlayback({
     itemID,
     playing,
-    getCurrentTime: () => player.current?.getCurrentTime() ?? 0,
-    seekTo: (time) => player.current?.seekTo(time, "seconds"),
-    setPlaying,
+    getCurrentTime: playbackRuntime.getCurrentTime,
+    seekTo: playbackRuntime.seekToLocal,
+    setPlaying: playbackRuntime.setPlaying,
     openRemotePlayback: (state) => {
       if (!state.key) return;
       const time = state.time === undefined ? "" : `?t=${state.time}`;
       navigate(`/watch/${state.key}${time}`);
     },
     onRemotePlaybackEnd: () => navigate("/sync/waitingroom"),
+  });
+
+  const playbackTimeline = usePlaybackTimeline({
+    itemID,
+    playing,
+    buffering,
+    getCurrentTime: playbackRuntime.getCurrentTime,
+    getDuration: playbackRuntime.getDuration,
+    onTermination: (message) => {
+      setShowError(message);
+      playbackRuntime.setPlaying(false);
+      pauseTogether();
+    },
+  });
+  const playbackCommands = usePlaybackCommands({
+    metadata,
+    playQueue,
+    isGuest,
+    runtime: playbackRuntime,
+    sync: {
+      pause: pauseTogether,
+      resume: resumeTogether,
+      seek: seekTogether,
+      end: endTogether,
+      leave: leaveTogether,
+    },
+    navigate,
+    reportStopped: playbackTimeline.reportStopped,
   });
 
   const [controlElementsVisible, setControlElementsVisible] = useState(false);
@@ -130,21 +154,20 @@ function PlaybackScreen() {
 
     document.addEventListener("mousemove", whenMouseMoves);
     return () => {
+      clearTimeout(timeout);
       document.removeEventListener("mousemove", whenMouseMoves);
     };
   }, [playing]);
 
   const [showInfo, setShowInfo] = useState(false);
   useEffect(() => {
-    playingRef.current = playing;
-
-    if (!playingRef.current) {
-      setTimeout(() => {
-        if (!playingRef.current) setShowInfo(true);
-      }, 5000);
-    } else {
+    if (playing) {
       setShowInfo(false);
+      return;
     }
+
+    const timeout = window.setTimeout(() => setShowInfo(true), 5000);
+    return () => window.clearTimeout(timeout);
   }, [playing]);
 
   useEffect(() => {
@@ -157,45 +180,6 @@ function PlaybackScreen() {
       document.body.style.cursor = "default";
     };
   }, [playing, showControls]);
-
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      if (!itemID) return;
-      await sendUniversalPing();
-    }, 10000);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [itemID]);
-
-  useEffect(() => {
-    if (!itemID) return;
-
-    const updateTimeline = async () => {
-      if (!player.current) return;
-      const timelineUpdateData = await getTimelineUpdate(
-        parseInt(itemID),
-        Math.floor(player.current.getDuration()) * 1000,
-        buffering ? "buffering" : playing ? "playing" : "paused",
-        Math.floor(player.current.getCurrentTime()) * 1000,
-      );
-
-      if (!timelineUpdateData) return;
-
-      const { terminationCode, terminationText } =
-        timelineUpdateData.MediaContainer;
-      if (terminationCode) {
-        setShowError(`${terminationCode} - ${terminationText}`);
-        setPlaying(false);
-        pauseTogether();
-      }
-    };
-
-    const updateInterval = setInterval(updateTimeline, 5000);
-
-    return () => clearInterval(updateInterval);
-  }, [buffering, itemID, pauseTogether, playing]);
 
   useEffect(() => {
     const style = document.createElement("style");
@@ -212,132 +196,6 @@ function PlaybackScreen() {
       style.remove();
     };
   }, [theme.palette.primary.main]);
-
-  useEffect(() => {
-    if (!player.current) return;
-
-    if (ready && !playing) setPlaying(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready]);
-
-  // playback controll buttons
-  // SPACE: play/pause
-  // LEFT: seek back 10 seconds
-  // RIGHT: seek forward 10 seconds
-  // UP: increase volume
-  // DOWN: decrease volume
-  // , (comma): Back 1 frame
-  // . (period): Forward 1 frame
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const actions: { [key: string]: () => void } = {
-        " ": () =>
-          setPlaying((state) => {
-            if (state) pauseTogether();
-            else resumeTogether();
-            return !state;
-          }),
-        k: () =>
-          setPlaying((state) => {
-            if (state) pauseTogether();
-            else resumeTogether();
-            return !state;
-          }),
-        j: () => {
-          const l = player.current?.getCurrentTime() ?? 0;
-          player.current?.seekTo(l - 10);
-          seekTogether(l - 10);
-        },
-        l: () => {
-          const l = player.current?.getCurrentTime() ?? 0;
-          player.current?.seekTo(l + 10);
-          seekTogether(l + 10);
-        },
-        s: () => {
-          if (!metadata || !player.current) return;
-          // if there is a marker like credits skip it
-          const time = player.current.getCurrentTime();
-          for (const marker of metadata.Marker ?? []) {
-            if (
-              !(
-                marker.startTimeOffset / 1000 <= time &&
-                marker.endTimeOffset / 1000 >= time
-              )
-            )
-              continue;
-
-            switch (marker.type) {
-              case "credits":
-                {
-                  if (!marker.final) {
-                    player.current.seekTo(marker.endTimeOffset / 1000 + 1);
-                    return;
-                  }
-
-                  if (metadata.type === "movie")
-                    return navigate(
-                      `/browse/${metadata.librarySectionID}?${queryBuilder({
-                        mid: metadata.ratingKey,
-                      })}`,
-                    );
-
-                  if (!playQueue) return;
-                  const next = playQueue[1];
-                  if (!next)
-                    return navigate(
-                      `/browse/${metadata.librarySectionID}?${queryBuilder({
-                        mid: metadata.grandparentRatingKey,
-                        pid: metadata.parentRatingKey,
-                        iid: metadata.ratingKey,
-                      })}`,
-                    );
-
-                  navigate(`/watch/${next.ratingKey}`);
-                }
-                break;
-              case "intro":
-                player.current.seekTo(marker.endTimeOffset / 1000 + 1);
-                break;
-            }
-          }
-        },
-        f: () => {
-          if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen();
-          } else document.exitFullscreen();
-        },
-        ArrowLeft: () => {
-          const l = player.current?.getCurrentTime() ?? 0;
-          player.current?.seekTo(l - 10);
-          seekTogether(l - 10);
-        },
-        ArrowRight: () => {
-          const l = player.current?.getCurrentTime() ?? 0;
-          player.current?.seekTo(l + 10);
-          seekTogether(l + 10);
-        },
-        ArrowUp: () => setVolume((state) => Math.min(state + 5, 100)),
-        ArrowDown: () => setVolume((state) => Math.max(state - 5, 0)),
-        ",": () => {
-          const l = player.current?.getCurrentTime() ?? 0;
-          player.current?.seekTo(l - 0.04);
-          seekTogether(l - 0.04);
-        },
-        ".": () => {
-          const l = player.current?.getCurrentTime() ?? 0;
-          player.current?.seekTo(l + 0.04);
-          seekTogether(l + 0.04);
-        },
-      };
-
-      if (actions[e.key]) actions[e.key]();
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [metadata, navigate, pauseTogether, playQueue, resumeTogether, seekTogether]);
 
   return (
     <>
@@ -373,21 +231,7 @@ function PlaybackScreen() {
               color="secondary"
               onClick={() => {
                 setShowError(false);
-                if (!metadata) return navigate("/");
-
-                if (metadata.type === "movie")
-                  navigate(
-                    `/browse/${metadata.librarySectionID}?${queryBuilder({
-                      mid: metadata.ratingKey,
-                    })}`,
-                  );
-
-                if (metadata.type === "episode")
-                  navigate(
-                    `/browse/${metadata.librarySectionID}?${queryBuilder({
-                      mid: metadata.grandparentRatingKey,
-                    })}`,
-                  );
+                playbackCommands.exitPlayback();
               }}
             >
               Home
@@ -485,7 +329,7 @@ function PlaybackScreen() {
                     }}
                     variant="contained"
                     onClick={() => {
-                      if (!player.current || !metadata?.Marker) return;
+                      if (!metadata.Marker) return;
                       const time =
                         metadata.Marker?.filter(
                           (marker) =>
@@ -493,7 +337,7 @@ function PlaybackScreen() {
                             marker.endTimeOffset / 1000 >= progress &&
                             marker.type === "intro",
                         )[0].endTimeOffset / 1000;
-                      player.current.seekTo(time + 1);
+                      playbackCommands.seekTo(time + 1);
                     }}
                   >
                     <Box
@@ -565,7 +409,7 @@ function PlaybackScreen() {
                     }}
                     variant="contained"
                     onClick={() => {
-                      if (!player.current || !metadata?.Marker) return;
+                      if (!metadata.Marker) return;
                       const time =
                         metadata.Marker?.filter(
                           (marker) =>
@@ -574,7 +418,7 @@ function PlaybackScreen() {
                             marker.type === "credits" &&
                             !marker.final,
                         )[0].endTimeOffset / 1000;
-                      player.current.seekTo(time + 1);
+                      playbackCommands.seekTo(time + 1);
                     }}
                   >
                     <Box
@@ -627,12 +471,10 @@ function PlaybackScreen() {
                   }}
                 >
                   <NextEpisodeOverlay
-                    player={player}
-                    playbackBarRef={playbackBarRef}
                     metadata={metadata}
                     playQueue={playQueue}
-                    navigate={navigate}
                     playing={playing}
+                    onAdvance={playbackCommands.advanceFromCredits}
                   />
                 </Box>
               </Fade>
@@ -673,34 +515,7 @@ function PlaybackScreen() {
                     }}
                   >
                     <IconButton
-                      onClick={() => {
-                        leaveTogether();
-
-                        if (itemID && player.current)
-                          getTimelineUpdate(
-                            parseInt(itemID),
-                            Math.floor(player.current?.getDuration() * 1000),
-                            "stopped",
-                            Math.floor(player.current?.getCurrentTime() * 1000),
-                          );
-                        if (metadata.type === "movie")
-                          navigate(
-                            `/browse/${
-                              metadata.librarySectionID
-                            }?${queryBuilder({
-                              mid: metadata.ratingKey,
-                            })}`,
-                          );
-
-                        if (metadata.type === "episode")
-                          navigate(
-                            `/browse/${
-                              metadata.librarySectionID
-                            }?${queryBuilder({
-                              mid: metadata.grandparentRatingKey,
-                            })}`,
-                          );
-                      }}
+                      onClick={playbackCommands.exitPlayback}
                       sx={{
                         width: 48,
                         height: 48,
@@ -805,10 +620,9 @@ function PlaybackScreen() {
                           max={(player.current?.getDuration() ?? 0) * 1000}
                           currentTime={progress * 1000}
                           bufferTime={buffered * 1000}
-                          onChange={(value) => {
-                            player.current?.seekTo(value / 1000);
-                            seekTogether(value / 1000);
-                          }}
+                          onChange={(value) =>
+                            playbackCommands.seekTo(value / 1000)
+                          }
                           getPreviewScreenUrl={(value) => {
                             if (!activeVersion?.part.indexes) return "";
                             return getTranscodeImageURL(
@@ -856,11 +670,7 @@ function PlaybackScreen() {
                         }}
                       >
                         <IconButton
-                          onClick={() => {
-                            setPlaying(!playing);
-                            if (playing) pauseTogether();
-                            else resumeTogether();
-                          }}
+                          onClick={playbackCommands.togglePlayback}
                           onKeyDown={(e) => {
                             e.preventDefault();
                           }}
@@ -1013,11 +823,7 @@ function PlaybackScreen() {
                           onKeyDown={(e) => {
                             e.preventDefault();
                           }}
-                          onClick={() => {
-                            if (!document.fullscreenElement)
-                              document.documentElement.requestFullscreen();
-                            else document.exitFullscreen();
-                          }}
+                          onClick={playbackCommands.toggleFullscreen}
                         >
                           <FullscreenRounded fontSize="small" />
                         </IconButton>
@@ -1083,10 +889,9 @@ function PlaybackScreen() {
                             },
                           }}
                           value={volume}
-                          onChange={(event, value) => {
-                            setVolume(value as number);
-                            localStorage.setItem("volume", value.toString());
-                          }}
+                          onChange={(_event, value) =>
+                            playbackRuntime.setVolume(value as number)
+                          }
                           aria-labelledby="continuous-slider"
                           min={0}
                           max={100}
@@ -1106,68 +911,30 @@ function PlaybackScreen() {
                 progressInterval={500}
                 onClick={(e: MouseEvent) => {
                   e.preventDefault();
-
-                  switch (e.detail) {
-                    case 1:
-                      setPlaying((state) => {
-                        if (state) pauseTogether();
-                        else resumeTogether();
-                        return !state;
-                      });
-                      break;
-                    case 2:
-                      if (!document.fullscreenElement) {
-                        document.documentElement.requestFullscreen();
-                        setPlaying(true);
-                        resumeTogether();
-                      } else document.exitFullscreen();
-                      break;
-                    default:
-                      break;
-                  }
+                  playbackCommands.handleSurfaceClick(e.detail);
                 }}
                 onReady={() => {
-                  if (!player.current) return;
-                  setReady(true);
-
-                  if (seekToAfterLoad.current !== null) {
-                    player.current.seekTo(seekToAfterLoad.current);
-                    seekToAfterLoad.current = null;
-                  }
-
-                  const seekTo = params.has("t")
-                    ? parseInt(params.get("t") as string)
-                    : ((metadata?.viewOffset && metadata?.viewOffset > 5
-                        ? metadata?.viewOffset
-                        : null) ?? null);
-
-                  if (!seekTo) return;
-                  if (lastAppliedTime.current === seekTo) return;
-                  player.current.seekTo(seekTo / 1000);
-                  lastAppliedTime.current = seekTo;
+                  const resumeMilliseconds = params.has("t")
+                    ? Number.parseInt(params.get("t") as string, 10)
+                    : metadata.viewOffset && metadata.viewOffset > 5
+                      ? metadata.viewOffset
+                      : null;
+                  playbackRuntime.handleReady(
+                    itemID,
+                    resumeMilliseconds ? resumeMilliseconds / 1000 : null,
+                  );
                 }}
-                onProgress={(progress) => {
-                  setProgress(progress.playedSeconds);
-                  setBuffered(progress.loadedSeconds);
-                }}
-                onPause={() => {
-                  setPlaying(false);
-                }}
-                onPlay={() => {
-                  setPlaying(true);
-                }}
-                onBuffer={() => {
-                  setBuffering(true);
-                }}
-                onBufferEnd={() => {
-                  setBuffering(false);
-                }}
+                onProgress={playbackRuntime.handleProgress}
+                onPause={() => playbackRuntime.setPlaying(false)}
+                onPlay={() => playbackRuntime.setPlaying(true)}
+                onBuffer={() => playbackRuntime.setBuffering(true)}
+                onBufferEnd={() => playbackRuntime.setBuffering(false)}
                 onError={(err) => {
                   console.log("Player error:");
                   console.error(err);
                   // window.location.reload();
 
-                  setPlaying(false);
+                  playbackRuntime.setPlaying(false);
                   pauseTogether();
                   if (showError) return;
 
@@ -1192,33 +959,7 @@ function PlaybackScreen() {
                     },
                   },
                 }}
-                onEnded={() => {
-                  if (isGuest) return;
-                  if (!playQueue) return console.log("No play queue");
-
-                  if (metadata.type !== "episode") {
-                    endTogether();
-                    return navigate(
-                      `/browse/${metadata.librarySectionID}?${queryBuilder({
-                        mid: metadata.ratingKey,
-                      })}`,
-                    );
-                  }
-
-                  const next = playQueue[1];
-                  if (!next) {
-                    endTogether();
-                    return navigate(
-                      `/browse/${metadata.librarySectionID}?${queryBuilder({
-                        mid: metadata.grandparentRatingKey,
-                        pid: metadata.parentRatingKey,
-                        iid: metadata.ratingKey,
-                      })}`,
-                    );
-                  }
-
-                  navigate(`/watch/${next.ratingKey}`);
-                }}
+                onEnded={playbackCommands.handleEnded}
                 url={url}
                 width="100%"
                 height="100%"

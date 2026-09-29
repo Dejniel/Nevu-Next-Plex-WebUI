@@ -115,6 +115,17 @@ Commit `9f2a7f2` (`Extract playback media controller`):
 - Playback transport URL construction lives in `api`; quality, subtitle
   contracts, and pure selection helpers live in `model`.
 
+### Playback interaction controller
+
+- Player runtime state, resume handling, volume persistence, and the minimal
+  player adapter live outside the routed screen.
+- UI controls and keyboard shortcuts execute the same playback commands for
+  play/pause, seeking, volume, fullscreen, markers, navigation, and completion.
+- Timeline and transcode-session reporting is isolated, prevents overlapping
+  requests, and cannot block navigation after a failed final report.
+- The next-episode overlay receives a typed action instead of knowing about the
+  player ref, router, and Plex query format.
+
 At this point `app`, `library`, `title-details`, `playback`,
 `watch-together`, and the shared `media` entity form the reference structure
 for subsequent work.
@@ -129,10 +140,10 @@ for subsequent work.
 - `frontend/src/components`, `pages`, `plex`, and `states` still contain mixed
   legacy responsibilities. Their existence is temporary, but empty directory
   removal is not itself a refactoring objective.
-- `PlaybackScreen.tsx` is still large (roughly 44 KB), but media/source
-  orchestration and the two independent overlays have moved out. The remaining
-  size is concentrated in player lifecycle, controls, markers, and keyboard
-  interaction.
+- `PlaybackScreen.tsx` is still large (roughly 34 KB), but media/source
+  orchestration, player runtime, commands, reporting, and independent overlays
+  have moved out. Its remaining size is now predominantly controls and marker
+  presentation.
 - Playback intentionally consumes the public watch-together controller. It
   must not reach into socket transport, room state internals, or sync UI.
 - `TODO.md` and `BRUDNOPIS.md` are personal, untracked planning files. Do not
@@ -144,18 +155,14 @@ Treat the following as a default sequence, not a fixed specification. Recheck
 the dependencies and expected payoff before each stage. Each migration should
 still follow a vertical workflow rather than bulk-moving an old directory.
 
-### 1. Finish playback interaction decomposition
+### 1. Extract the playback controls layout
 
-The media/source controller is complete. The remaining cohesive responsibilities
-that may be worth extracting from `PlaybackScreen.tsx` are:
-
-- timeline reporting and resume position;
-- playback controls and keyboard behavior;
-- player layout and overlays.
-
-Keep these inside `features/playback` unless another concrete feature needs
-them. Prefer a small number of meaningful hooks/components over wrappers,
-decorative helpers, or one-variable abstractions.
+The media, runtime, reporting, and command controllers are complete. Move the
+remaining control bar, volume/settings popovers, marker actions, visibility,
+and cursor behavior into one playback-owned UI component. It should consume
+the existing controllers rather than introduce another state layer or repeat
+commands. Leave the routed screen responsible for composition, the error
+dialog, and mounting the actual `ReactPlayer`.
 
 ### 2. Extract home discovery
 
@@ -251,7 +258,7 @@ directory.
 
 Current verified baseline:
 
-- tests: 40 suites, 141 tests passing;
+- tests: 44 suites, 147 tests passing;
 - production build: passing;
 - disposable validation container: `nevu-refactor-test` on host port `3101`;
 - production `nevu-next` on port `32400` was not modified by this refactor.
