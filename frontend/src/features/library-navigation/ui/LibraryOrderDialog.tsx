@@ -13,13 +13,13 @@ import {
 } from "@mui/icons-material";
 import { Reorder, useDragControls } from "framer-motion";
 import React, { useEffect, useState } from "react";
-import AppDialog from "../AppDialog";
+import AppDialog from "components/AppDialog";
 import {
   LIBRARY_NAVIGATION_SETTING,
   NavigationLibrary,
   normalizeLibraryNavigation,
   serializeLibraryNavigation,
-} from "../../plex/libraryNavigation";
+} from "../model/navigation";
 import { useUserSettings } from "features/settings/model";
 
 interface Props {

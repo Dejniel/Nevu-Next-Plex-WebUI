@@ -53,9 +53,15 @@ import { useBigReader } from "./BigReader";
 import { useUserSettings } from "features/settings/model";
 import { useAuthSession } from "features/session/public";
 import { SPONSOR_URL } from "../projectLinks";
-import { useLibraries, LIBRARIES_CHANGED_EVENT } from "../states/LibrariesState";
-import { normalizeLibraryNavigation, NavigationLibrary } from "../plex/libraryNavigation";
-import LibraryActionsMenu from "./libraries/LibraryActionsMenu";
+import {
+  LIBRARIES_CHANGED_EVENT,
+  useLibraries,
+} from "entities/library/model";
+import {
+  LibraryActionsMenu,
+  normalizeLibraryNavigation,
+  NavigationLibrary,
+} from "features/library-navigation/public";
 import { libraryBrowseTo, mediaDetailsTo } from "../navigation";
 import StretchedLink from "./StretchedLink";
 
@@ -405,7 +411,7 @@ S - Skip onscreen markers (intro, credits, etc)
         )}
 
         <Avatar
-          src={user?.thumb || activeProfile?.thumb}
+          src={activeUser?.thumb || activeProfile?.thumb}
           variant="square"
           alt=""
           onClick={(e) => setAnchorEl(e.currentTarget)}

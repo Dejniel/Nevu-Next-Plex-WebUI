@@ -19,14 +19,15 @@ import {
 } from "@mui/material";
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import ConfirmDialog from "../ConfirmDialog";
-import { runLibraryAction, useUserSettings } from "features/settings/model";
+import ConfirmDialog from "components/ConfirmDialog";
+import { runLibraryAction } from "entities/library/model";
+import { useUserSettings } from "features/settings/model";
 import {
   LIBRARY_NAVIGATION_SETTING,
   NavigationLibrary,
   normalizeLibraryNavigation,
   serializeLibraryNavigation,
-} from "../../plex/libraryNavigation";
+} from "../model/navigation";
 import { useCanManageServer } from "features/session/public";
 import LibraryOrderDialog from "./LibraryOrderDialog";
 

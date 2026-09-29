@@ -12,7 +12,7 @@ import {
 import ConfirmModal from "components/ConfirmModal";
 import Startup, { useStartupState } from "pages/Startup";
 import { useWatchListCache } from "states/WatchListCache";
-import { useLibraries } from "states/LibrariesState";
+import { useLibraries } from "entities/library/model";
 import AppRoutes from "./AppRoutes";
 
 function AppManager() {

@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { getAllLibraries } from "../plex";
 import { invalidateLibraryCache } from "shared/lib/libraryCache";
+import { getLibraries } from "../api/libraries";
 
 interface LibrariesState {
   libraries: Plex.LibarySection[] | null;
@@ -22,7 +22,7 @@ export const useLibraries = create<LibrariesState>((set) => ({
     const generation = ++loadGeneration;
     set({ loading: true, error: null });
     try {
-      const libraries = await getAllLibraries();
+      const libraries = await getLibraries();
       if (generation === loadGeneration) set({ libraries, loading: false });
     } catch {
       if (generation === loadGeneration)

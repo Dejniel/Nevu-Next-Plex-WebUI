@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { UserSettings } from "features/settings/model";
-import { normalizeLibraryNavigation } from "plex/libraryNavigation";
+import { normalizeLibraryNavigation } from "features/library-navigation/model";
 import {
   getHomeGenres,
   getHomeLibraries,

@@ -1,7 +1,7 @@
-import { getAllLibraries } from "../plex";
-import { useLibraries } from "./LibrariesState";
+import { getLibraries } from "../api/libraries";
+import { useLibraries } from "./libraries";
 
-jest.mock("../plex", () => ({ getAllLibraries: jest.fn() }));
+jest.mock("../api/libraries", () => ({ getLibraries: jest.fn() }));
 
 beforeEach(() => {
   jest.resetAllMocks();
@@ -10,7 +10,7 @@ beforeEach(() => {
 
 it("ignores a library response from a reset profile", async () => {
   let resolveRequest!: (libraries: Plex.LibarySection[]) => void;
-  (getAllLibraries as jest.Mock).mockReturnValue(
+  (getLibraries as jest.Mock).mockReturnValue(
     new Promise((resolve) => {
       resolveRequest = resolve;
     }),

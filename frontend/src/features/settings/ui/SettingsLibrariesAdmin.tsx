@@ -55,8 +55,8 @@ import {
   ManagedLibraryType,
   runLibraryAction,
   updateLibrary,
-} from "../api/libraryAdmin";
-import { notifyLibrariesChanged } from "states/LibrariesState";
+  notifyLibrariesChanged,
+} from "entities/library/model";
 import { useCanManageServer } from "features/session/public";
 
 const ROOT_BROWSE_KEY = "/services/browse/Lw==";

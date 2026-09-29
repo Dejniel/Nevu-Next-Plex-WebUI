@@ -3,7 +3,7 @@ import {
   normalizeLibraryNavigation,
   parseLibraryNavigation,
   serializeLibraryNavigation,
-} from "./libraryNavigation";
+} from "./navigation";
 
 const libraries = [
   { key: "1", uuid: "movies", title: "Movies", type: "movie" as const },

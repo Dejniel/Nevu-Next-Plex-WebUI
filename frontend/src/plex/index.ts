@@ -17,11 +17,6 @@ export {
 
 axios.defaults.headers.common['accept'] = 'application/json';
 
-export async function getAllLibraries(): Promise<Plex.LibarySection[]> {
-    const res = await authedGet(`/library/sections`);
-    return res.MediaContainer.Directory;
-}
-
 export async function getLibrary(key: string): Promise<Plex.MediaContainer> {
     const res = await authedGet(`/library/sections/${key}?${queryBuilder({
         includeDetails: 1,
