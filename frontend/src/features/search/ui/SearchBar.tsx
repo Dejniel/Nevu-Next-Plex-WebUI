@@ -9,7 +9,7 @@ import {
   Typography,
 } from "@mui/material";
 import { getTranscodeImageURL } from "entities/media/model";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, type To, useLocation, useNavigate } from "react-router-dom";
 import { searchSuggestions } from "../model/searchResults";
 import { searchResultTo } from "../model/searchNavigation";
@@ -27,7 +27,6 @@ export default function SearchBar({
   onResultSelected,
 }: SearchBarProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const anchorRef = useRef<HTMLElement | null>(null);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -50,10 +49,6 @@ export default function SearchBar({
     onResultSelected?.();
   };
 
-  useEffect(() => {
-    anchorRef.current = anchor;
-  }, [anchor]);
-
   useEffect(() => setSelectedIndex(null), [query]);
 
   useEffect(() => {
@@ -70,8 +65,9 @@ export default function SearchBar({
       event.preventDefault();
       event.stopPropagation();
 
-      if (anchorRef.current) {
-        close();
+      if (anchor) {
+        inputRef.current?.blur();
+        setAnchor(null);
         return;
       }
       inputRef.current?.focus();
@@ -79,7 +75,7 @@ export default function SearchBar({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [enableShortcut]);
+  }, [anchor, enableShortcut]);
 
   return (
     <>
@@ -134,10 +130,11 @@ export default function SearchBar({
               if (!normalizedQuery) return;
               const selected =
                 selectedIndex === null ? null : results[selectedIndex];
+              const searchTarget = `/search/${encodeURIComponent(normalizedQuery)}`;
               const target = selected
-                ? searchResultTo(location, selected)
-                : `/search/${encodeURIComponent(normalizedQuery)}`;
-              if (target) navigate(target);
+                ? searchResultTo(location, selected) || searchTarget
+                : searchTarget;
+              navigate(target);
               completeSelection();
               break;
             }
@@ -147,17 +144,10 @@ export default function SearchBar({
         onFocus={(event) => setAnchor(event.currentTarget)}
         sx={{
           backgroundColor: "#121212AA",
-          transition: "all 0.2s ease-in-out",
+          transition: "width 0.2s ease-in-out",
           zIndex: 11000,
-          width: inDrawer ? "100%" : undefined,
+          width: inDrawer ? "100%" : open ? "20vw" : 300,
         }}
-        style={
-          inDrawer
-            ? { width: "100%" }
-            : open
-              ? { width: "20vw", zIndex: 10000 }
-              : { width: "300px" }
-        }
       />
       <Popper
         anchorEl={anchor}

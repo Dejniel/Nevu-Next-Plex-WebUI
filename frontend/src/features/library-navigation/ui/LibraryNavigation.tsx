@@ -12,10 +12,14 @@ import {
 } from "@mui/material";
 import { useLibraries, LIBRARIES_CHANGED_EVENT } from "entities/library/model";
 import { useUserSettings } from "features/settings/model";
-import React, { type JSX, useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { StretchedLink } from "shared/ui";
-import { normalizeLibraryNavigation, type NavigationLibrary } from "../model/navigation";
+import {
+  isLibraryRouteActive,
+  normalizeLibraryNavigation,
+  type NavigationLibrary,
+} from "../model/navigation";
 import LibraryActionsMenu from "./LibraryActionsMenu";
 
 const menuDotsSx = {
@@ -107,7 +111,7 @@ function DesktopLibraries({
         <LibraryLink
           key={library.key}
           library={library}
-          active={pathname.includes(`/browse/${library.key}`)}
+          active={isLibraryRouteActive(pathname, library.key)}
           onMenu={onMenu}
         />
       ))}
@@ -141,7 +145,7 @@ function MobileLibraries({
         <MobileLibraryLink
           key={library.key}
           library={library}
-          active={pathname.includes(`/browse/${library.key}`)}
+          active={isLibraryRouteActive(pathname, library.key)}
           onMenu={onMenu}
           onNavigate={onNavigate}
         />
@@ -156,7 +160,7 @@ function MobileLibraries({
             <MobileLibraryLink
               key={library.key}
               library={library}
-              active={pathname.includes(`/browse/${library.key}`)}
+              active={isLibraryRouteActive(pathname, library.key)}
               onMenu={onMenu}
               onNavigate={onNavigate}
             />
@@ -276,7 +280,7 @@ function LibrariesDropdown({
             }}
           >
             {libraries.map((library, index) => (
-              <React.Fragment key={library.key}>
+              <Fragment key={library.key}>
                 {index === pinned.length && unpinned.length > 0 && (
                   <>
                     <Divider sx={{ my: 1 }} />
@@ -321,7 +325,7 @@ function LibrariesDropdown({
                     <MoreVertRounded fontSize="small" />
                   </IconButton>
                 </Box>
-              </React.Fragment>
+              </Fragment>
             ))}
           </Box>
         </Box>
@@ -338,21 +342,21 @@ function LibraryLink({
   library: NavigationLibrary;
   active: boolean;
   onMenu: NavigationProps["onMenu"];
-}): JSX.Element {
+}) {
   return (
-    <Box sx={{ display: "flex", alignItems: "center", minWidth: 0, position: "relative", mr: 1 }}>
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        minWidth: 0,
+        position: "relative",
+        mr: 1,
+      }}
+    >
       <Link
         className={`head-link${active ? " head-link-active" : ""}`}
         to={`/browse/${library.key}`}
         aria-current={active ? "page" : undefined}
-        style={{
-          textDecoration: "none",
-          color: "inherit",
-          fontWeight: 500,
-          fontFamily: '"Inter Variable", sans-serif',
-          userSelect: "none",
-          whiteSpace: "nowrap",
-        }}
       >
         {library.title}
       </Link>

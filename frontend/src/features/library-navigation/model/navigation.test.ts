@@ -1,5 +1,6 @@
 import {
   LIBRARY_NAVIGATION_SETTING,
+  isLibraryRouteActive,
   normalizeLibraryNavigation,
   parseLibraryNavigation,
   serializeLibraryNavigation,
@@ -10,6 +11,13 @@ const libraries = [
   { key: "2", uuid: "shows", title: "Shows", type: "show" as const },
   { key: "3", uuid: "anime", title: "Anime", type: "show" as const },
 ];
+
+it("matches only the selected library route", () => {
+  expect(isLibraryRouteActive("/browse/1", "1")).toBe(true);
+  expect(isLibraryRouteActive("/browse/1/recommended", "1")).toBe(true);
+  expect(isLibraryRouteActive("/browse/10", "1")).toBe(false);
+  expect(isLibraryRouteActive("/browse/1-other", "1")).toBe(false);
+});
 
 it("migrates legacy visibility settings to pinned libraries", () => {
   const result = normalizeLibraryNavigation(libraries, {

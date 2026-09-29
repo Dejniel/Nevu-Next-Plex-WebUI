@@ -279,7 +279,7 @@ reduce file counts or line counts.
 
 Current verified baseline:
 
-- tests: 58 suites, 181 tests passing;
+- tests: 58 suites, 182 tests passing;
 - production build: passing;
 - disposable validation container: `nevu-refactor-test` on host port `3101`;
 - production `nevu-next` on port `32400` was not modified by this refactor.

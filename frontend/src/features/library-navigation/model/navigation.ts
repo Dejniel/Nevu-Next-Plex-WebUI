@@ -10,6 +10,11 @@ export interface LibraryNavigationPreference {
   pinned: string[];
 }
 
+export function isLibraryRouteActive(pathname: string, libraryKey: string) {
+  const route = `/browse/${libraryKey}`;
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
 function unique(values: string[]) {
   return [...new Set(values)];
 }

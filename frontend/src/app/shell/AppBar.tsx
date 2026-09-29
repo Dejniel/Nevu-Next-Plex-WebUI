@@ -1,4 +1,4 @@
-import { Theme } from "@emotion/react";
+import type { Theme } from "@emotion/react";
 import {
   AppBar,
   Avatar,
@@ -13,12 +13,12 @@ import {
   ListItemText,
   Menu,
   MenuItem,
-  SxProps,
+  type SxProps,
   Typography,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import React, { JSX, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   BookmarkRounded,
@@ -43,7 +43,7 @@ import { LibraryNavigation } from "features/library-navigation/public";
 import { SearchBar } from "features/search/public";
 import { libraryBrowseTo } from "shared/lib/navigation";
 
-const BarSide: SxProps<Theme> = {
+const barSideSx: SxProps<Theme> = {
   display: "flex",
   flexDirection: "row",
   alignItems: "center",
@@ -51,8 +51,8 @@ const BarSide: SxProps<Theme> = {
   height: "100%",
 };
 
-function Appbar() {
-  const [scrollAtTop, setScrollAtTop] = useState(true);
+function ApplicationBar() {
+  const [scrollAtTop, setScrollAtTop] = useState(() => window.scrollY === 0);
   const location = useLocation();
   const { room } = useWatchTogetherSession();
 
@@ -66,15 +66,14 @@ function Appbar() {
       setScrollAtTop(window.scrollY === 0);
     };
 
-    window.addEventListener("scroll", onScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
 
     return () => {
       window.removeEventListener("scroll", onScroll);
     };
   }, []);
 
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const open = Boolean(anchorEl);
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
   return (
     <AppBar
@@ -103,7 +102,7 @@ function Appbar() {
     >
       <Menu
         anchorEl={anchorEl}
-        open={open}
+        open={Boolean(anchorEl)}
         onClose={() => setAnchorEl(null)}
         anchorOrigin={{
           vertical: "bottom",
@@ -113,7 +112,6 @@ function Appbar() {
           vertical: "top",
           horizontal: "center",
         }}
-        sx={{}}
       >
         <Typography
           sx={{
@@ -230,6 +228,7 @@ S - Skip onscreen markers (intro, credits, etc)
       {isMobile && (
         <IconButton
           onClick={() => setDrawerOpen(true)}
+          aria-label="Open navigation"
           sx={{ color: "inherit" }}
         >
           <MenuRounded />
@@ -240,7 +239,7 @@ S - Skip onscreen markers (intro, credits, etc)
         sx={{
           justifyContent: "flex-start",
           minWidth: 0,
-          ...BarSide,
+          ...barSideSx,
         }}
       >
         <Box
@@ -287,9 +286,15 @@ S - Skip onscreen markers (intro, credits, etc)
               height: "100%",
             }}
           >
-            <HeadLink to="/" active={location.pathname === "/"}>
+            <Link
+              className={`head-link${
+                location.pathname === "/" ? " head-link-active" : ""
+              }`}
+              to="/"
+              aria-current={location.pathname === "/" ? "page" : undefined}
+            >
               Home
-            </HeadLink>
+            </Link>
             <LibraryNavigation variant="desktop" />
           </Box>
         )}
@@ -298,14 +303,14 @@ S - Skip onscreen markers (intro, credits, etc)
       <Box
         sx={{
           justifyContent: "flex-end",
-          ...BarSide,
+          ...barSideSx,
           gap: { xs: 1, md: 2 },
         }}
       >
         {/* Desktop: search bar and bookmark */}
         {!isMobile && (
           <>
-            <SearchBar enableShortcut={!isMobile} />
+            <SearchBar />
             <IconButton
               component={Link}
               to={libraryBrowseTo(location, "/plextv/watchlist")}
@@ -321,29 +326,33 @@ S - Skip onscreen markers (intro, credits, etc)
             onClick={() => {
               useWatchTogetherDialog.getState().setOpen(true);
             }}
+            aria-label="Open Watch2Gether"
           >
             <PeopleRounded />
           </IconButton>
         )}
 
-        <Avatar
-          src={activeUser?.thumb || activeProfile?.thumb}
-          variant="square"
-          alt=""
-          onClick={(e) => setAnchorEl(e.currentTarget)}
-          sx={{
-            width: { xs: 36, md: 45 },
-            height: { xs: 36, md: 45 },
-            borderRadius: "4px",
-            cursor: "pointer",
-
-            "&:hover": {
-              boxShadow: (theme) =>
-                `0px 0px 20px 0px ${theme.palette.primary.main}`,
-            },
-            transition: "all 0.2s ease-in-out",
-          }}
-        />
+        <IconButton
+          onClick={(event) => setAnchorEl(event.currentTarget)}
+          aria-label="Open account menu"
+          sx={{ p: 0, borderRadius: "4px" }}
+        >
+          <Avatar
+            src={activeUser?.thumb || activeProfile?.thumb}
+            variant="square"
+            alt=""
+            sx={{
+              width: { xs: 36, md: 45 },
+              height: { xs: 36, md: 45 },
+              borderRadius: "4px",
+              "&:hover": {
+                boxShadow: (theme) =>
+                  `0px 0px 20px 0px ${theme.palette.primary.main}`,
+              },
+              transition: "box-shadow 0.2s ease-in-out",
+            }}
+          />
+        </IconButton>
       </Box>
 
       {/* Mobile Drawer */}
@@ -427,33 +436,4 @@ S - Skip onscreen markers (intro, credits, etc)
   );
 }
 
-export default Appbar;
-
-function HeadLink({
-  to,
-  children,
-  active,
-}: {
-  to: string;
-  children: React.ReactNode;
-  active?: boolean;
-}): JSX.Element {
-  return (
-    <Link
-      className={`head-link${active ? " head-link-active" : ""}`}
-      to={to}
-      style={{
-        textDecoration: "none",
-        color: "inherit",
-        fontWeight: 500,
-        transition: "all 0.2s ease-in-out",
-        fontFamily: '"Inter Variable", sans-serif',
-        userSelect: "none",
-        whiteSpace: "nowrap",
-      }}
-      aria-current={active ? "page" : undefined}
-    >
-      {children}
-    </Link>
-  );
-}
+export default ApplicationBar;
