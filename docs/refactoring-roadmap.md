@@ -90,6 +90,20 @@ Commit `1558a2b` (`Extract watch-together synchronization feature`):
   components/state.
 - Added model and connection-lifecycle tests.
 
+### Playback media controller
+
+Commit `9f2a7f2` (`Extract playback media controller`):
+
+- Moved metadata loading, queue context, source URL construction, quality,
+  media-version selection, track preferences, and downloaded-subtitle
+  activation into a single playback-owned controller.
+- Added request-generation guards so stale item/source requests cannot replace
+  current playback state.
+- Kept queue/show context valid across quick source changes instead of letting
+  a quality change cancel it.
+- Extracted the playback information overlay and settings popover from the
+  routed player screen.
+
 At this point `app`, `library`, `title-details`, `playback`,
 `watch-together`, and the shared `media` entity form the reference structure
 for subsequent work.
@@ -104,9 +118,10 @@ for subsequent work.
 - `frontend/src/components`, `pages`, `plex`, and `states` still contain mixed
   legacy responsibilities. Their existence is temporary, but empty directory
   removal is not itself a refactoring objective.
-- `PlaybackScreen.tsx` is still large (roughly 74 KB). Its external boundary is
-  now correct, so it can be decomposed locally without affecting routing or
-  Plex callers.
+- `PlaybackScreen.tsx` is still large (roughly 44 KB), but media/source
+  orchestration and the two independent overlays have moved out. The remaining
+  size is concentrated in player lifecycle, controls, markers, and keyboard
+  interaction.
 - Playback intentionally consumes the public watch-together controller. It
   must not reach into socket transport, room state internals, or sync UI.
 - `TODO.md` and `BRUDNOPIS.md` are personal, untracked planning files. Do not
@@ -114,19 +129,17 @@ for subsequent work.
 
 ## Next steps
 
-Work in the following order. Each item is a vertical workflow migration, not a
-bulk move based only on the old directory name.
+Treat the following as a default sequence, not a fixed specification. Recheck
+the dependencies and expected payoff before each stage. Each migration should
+still follow a vertical workflow rather than bulk-moving an old directory.
 
-### 1. Decompose playback internally
+### 1. Finish playback interaction decomposition
 
-After the synchronization boundary is clean, reduce the responsibilities of
-`PlaybackScreen.tsx`. Extract only cohesive units that already exist in its
-behavior, for example:
+The media/source controller is complete. The remaining cohesive responsibilities
+that may be worth extracting from `PlaybackScreen.tsx` are:
 
-- media/session loading;
 - timeline reporting and resume position;
 - playback controls and keyboard behavior;
-- stream/version selection;
 - player layout and overlays.
 
 Keep these inside `features/playback` unless another concrete feature needs
@@ -227,7 +240,7 @@ directory.
 
 Current verified baseline:
 
-- tests: 36 suites, 134 tests passing;
+- tests: 37 suites, 138 tests passing;
 - production build: passing;
 - disposable validation container: `nevu-refactor-test` on host port `3101`;
 - production `nevu-next` on port `32400` was not modified by this refactor.
