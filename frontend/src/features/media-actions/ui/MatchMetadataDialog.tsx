@@ -6,6 +6,7 @@ import {
   CircularProgress,
   List,
   ListItemButton,
+  MenuItem,
   Radio,
   TextField,
   Typography,
@@ -169,7 +170,11 @@ export default function MatchMetadataDialog({
         onSubmit={submitSearch}
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "1fr", sm: "minmax(240px, 1fr) 120px 170px auto" },
+          gridTemplateColumns: {
+            xs: "1fr",
+            sm: "minmax(0, 1fr) 120px",
+            md: "minmax(0, 1fr) 120px 170px auto",
+          },
           gap: 1.5,
           alignItems: "start",
           mb: 2,
@@ -210,10 +215,13 @@ export default function MatchMetadataDialog({
           onChange={(event) =>
             setCriteria((current) => ({ ...current, language: event.target.value }))
           }
-          slotProps={{ select: { native: true } }}
+          slotProps={{
+            inputLabel: { shrink: true },
+            select: { displayEmpty: true },
+          }}
         >
           {languages.map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
+            <MenuItem key={value} value={value}>{label}</MenuItem>
           ))}
         </TextField>
         <Button

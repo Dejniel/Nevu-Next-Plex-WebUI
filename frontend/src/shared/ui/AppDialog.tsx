@@ -1,6 +1,7 @@
 import { overlayContainer } from "shared/lib/overlayContainer";
 import { CloseRounded } from "@mui/icons-material";
 import {
+  Box,
   Dialog,
   DialogActions,
   DialogContent,
@@ -81,13 +82,15 @@ export default function AppDialog({
       }}
     >
       {hasTitle ? (
-        <DialogTitle
-          id={titleId}
-          sx={{ minHeight: 56, display: "flex", alignItems: "center", pr: 7 }}
-        >
-          {title}
+        <Box sx={{ position: "relative", flexShrink: 0 }}>
+          <DialogTitle
+            id={titleId}
+            sx={{ minHeight: 56, display: "flex", alignItems: "center", pr: 7 }}
+          >
+            {title}
+          </DialogTitle>
           {closeButton}
-        </DialogTitle>
+        </Box>
       ) : (
         closeButton
       )}

@@ -180,29 +180,23 @@ export const appTheme = createTheme({
         },
       },
     },
-    MuiTextField: {
+    MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          "& .MuiOutlinedInput-root": {
-            backgroundColor: "rgba(255,255,255,0.05)",
-            backdropFilter: "blur(20px)",
-            borderRadius: "4px",
-            transition: "all 0.2s ease",
-            "&:hover": {
-              backgroundColor: "rgba(255,255,255,0.08)",
-            },
-            "&.Mui-focused": {
-              backgroundColor: "rgba(255,255,255,0.1)",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "rgba(99, 102, 241, 0.8)",
-                borderWidth: "2px",
-              },
-            },
-            "& .MuiOutlinedInput-notchedOutline": {
-              borderColor: "rgba(255,255,255,0.2)",
-              transition: "all 0.2s ease",
-            },
+          backgroundColor: "rgba(255,255,255,0.05)",
+          backdropFilter: "blur(20px)",
+          borderRadius: "4px",
+          transition: "background-color 0.2s ease",
+          "&:hover": {
+            backgroundColor: "rgba(255,255,255,0.08)",
           },
+          "&.Mui-focused": {
+            backgroundColor: "rgba(255,255,255,0.1)",
+          },
+        },
+        notchedOutline: {
+          borderColor: "rgba(255,255,255,0.2)",
+          transition: "border-color 0.2s ease",
         },
       },
     },
