@@ -64,9 +64,7 @@ import {
   type MetadataLockUpdate,
   type MetadataUpdate,
 } from "features/media-actions/public";
-import {
-  withoutExtra,
-} from "../model/titleExtras";
+import { withoutExtra } from "entities/media/model";
 import { useCanManageServer, useServerSession } from "features/session/public";
 import { useTitleExtras } from "../model/useTitleExtras";
 import ExpandableDescription from "./ExpandableDescription";
@@ -111,7 +109,9 @@ function TitleDetailsScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const canManageServer = useCanManageServer();
-  const allowDownloads = useServerSession((state) => state.server?.allowSync === true);
+  const allowDownloads = useServerSession(
+    (state) => state.server?.allowSync === true,
+  );
   const posterRef = React.useRef<HTMLDivElement>(null);
 
   const [page, setPage] = useState<number>(0);
@@ -136,11 +136,13 @@ function TitleDetailsScreen() {
     setSelectedSeason,
     subtitles,
   } = useTitleDetailsData(mid, plexGuid);
-  const capabilities = data ? getMediaActionCapabilities(data, {
-    localItem: true,
-    canManageServer,
-    allowDownloads,
-  }) : null;
+  const capabilities = data
+    ? getMediaActionCapabilities(data, {
+        localItem: true,
+        canManageServer,
+        allowDownloads,
+      })
+    : null;
   const {
     extras,
     loading: extrasLoading,
@@ -157,12 +159,15 @@ function TitleDetailsScreen() {
 
   useEffect(() => {
     if (!resolvedRatingKey) return;
-    setSearchParams((current) => {
-      const next = new URLSearchParams(current);
-      next.delete("pguid");
-      next.set("mid", resolvedRatingKey);
-      return next;
-    }, { replace: true });
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete("pguid");
+        next.set("mid", resolvedRatingKey);
+        return next;
+      },
+      { replace: true },
+    );
   }, [resolvedRatingKey, setSearchParams]);
 
   useEffect(() => {
@@ -217,12 +222,15 @@ function TitleDetailsScreen() {
 
   if (loading)
     return (
-      <AppDialog
-        open
-        onClose={closeDetails}
-        contentSx={{ p: 0 }}
-      >
-        <Box sx={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <AppDialog open onClose={closeDetails} contentSx={{ p: 0 }}>
+        <Box
+          sx={{
+            minHeight: "50vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
           <CircularProgress />
         </Box>
       </AppDialog>
@@ -824,12 +832,16 @@ function TitleDetailsScreen() {
             open
             onClose={() => setMatchOpen(false)}
             onMatched={async (candidate) => {
-              setData((current) => current ? {
-                ...current,
-                guid: candidate.guid,
-                title: candidate.name,
-                year: candidate.year ?? current.year,
-              } : current);
+              setData((current) =>
+                current
+                  ? {
+                      ...current,
+                      guid: candidate.guid,
+                      title: candidate.name,
+                      year: candidate.year ?? current.year,
+                    }
+                  : current,
+              );
               setNotice("Match applied. Plex is refreshing metadata.");
               try {
                 setData(await getMediaMetadata(data.ratingKey));
@@ -1013,18 +1025,18 @@ function EpisodesPage({
               item={episode}
               refetchData={refetchEpisodes}
               selected={selectedEpisodes.some(
-                (selected) => selected.ratingKey === episode.ratingKey
+                (selected) => selected.ratingKey === episode.ratingKey,
               )}
               setSelected={() => {
                 if (
                   selectedEpisodes.some(
-                    (selected) => selected.ratingKey === episode.ratingKey
+                    (selected) => selected.ratingKey === episode.ratingKey,
                   )
                 ) {
                   setSelectedEpisodes(
                     selectedEpisodes.filter(
-                      (selected) => selected.ratingKey !== episode.ratingKey
-                    )
+                      (selected) => selected.ratingKey !== episode.ratingKey,
+                    ),
                   );
                 } else {
                   setSelectedEpisodes([...selectedEpisodes, episode]);
@@ -1047,13 +1059,10 @@ function MetaPageReviews({
   data: Plex.Metadata | undefined;
   revision: number;
 }) {
-  const [reviews, setReviews] = useState<
-    | {
-        plexReviews: PlexCommunity.ReviewsData | null;
-        nevuReviews: PerPlexed.Reviews.Review[];
-      }
-    | null
-  >(null);
+  const [reviews, setReviews] = useState<{
+    plexReviews: PlexCommunity.ReviewsData | null;
+    nevuReviews: PerPlexed.Reviews.Review[];
+  } | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadWarning, setLoadWarning] = useState<string | null>(null);
 
@@ -1067,7 +1076,9 @@ function MetaPageReviews({
     setLoadWarning(null);
     const metaID = data.guid.split("/").pop();
     if (!metaID) {
-      setLoadWarning("This item does not have a valid Plex metadata identifier.");
+      setLoadWarning(
+        "This item does not have a valid Plex metadata identifier.",
+      );
       setLoading(false);
       return;
     }
@@ -1099,7 +1110,9 @@ function MetaPageReviews({
       }
 
       if (!plexReviews && nevuResult.status === "rejected")
-        setLoadWarning("Community and Nevu reviews are temporarily unavailable.");
+        setLoadWarning(
+          "Community and Nevu reviews are temporarily unavailable.",
+        );
       else if (!plexReviews)
         setLoadWarning("Plex community reviews are temporarily unavailable.");
       else if (nevuResult.status === "rejected")
@@ -1122,7 +1135,7 @@ function MetaPageReviews({
     title: string,
     reviewNodes: any[] | undefined,
     isEmpty: boolean,
-    isNevu: boolean = false
+    isNevu: boolean = false,
   ) => {
     if (isEmpty) return null;
     return (
@@ -1180,7 +1193,7 @@ function MetaPageReviews({
                         boxShadow: (theme) =>
                           `0 8px 16px -2px ${alpha(
                             theme.palette.common.black,
-                            0.15
+                            0.15,
                           )}`,
                       },
                     }}
@@ -1345,10 +1358,16 @@ function MetaPageReviews({
                   }}
                 >
                   <Typography fontWeight="bold">{review.tag}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 2 }}
+                  >
                     {review.source}
                   </Typography>
-                  <Typography sx={{ lineHeight: 1.6 }}>{review.text}</Typography>
+                  <Typography sx={{ lineHeight: 1.6 }}>
+                    {review.text}
+                  </Typography>
                 </Paper>
               </Grid>
             ))}
@@ -1411,25 +1430,25 @@ function MetaPageReviews({
             "NEVU Reviews",
             reviews.nevuReviews,
             !reviews.nevuReviews.length,
-            true
+            true,
           )}
 
           {renderReviewsSection(
             "Recent Reviews",
             reviews.plexReviews?.recentReviews?.nodes,
-            !reviews.plexReviews?.recentReviews?.nodes.length
+            !reviews.plexReviews?.recentReviews?.nodes.length,
           )}
 
           {renderReviewsSection(
             "Top Reviews",
             reviews.plexReviews?.topReviews?.nodes,
-            !reviews.plexReviews?.topReviews?.nodes.length
+            !reviews.plexReviews?.topReviews?.nodes.length,
           )}
 
           {renderReviewsSection(
             "Friend Reviews",
             reviews.plexReviews?.friendReviews?.nodes,
-            !reviews.plexReviews?.friendReviews?.nodes.length
+            !reviews.plexReviews?.friendReviews?.nodes.length,
           )}
         </Box>
       ) : null}
@@ -1475,9 +1494,11 @@ function EpisodeItem({
       message: `Are you sure you want to mark "${item.title}" as ${label}?`,
       onConfirm: async () => {
         await setMediaPlayedStatus(watched, item.ratingKey);
-        setItem((current) => current.ratingKey === item.ratingKey
-          ? applyMediaWatchedState(current, watched)
-          : current);
+        setItem((current) =>
+          current.ratingKey === item.ratingKey
+            ? applyMediaWatchedState(current, watched)
+            : current,
+        );
         handleClose();
         refetchData?.();
       },
@@ -1563,17 +1584,13 @@ function EpisodeItem({
           }}
         />
 
-        <MenuItem
-          onClick={() => markWatched(true)}
-        >
+        <MenuItem onClick={() => markWatched(true)}>
           <ListItemIcon>
             <CheckCircleRounded fontSize="small" />
           </ListItemIcon>
           Mark as Watched
         </MenuItem>
-        <MenuItem
-          onClick={() => markWatched(false)}
-        >
+        <MenuItem onClick={() => markWatched(false)}>
           <ListItemIcon>
             <CheckCircleOutlineRounded fontSize="small" />
           </ListItemIcon>
@@ -1611,10 +1628,7 @@ function EpisodeItem({
         }}
         onContextMenu={handleContextMenu}
       >
-        <StretchedLink
-          to={mediaWatchTo(item)}
-          label={`Play ${item.title}`}
-        />
+        <StretchedLink to={mediaWatchTo(item)} label={`Play ${item.title}`} />
         <Box
           sx={{
             minWidth: { xs: "30px", sm: "40px" },
@@ -1663,7 +1677,7 @@ function EpisodeItem({
             backgroundImage: `url(${getTranscodeImageURL(
               item.thumb,
               380,
-              214
+              214,
             )})`,
             backgroundSize: "cover",
             backgroundPosition: "center",

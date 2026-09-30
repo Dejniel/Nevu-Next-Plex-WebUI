@@ -11,8 +11,8 @@ import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { getTranscodeImageURL } from "entities/media/model";
 import { durationToText } from "shared/lib/duration";
-import { extraTypeLabel, TitleExtra } from "../model/titleExtras";
-import ExtraPlayer from "./ExtraPlayer";
+import { extraTypeLabel, TitleExtra } from "entities/media/model";
+import { MediaExtraPlayback } from "entities/media/public";
 import { libraryBrowseTo } from "shared/lib/navigation";
 
 function Detail({ label, value }: { label: string; value?: React.ReactNode }) {
@@ -40,14 +40,19 @@ export default function TitleDetails({
   const [selectedExtra, setSelectedExtra] = useState<TitleExtra | null>(null);
 
   return (
-    <Box sx={{ width: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
+    <Box
+      sx={{ width: "100%", display: "flex", flexDirection: "column", gap: 6 }}
+    >
       <Box sx={{ width: "100%" }}>
         <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
           Details
         </Typography>
         <Grid container spacing={3} sx={{ width: "100%" }}>
           <Grid size={{ xs: 6, md: 3 }}>
-            <Detail label="Released" value={data.originallyAvailableAt || data.year} />
+            <Detail
+              label="Released"
+              value={data.originallyAvailableAt || data.year}
+            />
           </Grid>
           <Grid size={{ xs: 6, md: 3 }}>
             <Detail label="Studio" value={data.studio} />
@@ -59,16 +64,28 @@ export default function TitleDetails({
             <Detail label="Content rating" value={data.contentRating} />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
-            <Detail label="Countries" value={data.Country?.map((item) => item.tag).join(", ")} />
+            <Detail
+              label="Countries"
+              value={data.Country?.map((item) => item.tag).join(", ")}
+            />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
-            <Detail label="Genres" value={data.Genre?.map((item) => item.tag).join(", ")} />
+            <Detail
+              label="Genres"
+              value={data.Genre?.map((item) => item.tag).join(", ")}
+            />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
-            <Detail label="Directors" value={data.Director?.map((item) => item.tag).join(", ")} />
+            <Detail
+              label="Directors"
+              value={data.Director?.map((item) => item.tag).join(", ")}
+            />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
-            <Detail label="Writers" value={data.Writer?.map((item) => item.tag).join(", ")} />
+            <Detail
+              label="Writers"
+              value={data.Writer?.map((item) => item.tag).join(", ")}
+            />
           </Grid>
         </Grid>
       </Box>
@@ -91,7 +108,7 @@ export default function TitleDetails({
                 bgcolor: "#000",
               }}
             >
-              <ExtraPlayer
+              <MediaExtraPlayback
                 extra={selectedExtra}
                 poster={
                   data.art
@@ -105,14 +122,17 @@ export default function TitleDetails({
         {loadingExtras && extras.length === 0 ? (
           <CircularProgress size={28} />
         ) : extras.length === 0 ? (
-          <Typography color="text.secondary">No additional extras are available.</Typography>
+          <Typography color="text.secondary">
+            No additional extras are available.
+          </Typography>
         ) : (
           <Grid container spacing={1.5} sx={{ width: "100%" }}>
             {extras.map((extra) => {
               const media = extra.metadata.Media?.[0];
               const selected =
                 selectedExtra?.source === extra.source &&
-                (selectedExtra.metadata.ratingKey || selectedExtra.metadata.key) ===
+                (selectedExtra.metadata.ratingKey ||
+                  selectedExtra.metadata.key) ===
                   (extra.metadata.ratingKey || extra.metadata.key);
               return (
                 <Grid
@@ -141,7 +161,9 @@ export default function TitleDetails({
                         {extra.metadata.duration
                           ? ` · ${durationToText(extra.metadata.duration)}`
                           : ""}
-                        {media?.videoResolution ? ` · ${media.videoResolution}` : ""}
+                        {media?.videoResolution
+                          ? ` · ${media.videoResolution}`
+                          : ""}
                       </Typography>
                     </Box>
                   </Button>

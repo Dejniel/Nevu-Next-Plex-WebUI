@@ -3,7 +3,7 @@ import {
   mergeTitleExtras,
   selectPrimaryTrailer,
   withoutExtra,
-} from "./titleExtras";
+} from "./mediaExtras";
 
 function extra(
   title: string,
@@ -17,7 +17,9 @@ function extra(
 describe("Plex Discover extras", () => {
   it("extracts the Plex Discover id", () => {
     expect(
-      getDiscoverID({ guid: "plex://movie/5d7769cefb0d55001f530acd" } as Plex.Metadata),
+      getDiscoverID({
+        guid: "plex://movie/5d7769cefb0d55001f530acd",
+      } as Plex.Metadata),
     ).toBe("5d7769cefb0d55001f530acd");
   });
 
@@ -28,7 +30,12 @@ describe("Plex Discover extras", () => {
       120000,
       "/discover/trailer",
     );
-    const featurette = extra("Behind the scenes", 60000, "/discover/featurette", 5);
+    const featurette = extra(
+      "Behind the scenes",
+      60000,
+      "/discover/featurette",
+      5,
+    );
 
     const merged = mergeTitleExtras(
       [localTrailer],
@@ -46,8 +53,8 @@ describe("Plex Discover extras", () => {
     const primary = selectPrimaryTrailer(merged);
 
     expect(primary?.metadata.title).toBe("Trailer");
-    expect(withoutExtra(merged, primary).map((item) => item.metadata.title)).toEqual([
-      "Scene",
-    ]);
+    expect(
+      withoutExtra(merged, primary).map((item) => item.metadata.title),
+    ).toEqual(["Scene"]);
   });
 });

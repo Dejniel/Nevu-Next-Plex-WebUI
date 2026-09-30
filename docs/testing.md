@@ -35,5 +35,18 @@ For a remote host, forward the localhost ports through an SSH tunnel.
 Use `PLEX_TEST_IMAGE` to select a Plex version and record it with test results.
 Authentication and online metadata features still use Plex services.
 
+For playback checks, generate synthetic samples with local FFmpeg:
+
+```bash
+bash tools/generate-playback-samples.sh "$PLEX_TEST_MEDIA_PATH/PlaybackSamples"
+```
+
+Add `/data/PlaybackSamples` as a movie library. Samples cover MP4, MKV with two
+audio tracks and SRT, AC3, styled ASS, VP9 (libvpx), and HEVC Main 10 (libx265).
+Check Original, lower bitrate, track changes while paused, subtitles, seeking,
+resume, trailers, and Watch Together. Inspect Plex's playback decision to
+distinguish copying streams from conversion. Browser/device codec support,
+native Safari HLS, HDR, and hardware transcoding require suitable environments.
+
 Stop with `docker compose -f compose.test.yaml down`. Adding `-v` resets the
 test stack's volumes; sample media remains in the host directory.

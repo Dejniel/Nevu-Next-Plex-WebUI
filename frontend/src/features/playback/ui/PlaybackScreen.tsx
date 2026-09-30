@@ -1,8 +1,8 @@
 import { Box, Button, Typography } from "@mui/material";
-import { AppDialog, CenteredSpinner } from "shared/ui";
+import { AppDialog, CenteredSpinner, VideoPlayer } from "shared/ui";
 import { useWatchTogetherPlayback } from "features/watch-together/public";
 import React, { useEffect, useRef, useState } from "react";
-import ReactPlayer from "react-player";
+import type { VideoPlayerHandle } from "shared/lib/video/types";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { usePlaybackCommands } from "../model/usePlaybackCommands";
 import { usePlaybackMedia } from "../model/usePlaybackMedia";
@@ -15,11 +15,13 @@ function PlaybackScreen() {
   const { itemID } = useParams<{ itemID: string }>();
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const player = useRef<ReactPlayer | null>(null);
+  const player = useRef<VideoPlayerHandle | null>(null);
+  const surface = useRef<HTMLDivElement | null>(null);
   const [showError, setShowError] = useState<string | false>(false);
 
   const playbackRuntime = usePlaybackRuntime({
     getPlayer: () => player.current,
+    itemID,
   });
   const { playing, buffering, volume } = playbackRuntime;
   const playbackMedia = usePlaybackMedia({
@@ -29,7 +31,15 @@ function PlaybackScreen() {
     requestResumeAt: playbackRuntime.requestResumeAt,
     setError: setShowError,
   });
-  const { metadata, showMetadata, playQueue, url } = playbackMedia;
+  const { metadata, showMetadata, playQueue, source } = playbackMedia;
+  const resumeMilliseconds = params.has("t")
+    ? Number.parseInt(params.get("t") as string, 10)
+    : metadata?.viewOffset && metadata.viewOffset > 5
+      ? metadata.viewOffset
+      : 0;
+  const initialResumeSeconds = Number.isFinite(resumeMilliseconds)
+    ? Math.max(0, resumeMilliseconds / 1000)
+    : null;
 
   const {
     room,
@@ -65,6 +75,7 @@ function PlaybackScreen() {
       playbackRuntime.setPlaying(false);
       pauseTogether();
     },
+    source: metadata?.ratingKey === itemID ? source : null,
   });
   const playbackCommands = usePlaybackCommands({
     metadata,
@@ -80,7 +91,13 @@ function PlaybackScreen() {
     },
     navigate,
     reportStopped: playbackTimeline.reportStopped,
+    getSurface: () => surface.current,
+    enabled: !showError,
   });
+
+  useEffect(() => {
+    surface.current?.focus({ preventScroll: true });
+  }, [itemID]);
 
   const [showInfo, setShowInfo] = useState(false);
   useEffect(() => {
@@ -94,14 +111,10 @@ function PlaybackScreen() {
 
   const reloadPlayback = () => {
     setShowError(false);
-    const currentTime = player.current?.getCurrentTime() ?? 0;
-    if (currentTime <= 5) {
-      window.location.reload();
-      return;
-    }
-    const nextUrl = new URL(window.location.href);
-    nextUrl.searchParams.set("t", Math.floor(currentTime * 1000).toString());
-    window.location.href = nextUrl.toString();
+    if (playbackRuntime.getDuration() > 0)
+      playbackRuntime.requestResumeAt(playbackRuntime.getCurrentTime());
+    playbackRuntime.setPlaying(true);
+    playbackMedia.reloadSource();
   };
 
   return (
@@ -133,6 +146,15 @@ function PlaybackScreen() {
       </AppDialog>
 
       <Box
+        ref={surface}
+        tabIndex={-1}
+        onPointerDown={(event) => {
+          if (
+            event.target === event.currentTarget ||
+            event.target instanceof HTMLVideoElement
+          )
+            surface.current?.focus({ preventScroll: true });
+        }}
         sx={{
           display: "flex",
           justifyContent: "center",
@@ -140,11 +162,14 @@ function PlaybackScreen() {
           height: "100vh",
           width: "100%",
           overflow: "hidden",
+          position: "relative",
+          bgcolor: "#000",
+          outline: "none",
         }}
       >
         <Box
           sx={{
-            display: buffering ? "flex" : "none",
+            display: buffering || playbackMedia.sourceLoading ? "flex" : "none",
             zIndex: 2,
             position: "absolute",
             inset: 0,
@@ -168,62 +193,45 @@ function PlaybackScreen() {
               media={playbackMedia}
               runtime={playbackRuntime}
               commands={playbackCommands}
+              getSurface={() => surface.current}
               watch={{
                 room,
                 isGuest,
                 openDialog: openTogetherDialog,
               }}
             />
-            <ReactPlayer
+            <VideoPlayer
               ref={player}
+              source={source}
               playing={playing}
               volume={volume / 100}
-              progressInterval={500}
-              onClick={(event: MouseEvent) => {
+              startTime={playbackRuntime.getResumePosition(
+                itemID,
+                initialResumeSeconds,
+              )}
+              onClick={(event) => {
                 event.preventDefault();
                 playbackCommands.handleSurfaceClick(event.detail);
               }}
               onReady={() => {
-                const resumeMilliseconds = params.has("t")
-                  ? Number.parseInt(params.get("t") as string, 10)
-                  : metadata.viewOffset && metadata.viewOffset > 5
-                    ? metadata.viewOffset
-                    : null;
-                playbackRuntime.handleReady(
-                  itemID,
-                  resumeMilliseconds ? resumeMilliseconds / 1000 : null,
-                );
+                playbackRuntime.handleReady(itemID, initialResumeSeconds);
               }}
               onProgress={playbackRuntime.handleProgress}
               onPause={() => playbackRuntime.setPlaying(false)}
               onPlay={() => playbackRuntime.setPlaying(true)}
-              onBuffer={() => playbackRuntime.setBuffering(true)}
-              onBufferEnd={() => playbackRuntime.setBuffering(false)}
+              onBuffering={playbackRuntime.setBuffering}
+              onPlayRejected={() => playbackRuntime.setPlaying(false)}
               onError={(error) => {
-                console.error("Player error:", error);
+                const resumeAt = playbackRuntime.getCurrentTime();
+                if (playbackMedia.recoverSource(error)) {
+                  playbackRuntime.requestResumeAt(resumeAt);
+                  return;
+                }
                 playbackRuntime.setPlaying(false);
                 pauseTogether();
-                if (showError || !error.error) return;
-                setShowError(
-                  error.error.message.replace(/https?:\/\/[^\s]+/g, "Media"),
-                );
-              }}
-              config={{
-                file: {
-                  hlsVersion: "1.6.7",
-                  dashVersion: "4.7.4",
-                  attributes: {
-                    controlsList: "nodownload",
-                    disablePictureInPicture: true,
-                    disableRemotePlayback: true,
-                    autoplay: true,
-                  },
-                },
+                setShowError(error.message);
               }}
               onEnded={playbackCommands.handleEnded}
-              url={url}
-              width="100%"
-              height="100%"
             />
           </>
         ) : (

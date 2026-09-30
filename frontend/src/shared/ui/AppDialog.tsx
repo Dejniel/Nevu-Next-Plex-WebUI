@@ -1,3 +1,4 @@
+import { overlayContainer } from "shared/lib/overlayContainer";
 import { CloseRounded } from "@mui/icons-material";
 import {
   Dialog,
@@ -53,6 +54,7 @@ export default function AppDialog({
 
   return (
     <Dialog
+      container={overlayContainer}
       open={open}
       onClose={() => {
         if (!busy) onClose();
@@ -86,12 +88,14 @@ export default function AppDialog({
           {title}
           {closeButton}
         </DialogTitle>
-      ) : closeButton}
-      {headerContent}
-      <DialogContent ref={contentRef} sx={contentSx}>{children}</DialogContent>
-      {actions !== undefined && (
-        <DialogActions>{actions}</DialogActions>
+      ) : (
+        closeButton
       )}
+      {headerContent}
+      <DialogContent ref={contentRef} sx={contentSx}>
+        {children}
+      </DialogContent>
+      {actions !== undefined && <DialogActions>{actions}</DialogActions>}
     </Dialog>
   );
 }

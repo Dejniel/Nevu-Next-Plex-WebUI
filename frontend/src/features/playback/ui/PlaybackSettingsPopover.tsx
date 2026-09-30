@@ -1,3 +1,4 @@
+import { overlayContainer } from "shared/lib/overlayContainer";
 import { SearchRounded } from "@mui/icons-material";
 import { alpha, Divider, Paper, Popover, useTheme } from "@mui/material";
 import { useEffect, useState } from "react";
@@ -64,6 +65,7 @@ export default function PlaybackSettingsPopover({
 
   return (
     <Popover
+      container={overlayContainer}
       open={open}
       anchorEl={anchorEl}
       onClose={onClose}
@@ -127,15 +129,17 @@ export default function PlaybackSettingsPopover({
             ).map((qualityOption) => (
               <TuneOption
                 key={`${qualityOption.title}:${qualityOption.bitrate}`}
-                selected={qualityOption.bitrate === quality.bitrate}
+                selected={
+                  qualityOption.original
+                    ? quality.bitrate === undefined || quality.bitrate < 0
+                    : qualityOption.bitrate === quality.bitrate
+                }
                 primary={qualityOption.title}
                 secondary={qualityOption.extra}
                 onClick={() => {
                   setPage(0);
                   void selectQuality({
-                    bitrate: qualityOption.original
-                      ? undefined
-                      : qualityOption.bitrate,
+                    bitrate: qualityOption.bitrate,
                   });
                 }}
               />

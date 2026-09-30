@@ -40,10 +40,27 @@ export function getPlaybackQualityOptions(
   resolution: string,
   _extraForOriginal = "Auto",
 ) {
-  const firstOption = resolution.toLowerCase() === "4k"
-    ? 0
-    : resolution === "720"
-      ? 6
-      : 3;
-  return qualityOptions.slice(firstOption);
+  const height =
+    resolution.toLowerCase() === "4k" ? 2160 : Number.parseInt(resolution, 10);
+  const firstOption =
+    height >= 2160
+      ? 0
+      : height >= 1080 || !Number.isFinite(height)
+        ? 3
+        : height >= 720
+          ? 6
+          : height >= 480
+            ? 9
+            : height >= 360
+              ? 10
+              : 11;
+  return [
+    {
+      title: "Original",
+      bitrate: -1,
+      extra: "Maximum available quality",
+      original: true,
+    },
+    ...qualityOptions.slice(firstOption),
+  ];
 }

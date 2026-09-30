@@ -9,19 +9,16 @@ import {
   preferenceFromStream,
   TrackChoice,
   TrackPreference,
+  useMediaPlaybackSource,
 } from "entities/media/model";
 import { useUserSettings } from "features/settings/model";
 import {
   getPlaybackMetadata,
   getPlaybackQueueForItem,
-  getUniversalDecision,
   putAudioStream,
   putSubtitleStream,
 } from "../api/playback";
-import {
-  downloadSubtitle,
-} from "../api/subtitles";
-import { buildPlaybackSourceUrl } from "../api/playbackSource";
+import { downloadSubtitle } from "../api/subtitles";
 import {
   parseStoredPlaybackQuality,
   persistPlaybackQuality,
@@ -77,7 +74,6 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
   const callbacks = useRef(options);
   callbacks.current = options;
   const operation = useRef(0);
-  const sourceTimer = useRef<number | null>(null);
 
   const [metadata, setMetadata] = useState<Plex.Metadata | null>(null);
   const [showMetadata, setShowMetadata] = useState<Plex.Metadata | null>(null);
@@ -87,7 +83,7 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
   const [quality, setQuality] = useState<PlaybackQuality>(() =>
     parseStoredPlaybackQuality(localStorage.getItem("quality")),
   );
-  const [url, setUrl] = useState("");
+  const [initialRevision, setInitialRevision] = useState(0);
 
   const updateContext = (loaded: Plex.Metadata) => {
     const itemID = loaded.ratingKey;
@@ -114,16 +110,16 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     if (!options.itemID) return;
     const operationID = ++operation.current;
     const itemID = options.itemID;
-    const currentQuality = quality;
     callbacks.current.onSourceChanging();
     setMetadata(null);
     setShowMetadata(null);
     setPlayQueue(null);
-    setUrl("");
+    callbacks.current.setError(false);
 
     void (async () => {
       try {
         const initialMetadata = await getPlaybackMetadata(itemID);
+        if (operation.current !== operationID) return;
         if (
           !initialMetadata ||
           !["movie", "episode"].includes(initialMetadata.type)
@@ -153,13 +149,6 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
             subtitlePreference,
           );
         }
-        await getUniversalDecision(itemID, {
-          maxVideoBitrate: currentQuality.bitrate,
-          autoAdjustQuality: currentQuality.auto,
-          mediaIndex: version.mediaIndex,
-          partIndex: version.partIndex,
-        });
-
         const loaded = await getPlaybackMetadata(itemID);
         if (
           operation.current !== operationID ||
@@ -177,7 +166,6 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
         setMetadata(loaded);
         setActiveMediaIndex(loadedVersion.mediaIndex);
         setActivePartIndex(loadedVersion.partIndex);
-        setUrl(buildPlaybackSourceUrl(loaded, currentQuality, loadedVersion));
         callbacks.current.setError(false);
         updateContext(loaded);
       } catch (error) {
@@ -188,12 +176,11 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
 
     return () => {
       operation.current += 1;
-      if (sourceTimer.current !== null) clearTimeout(sourceTimer.current);
     };
     // Quality changes restart the current source explicitly. They must not
     // repeat the complete initial selection flow.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [options.itemID]);
+  }, [options.itemID, initialRevision]);
 
   const mediaVersions = metadata ? getMediaVersions(metadata) : [];
   const activeVersion =
@@ -204,6 +191,14 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     ) || mediaVersions[0];
   const audioChoices = metadata ? getTrackChoices(metadata, 2) : [];
   const subtitleChoices = metadata ? getTrackChoices(metadata, 3) : [];
+  const playbackSource = useMediaPlaybackSource(
+    metadata,
+    activeVersion,
+    quality,
+  );
+  useEffect(() => {
+    if (playbackSource.error) callbacks.current.setError(playbackSource.error);
+  }, [playbackSource.error]);
 
   const selectedPreference = (streamType: 2 | 3) => {
     const stream = activeVersion?.part.Stream?.find(
@@ -228,14 +223,6 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
 
     try {
       if (configure) await configure();
-      setActiveMediaIndex(version.mediaIndex);
-      setActivePartIndex(version.partIndex);
-      await getUniversalDecision(itemID, {
-        maxVideoBitrate: nextQuality.bitrate,
-        autoAdjustQuality: nextQuality.auto,
-        mediaIndex: version.mediaIndex,
-        partIndex: version.partIndex,
-      });
       const loaded = await getPlaybackMetadata(itemID);
       if (
         operation.current !== operationID ||
@@ -251,14 +238,11 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
         ) || version;
 
       setMetadata(loaded);
+      setQuality(nextQuality);
+      callbacks.current.setError(false);
       callbacks.current.requestResumeAt(resumeAt);
-      setUrl("");
-      if (sourceTimer.current !== null) clearTimeout(sourceTimer.current);
-      sourceTimer.current = window.setTimeout(() => {
-        if (operation.current === operationID) {
-          setUrl(buildPlaybackSourceUrl(loaded, nextQuality, refreshedVersion));
-        }
-      }, 100);
+      setActiveMediaIndex(refreshedVersion.mediaIndex);
+      setActivePartIndex(refreshedVersion.partIndex);
       return true;
     } catch (error) {
       if (operation.current === operationID)
@@ -283,10 +267,12 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
   const selectAudioTrack = async (choice: TrackChoice) => {
     if (!metadata) return;
     const preference = preferenceFromStream(choice.stream);
-    void useUserSettings.getState().setSetting(
-      `MEDIA_PREF_AUDIO-${preferenceScope(metadata)}`,
-      JSON.stringify(preference),
-    );
+    void useUserSettings
+      .getState()
+      .setSetting(
+        `MEDIA_PREF_AUDIO-${preferenceScope(metadata)}`,
+        JSON.stringify(preference),
+      );
     const subtitlePreference = selectedPreference(3);
     await restartPlayback(choice, quality, async () => {
       await putAudioStream(choice.part.id, choice.stream.id);
@@ -298,10 +284,12 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
   const selectSubtitleTrack = async (choice: TrackChoice) => {
     if (!metadata) return false;
     const preference = preferenceFromStream(choice.stream);
-    void useUserSettings.getState().setSetting(
-      `MEDIA_PREF_SUBTITLE-${preferenceScope(metadata)}`,
-      JSON.stringify(preference),
-    );
+    void useUserSettings
+      .getState()
+      .setSetting(
+        `MEDIA_PREF_SUBTITLE-${preferenceScope(metadata)}`,
+        JSON.stringify(preference),
+      );
     const audioPreference = selectedPreference(2);
     return restartPlayback(choice, quality, async () => {
       await putSubtitleStream(choice.part.id, choice.stream.id);
@@ -312,10 +300,12 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
 
   const disableSubtitles = async () => {
     if (!metadata || !activeVersion) return;
-    void useUserSettings.getState().setSetting(
-      `MEDIA_PREF_SUBTITLE-${preferenceScope(metadata)}`,
-      JSON.stringify({ index: -1, title: "None" } satisfies TrackPreference),
-    );
+    void useUserSettings
+      .getState()
+      .setSetting(
+        `MEDIA_PREF_SUBTITLE-${preferenceScope(metadata)}`,
+        JSON.stringify({ index: -1, title: "None" } satisfies TrackPreference),
+      );
     await restartPlayback(activeVersion, quality, () =>
       putSubtitleStream(activeVersion.part.id, 0),
     );
@@ -323,14 +313,11 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
 
   const selectQuality = async (nextQuality: PlaybackQuality) => {
     if (!activeVersion) return;
-    setQuality(nextQuality);
-    persistPlaybackQuality(nextQuality);
-    await restartPlayback(activeVersion, nextQuality);
+    if (await restartPlayback(activeVersion, nextQuality))
+      persistPlaybackQuality(nextQuality);
   };
 
-  const downloadOnDemandSubtitle = async (
-    subtitle: SubtitleSearchResult,
-  ) => {
+  const downloadOnDemandSubtitle = async (subtitle: SubtitleSearchResult) => {
     const itemID = callbacks.current.itemID;
     if (!itemID || !metadata || !activeVersion)
       throw new Error("No active media file is available.");
@@ -353,11 +340,7 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
         return;
       const refreshed = await getPlaybackMetadata(itemID);
       if (!refreshed) continue;
-      const choice = findAttachedSubtitle(
-        refreshed,
-        mediaItemID,
-        subtitle,
-      );
+      const choice = findAttachedSubtitle(refreshed, mediaItemID, subtitle);
       if (!choice) continue;
       if (await selectSubtitleTrack(choice)) return;
       break;
@@ -371,7 +354,13 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     metadata,
     showMetadata,
     playQueue,
-    url,
+    source: playbackSource.source,
+    sourceLoading: playbackSource.loading,
+    recoverSource: playbackSource.recover,
+    reloadSource: () =>
+      metadata
+        ? playbackSource.reload()
+        : setInitialRevision((revision) => revision + 1),
     quality,
     activeVersion,
     mediaVersions,

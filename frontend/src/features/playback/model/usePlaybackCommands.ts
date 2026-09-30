@@ -22,13 +22,15 @@ interface PlaybackCommandOptions {
   sync: PlaybackSyncCommands;
   navigate: (path: string) => void;
   reportStopped: () => Promise<void>;
+  getSurface: () => HTMLElement | null;
+  enabled?: boolean;
 }
 
 export function shouldIgnorePlaybackShortcut(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
   return Boolean(
     target.closest(
-      "input, textarea, select, [contenteditable]:not([contenteditable='false'])",
+      "input, textarea, select, button, [role='dialog'], [contenteditable]:not([contenteditable='false'])",
     ),
   );
 }
@@ -56,16 +58,19 @@ export function usePlaybackCommands(options: PlaybackCommandOptions) {
     sync.seek(next);
   }, []);
   const seekBy = useCallback(
-    (offset: number) => seekTo(optionsRef.current.runtime.getCurrentTime() + offset),
+    (offset: number) =>
+      seekTo(optionsRef.current.runtime.getCurrentTime() + offset),
     [seekTo],
   );
   const adjustVolume = useCallback((offset: number) => {
     optionsRef.current.runtime.adjustVolume(offset);
   }, []);
   const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement)
-      void document.documentElement.requestFullscreen();
-    else void document.exitFullscreen();
+    if (!document.fullscreenElement) {
+      const surface = optionsRef.current.getSurface();
+      if (surface?.requestFullscreen)
+        void surface.requestFullscreen().catch(() => undefined);
+    } else void document.exitFullscreen().catch(() => undefined);
   }, []);
   const advance = useCallback((restartNext = false, endSession = false) => {
     const { metadata, playQueue, navigate, sync } = optionsRef.current;
@@ -109,6 +114,7 @@ export function usePlaybackCommands(options: PlaybackCommandOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
+        optionsRef.current.enabled === false ||
         event.altKey ||
         event.ctrlKey ||
         event.metaKey ||
@@ -135,9 +141,16 @@ export function usePlaybackCommands(options: PlaybackCommandOptions) {
       action();
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [adjustVolume, seekBy, skipActiveMarker, toggleFullscreen, togglePlayback]);
+    const surface = optionsRef.current.getSurface();
+    surface?.addEventListener("keydown", handleKeyDown);
+    return () => surface?.removeEventListener("keydown", handleKeyDown);
+  }, [
+    adjustVolume,
+    seekBy,
+    skipActiveMarker,
+    toggleFullscreen,
+    togglePlayback,
+  ]);
 
   return {
     togglePlayback,

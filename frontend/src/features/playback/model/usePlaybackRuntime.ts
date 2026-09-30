@@ -1,13 +1,14 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { VideoPlayerHandle } from "shared/lib/video/types";
 
-export interface PlaybackPlayerHandle {
-  getCurrentTime: () => number;
-  getDuration: () => number;
-  seekTo: (amount: number, type?: "seconds" | "fraction") => void;
-}
+export type PlaybackPlayerHandle = Pick<
+  VideoPlayerHandle,
+  "getCurrentTime" | "getDuration" | "seekTo"
+>;
 
 interface PlaybackRuntimeOptions {
   getPlayer: () => PlaybackPlayerHandle | null;
+  itemID?: string;
 }
 
 export function parseStoredVolume(value: string | null) {
@@ -40,7 +41,10 @@ export function usePlaybackRuntime(options: PlaybackRuntimeOptions) {
     [],
   );
   const seekToLocal = useCallback((time: number) => {
-    optionsRef.current.getPlayer()?.seekTo(Math.max(0, time), "seconds");
+    const player = optionsRef.current.getPlayer();
+    if (!player || player.getDuration() <= 0)
+      pendingResume.current = Math.max(0, time);
+    else player.seekTo(Math.max(0, time));
   }, []);
   const setPlaying = useCallback((nextPlaying: boolean) => {
     playingRef.current = nextPlaying;
@@ -69,10 +73,21 @@ export function usePlaybackRuntime(options: PlaybackRuntimeOptions) {
   const requestResumeAt = useCallback((time: number) => {
     pendingResume.current = time;
   }, []);
+  const getResumePosition = useCallback(
+    (itemID?: string, initialResumeSeconds?: number | null) => {
+      if (pendingResume.current !== null) return pendingResume.current;
+      if (
+        itemID &&
+        initialResumeSeconds &&
+        appliedInitialResume.current !== `${itemID}:${initialResumeSeconds}`
+      )
+        return initialResumeSeconds;
+      return null;
+    },
+    [],
+  );
   const handleReady = useCallback(
     (itemID?: string, initialResumeSeconds?: number | null) => {
-      setPlaying(true);
-
       if (pendingResume.current !== null) {
         seekToLocal(pendingResume.current);
         pendingResume.current = null;
@@ -84,7 +99,7 @@ export function usePlaybackRuntime(options: PlaybackRuntimeOptions) {
       seekToLocal(initialResumeSeconds);
       appliedInitialResume.current = resumeKey;
     },
-    [seekToLocal, setPlaying],
+    [seekToLocal],
   );
   const handleProgress = useCallback(
     (next: { playedSeconds: number; loadedSeconds: number }) => {
@@ -93,6 +108,13 @@ export function usePlaybackRuntime(options: PlaybackRuntimeOptions) {
     },
     [],
   );
+
+  useEffect(() => {
+    pendingResume.current = null;
+    appliedInitialResume.current = null;
+    setPlaying(true);
+    sourceChanging();
+  }, [options.itemID, setPlaying, sourceChanging]);
 
   return {
     playing,
@@ -110,6 +132,7 @@ export function usePlaybackRuntime(options: PlaybackRuntimeOptions) {
     seekToLocal,
     sourceChanging,
     requestResumeAt,
+    getResumePosition,
     handleReady,
     handleProgress,
   };

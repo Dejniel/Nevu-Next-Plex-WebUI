@@ -1,3 +1,4 @@
+import { overlayContainer } from "shared/lib/overlayContainer";
 import {
   ArrowBackIosNewRounded,
   FullscreenRounded,
@@ -47,6 +48,7 @@ interface PlaybackControlsOverlayProps {
   runtime: PlaybackRuntimeController;
   commands: PlaybackCommandController;
   watch: PlaybackControlsWatch;
+  getSurface: () => HTMLElement | null;
 }
 
 export default function PlaybackControlsOverlay({
@@ -54,11 +56,13 @@ export default function PlaybackControlsOverlay({
   runtime,
   commands,
   watch,
+  getSurface,
 }: PlaybackControlsOverlayProps) {
   const theme = useTheme();
   const { settings } = useUserSettings();
-  const [volumeAnchor, setVolumeAnchor] =
-    useState<HTMLButtonElement | null>(null);
+  const [volumeAnchor, setVolumeAnchor] = useState<HTMLButtonElement | null>(
+    null,
+  );
   const [showTune, setShowTune] = useState(false);
   const [controlElementVisible, setControlElementVisible] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -81,19 +85,24 @@ export default function PlaybackControlsOverlay({
       timeout = window.setTimeout(() => setShowControls(false), 5000);
     };
 
-    document.addEventListener("mousemove", handleMouseMove);
+    const surface = getSurface();
+    surface?.addEventListener("pointermove", handleMouseMove);
     return () => {
       window.clearTimeout(timeout);
-      document.removeEventListener("mousemove", handleMouseMove);
+      surface?.removeEventListener("pointermove", handleMouseMove);
     };
+    // The routed playback surface remains mounted for this overlay's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!playing) return;
-    document.body.style.cursor = showControls ? "default" : "none";
+    const surface = getSurface();
+    if (surface) surface.style.cursor = showControls ? "default" : "none";
     return () => {
-      document.body.style.cursor = "default";
+      if (surface) surface.style.cursor = "default";
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, showControls]);
 
   if (!metadata) return null;
@@ -107,8 +116,7 @@ export default function PlaybackControlsOverlay({
       : activeMarker?.type === "credits" && !activeMarker.final
         ? "Skip Credits"
         : null;
-  const finalCredits =
-    activeMarker?.type === "credits" && activeMarker.final;
+  const finalCredits = activeMarker?.type === "credits" && activeMarker.final;
   const controlsVisible = showControls || !playing || controlElementVisible;
   const duration = runtime.getDuration();
 
@@ -165,10 +173,7 @@ export default function PlaybackControlsOverlay({
                   backgroundColor: "rgba(0,0,0,0.9)",
                   transform: "translateY(-2px)",
                   boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
-                  border: `1px solid ${alpha(
-                    theme.palette.primary.main,
-                    0.5,
-                  )}`,
+                  border: `1px solid ${alpha(theme.palette.primary.main, 0.5)}`,
                 },
               }}
               variant="contained"
@@ -229,6 +234,7 @@ export default function PlaybackControlsOverlay({
             }}
           >
             <IconButton
+              aria-label="Back"
               onClick={commands.exitPlayback}
               sx={{
                 width: 48,
@@ -281,9 +287,7 @@ export default function PlaybackControlsOverlay({
               transition: "transform 0.5s ease",
             }}
             style={{
-              transform: controlsVisible
-                ? "translateY(0)"
-                : "translateY(100%)",
+              transform: controlsVisible ? "translateY(0)" : "translateY(100%)",
             }}
           >
             <Box
@@ -326,8 +330,8 @@ export default function PlaybackControlsOverlay({
             >
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <IconButton
+                  aria-label={playing ? "Pause" : "Play"}
                   onClick={commands.togglePlayback}
-                  onKeyDown={(event) => event.preventDefault()}
                   sx={{
                     width: 48,
                     height: 48,
@@ -353,7 +357,7 @@ export default function PlaybackControlsOverlay({
 
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <IconButton
-                  onKeyDown={(event) => event.preventDefault()}
+                  aria-label="Volume"
                   onClick={(event) => setVolumeAnchor(event.currentTarget)}
                   sx={{ width: 40, height: 40 }}
                 >
@@ -371,7 +375,7 @@ export default function PlaybackControlsOverlay({
                 )}
 
                 <IconButton
-                  onKeyDown={(event) => event.preventDefault()}
+                  aria-label="Playback settings"
                   onClick={(event) => {
                     setShowTune((visible) => !visible);
                     tuneButtonRef.current = event.currentTarget;
@@ -382,7 +386,7 @@ export default function PlaybackControlsOverlay({
 
                 {watch.room && (
                   <IconButton
-                    onKeyDown={(event) => event.preventDefault()}
+                    aria-label="Watch together"
                     onClick={watch.openDialog}
                   >
                     <PeopleRounded fontSize="small" />
@@ -390,7 +394,7 @@ export default function PlaybackControlsOverlay({
                 )}
 
                 <IconButton
-                  onKeyDown={(event) => event.preventDefault()}
+                  aria-label="Fullscreen"
                   onClick={commands.toggleFullscreen}
                 >
                   <FullscreenRounded fontSize="small" />
@@ -399,6 +403,7 @@ export default function PlaybackControlsOverlay({
             </Box>
 
             <Popover
+              container={overlayContainer}
               open={volumeOpen}
               anchorEl={volumeAnchor}
               onClose={() => setVolumeAnchor(null)}

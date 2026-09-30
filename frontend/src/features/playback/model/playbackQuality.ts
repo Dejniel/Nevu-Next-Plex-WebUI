@@ -1,6 +1,5 @@
 export interface PlaybackQuality {
   bitrate?: number;
-  auto?: boolean;
 }
 
 export function parseStoredPlaybackQuality(value: string | null) {

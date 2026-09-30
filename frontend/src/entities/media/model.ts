@@ -31,4 +31,24 @@ export type {
   TrackPreference,
 } from "./model/mediaVersions";
 export type { MediaItemData } from "./model/media";
-export { applyMediaWatchedState, isMediaWatched } from "./model/mediaWatchedState";
+export {
+  applyMediaWatchedState,
+  isMediaWatched,
+} from "./model/mediaWatchedState";
+export {
+  resolveMediaPlayback,
+  releaseMediaPlayback,
+  pingMediaPlayback,
+  proxyMediaURL,
+} from "./api/mediaPlayback";
+export { useMediaPlaybackSource } from "./model/useMediaPlaybackSource";
+export type { PlexPlaybackSource } from "./model/mediaPlayback";
+export { fetchDiscoverExtras, resolveDiscoverExtra } from "./api/mediaExtras";
+export {
+  getDiscoverID,
+  mergeTitleExtras,
+  selectPrimaryTrailer,
+  withoutExtra,
+  extraTypeLabel,
+} from "./model/mediaExtras";
+export type { TitleExtra } from "./model/mediaExtras";

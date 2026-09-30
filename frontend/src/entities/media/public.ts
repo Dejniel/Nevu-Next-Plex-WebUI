@@ -1,4 +1,5 @@
 export { default as MediaCard } from "./ui/MediaCard";
 export type { MediaCardProps } from "./ui/MediaCard";
-export { usePreviewPlayer } from "./model/PreviewPlayerState";
+export { usePreviewAudio } from "./model/previewAudio";
 export * from "./model";
+export { default as MediaExtraPlayback } from "./ui/MediaExtraPlayback";

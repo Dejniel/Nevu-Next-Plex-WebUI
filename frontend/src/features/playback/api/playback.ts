@@ -1,67 +1,14 @@
-import { platformCache } from "shared/lib/platform";
 import {
   authedGet,
   authedPost,
-  authedPut,
+  plexClient,
   getXPlexProps,
 } from "features/session/model";
 import { getIncludeProps } from "entities/media/model";
 import { queryBuilder } from "shared/lib/query";
 
-export interface StreamLimitations {
-  autoAdjustQuality?: boolean;
-  maxVideoBitrate?: number;
-  mediaIndex?: number;
-  partIndex?: number;
-}
-
-export function getStreamProps(key: string, limitation: StreamLimitations) {
-  return {
-    audioBoost: 700,
-    autoAdjustQuality: limitation.autoAdjustQuality ? 1 : 0,
-    autoAdjustSubtitle: 0,
-    directPlay: limitation.maxVideoBitrate === -1 ? 1 : 0,
-    directStream: 1,
-    directStreamAudio: 1,
-    fastSeek: 1,
-    hasMDE: 1,
-    location: "lan",
-    mediaBufferSize: 102400,
-    mediaIndex: limitation.mediaIndex ?? 0,
-    partIndex: limitation.partIndex ?? 0,
-    path: `/library/metadata/${key}`,
-    protocol: platformCache.isDesktop ? "hls" : "dash",
-    addDebugOverlay: 0,
-    subtitleSize: 100,
-    subtitles: limitation.maxVideoBitrate === -1 ? "sidecar" : "burn",
-    "Accept-Language": "en",
-    ...getXPlexProps(),
-    ...(limitation.autoAdjustQuality && { autoAdjustQuality: 1 }),
-    ...(limitation.maxVideoBitrate && limitation.maxVideoBitrate !== -1 && {
-      maxVideoBitrate: limitation.maxVideoBitrate,
-    }),
-  };
-}
-
-export async function getUniversalDecision(
-  id: string,
-  limitation: StreamLimitations,
-) {
-  await authedGet(
-    `/video/:/transcode/universal/decision?${queryBuilder({
-      ...getStreamProps(id, limitation),
-    })}`,
-  );
-}
-
-export async function sendUniversalPing() {
-  await authedGet(
-    `/video/:/transcode/universal/ping?${queryBuilder(getXPlexProps())}`,
-  );
-}
-
 export async function putAudioStream(partID: number, streamID: number) {
-  await authedPut(
+  await plexClient.put(
     `/library/parts/${partID}?${queryBuilder({
       audioStreamID: streamID,
       ...getXPlexProps(),
@@ -71,7 +18,7 @@ export async function putAudioStream(partID: number, streamID: number) {
 }
 
 export async function putSubtitleStream(partID: number, streamID: number) {
-  await authedPut(
+  await plexClient.put(
     `/library/parts/${partID}?${queryBuilder({
       subtitleStreamID: streamID,
       ...getXPlexProps(),
@@ -85,6 +32,7 @@ export async function getTimelineUpdate(
   duration: number,
   state: string,
   time: number,
+  sessionID?: string,
 ): Promise<Plex.TimelineUpdateResult> {
   return authedGet(
     `/:/timeline?${queryBuilder({
@@ -96,6 +44,7 @@ export async function getTimelineUpdate(
       time,
       context: "library",
       ...getXPlexProps(),
+      ...(sessionID ? { "X-Plex-Session-Identifier": sessionID } : {}),
     })}`,
   );
 }

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
-import { getTimelineUpdate, sendUniversalPing } from "../api/playback";
+import { getTimelineUpdate } from "../api/playback";
+import { pingMediaPlayback } from "entities/media/model";
+import type { PlexPlaybackSource } from "entities/media/model";
 
 type TimelineState = "buffering" | "playing" | "paused" | "stopped";
 
@@ -10,66 +12,106 @@ interface PlaybackTimelineOptions {
   getCurrentTime: () => number;
   getDuration: () => number;
   onTermination: (message: string) => void;
+  source?: PlexPlaybackSource | null;
+}
+
+interface TimelineSession {
+  itemID: string;
+  time: number;
+  duration: number;
+  started: boolean;
+  stopped: boolean;
+  sourceID?: string;
 }
 
 export function currentTimelineState(
   playing: boolean,
   buffering: boolean,
 ): TimelineState {
-  if (buffering) return "buffering";
-  return playing ? "playing" : "paused";
+  return buffering ? "buffering" : playing ? "playing" : "paused";
 }
 
-async function reportTimeline(
-  itemID: string,
-  state: TimelineState,
-  getDuration: () => number,
-  getCurrentTime: () => number,
-) {
-  const numericID = Number.parseInt(itemID, 10);
+async function reportTimeline(session: TimelineSession, state: TimelineState) {
+  const numericID = Number.parseInt(session.itemID, 10);
   if (!Number.isFinite(numericID)) return null;
   return getTimelineUpdate(
     numericID,
-    Math.floor(getDuration()) * 1000,
+    Math.floor(session.duration * 1000),
     state,
-    Math.floor(getCurrentTime()) * 1000,
+    Math.floor(session.time * 1000),
+    session.sourceID,
   );
+}
+
+async function stopSession(session: TimelineSession | null) {
+  if (!session?.started || session.stopped) return;
+  session.stopped = true;
+  try {
+    await reportTimeline(session, "stopped");
+  } catch {
+    // Navigation should not be blocked by a failed final report.
+  }
 }
 
 export function usePlaybackTimeline(options: PlaybackTimelineOptions) {
   const optionsRef = useRef(options);
   optionsRef.current = options;
+  const sessionRef = useRef<TimelineSession | null>(null);
+  if (sessionRef.current?.itemID !== options.itemID) {
+    sessionRef.current = options.itemID
+      ? {
+          itemID: options.itemID,
+          time: 0,
+          duration: 0,
+          started: false,
+          stopped: false,
+        }
+      : null;
+  }
+  const session = sessionRef.current;
+  if (session && options.source) {
+    session.sourceID = options.source.id;
+    const duration = options.getDuration();
+    if (duration > 0) {
+      session.started = true;
+      session.time = options.getCurrentTime();
+      session.duration = duration;
+    }
+  }
 
   useEffect(() => {
-    if (!options.itemID) return;
-    const itemID = options.itemID;
+    if (!session) return;
     let active = true;
     let pingPending = false;
     let timelinePending = false;
-
     const ping = async () => {
-      if (pingPending) return;
+      const source = optionsRef.current.source;
+      if (pingPending || !source || session.stopped) return;
       pingPending = true;
       try {
-        await sendUniversalPing();
+        await pingMediaPlayback(source);
       } catch {
-        // A later timeline update reports actionable playback errors.
+        // A transient reporting failure must not stop local playback.
       } finally {
         pingPending = false;
       }
     };
     const update = async () => {
-      if (timelinePending) return;
+      if (
+        timelinePending ||
+        !session.started ||
+        session.stopped ||
+        !optionsRef.current.source
+      )
+        return;
       timelinePending = true;
       try {
         const current = optionsRef.current;
         const result = await reportTimeline(
-          itemID,
+          session,
           currentTimelineState(current.playing, current.buffering),
-          current.getDuration,
-          current.getCurrentTime,
         );
-        if (!active || optionsRef.current.itemID !== itemID || !result) return;
+        if (!active || !result) return;
         const { terminationCode, terminationText } = result.MediaContainer;
         if (terminationCode)
           current.onTermination(`${terminationCode} - ${terminationText}`);
@@ -79,30 +121,16 @@ export function usePlaybackTimeline(options: PlaybackTimelineOptions) {
         timelinePending = false;
       }
     };
-
     const pingInterval = window.setInterval(() => void ping(), 10_000);
     const timelineInterval = window.setInterval(() => void update(), 5_000);
     return () => {
       active = false;
       window.clearInterval(pingInterval);
       window.clearInterval(timelineInterval);
+      void stopSession(session);
     };
-  }, [options.itemID]);
+  }, [session]);
 
-  const reportStopped = useCallback(async () => {
-    const current = optionsRef.current;
-    if (!current.itemID) return;
-    try {
-      await reportTimeline(
-        current.itemID,
-        "stopped",
-        current.getDuration,
-        current.getCurrentTime,
-      );
-    } catch {
-      // Navigation should not be blocked by a failed final report.
-    }
-  }, []);
-
+  const reportStopped = useCallback(() => stopSession(sessionRef.current), []);
   return { reportStopped };
 }

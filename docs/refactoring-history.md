@@ -2,6 +2,13 @@
 
 Status: structural migration completed on 2026-09-29
 
+## Unified playback — 2026-09-30
+
+Films, extras, hero trailers, and card previews now share `<video>` + npm Shaka
+Player. Reusable Plex negotiation and session ownership live in `entities/media`;
+the routed playback feature retains track selection, timeline, queue, and sync.
+ReactPlayer, hls.js, and the previous separate extra player were removed.
+
 ## Why this work exists
 
 The frontend grew around horizontal directories (`components`, `pages`,

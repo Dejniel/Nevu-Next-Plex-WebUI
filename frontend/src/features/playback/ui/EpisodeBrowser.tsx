@@ -1,3 +1,4 @@
+import { overlayContainer } from "shared/lib/overlayContainer";
 import {
   ArrowBackIosNewRounded,
   PlayArrowRounded,
@@ -32,7 +33,7 @@ function EpisodeBrowser({
   item: Plex.Metadata;
   controlElementsVisibleState: [
     boolean,
-    React.Dispatch<React.SetStateAction<boolean>>
+    React.Dispatch<React.SetStateAction<boolean>>,
   ];
 }) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -50,7 +51,7 @@ function EpisodeBrowser({
     (async () => {
       const getSeasons = new Promise<Plex.Metadata[]>((resolve) => {
         getLibraryDirectory(
-          `/library/metadata/${item.grandparentRatingKey}/children`
+          `/library/metadata/${item.grandparentRatingKey}/children`,
         ).then((data) => {
           if (!data?.Metadata) return;
           resolve(data?.Metadata);
@@ -59,7 +60,7 @@ function EpisodeBrowser({
 
       const getEpisodes = new Promise<Plex.Metadata[]>((resolve) => {
         getLibraryDirectory(
-          `/library/metadata/${item.grandparentRatingKey}/allLeaves`
+          `/library/metadata/${item.grandparentRatingKey}/allLeaves`,
         ).then((data) => {
           if (!data?.Metadata) return;
           resolve(data?.Metadata);
@@ -80,7 +81,7 @@ function EpisodeBrowser({
 
   return (
     <>
-      <Portal>
+      <Portal container={overlayContainer}>
         <Backdrop
           open={Boolean(anchorEl)}
           sx={{
@@ -93,6 +94,7 @@ function EpisodeBrowser({
           }}
         >
           <Popper
+            container={overlayContainer}
             open={Boolean(anchorEl)}
             anchorEl={anchorEl}
             placement="bottom"
@@ -239,7 +241,7 @@ function EpisodeBrowser({
                       >
                         {episodes
                           ?.filter(
-                            (episode) => episode.parentIndex === selectedSeason
+                            (episode) => episode.parentIndex === selectedSeason,
                           )
                           .map((episode) => (
                             <Box
@@ -270,7 +272,7 @@ function EpisodeBrowser({
                                   "&:hover": {
                                     bgcolor: alpha(
                                       theme.palette.action.hover,
-                                      0.1
+                                      0.1,
                                     ),
                                     "& .playIcon": {
                                       opacity: 1,
@@ -300,7 +302,7 @@ function EpisodeBrowser({
                                     backgroundImage: `url(${getTranscodeImageURL(
                                       episode.thumb,
                                       320,
-                                      180
+                                      180,
                                     )})`,
                                     backgroundSize: "cover",
                                     backgroundPosition: "center",

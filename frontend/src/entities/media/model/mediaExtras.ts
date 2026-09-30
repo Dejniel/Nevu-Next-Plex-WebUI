@@ -5,7 +5,9 @@ export interface TitleExtra {
   metadata: Plex.Metadata;
 }
 
-export function getDiscoverID(item: Plex.Metadata): string | null {
+export function getDiscoverID(
+  item: Partial<Pick<Plex.Metadata, "guid" | "Guid">>,
+): string | null {
   const plexGuid = item.Guid?.find((guid) => guid.id.startsWith("plex://"))?.id;
   const guid = plexGuid || item.guid;
   const match = guid?.match(/^plex:\/\/(?:movie|show)\/([a-f0-9]+)$/i);
@@ -14,7 +16,12 @@ export function getDiscoverID(item: Plex.Metadata): string | null {
 
 function extraIdentity(extra: Plex.Metadata): string[] {
   const title = (extra.title || "").trim().toLowerCase();
-  const signature = [extra.extraType ?? "", extra.subtype ?? "", title, extra.duration ?? ""].join("|");
+  const signature = [
+    extra.extraType ?? "",
+    extra.subtype ?? "",
+    title,
+    extra.duration ?? "",
+  ].join("|");
 
   return [extra.guid, extra.key, extra.ratingKey, signature]
     .filter((value): value is string => Boolean(value))
@@ -54,7 +61,8 @@ export function selectPrimaryTrailer(
   if (primaryExtraKey) {
     const primary = extras.find(
       ({ metadata }) =>
-        metadata.key === primaryExtraKey || metadata.ratingKey === primaryExtraKey,
+        metadata.key === primaryExtraKey ||
+        metadata.ratingKey === primaryExtraKey,
     );
     if (primary && isTrailer(primary)) return primary;
   }

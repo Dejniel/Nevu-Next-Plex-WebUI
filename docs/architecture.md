@@ -56,9 +56,9 @@ features/library/
   public.ts  exports used by the rest of the application
 ```
 
-`features/title-details` follows the same boundary for title metadata, extras,
+`features/title-details` follows the same boundary for title metadata, extra selection,
 reviews, downloads, and the details dialog. `features/playback` owns stream
-selection, playback requests, subtitle search, queue controls, and the routed
+selection, timeline reporting, subtitle search, queue controls, and the routed
 player screen. `features/watch-together` owns the cross-session connection,
 protocol adapter, room dialog, waiting room, notifications, and player-facing
 synchronization controller. `features/home` owns the routed discovery screen,
@@ -76,6 +76,16 @@ owns reusable library data and administration requests.
 `architectureBoundaries.test.ts` checks the current entry-point and dependency
 conventions. Update those checks alongside intentional architecture changes.
 Headless entry points help non-UI consumers avoid UI dependencies or cycles.
+
+## Video playback
+
+`shared/ui/VideoPlayer` owns one native `<video>` element and its lifecycle;
+direct files use the browser and HLS/DASH use the lazily loaded npm Shaka Player.
+`entities/media` probes browser codecs, builds Plex client profiles, negotiates
+Direct Play/remux/audio or video conversion, and releases owned sessions.
+Text subtitles use Plex WebVTT extraction; image/styled subtitles use burn-in.
+Local extras, Discover trailers, card previews, and full playback share this
+engine. Plex supplies conversions; Nevu has no separate transcoder.
 
 ## API and state conventions
 

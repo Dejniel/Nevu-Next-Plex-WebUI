@@ -8,13 +8,14 @@ import {
 import { Box, Typography, Button, IconButton, Skeleton } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import { usePreviewPlayer } from "entities/media/public";
+import { usePreviewAudio } from "entities/media/public";
 import { HeroWatchlistButton } from "features/watchlist/public";
 import {
   getResponsiveTranscodeImageProps,
   HERO_IMAGE_WIDTHS,
 } from "entities/media/model";
-import { ExtraPlayer, useTitleExtras } from "features/title-details/public";
+import { useTitleExtras } from "features/title-details/public";
+import { MediaExtraPlayback } from "entities/media/public";
 import { alpha } from "@mui/material/styles";
 import { HOME_CONTENT_GUTTER, homeHeroContentSx } from "./homeHeroLayout";
 import { mediaDetailsTo, mediaWatchTo } from "shared/lib/navigation";
@@ -29,8 +30,7 @@ function HomeHero({
   const [searchParams] = useSearchParams();
   const location = useLocation();
 
-  const { MetaScreenPlayerMuted, setMetaScreenPlayerMuted } =
-    usePreviewPlayer();
+  const { muted, setMuted } = usePreviewAudio();
   const { primaryTrailer } = useTitleExtras(item);
 
   const [previewVidPlaying, setPreviewVidPlaying] = useState<boolean>(false);
@@ -124,15 +124,15 @@ function HomeHero({
         </IconButton>
 
         <IconButton
-          aria-label={MetaScreenPlayerMuted ? "Unmute trailer" : "Mute trailer"}
+          aria-label={muted ? "Unmute trailer" : "Mute trailer"}
           sx={{
             backgroundColor: "#00000088",
           }}
           onClick={() => {
-            setMetaScreenPlayerMuted(!MetaScreenPlayerMuted);
+            setMuted(!muted);
           }}
         >
-          {MetaScreenPlayerMuted ? <VolumeOffRounded /> : <VolumeUpRounded />}
+          {muted ? <VolumeOffRounded /> : <VolumeUpRounded />}
         </IconButton>
       </Box>
 
@@ -177,7 +177,13 @@ function HomeHero({
           <Skeleton
             variant="rectangular"
             animation="wave"
-            sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 0 }}
+            sx={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              zIndex: 0,
+            }}
           />
         )}
         <Box
@@ -208,11 +214,11 @@ function HomeHero({
           }}
         >
           {primaryTrailer && (
-            <ExtraPlayer
+            <MediaExtraPlayback
               extra={primaryTrailer}
               autoPlay={previewVidPlaying}
               playing={previewVidPlaying}
-              muted={MetaScreenPlayerMuted}
+              muted={muted}
               volume={0.5}
               controls={false}
               objectFit="cover"

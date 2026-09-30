@@ -1,17 +1,11 @@
-import {
-  Avatar,
-  Box,
-  Button,
-  Paper,
-  Typography,
-} from "@mui/material";
+import { Avatar, Box, Button, Paper, Typography } from "@mui/material";
 import { ArrowForwardRounded } from "@mui/icons-material";
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ActionableMediaCard } from "features/media-actions/public";
 import { getTranscodeImageURL } from "entities/media/model";
-import { TitleExtra } from "../model/titleExtras";
-import ExtraPlayer from "./ExtraPlayer";
+import { TitleExtra } from "entities/media/model";
+import { MediaExtraPlayback } from "entities/media/public";
 import { libraryBrowseTo } from "shared/lib/navigation";
 
 function SectionTitle({
@@ -97,7 +91,9 @@ export default function TitleOverview({
   const reviews = (data.Review || []).slice(0, 3);
 
   return (
-    <Box sx={{ width: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
+    <Box
+      sx={{ width: "100%", display: "flex", flexDirection: "column", gap: 6 }}
+    >
       {trailer && (
         <Box sx={{ width: "100%" }}>
           <SectionTitle>Trailer</SectionTitle>
@@ -110,12 +106,10 @@ export default function TitleOverview({
               bgcolor: "#000",
             }}
           >
-            <ExtraPlayer
+            <MediaExtraPlayback
               extra={trailer}
               poster={
-                data.art
-                  ? getTranscodeImageURL(data.art, 1280, 720)
-                  : undefined
+                data.art ? getTranscodeImageURL(data.art, 1280, 720) : undefined
               }
             />
           </Box>
@@ -124,12 +118,12 @@ export default function TitleOverview({
 
       {reviews.length > 0 && (
         <Box sx={{ width: "100%" }}>
-          <SectionTitle action={{ label: "All reviews", onClick: onShowReviews }}>
+          <SectionTitle
+            action={{ label: "All reviews", onClick: onShowReviews }}
+          >
             Reviews
           </SectionTitle>
-          <HorizontalRail
-            itemWidth={{ xs: "min(82vw, 320px)", sm: "360px" }}
-          >
+          <HorizontalRail itemWidth={{ xs: "min(82vw, 320px)", sm: "360px" }}>
             {reviews.map((review) => (
               <Paper key={review.id} sx={{ p: 2.5, height: "100%" }}>
                 <Typography sx={{ fontWeight: 700 }}>{review.tag}</Typography>
