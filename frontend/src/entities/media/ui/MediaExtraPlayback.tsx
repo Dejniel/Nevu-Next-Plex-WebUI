@@ -1,4 +1,4 @@
-import { Alert, Box, CircularProgress } from "@mui/material";
+import { Alert, Box, Button, CircularProgress } from "@mui/material";
 import React, { useEffect, useRef, useState } from "react";
 import VideoPlayer from "shared/ui/VideoPlayer";
 import type { VideoPlayerProps } from "shared/ui/VideoPlayer";
@@ -26,28 +26,37 @@ export default function MediaExtraPlayback({
   );
   const [discover, setDiscover] = useState<VideoSource | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const player = useRef<VideoPlayerHandle>(null);
   const resume = useRef<number | null>(null);
   const errorCallback = useRef(onPlaybackError);
   errorCallback.current = onPlaybackError;
 
   useEffect(() => {
+    resume.current = null;
+  }, [extra]);
+
+  useEffect(() => {
     let active = true;
     setDiscover(null);
     setError(null);
-    resume.current = null;
     if (extra.source === "discover")
       void resolveDiscoverExtra(extra)
         .then((source) => {
           if (active) setDiscover(source);
         })
-        .catch(() => {
-          if (active) setError("Plex Discover could not prepare this extra.");
+        .catch((reason: unknown) => {
+          if (active)
+            setError(
+              reason instanceof Error
+                ? reason.message
+                : "Plex Discover could not prepare this extra. Please try again.",
+            );
         });
     return () => {
       active = false;
     };
-  }, [extra]);
+  }, [extra, attempt]);
 
   const failure = error || local.error;
   useEffect(() => {
@@ -67,7 +76,23 @@ export default function MediaExtraPlayback({
       }}
     >
       {!source && !failure && <CircularProgress />}
-      {failure && showErrors && <Alert severity="error">{failure}</Alert>}
+      {failure && showErrors && (
+        <Alert
+          severity="error"
+          action={
+            extra.source === "discover" ? (
+              <Button
+                color="inherit"
+                onClick={() => setAttempt((value) => value + 1)}
+              >
+                Try again
+              </Button>
+            ) : undefined
+          }
+        >
+          {failure}
+        </Alert>
+      )}
       {source && !failure && (
         <VideoPlayer
           {...videoProps}

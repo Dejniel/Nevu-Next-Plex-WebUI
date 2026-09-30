@@ -41,11 +41,20 @@ export async function resolveDiscoverExtra(
   if (!part?.key)
     throw new Error("This extra does not have a playable stream.");
 
-  const response = await axios.post(
-    `${getBackendURL()}/discover/stream`,
-    { path: part.key.split("?")[0] },
-    { headers: discoverHeaders() },
-  );
+  const response = await axios
+    .post(
+      `${getBackendURL()}/discover/stream`,
+      { path: part.key.split("?")[0] },
+      { headers: discoverHeaders() },
+    )
+    .catch((reason: unknown) => {
+      const status = axios.isAxiosError(reason)
+        ? reason.response?.status
+        : null;
+      throw new Error(
+        `Plex Discover could not prepare this extra${status ? ` (HTTP ${status})` : ""}. Please try again.`,
+      );
+    });
   if (!response.data?.url)
     throw new Error("Plex Discover did not return a stream.");
   return { id: part.key, url: response.data.url, type: "hls" };
