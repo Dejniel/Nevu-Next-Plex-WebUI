@@ -119,6 +119,7 @@ describe("frontend module boundaries", () => {
     const allowedRootFiles = new Set([
       "architectureBoundaries.test.ts",
       "index.tsx",
+      "react-app-env.d.ts",
       "types.d.ts",
     ]);
     const rootRuntimeFiles = fs

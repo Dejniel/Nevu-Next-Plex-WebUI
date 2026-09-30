@@ -44,7 +44,7 @@ function directionLabels(title: string): [string, string] {
 }
 
 function optionsFromSorts(sorts: Plex.Sort[]): LibrarySortOption[] {
-  return sorts.flatMap((sort) => {
+  return sorts.flatMap<LibrarySortOption>((sort) => {
     if (!isValidLibrarySort(sort.key) || !isValidLibrarySort(sort.descKey)) return [];
     if (isRandomLibrarySort(sort.key) || isRandomLibrarySort(sort.descKey))
       return [{ value: sort.descKey, label: "Random", random: true }];

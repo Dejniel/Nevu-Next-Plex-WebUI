@@ -13,7 +13,7 @@ ENV CI=true \
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
-RUN npm run build
+RUN npm run typecheck && npm run build
 
 FROM ${NODE_IMAGE} AS backend-base
 RUN apt-get update \

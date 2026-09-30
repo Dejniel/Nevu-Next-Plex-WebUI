@@ -150,7 +150,7 @@ Requires Node.js 22 and npm. Run the backend and frontend in separate terminals:
 Checks:
 
 ```bash
-(cd frontend && CI=true npm test -- --watchAll=false && npm run build)
+(cd frontend && npm run typecheck && CI=true npm test -- --watchAll=false && npm run build)
 (cd backend && npm run build)
 docker build -t nevu-next:test .
 ```

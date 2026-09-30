@@ -103,7 +103,7 @@ export default function ActionableMediaCard({
     setPlayLoading(true);
     try {
       const target = await resolvePlaybackTarget(displayItem, PlexTvSource);
-      if (target.path) navigate(target.path);
+      if (target.path !== null) navigate(target.path);
       else useBigReader.getState().setBigReader(target.message);
     } catch {
       useBigReader.getState().setBigReader("Nevu could not start playback.");
@@ -276,7 +276,7 @@ export default function ActionableMediaCard({
               ...current,
               guid: candidate.guid,
               title: candidate.name,
-              year: candidate.year ?? current.year,
+              ...(candidate.year !== undefined ? { year: candidate.year } : {}),
             }));
             refetchData?.();
           }}

@@ -51,7 +51,7 @@ export default function TitlePrimaryActions({
     setPlayLoading(true);
     try {
       const target = await resolvePlaybackTarget(data);
-      if (target.path) navigate(target.path);
+      if (target.path !== null) navigate(target.path);
       else useBigReader.getState().setBigReader(target.message);
     } catch {
       useBigReader.getState().setBigReader("Nevu could not start playback.");

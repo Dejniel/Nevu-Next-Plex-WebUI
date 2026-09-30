@@ -68,10 +68,16 @@ it("serializes nested filter expressions without client-only labels", async () =
     filterExpression,
   });
 
-  expect(JSON.parse(get.mock.calls[0][1]?.params.filterExpression)).toEqual(
-    normalizeLibraryFilterExpression(filterExpression),
-  );
-  expect(get.mock.calls[0][1]?.params.filterExpression).not.toContain("valueLabel");
+  expect(get.mock.calls[0][1]).toMatchObject({
+    params: {
+      filterExpression: JSON.stringify(
+        normalizeLibraryFilterExpression(filterExpression),
+      ),
+    },
+  });
+  expect(get.mock.calls[0][1]).toMatchObject({
+    params: { filterExpression: expect.not.stringContaining("valueLabel") },
+  });
 });
 
 it("forwards an allowlisted collection source to the backend", async () => {
@@ -81,7 +87,7 @@ it("forwards an allowlisted collection source to the backend", async () => {
 
   await getLibraryPage({ ...request, source: "onDeck" });
 
-  expect(get.mock.calls[0][1]?.params.source).toBe("onDeck");
+  expect(get.mock.calls[0][1]).toMatchObject({ params: { source: "onDeck" } });
 });
 
 it("notifies the auth boundary when Plex rejects the active token", async () => {

@@ -1,4 +1,9 @@
-import type { LibraryCardDto, LibraryPageDto, LibraryPageRequest } from "@nevu/contracts";
+import type {
+  LibraryCardDto,
+  LibraryFilterGroup,
+  LibraryPageDto,
+  LibraryPageRequest,
+} from "@nevu/contracts";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -106,20 +111,18 @@ it("separates range caches by canonical filter clauses, not display labels", () 
       kind: "clause", field: "genre", operator: "=", value: "5", valueLabel: "Comedy",
     },
   });
-  const all = query({
-    filterExpression: {
-      kind: "group",
-      mode: "and",
-      children: [
-        { kind: "clause", field: "genre", operator: "=", value: "4" },
-        { kind: "clause", field: "year", operator: ">=", value: "2020" },
-      ],
-    },
-  });
+  const filterExpression: LibraryFilterGroup = {
+    kind: "group",
+    mode: "and",
+    children: [
+      { kind: "clause", field: "genre", operator: "=", value: "4" },
+      { kind: "clause", field: "year", operator: ">=", value: "2020" },
+    ],
+  };
+  const all = query({ filterExpression });
   const any = query({
     filterExpression: {
-      ...all.filterExpression,
-      kind: "group",
+      ...filterExpression,
       mode: "or",
     },
   });

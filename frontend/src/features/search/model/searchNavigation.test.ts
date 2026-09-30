@@ -17,13 +17,19 @@ it("opens media search results without losing library state", () => {
 
 it("opens directory results through the library browser", () => {
   const target = searchResultTo(location, {
-    Directory: { librarySectionID: "3", id: "7" },
-  } as Plex.SearchResult);
+    score: 1,
+    Directory: {
+      key: "/library/sections/3/genre/7",
+      title: "Drama",
+      librarySectionID: 3,
+      id: 7,
+    },
+  });
   const params = new URLSearchParams(String(target && target.search));
 
   expect(params.get("bkey")).toBe("/library/sections/3/genre/7");
 });
 
 it("rejects unsupported empty results", () => {
-  expect(searchResultTo(location, {} as Plex.SearchResult)).toBeNull();
+  expect(searchResultTo(location, { score: 0 })).toBeNull();
 });

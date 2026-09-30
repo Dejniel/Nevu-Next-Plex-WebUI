@@ -8,9 +8,18 @@ jest.mock("../api/socket", () => ({
 
 type Handler = (...args: any[]) => void;
 
+interface SocketStub {
+  on: jest.Mock<SocketStub, [string, Handler]>;
+  once: jest.Mock<SocketStub, [string, Handler]>;
+  off: jest.Mock<SocketStub, [string, Handler]>;
+  connect: jest.Mock<SocketStub, []>;
+  disconnect: jest.Mock<SocketStub, []>;
+  trigger: (event: string, ...args: any[]) => void;
+}
+
 function socketStub() {
   const handlers = new Map<string, { handler: Handler; once: boolean }[]>();
-  const socket = {
+  const socket: SocketStub = {
     on: jest.fn((event: string, handler: Handler) => {
       handlers.set(event, [...(handlers.get(event) || []), { handler, once: false }]);
       return socket;

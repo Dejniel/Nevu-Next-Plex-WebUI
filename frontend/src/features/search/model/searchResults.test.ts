@@ -9,9 +9,15 @@ const movie = {
 const episode = {
   Metadata: { ratingKey: "2", type: "episode", title: "Episode" },
 } as Plex.SearchResult;
-const directory = {
-  Directory: { id: "3", tag: "Drama" },
-} as Plex.SearchResult;
+const directory: Plex.SearchResult = {
+  score: 1,
+  Directory: {
+    id: 3,
+    key: "/library/sections/1/genre/3",
+    title: "Drama",
+    tag: "Drama",
+  },
+};
 
 it("keeps supported titles and categories in their own collections", () => {
   expect(partitionSearchResults([movie, episode, directory])).toEqual({

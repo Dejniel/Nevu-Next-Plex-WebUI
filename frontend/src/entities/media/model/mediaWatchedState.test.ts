@@ -1,7 +1,7 @@
 import type { LibraryCardDto } from "@nevu/contracts";
 import { applyMediaWatchedState, isMediaWatched } from "./mediaWatchedState";
 
-it.each(["movie", "episode"])("recognizes the view count of a %s", (type) => {
+it.each(["movie", "episode"] as const)("recognizes the view count of a %s", (type) => {
   expect(isMediaWatched({ type })).toBe(false);
   expect(isMediaWatched({ type, viewCount: 0 })).toBe(false);
   expect(isMediaWatched({ type, viewCount: 2 })).toBe(true);
@@ -23,7 +23,7 @@ it.each([
   expect(isMediaWatched({ type: "show", ...counts })).toBe(false);
 });
 
-it.each(["movie", "episode"])("updates a %s without mutating its metadata or other fields", (type) => {
+it.each(["movie", "episode"] as const)("updates a %s without mutating its metadata or other fields", (type) => {
   const original = Object.freeze({
     type, viewCount: 3, title: "Title", viewOffset: 500, leafCount: 8,
     viewedLeafCount: 4, Media: [{ id: "version" }],

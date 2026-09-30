@@ -21,7 +21,7 @@ it("reports non-successful Plex responses with their status", async () => {
   transport.mockResolvedValue({ status: 503, data: "unavailable" });
 
   await expect(client.get("/identity")).rejects.toEqual(
-    expect.objectContaining<PlexRequestError>({
+    expect.objectContaining<Partial<PlexRequestError>>({
       status: 503,
       response: "unavailable",
     }),

@@ -21,7 +21,7 @@ it("preserves the status when a strict authenticated request fails", async () =>
   request.mockResolvedValue({ status: 503, data: "unavailable" } as never);
 
   await expect(authedGetStrict("/identity")).rejects.toEqual(
-    expect.objectContaining<PlexRequestError>({
+    expect.objectContaining<Partial<PlexRequestError>>({
       name: "PlexRequestError",
       status: 503,
       response: "unavailable",
