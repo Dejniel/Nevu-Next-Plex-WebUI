@@ -222,9 +222,11 @@ function PlaybackScreen() {
               onBuffering={playbackRuntime.setBuffering}
               onPlayRejected={() => playbackRuntime.setPlaying(false)}
               onError={(error) => {
-                const resumeAt = playbackRuntime.getCurrentTime();
                 if (playbackMedia.recoverSource(error)) {
-                  playbackRuntime.requestResumeAt(resumeAt);
+                  if (playbackRuntime.getDuration() > 0)
+                    playbackRuntime.requestResumeAt(
+                      playbackRuntime.getCurrentTime(),
+                    );
                   return;
                 }
                 playbackRuntime.setPlaying(false);

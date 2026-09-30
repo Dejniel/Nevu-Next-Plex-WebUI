@@ -35,15 +35,10 @@ export {
   applyMediaWatchedState,
   isMediaWatched,
 } from "./model/mediaWatchedState";
-export {
-  resolveMediaPlayback,
-  releaseMediaPlayback,
-  pingMediaPlayback,
-  proxyMediaURL,
-} from "./api/mediaPlayback";
+export { pingMediaPlayback } from "./api/mediaPlayback";
 export { useMediaPlaybackSource } from "./model/useMediaPlaybackSource";
 export type { PlexPlaybackSource } from "./model/mediaPlayback";
-export { fetchDiscoverExtras, resolveDiscoverExtra } from "./api/mediaExtras";
+export { fetchDiscoverExtras } from "./api/mediaExtras";
 export {
   getDiscoverID,
   mergeTitleExtras,

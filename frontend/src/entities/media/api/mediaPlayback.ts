@@ -5,7 +5,6 @@ import { uuidV4 } from "shared/lib/identifiers";
 import { getMediaVersions } from "../model/mediaVersions";
 import type { MediaVersion } from "../model/mediaVersions";
 import {
-  mediaContainerMime,
   planMediaPlayback,
   playbackDecisionMode,
 } from "../model/mediaPlayback";
@@ -16,7 +15,7 @@ import type {
   PlexPlaybackSource,
 } from "../model/mediaPlayback";
 
-export function playbackRequestParams(
+function playbackRequestParams(
   metadata: Plex.Metadata,
   version: MediaVersion,
   plan: PlexPlaybackPlan,
@@ -50,10 +49,7 @@ export function playbackRequestParams(
   };
 }
 
-export function proxyMediaURL(
-  path: string,
-  params: Record<string, unknown> = {},
-) {
+function proxyMediaURL(path: string, params: Record<string, unknown> = {}) {
   const parsed = new URL(path, "http://plex.local");
   return `${getBackendURL()}/dynproxy${parsed.pathname}?${queryBuilder({ ...getXPlexProps(), ...Object.fromEntries(parsed.searchParams), ...params })}`;
 }
@@ -86,10 +82,6 @@ export async function resolveMediaPlayback(
     id: sessionID,
     requestContext,
     mode,
-    reason:
-      mode === "directplay"
-        ? undefined
-        : decision.MediaContainer.directPlayDecisionText,
     type: mode === "directplay" ? "file" : plan.protocol,
     url:
       mode === "directplay"
@@ -102,12 +94,6 @@ export async function resolveMediaPlayback(
             `/video/:/transcode/universal/start.${extension}`,
             params,
           ),
-    mimeType:
-      mode === "directplay"
-        ? (mediaContainerMime(
-            version.part.container ?? version.media.container,
-          ) ?? undefined)
-        : undefined,
     sessionID: mode === "directplay" ? undefined : sessionID,
   };
   if (plan.subtitles === "sidecar" && plan.subtitle) {

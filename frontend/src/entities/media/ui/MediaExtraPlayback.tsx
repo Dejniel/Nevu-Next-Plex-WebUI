@@ -27,15 +27,15 @@ export default function MediaExtraPlayback({
   const [discover, setDiscover] = useState<VideoSource | null>(null);
   const [error, setError] = useState<string | null>(null);
   const player = useRef<VideoPlayerHandle>(null);
-  const resume = useRef(0);
-  const callbacks = useRef({ onPlaybackError, onReady: videoProps.onReady });
-  callbacks.current = { onPlaybackError, onReady: videoProps.onReady };
+  const resume = useRef<number | null>(null);
+  const errorCallback = useRef(onPlaybackError);
+  errorCallback.current = onPlaybackError;
 
   useEffect(() => {
     let active = true;
     setDiscover(null);
     setError(null);
-    resume.current = 0;
+    resume.current = null;
     if (extra.source === "discover")
       void resolveDiscoverExtra(extra)
         .then((source) => {
@@ -51,7 +51,7 @@ export default function MediaExtraPlayback({
 
   const failure = error || local.error;
   useEffect(() => {
-    if (failure) callbacks.current.onPlaybackError?.(failure);
+    if (failure) errorCallback.current?.(failure);
   }, [failure]);
   const source = extra.source === "local" ? local.source : discover;
 
@@ -74,13 +74,10 @@ export default function MediaExtraPlayback({
           controls={controls}
           ref={player}
           source={source}
-          startTime={resume.current || videoProps.startTime}
-          onReady={() => {
-            if (resume.current > 0) player.current?.seekTo(resume.current);
-            callbacks.current.onReady?.();
-          }}
+          startTime={resume.current ?? videoProps.startTime}
           onError={(reason) => {
-            resume.current = player.current?.getCurrentTime() ?? 0;
+            if (player.current && player.current.getDuration() > 0)
+              resume.current = player.current.getCurrentTime();
             if (extra.source === "local" && local.recover(reason)) return;
             setError(reason.message);
           }}

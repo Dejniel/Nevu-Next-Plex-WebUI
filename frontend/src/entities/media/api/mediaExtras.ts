@@ -26,21 +26,18 @@ export async function fetchDiscoverExtras(
   return response.data?.MediaContainer?.Metadata ?? [];
 }
 
-function getPlayablePart(
-  extra: Plex.Metadata,
-  requireHLS = false,
-): Plex.Part | null {
+function getPlayablePart(extra: Plex.Metadata): Plex.Part | null {
   const parts = extra.Media?.flatMap((media) => media.Part || []) ?? [];
-  const hls = parts.find((part) =>
-    part.key?.split("?")[0].endsWith("/parts/hls.m3u8"),
+  return (
+    parts.find((part) => part.key?.split("?")[0].endsWith("/parts/hls.m3u8")) ??
+    null
   );
-  return hls ?? (requireHLS ? null : (parts[0] ?? null));
 }
 
 export async function resolveDiscoverExtra(
   extra: TitleExtra,
 ): Promise<VideoSource> {
-  const part = getPlayablePart(extra.metadata, true);
+  const part = getPlayablePart(extra.metadata);
   if (!part?.key)
     throw new Error("This extra does not have a playable stream.");
 

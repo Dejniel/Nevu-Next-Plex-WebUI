@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import VideoPlayer from "./VideoPlayer";
 import type { VideoPlayerProps } from "./VideoPlayer";
 import { createStreamingPlayer } from "shared/lib/video/shaka";
+import type { VideoPlayerHandle } from "shared/lib/video/types";
 
 jest.mock("shared/lib/video/shaka", () => ({
   createStreamingPlayer: jest.fn(),
@@ -11,9 +12,10 @@ jest.mock("shared/lib/video/shaka", () => ({
 let root: Root;
 let element: HTMLDivElement;
 let props: VideoPlayerProps;
+let handle: React.RefObject<VideoPlayerHandle | null>;
 const render = () =>
   act(async () => {
-    root.render(<VideoPlayer {...props} />);
+    root.render(<VideoPlayer ref={handle} {...props} />);
   });
 function engine() {
   return {
@@ -42,6 +44,7 @@ beforeEach(() => {
     .mockReturnValue(1);
   element = document.createElement("div");
   root = createRoot(element);
+  handle = React.createRef();
   props = {
     source: {
       id: "one",
@@ -132,6 +135,24 @@ it("preserves pause while loading a new source", async () => {
   props.playing = false;
   await render();
   expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+});
+
+it("exposes duration only after the streaming source finishes loading", async () => {
+  const player = engine();
+  let complete!: () => void;
+  player.load.mockReturnValue(
+    new Promise<void>((resolve) => {
+      complete = resolve;
+    }),
+  );
+  (createStreamingPlayer as jest.Mock).mockResolvedValue(player);
+  jest
+    .spyOn(HTMLMediaElement.prototype, "duration", "get")
+    .mockReturnValue(100);
+  await render();
+  expect(handle.current!.getDuration()).toBe(0);
+  await act(async () => complete());
+  expect(handle.current!.getDuration()).toBe(100);
 });
 
 it("reports autoplay denial without treating it as a codec error", async () => {

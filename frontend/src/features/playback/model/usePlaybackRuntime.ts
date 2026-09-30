@@ -1,13 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { VideoPlayerHandle } from "shared/lib/video/types";
 
-export type PlaybackPlayerHandle = Pick<
-  VideoPlayerHandle,
-  "getCurrentTime" | "getDuration" | "seekTo"
->;
-
 interface PlaybackRuntimeOptions {
-  getPlayer: () => PlaybackPlayerHandle | null;
+  getPlayer: () => VideoPlayerHandle | null;
   itemID?: string;
 }
 

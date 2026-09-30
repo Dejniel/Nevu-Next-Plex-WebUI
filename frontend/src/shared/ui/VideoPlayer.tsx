@@ -52,6 +52,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       () => ({
         getCurrentTime: () => videoRef.current?.currentTime || 0,
         getDuration: () => {
+          if (!ready.current) return 0;
           const duration = videoRef.current?.duration;
           return duration && Number.isFinite(duration) ? duration : 0;
         },
@@ -60,7 +61,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           if (video && Number.isFinite(seconds))
             video.currentTime = Math.max(0, seconds);
         },
-        getElement: () => videoRef.current,
       }),
       [],
     );

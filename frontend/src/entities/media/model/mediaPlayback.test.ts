@@ -139,6 +139,26 @@ it("selects native HLS when MSE is unavailable", async () => {
   expect(plan.protocol).toBe("hls");
 });
 
+it("allows a native file even when streaming APIs are unavailable", async () => {
+  expect(
+    await planMediaPlayback(version(), {}, false, {
+      canPlayType: (type) =>
+        type.startsWith("video/mp4") || type.startsWith("audio/mp4"),
+      mediaSourceSupported: () => false,
+    }),
+  ).toMatchObject({ directPlay: true });
+});
+
+it("rejects conversion when neither MSE nor native HLS is available", async () => {
+  await expect(
+    planMediaPlayback(version("mkv"), {}, false, {
+      canPlayType: (type) =>
+        type.startsWith("video/mp4") || type.startsWith("audio/mp4"),
+      mediaSourceSupported: () => false,
+    }),
+  ).rejects.toThrow("streaming playback");
+});
+
 it("can direct play native HEVC while using H264 for an HLS fallback", async () => {
   const plan = await planMediaPlayback(version("mp4", "hevc"), {}, false, {
     ...probe,

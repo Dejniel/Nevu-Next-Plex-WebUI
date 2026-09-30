@@ -28,7 +28,6 @@ export interface PlexPlaybackPlan {
 
 export interface PlexPlaybackSource extends VideoSource {
   mode: "directplay" | "remux" | "audio-transcode" | "video-transcode";
-  reason?: string;
   sessionID?: string;
   subtitleSessionID?: string;
   requestContext?: Record<string, unknown>;
@@ -149,8 +148,6 @@ export async function planMediaPlayback(
       : undefined;
   const hasMSE = probe.mediaSourceSupported('video/mp4; codecs="avc1.640028"');
   const protocol = hasMSE ? "dash" : "hls";
-  if (!hasMSE && !probe.canPlayType("application/vnd.apple.mpegurl"))
-    throw new Error("This browser does not support Plex streaming playback.");
   const textSubtitle =
     subtitle &&
     ["srt", "subrip", "vtt", "webvtt", "mov_text", "text"].includes(
@@ -209,6 +206,12 @@ export async function planMediaPlayback(
       audioCodec ? audioConfig(mime!) : undefined,
     ));
   const targetVideoCodec = canCopyVideo ? videoCodec : "h264";
+  if (
+    !directPlay &&
+    !hasMSE &&
+    !probe.canPlayType("application/vnd.apple.mpegurl")
+  )
+    throw new Error("This browser does not support Plex streaming playback.");
   const targetAudioCodec = canCopyAudio && audioCodec ? audioCodec : "aac";
   const targetContainer = hasMSE ? "mp4" : "mpegts";
   const directives = [
