@@ -16,8 +16,15 @@ import AppRoutes from "./AppRoutes";
 
 function AppManager() {
   const { loading } = useStartupState();
+  const serverName = useServerSession((state) => state.server?.friendlyName);
   const [showApp, setShowApp] = React.useState(false);
   const [fadeOut, setFadeOut] = React.useState(false);
+
+  useEffect(() => {
+    document.title = serverName
+      ? `Plex Nevu Next - ${serverName}`
+      : "Plex Nevu Next";
+  }, [serverName]);
 
   useEffect(() => {
     if (loading) return;
@@ -45,25 +52,6 @@ function AppManager() {
   );
 }
 
-function AppTitleManager() {
-  const server = useServerSession((state) => state.server);
-
-  useEffect(() => {
-    if (!server?.friendlyName) return;
-
-    const capitalizedFriendlyName =
-      server.friendlyName.charAt(0).toUpperCase() +
-      server.friendlyName.slice(1);
-    document.title = `${capitalizedFriendlyName} - Nevu`;
-  }, [server]);
-
-  useEffect(() => {
-    document.title = "Nevu";
-  }, []);
-
-  return <></>;
-}
-
 function App() {
   const sessionRevision = useAuthSession((state) => state.revision);
 
@@ -86,7 +74,6 @@ function App() {
       <BigReader />
       <WatchTogetherFeature />
       <LibraryScreen />
-      <AppTitleManager />
       <TitleDetailsScreen />
       <ConfirmModal />
       <AppRoutes />
