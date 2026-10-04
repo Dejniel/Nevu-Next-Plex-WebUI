@@ -10,6 +10,7 @@ interface LibraryViewToolbarProps {
   leading: React.ReactNode;
   pageNavigation: React.ReactNode;
   showLeadingOnMobile?: boolean;
+  compactTypeNavigation?: React.ReactNode;
 }
 
 export default function LibraryViewToolbar({
@@ -17,7 +18,9 @@ export default function LibraryViewToolbar({
   leading,
   pageNavigation,
   showLeadingOnMobile = false,
+  compactTypeNavigation,
 }: LibraryViewToolbarProps) {
+  const compact = Boolean(compactTypeNavigation);
   return (
     <Box
       sx={{
@@ -29,11 +32,17 @@ export default function LibraryViewToolbar({
         position: "relative",
         display: "grid",
         gridTemplateAreas: {
-          xs: showLeadingOnMobile ? '"actions" "leading"' : '"actions"',
+          xs: compact
+            ? '"controls controls" "pages types" "leading leading"'
+            : showLeadingOnMobile
+              ? '"actions" "leading"'
+              : '"actions"',
+          sm: showLeadingOnMobile ? '"actions" "leading"' : '"actions"',
           lg: '"leading controls pages"',
         },
         gridTemplateColumns: {
-          xs: "minmax(0, 1fr)",
+          xs: compact ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)",
+          sm: "minmax(0, 1fr)",
           lg: "max-content minmax(0, 1fr) max-content",
         },
         alignItems: "center",
@@ -52,8 +61,16 @@ export default function LibraryViewToolbar({
 
       <Box
         sx={{
-          gridArea: { xs: "actions", lg: "auto" },
-          display: { xs: "flex", lg: "contents" },
+          gridArea: {
+            xs: compact ? "auto" : "actions",
+            sm: "actions",
+            lg: "auto",
+          },
+          display: {
+            xs: compact ? "contents" : "flex",
+            sm: "flex",
+            lg: "contents",
+          },
           alignItems: "center",
           justifyContent: "space-between",
           gap: 0.5,
@@ -62,7 +79,11 @@ export default function LibraryViewToolbar({
       >
         <Box
           sx={{
-            gridArea: { lg: "controls" },
+            gridArea: {
+              xs: compact ? "controls" : "auto",
+              sm: "auto",
+              lg: "controls",
+            },
             minWidth: 0,
             flex: { xs: "1 1 auto", lg: "initial" },
           }}
@@ -73,20 +94,38 @@ export default function LibraryViewToolbar({
             onSizeChange={cardView.setSize}
             onSizeCommit={cardView.saveSize}
             onLayoutChange={cardView.setLayout}
+            fullWidthOnSmallScreens={compact}
           />
         </Box>
 
         <Box
           sx={{
-            gridArea: { lg: "pages" },
+            gridArea: {
+              xs: compact ? "pages" : "auto",
+              sm: "auto",
+              lg: "pages",
+            },
             display: "flex",
             justifyContent: "flex-end",
             flexShrink: 0,
+            minWidth: 0,
+            "& > .MuiSelect-root": compact ? { width: "100%" } : undefined,
           }}
         >
           {pageNavigation}
         </Box>
       </Box>
+      {compactTypeNavigation && (
+        <Box
+          sx={{
+            gridArea: "types",
+            display: { xs: "block", sm: "none" },
+            minWidth: 0,
+          }}
+        >
+          {compactTypeNavigation}
+        </Box>
+      )}
     </Box>
   );
 }

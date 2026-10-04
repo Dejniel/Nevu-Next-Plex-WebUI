@@ -13,6 +13,8 @@ import {
   Select,
   Skeleton,
   Tooltip,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { motion } from "framer-motion";
 import React, { useEffect } from "react";
@@ -84,6 +86,7 @@ function BrowseLibraryContent({
     value: string;
   } | null>(null);
   const cardView = useLibraryCardView();
+  const compactBrowse = useMediaQuery(useTheme().breakpoints.down("sm"));
   const toolbarRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -223,6 +226,26 @@ function BrowseLibraryContent({
   const queryKey = React.useMemo(() => query ? libraryQueryKey(query) : null, [query]);
   const range = useLibraryRange(queryKey);
   const itemCount = range.totalSize?.toLocaleString();
+  const typeSelector = (
+    <Select
+      value={activeItemType || ""}
+      onChange={(event) => {
+        const value = event.target.value as LibraryItemType;
+        const next = new URLSearchParams(searchParamsString);
+        next.set("type", value);
+        localStorage.setItem(`typeFilter:${libraryID}`, value);
+        setSearchParams(next);
+      }}
+      size="small"
+      disabled={!activeItemType}
+      inputProps={{ "aria-label": "Media type" }}
+      sx={compactBrowse ? { width: "100%" } : undefined}
+    >
+      {supportedTypes.map((type) => (
+        <MenuItem key={type.key} value={type.type}>{type.title}</MenuItem>
+      ))}
+    </Select>
+  );
 
   return (
     <Box
@@ -244,13 +267,14 @@ function BrowseLibraryContent({
         <LibraryViewToolbar
           cardView={cardView}
           showLeadingOnMobile
+          compactTypeNavigation={compactBrowse ? typeSelector : undefined}
           leading={
           <Box
             sx={{
               display: "flex",
               alignItems: "center",
               justifyContent: "flex-start",
-              flexWrap: { xs: "wrap", lg: "nowrap" },
+              flexWrap: { xs: "nowrap", sm: "wrap", lg: "nowrap" },
               gap: 1,
               width: "100%",
               "& .MuiSelect-root": {
@@ -281,7 +305,7 @@ function BrowseLibraryContent({
                 },
               },
               "& > .MuiSelect-root": {
-                flex: { xs: "1 1 105px", lg: "0 0 auto" },
+                flex: { xs: "1 1 0", sm: "1 1 105px", lg: "0 0 auto" },
                 minWidth: 0,
               },
             }}
@@ -297,24 +321,15 @@ function BrowseLibraryContent({
               onAdvanced={() => setAdvancedFiltersOpen(true)}
             />
 
-            <Select
-              value={activeItemType || ""}
-              onChange={(event) => {
-                const value = event.target.value as LibraryItemType;
-                const next = new URLSearchParams(searchParamsString);
-                next.set("type", value);
-                localStorage.setItem(`typeFilter:${libraryID}`, value);
-                setSearchParams(next);
-              }}
-              size="small"
-              disabled={!activeItemType}
-            >
-              {supportedTypes.map((type) => (
-                <MenuItem key={type.key} value={type.type}>{type.title}</MenuItem>
-              ))}
-            </Select>
+            {!compactBrowse && typeSelector}
 
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
+            <Box sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              minWidth: 0,
+              flex: { xs: "2 1 0", sm: "0 1 auto" },
+            }}>
               <Select
                 value={effectiveSort}
                 onChange={(event) => {
@@ -326,7 +341,8 @@ function BrowseLibraryContent({
                 }}
                 size="small"
                 disabled={unsupportedLibrary}
-                sx={{ minWidth: 0 }}
+                inputProps={{ "aria-label": "Sort library" }}
+                sx={{ minWidth: 0, flex: { xs: "1 1 0", sm: "0 1 auto" } }}
               >
                 {sortOptions.map((option) => (
                   <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
@@ -354,12 +370,14 @@ function BrowseLibraryContent({
               )}
               <Box
                 component="span"
+                aria-label="Library item count"
                 sx={{
                   minWidth: 36,
                   color: "text.secondary",
                   fontSize: "0.875rem",
                   fontWeight: 600,
                   whiteSpace: "nowrap",
+                  flexShrink: 0,
                 }}
               >
                 {!unsupportedLibrary && (itemCount ?? <Skeleton width={32} />)}

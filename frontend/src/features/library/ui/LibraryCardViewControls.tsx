@@ -56,12 +56,14 @@ export function LibraryCardViewControls({
   onSizeChange,
   onSizeCommit,
   onLayoutChange,
+  fullWidthOnSmallScreens = false,
 }: {
   layout: LibraryCardLayout;
   size: number;
   onSizeChange: (value: number) => void;
   onSizeCommit: (value: number) => void;
   onLayoutChange: (value: LibraryCardLayout) => void;
+  fullWidthOnSmallScreens?: boolean;
 }) {
   return (
     <Box
@@ -80,7 +82,7 @@ export function LibraryCardViewControls({
           alignItems: "center",
           gap: 0.5,
           minWidth: 0,
-          maxWidth: 210,
+          maxWidth: { xs: fullWidthOnSmallScreens ? "none" : 210, sm: 210 },
           flex: "1 1 210px",
         }}
       >
@@ -96,7 +98,7 @@ export function LibraryCardViewControls({
           size="small"
           sx={{
             minWidth: 0,
-            maxWidth: 150,
+            maxWidth: { xs: fullWidthOnSmallScreens ? "none" : 150, sm: 150 },
             flex: "1 1 90px",
             "& .MuiSlider-rail": {
               backgroundColor: "rgba(255,255,255,0.42)",
