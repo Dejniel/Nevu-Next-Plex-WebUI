@@ -10,6 +10,7 @@ const HEADLESS_FEATURE_ENTRYPOINTS = new Set([
   "search",
   "watch-together",
   "watchlist",
+  "media-lists",
 ]);
 const SOURCE_EXTENSION = /\.(ts|tsx)$/;
 const IMPORT = /(?:from\s+|import\s*\()\s*["']([^"']+)["']/g;

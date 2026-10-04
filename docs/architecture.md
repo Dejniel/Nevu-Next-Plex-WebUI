@@ -73,7 +73,10 @@ editing and matching, original-file downloads, and playback-target resolution
 while the shared `MediaCard` remains presentation-focused. `entities/library`
 owns reusable library data and administration requests.
 
-Library and Watchlist views share the card toolbar and `shared/ui/VirtualGrid`.
+Library, Watchlist, collection, and playlist views share the card toolbar and
+`shared/ui/VirtualGrid`. `features/media-lists` owns the collection/playlist API
+adapters and profile-scoped paging; playlist positions remain distinct even when
+titles repeat. Its headless model supplies playlist playback and return links.
 `entities/media` resolves accessible local copies by GUID; Watchlist retains its
 own account API and profile-scoped store rather than using the library range cache.
 

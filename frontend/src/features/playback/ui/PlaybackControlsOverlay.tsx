@@ -349,7 +349,10 @@ export default function PlaybackControlsOverlay({
                   )}
                 </IconButton>
                 {playQueue && !watch.isGuest && (
-                  <NextQueueButton queue={playQueue} />
+                  <NextQueueButton
+                    queue={playQueue}
+                    onAdvance={() => commands.advance()}
+                  />
                 )}
               </Box>
 

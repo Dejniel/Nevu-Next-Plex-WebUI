@@ -12,9 +12,9 @@ import {
   useMediaPlaybackSource,
 } from "entities/media/model";
 import { useUserSettings } from "features/settings/model";
+import type { PlaylistPlaybackContext } from "features/media-lists/model";
 import {
   getPlaybackMetadata,
-  getPlaybackQueueForItem,
   putAudioStream,
   putSubtitleStream,
 } from "../api/playback";
@@ -26,9 +26,11 @@ import {
 import type { PlaybackQuality } from "./playbackQuality";
 import { findAttachedSubtitle } from "./subtitles";
 import type { SubtitleSearchResult } from "./subtitles";
+import { usePlaybackQueue } from "./usePlaybackQueue";
 
 interface PlaybackMediaOptions {
   itemID?: string;
+  playlistContext?: PlaylistPlaybackContext;
   getCurrentTime: () => number;
   onSourceChanging: () => void;
   requestResumeAt: (time: number) => void;
@@ -77,7 +79,10 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
 
   const [metadata, setMetadata] = useState<Plex.Metadata | null>(null);
   const [showMetadata, setShowMetadata] = useState<Plex.Metadata | null>(null);
-  const [playQueue, setPlayQueue] = useState<Plex.Metadata[] | null>(null);
+  const { playQueue, queueError, reloadQueue } = usePlaybackQueue(
+    metadata,
+    options.playlistContext,
+  );
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [activePartIndex, setActivePartIndex] = useState(0);
   const [quality, setQuality] = useState<PlaybackQuality>(() =>
@@ -96,14 +101,6 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     } else {
       setShowMetadata(null);
     }
-
-    void getPlaybackQueueForItem(loaded)
-      .then((queue) => {
-        if (callbacks.current.itemID === itemID) setPlayQueue(queue);
-      })
-      .catch(() => {
-        if (callbacks.current.itemID === itemID) setPlayQueue(null);
-      });
   };
 
   useEffect(() => {
@@ -113,7 +110,6 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     callbacks.current.onSourceChanging();
     setMetadata(null);
     setShowMetadata(null);
-    setPlayQueue(null);
     callbacks.current.setError(false);
 
     void (async () => {
@@ -354,6 +350,8 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     metadata,
     showMetadata,
     playQueue,
+    queueError,
+    reloadQueue,
     source: playbackSource.source,
     sourceLoading: playbackSource.loading,
     recoverSource: playbackSource.recover,

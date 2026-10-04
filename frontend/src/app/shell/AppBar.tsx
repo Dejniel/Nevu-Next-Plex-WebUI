@@ -15,6 +15,7 @@ import {
   MenuItem,
   type SxProps,
   Typography,
+  Tooltip,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
@@ -27,6 +28,7 @@ import {
   LogoutRounded,
   MenuRounded,
   PeopleRounded,
+  PlaylistPlayRounded,
   SettingsRounded,
   ShortcutRounded,
   SwitchAccountRounded,
@@ -310,6 +312,15 @@ S - Skip onscreen markers (intro, credits, etc)
         {!isMobile && (
           <>
             <SearchBar />
+            <Tooltip title="Playlists">
+              <IconButton
+                component={Link}
+                to="/playlists"
+                aria-label="Open playlists"
+              >
+                <PlaylistPlayRounded />
+              </IconButton>
+            </Tooltip>
             <IconButton
               component={Link}
               to="/watchlist"
@@ -411,6 +422,17 @@ S - Skip onscreen markers (intro, credits, etc)
                 >
                   <ListItemIcon><BookmarkRounded /></ListItemIcon>
                   <ListItemText primary="Watchlist" />
+                </ListItemButton>
+              </ListItem>
+
+              <ListItem disablePadding>
+                <ListItemButton
+                  component={Link}
+                  to="/playlists"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  <ListItemIcon><PlaylistPlayRounded /></ListItemIcon>
+                  <ListItemText primary="Playlists" />
                 </ListItemButton>
               </ListItem>
 

@@ -5,6 +5,10 @@ import {
   playbackBrowsePath,
 } from "./playbackNavigation";
 import type { PlaybackRuntimeController } from "./usePlaybackRuntime";
+import {
+  playlistReturnPath,
+  type PlaylistPlaybackContext,
+} from "features/media-lists/model";
 
 interface PlaybackSyncCommands {
   pause: () => void;
@@ -17,6 +21,7 @@ interface PlaybackSyncCommands {
 interface PlaybackCommandOptions {
   metadata: Plex.Metadata | null;
   playQueue: Plex.Metadata[] | null;
+  playlistContext?: PlaylistPlaybackContext;
   isGuest: boolean;
   runtime: PlaybackRuntimeController;
   sync: PlaybackSyncCommands;
@@ -73,11 +78,17 @@ export function usePlaybackCommands(options: PlaybackCommandOptions) {
     } else void document.exitFullscreen().catch(() => undefined);
   }, []);
   const advance = useCallback((restartNext = false, endSession = false) => {
-    const { metadata, playQueue, navigate, sync } = optionsRef.current;
+    const { metadata, playQueue, navigate, sync, playlistContext } =
+      optionsRef.current;
     if (!metadata) return;
-    const hasNext = metadata.type === "episode" && Boolean(playQueue?.[1]);
+    if (playlistContext && !playQueue) return;
+    const hasNext =
+      (Boolean(playlistContext) || metadata.type === "episode") &&
+      Boolean(playQueue?.[1]);
     if (endSession && !hasNext) sync.end();
-    navigate(playbackAdvancePath(metadata, playQueue, restartNext));
+    navigate(
+      playbackAdvancePath(metadata, playQueue, restartNext, playlistContext),
+    );
   }, []);
   const advanceFromCredits = useCallback(() => advance(true), [advance]);
   const skipActiveMarker = useCallback(() => {
@@ -91,10 +102,17 @@ export function usePlaybackCommands(options: PlaybackCommandOptions) {
     seekTo(marker.endTimeOffset / 1000 + 1);
   }, [advance, seekTo]);
   const exitPlayback = useCallback(() => {
-    const { metadata, navigate, reportStopped, sync } = optionsRef.current;
+    const { metadata, navigate, reportStopped, sync, playlistContext } =
+      optionsRef.current;
     sync.leave();
     void reportStopped();
-    navigate(metadata ? playbackBrowsePath(metadata) : "/");
+    navigate(
+      playlistContext
+        ? playlistReturnPath(playlistContext)
+        : metadata
+          ? playbackBrowsePath(metadata)
+          : "/",
+    );
   }, []);
   const handleEnded = useCallback(() => {
     if (optionsRef.current.isGuest) return;

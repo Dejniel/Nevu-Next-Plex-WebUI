@@ -1,4 +1,8 @@
-import { Box, Button, Typography } from "@mui/material";
+import { Alert, Box, Button, Typography } from "@mui/material";
+import {
+  parsePlaylistContext,
+  type PlaylistPlaybackContext,
+} from "features/media-lists/model";
 import { AppDialog, CenteredSpinner, VideoPlayer } from "shared/ui";
 import { useWatchTogetherPlayback } from "features/watch-together/public";
 import React, { useEffect, useRef, useState } from "react";
@@ -11,7 +15,11 @@ import { usePlaybackTimeline } from "../model/usePlaybackTimeline";
 import PlaybackControlsOverlay from "./PlaybackControlsOverlay";
 import PlaybackInfoOverlay from "./PlaybackInfoOverlay";
 
-function PlaybackScreen() {
+function PlaybackSession({
+  playlistContext,
+}: {
+  playlistContext?: PlaylistPlaybackContext;
+}) {
   const { itemID } = useParams<{ itemID: string }>();
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -26,6 +34,7 @@ function PlaybackScreen() {
   const { playing, buffering, volume } = playbackRuntime;
   const playbackMedia = usePlaybackMedia({
     itemID,
+    playlistContext,
     getCurrentTime: playbackRuntime.getCurrentTime,
     onSourceChanging: playbackRuntime.sourceChanging,
     requestResumeAt: playbackRuntime.requestResumeAt,
@@ -80,6 +89,7 @@ function PlaybackScreen() {
   const playbackCommands = usePlaybackCommands({
     metadata,
     playQueue,
+    playlistContext,
     isGuest,
     runtime: playbackRuntime,
     sync: {
@@ -119,6 +129,25 @@ function PlaybackScreen() {
 
   return (
     <>
+      {playbackMedia.queueError && (
+        <Alert
+          severity="warning"
+          sx={{
+            position: "absolute",
+            top: 16,
+            left: 16,
+            right: 16,
+            zIndex: 30,
+          }}
+          action={
+            <Button color="inherit" onClick={playbackMedia.reloadQueue}>
+              Retry
+            </Button>
+          }
+        >
+          {playbackMedia.queueError}
+        </Alert>
+      )}
       <AppDialog
         open={showError !== false}
         title="Playback error"
@@ -244,4 +273,17 @@ function PlaybackScreen() {
   );
 }
 
-export default PlaybackScreen;
+export default function PlaybackScreen() {
+  const [params] = useSearchParams();
+  const playlistContext = parsePlaylistContext(params);
+  return (
+    <PlaybackSession
+      key={
+        playlistContext
+          ? `${playlistContext.id}:${playlistContext.index}`
+          : "standalone"
+      }
+      playlistContext={playlistContext}
+    />
+  );
+}

@@ -3,6 +3,10 @@ import {
   playbackAdvancePath,
   playbackBrowsePath,
 } from "./playbackNavigation";
+import {
+  parsePlaylistContext,
+  playlistWatchPath,
+} from "features/media-lists/model";
 
 const movie = {
   type: "movie",
@@ -42,4 +46,36 @@ it("finds only the marker covering the current playback position", () => {
 
   expect(activePlaybackMarker(metadata, 15)).toBe(marker);
   expect(activePlaybackMarker(metadata, 25)).toBeUndefined();
+});
+
+it("advances movies and repeated titles in playlist order and returns to that playlist", () => {
+  const context = { id: "30", index: 4, libraryID: "2" };
+  expect(playbackAdvancePath(movie, [movie, movie], true, context)).toBe(
+    "/watch/10?playlist=30&position=5&fromLibrary=2&t=0",
+  );
+  expect(playbackAdvancePath(movie, [movie], false, context)).toBe(
+    "/browse/2?list=30&view=playlists",
+  );
+  expect(playbackBrowsePath(episode, { id: "30", index: 2 })).toBe(
+    "/playlists?list=30",
+  );
+  expect(playlistWatchPath({ ...movie, viewOffset: 5000 }, context)).toContain(
+    "t=5000",
+  );
+});
+
+it("accepts only valid playlist positions and IDs from URLs", () => {
+  expect(
+    parsePlaylistContext(
+      new URLSearchParams("playlist=30&position=0&fromLibrary=2"),
+    ),
+  ).toEqual({ id: "30", index: 0, libraryID: "2" });
+  for (const value of [
+    "playlist=30",
+    "playlist=30&position=-1",
+    "playlist=30&position=1.5",
+    "playlist=x&position=0",
+    "playlist=30&position=99999999999999999",
+  ])
+    expect(parsePlaylistContext(new URLSearchParams(value))).toBeUndefined();
 });

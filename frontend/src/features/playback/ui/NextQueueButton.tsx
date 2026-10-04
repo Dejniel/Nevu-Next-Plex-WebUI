@@ -8,15 +8,15 @@ import {
   Typography,
 } from "@mui/material";
 import React from "react";
-import { useNavigate } from "react-router-dom";
 import { getTranscodeImageURL } from "entities/media/model";
 
 export default function NextQueueButton({
   queue,
+  onAdvance,
 }: {
   queue?: Plex.Metadata[];
+  onAdvance: () => void;
 }) {
-  const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = React.useState<HTMLElement | null>(null);
   const next = queue?.[1];
 
@@ -100,8 +100,8 @@ export default function NextQueueButton({
         )}
       </Popper>
       <IconButton
-        onClick={() => navigate(`/watch/${next.ratingKey}`)}
-        onKeyDown={(event) => event.preventDefault()}
+        aria-label="Next item"
+        onClick={onAdvance}
         onMouseEnter={(event) => setAnchorEl(event.currentTarget)}
         onMouseLeave={() => setAnchorEl(null)}
       >

@@ -41,6 +41,7 @@ export type ActionableMediaCardProps = Omit<
 > & Pick<MediaCardProps, "item"> & {
   refetchData?: () => void;
   canPlay?: boolean;
+  playbackTo?: string;
 };
 
 export default function ActionableMediaCard({
@@ -48,6 +49,7 @@ export default function ActionableMediaCard({
   PlexTvSource = false,
   refetchData,
   canPlay = true,
+  playbackTo,
   ...cardProps
 }: ActionableMediaCardProps) {
   const location = useLocation();
@@ -104,6 +106,10 @@ export default function ActionableMediaCard({
     if (playLoading || !canPlay) return;
     setPlayLoading(true);
     try {
+      if (playbackTo) {
+        navigate(playbackTo);
+        return;
+      }
       const target = await resolvePlaybackTarget(displayItem, PlexTvSource);
       if (target.path !== null) navigate(target.path);
       else useBigReader.getState().setBigReader(target.message);

@@ -8,25 +8,28 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { WatchlistView } from "features/watchlist/public";
+import { MediaListsView } from "features/media-lists/public";
 import BrowseRecommendations from "./BrowseRecommendations";
 import BrowseLibrary from "./BrowseLibrary";
 import { libraryViewTo } from "shared/lib/navigation";
 
-type BrowsePages = "recommendations" | "browse" | "watchlist";
+const views = [
+  { id: "recommendations", label: "Recommended" },
+  { id: "browse", label: "Browse" },
+  { id: "watchlist", label: "Watchlist" },
+  { id: "collections", label: "Collections" },
+  { id: "playlists", label: "Playlists" },
+] as const;
+type BrowsePages = (typeof views)[number]["id"];
 
 function BrowsePageSelector({
   page,
   setPage,
-  recommendationsTo,
-  browseTo,
-  watchlistTo,
 }: {
   page: BrowsePages;
   setPage: (page: BrowsePages) => void;
-  recommendationsTo: ReturnType<typeof libraryViewTo>;
-  browseTo: ReturnType<typeof libraryViewTo>;
-  watchlistTo: ReturnType<typeof libraryViewTo>;
 }) {
+  const location = useLocation();
   return (
     <>
       <Select
@@ -35,7 +38,7 @@ function BrowsePageSelector({
         size="small"
         inputProps={{ "aria-label": "Library view" }}
         sx={{
-          display: { xs: "flex", lg: "none" },
+          display: { xs: "flex", xl: "none" },
           width: 118,
           flexShrink: 0,
           "& .MuiSelect-select": {
@@ -46,17 +49,18 @@ function BrowsePageSelector({
           },
         }}
       >
-        <MenuItem value="recommendations">Recommended</MenuItem>
-        <MenuItem value="browse">Browse</MenuItem>
-        <MenuItem value="watchlist">Watchlist</MenuItem>
+        {views.map((view) => (
+          <MenuItem key={view.id} value={view.id}>
+            {view.label}
+          </MenuItem>
+        ))}
       </Select>
-
       <ButtonGroup
         variant="outlined"
         sx={{
-          display: { xs: "none", lg: "inline-flex" },
+          display: { xs: "none", xl: "inline-flex" },
           "& .MuiButton-root": {
-            minWidth: 112,
+            minWidth: 100,
             borderColor: "rgba(255,255,255,0.22)",
             color: "text.secondary",
             fontWeight: 700,
@@ -78,32 +82,21 @@ function BrowsePageSelector({
           },
         }}
       >
-        <Button
-          component={Link}
-          to={recommendationsTo}
-          variant={page === "recommendations" ? "contained" : "outlined"}
-          aria-pressed={page === "recommendations"}
-          onClick={() => localStorage.setItem("browsePage", "recommendations")}
-        >
-          Recommended
-        </Button>
-        <Button
-          component={Link}
-          to={browseTo}
-          variant={page === "browse" ? "contained" : "outlined"}
-          aria-pressed={page === "browse"}
-          onClick={() => localStorage.setItem("browsePage", "browse")}
-        >
-          Browse
-        </Button>
-        <Button
-          component={Link}
-          to={watchlistTo}
-          variant={page === "watchlist" ? "contained" : "outlined"}
-          aria-pressed={page === "watchlist"}
-        >
-          Watchlist
-        </Button>
+        {views.map((view) => (
+          <Button
+            key={view.id}
+            component={Link}
+            to={libraryViewTo(location, view.id)}
+            variant={page === view.id ? "contained" : "outlined"}
+            aria-pressed={page === view.id}
+            onClick={() => {
+              if (view.id === "recommendations" || view.id === "browse")
+                localStorage.setItem("browsePage", view.id);
+            }}
+          >
+            {view.label}
+          </Button>
+        ))}
       </ButtonGroup>
     </>
   );
@@ -111,34 +104,29 @@ function BrowsePageSelector({
 
 function Library() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const location = useLocation();
   const { libraryID } = useParams<{ libraryID: string }>();
   const requestedPage = searchParams.get("view");
   const storedPage = localStorage.getItem("browsePage");
   const page: BrowsePages =
     requestedPage === "browse" ||
     requestedPage === "recommendations" ||
-    requestedPage === "watchlist"
+    requestedPage === "watchlist" ||
+    requestedPage === "collections" ||
+    requestedPage === "playlists"
       ? requestedPage
       : storedPage === "browse"
         ? "browse"
         : "recommendations";
   const setPage = (nextPage: BrowsePages) => {
-    if (nextPage !== "watchlist") localStorage.setItem("browsePage", nextPage);
+    if (nextPage === "recommendations" || nextPage === "browse")
+      localStorage.setItem("browsePage", nextPage);
     const next = new URLSearchParams(searchParams);
     next.set("view", nextPage);
     next.delete("shelf");
+    next.delete("list");
     setSearchParams(next);
   };
-  const pageSelector = (
-    <BrowsePageSelector
-      page={page}
-      setPage={setPage}
-      recommendationsTo={libraryViewTo(location, "recommendations")}
-      browseTo={libraryViewTo(location, "browse")}
-      watchlistTo={libraryViewTo(location, "watchlist")}
-    />
-  );
+  const pageSelector = <BrowsePageSelector page={page} setPage={setPage} />;
 
   return (
     <Box
@@ -155,6 +143,14 @@ function Library() {
           <BrowseRecommendations pageNavigation={pageSelector} />
         )}
         {page === "browse" && <BrowseLibrary pageNavigation={pageSelector} />}
+        {(page === "collections" || page === "playlists") && (
+          <MediaListsView
+            key={page}
+            kind={page === "collections" ? "collection" : "playlist"}
+            libraryID={libraryID}
+            pageNavigation={pageSelector}
+          />
+        )}
         {page === "watchlist" && (
           <WatchlistView libraryID={libraryID} pageNavigation={pageSelector} />
         )}

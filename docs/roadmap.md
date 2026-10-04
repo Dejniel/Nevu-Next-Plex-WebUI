@@ -37,14 +37,6 @@ the README and release notes; implementation-only cleanup belongs in the
 - Keep local interface preferences isolated per profile and never store a PIN
   as plain text.
 
-### Collections and playlists
-
-- Reuse a common browse shell for layout, sorting, grids, and pagination while
-  keeping separate API adapters for libraries, collections, and playlists.
-- Add routes for collection and playlist indexes and their contents.
-- Reuse the library/Watchlist layout and local availability model while preserving
-  playlist order and separate source APIs.
-
 ## Later
 
 ### Music and detailed lists

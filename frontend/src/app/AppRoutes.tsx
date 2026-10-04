@@ -4,6 +4,7 @@ import AppBar from "./shell/AppBar";
 import { HomeScreen } from "features/home/public";
 import { Browse } from "features/library/public";
 import { WatchlistView } from "features/watchlist/public";
+import { MediaListsView } from "features/media-lists/public";
 import { SearchScreen } from "features/search/public";
 import { SettingsScreen } from "features/settings/public";
 import { PlaybackScreen } from "features/playback/public";
@@ -22,6 +23,7 @@ export default function AppRoutes() {
           <Route path="/" element={<HomeScreen />} />
           <Route path="/browse/:libraryID" element={<Browse />} />
           <Route path="/watchlist" element={<WatchlistView />} />
+          <Route path="/playlists" element={<MediaListsView kind="playlist" />} />
           <Route path="/watch/:itemID" element={<PlaybackScreen />} />
           <Route path="/search/:query?" element={<SearchScreen />} />
           <Route path="/sync/waitingroom" element={<WaitingRoomScreen />} />
