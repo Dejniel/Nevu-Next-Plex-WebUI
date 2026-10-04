@@ -23,6 +23,12 @@ the README and release notes; implementation-only cleanup belongs in the
 
 ## Next
 
+### Library view types
+
+- Add `Seasons` to the TV library type selector, showing seasons across the library.
+- Add `Folders` to movie and TV libraries, browsing nested folders and their media
+  within the selected library.
+
 ### Server settings
 
 - Build an administrator-only, API-driven settings screen grouped by Plex
@@ -43,6 +49,10 @@ the README and release notes; implementation-only cleanup belongs in the
 
 Add artists, albums, tracks, queues, and a detailed list layout designed around
 music rather than adding a movie-only table first.
+
+### Photo libraries
+
+Browse Plex photo libraries, albums, and individual photos.
 
 ### Experience improvements
 
