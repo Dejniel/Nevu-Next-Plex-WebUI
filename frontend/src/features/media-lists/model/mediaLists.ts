@@ -38,6 +38,7 @@ export interface PlaylistPlaybackContext {
   id: string;
   index: number;
   libraryID?: string;
+  itemID?: string;
 }
 
 export function parsePlaylistContext(
@@ -46,18 +47,23 @@ export function parsePlaylistContext(
   const id = params.get("playlist");
   const position = params.get("position");
   const libraryID = params.get("fromLibrary") ?? undefined;
+  const itemID = params.get("playlistItem") ?? undefined;
   if (!id || !/^\d+$/.test(id) || !position || !/^\d+$/.test(position)) return;
   const index = Number(position);
   if (!Number.isSafeInteger(index)) return;
+  if (itemID && !/^\d+$/.test(itemID)) return;
   return {
     id,
     index,
     libraryID: libraryID && /^\d+$/.test(libraryID) ? libraryID : undefined,
+    itemID,
   };
 }
 
 export function playlistWatchPath(
-  item: Pick<Plex.Metadata, "ratingKey" | "viewOffset">,
+  item: Pick<Plex.Metadata, "ratingKey" | "viewOffset"> & {
+    playlistItemID?: number | string;
+  },
   context: PlaylistPlaybackContext,
   restart = false,
 ) {
@@ -66,6 +72,8 @@ export function playlistWatchPath(
     position: String(context.index),
   });
   if (context.libraryID) params.set("fromLibrary", context.libraryID);
+  const itemID = item.playlistItemID ?? context.itemID;
+  if (itemID !== undefined) params.set("playlistItem", String(itemID));
   if (restart) params.set("t", "0");
   else if (item.viewOffset) params.set("t", String(item.viewOffset));
   return `/watch/${item.ratingKey}?${params}`;

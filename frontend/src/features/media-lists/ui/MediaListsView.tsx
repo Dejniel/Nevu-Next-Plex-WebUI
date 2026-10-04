@@ -20,7 +20,7 @@ import {
 } from "@mui/material";
 import {
   getLibraryCardWidth,
-  LibraryViewToolbar,
+  LibraryBrowseFrame,
   useLibraryCardView,
 } from "features/library/public";
 import { ActionableMediaCard } from "features/media-actions/public";
@@ -87,51 +87,40 @@ export default function MediaListsView({
       : null;
 
   return (
-    <Box sx={{ mt: "64px", width: "100%", pb: 8 }}>
-      <Box ref={toolbarRef} sx={{ width: "100%" }}>
-        <LibraryViewToolbar
-          cardView={cardView}
-          pageNavigation={pageNavigation}
-          showLeadingOnMobile
-          leading={
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                minWidth: 0,
-                maxWidth: { lg: 320 },
-              }}
-            >
-              {id && (
-                <IconButton
-                  component={Link}
-                  to={listTarget()}
-                  aria-label={`Back to ${title.toLowerCase()}`}
-                >
-                  <ArrowBackRounded />
-                </IconButton>
-              )}
-              <Typography
-                component="h1"
-                variant="h6"
-                sx={{ overflowWrap: "anywhere" }}
-              >
-                {data.summary?.title ?? title}
-              </Typography>
-            </Box>
-          }
-        />
+    <LibraryBrowseFrame
+      toolbarRef={toolbarRef}
+      cardView={cardView}
+      leading={
         <Box
           sx={{
-            px: { xs: 1, md: 6 },
-            py: 1,
             display: "flex",
             alignItems: "center",
-            gap: 1.5,
-            flexWrap: "wrap",
+            gap: 1,
+            minWidth: 0,
+            maxWidth: { lg: 320 },
           }}
         >
+          {id && (
+            <IconButton
+              component={Link}
+              to={listTarget()}
+              aria-label={`Back to ${title.toLowerCase()}`}
+            >
+              <ArrowBackRounded />
+            </IconButton>
+          )}
+          <Typography
+            component="h1"
+            variant="h6"
+            sx={{ overflowWrap: "anywhere" }}
+          >
+            {data.summary?.title ?? title}
+          </Typography>
+        </Box>
+      }
+      pageNavigation={pageNavigation}
+      filters={
+        <>
           {id ? (
             <>
               {playlistStart && (
@@ -191,163 +180,164 @@ export default function MediaListsView({
               <RefreshRounded />
             </IconButton>
           </Tooltip>
+        </>
+      }
+      description={
+        <>
+          {kind === "playlist" && !id && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ px: { xs: 1, md: 6 }, pb: 1 }}
+            >
+              Video playlists for the active profile. They can contain titles
+              from several libraries.
+            </Typography>
+          )}
+          {data.summary?.summary && (
+            <Typography
+              color="text.secondary"
+              sx={{ px: { xs: 1, md: 6 }, py: 1 }}
+            >
+              {data.summary.summary}
+            </Typography>
+          )}
+        </>
+      }
+    >
+      {data.error && (
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" onClick={data.retry}>
+              Retry
+            </Button>
+          }
+        >
+          {data.error}
+        </Alert>
+      )}
+      {data.loading ? (
+        <Box sx={{ minHeight: 220, display: "grid", placeItems: "center" }}>
+          <CircularProgress aria-label={`Loading ${title.toLowerCase()}`} />
         </Box>
-        {kind === "playlist" && !id && (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ px: { xs: 1, md: 6 }, pb: 1 }}
-          >
-            Video playlists for the active profile. They can contain titles from
-            several libraries.
-          </Typography>
-        )}
-        {data.summary?.summary && (
-          <Typography
-            color="text.secondary"
-            sx={{ px: { xs: 1, md: 6 }, py: 1 }}
-          >
-            {data.summary.summary}
-          </Typography>
-        )}
-      </Box>
-      <Box sx={{ px: { xs: 1, md: 6 }, mt: 2 }}>
-        {data.error && (
-          <Alert
-            severity="error"
-            sx={{ mb: 2 }}
-            action={
-              <Button color="inherit" onClick={data.retry}>
-                Retry
-              </Button>
-            }
-          >
-            {data.error}
-          </Alert>
-        )}
-        {data.loading ? (
-          <Box sx={{ minHeight: 220, display: "grid", placeItems: "center" }}>
-            <CircularProgress aria-label={`Loading ${title.toLowerCase()}`} />
-          </Box>
-        ) : data.total === 0 ? (
-          <Box
-            sx={{
-              minHeight: 280,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              textAlign: "center",
-              gap: 1,
-            }}
-          >
-            {kind === "playlist" ? (
-              <PlaylistPlayRounded
-                sx={{ fontSize: 72, color: "text.secondary" }}
-              />
-            ) : (
-              <CollectionsBookmarkRounded
-                sx={{ fontSize: 72, color: "text.secondary" }}
-              />
-            )}
-            <Typography variant="h5">
-              {id
-                ? "This list is empty"
-                : search
-                  ? "No matching lists"
-                  : `No ${title.toLowerCase()} yet`}
-            </Typography>
-            <Typography color="text.secondary">
-              {search && !id
-                ? "Try a different search."
-                : id
-                  ? "Items added in Plex will appear here."
-                  : kind === "collection"
-                    ? "Collections created in this Plex library will appear here."
-                    : "Your Plex video playlists will appear here."}
-            </Typography>
-          </Box>
-        ) : (
-          data.items.size > 0 && (
-            <VirtualGrid
-              count={data.total}
-              minimumCount={data.items.size + 100}
-              itemWidth={getLibraryCardWidth(cardView.layout, cardView.size)}
-              imageAspectRatio={cardView.layout === "poster" ? 2 / 3 : 16 / 9}
-              footerHeight={94}
-              observeRef={toolbarRef}
-              resetKey={data.key}
-              onRangeChange={data.requestRange}
-              itemKey={(index) => {
-                const record = data.items.get(index);
-                return record?.kind === "media"
-                  ? `${index}:${record.playlistItemID ?? record.item.ratingKey}`
-                  : (record?.id ?? index);
-              }}
-              renderItem={(index, imageSizes) => {
-                const record = data.items.get(index);
-                if (!record)
-                  return (
-                    <Skeleton
-                      variant="rounded"
-                      sx={{
-                        aspectRatio:
-                          cardView.layout === "poster" ? "2/3" : "16/9",
-                      }}
-                    />
-                  );
-                if (record.kind !== "media")
-                  return (
-                    <MediaListCard
-                      list={record}
-                      to={listTarget(record.id)}
-                      layout={cardView.layout}
-                      imageSizes={imageSizes}
-                    />
-                  );
-                if (!record.supported)
-                  return (
-                    <Box
-                      sx={{ p: 2, bgcolor: "action.hover", borderRadius: 1 }}
-                    >
-                      <Typography>{record.item.title}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        This item cannot be opened on this server.
-                      </Typography>
-                    </Box>
-                  );
-                return (
-                  <>
-                    <ActionableMediaCard
-                      item={record.item}
-                      layout={cardView.layout}
-                      imageSizes={imageSizes}
-                      imageLoading="eager"
-                      refetchData={data.refresh}
-                      playbackTo={
-                        kind === "playlist" &&
-                        id &&
-                        ["movie", "episode"].includes(record.item.type)
-                          ? playlistWatchPath(record.item, {
-                              id,
-                              index: record.position,
-                              libraryID,
-                            })
-                          : undefined
-                      }
-                    />
-                    {kind === "playlist" && (
-                      <Typography variant="caption" color="text.secondary">
-                        {index + 1}
-                      </Typography>
-                    )}
-                  </>
-                );
-              }}
+      ) : data.total === 0 ? (
+        <Box
+          sx={{
+            minHeight: 280,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            gap: 1,
+          }}
+        >
+          {kind === "playlist" ? (
+            <PlaylistPlayRounded
+              sx={{ fontSize: 72, color: "text.secondary" }}
             />
-          )
-        )}
-      </Box>
-    </Box>
+          ) : (
+            <CollectionsBookmarkRounded
+              sx={{ fontSize: 72, color: "text.secondary" }}
+            />
+          )}
+          <Typography variant="h5">
+            {id
+              ? "This list is empty"
+              : search
+                ? "No matching lists"
+                : `No ${title.toLowerCase()} yet`}
+          </Typography>
+          <Typography color="text.secondary">
+            {search && !id
+              ? "Try a different search."
+              : id
+                ? "Items added in Plex will appear here."
+                : kind === "collection"
+                  ? "Collections created in this Plex library will appear here."
+                  : "Your Plex video playlists will appear here."}
+          </Typography>
+        </Box>
+      ) : (
+        data.items.size > 0 && (
+          <VirtualGrid
+            count={data.total}
+            minimumCount={data.items.size + 100}
+            itemWidth={getLibraryCardWidth(cardView.layout, cardView.size)}
+            imageAspectRatio={cardView.layout === "poster" ? 2 / 3 : 16 / 9}
+            footerHeight={94}
+            observeRef={toolbarRef}
+            resetKey={data.key}
+            onRangeChange={data.requestRange}
+            itemKey={(index) => {
+              const record = data.items.get(index);
+              return record?.kind === "media"
+                ? `${index}:${record.playlistItemID ?? record.item.ratingKey}`
+                : (record?.id ?? index);
+            }}
+            renderItem={(index, imageSizes) => {
+              const record = data.items.get(index);
+              if (!record)
+                return (
+                  <Skeleton
+                    variant="rounded"
+                    sx={{
+                      aspectRatio:
+                        cardView.layout === "poster" ? "2/3" : "16/9",
+                    }}
+                  />
+                );
+              if (record.kind !== "media")
+                return (
+                  <MediaListCard
+                    list={record}
+                    to={listTarget(record.id)}
+                    layout={cardView.layout}
+                    imageSizes={imageSizes}
+                  />
+                );
+              if (!record.supported)
+                return (
+                  <Box sx={{ p: 2, bgcolor: "action.hover", borderRadius: 1 }}>
+                    <Typography>{record.item.title}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      This item cannot be opened on this server.
+                    </Typography>
+                  </Box>
+                );
+              return (
+                <>
+                  <ActionableMediaCard
+                    item={record.item}
+                    layout={cardView.layout}
+                    imageSizes={imageSizes}
+                    imageLoading="eager"
+                    refetchData={data.refresh}
+                    playbackTo={
+                      kind === "playlist" &&
+                      id &&
+                      ["movie", "episode"].includes(record.item.type)
+                        ? playlistWatchPath(record.item, {
+                            id,
+                            index: record.position,
+                            libraryID,
+                          })
+                        : undefined
+                    }
+                  />
+                  {kind === "playlist" && (
+                    <Typography variant="caption" color="text.secondary">
+                      {index + 1}
+                    </Typography>
+                  )}
+                </>
+              );
+            }}
+          />
+        )
+      )}
+    </LibraryBrowseFrame>
   );
 }

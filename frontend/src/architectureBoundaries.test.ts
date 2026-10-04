@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import ts from "typescript";
 
 const SOURCE_ROOT = __dirname;
 const HEADLESS_FEATURE_ENTRYPOINTS = new Set([
@@ -50,6 +51,74 @@ function moduleOwner(relativePath: string) {
 }
 
 describe("frontend module boundaries", () => {
+  it("keeps browse features free of runtime import cycles", () => {
+    const files = sourceFiles(SOURCE_ROOT).filter(
+      (file) => !file.includes(".test.") && !file.endsWith(".d.ts"),
+    );
+    const known = new Set(files);
+    const graph = new Map(
+      files.map((file) => {
+        const parsed = ts.createSourceFile(
+          file,
+          fs.readFileSync(file, "utf8"),
+          ts.ScriptTarget.Latest,
+        );
+        const imports: string[] = [];
+        parsed.statements.forEach((statement) => {
+          if (
+            !ts.isImportDeclaration(statement) &&
+            !ts.isExportDeclaration(statement)
+          )
+            return;
+          if (
+            !statement.moduleSpecifier ||
+            !ts.isStringLiteral(statement.moduleSpecifier)
+          )
+            return;
+          if (
+            ts.isImportDeclaration(statement)
+              ? statement.importClause?.isTypeOnly
+              : statement.isTypeOnly
+          )
+            return;
+          const target = targetPath(file, statement.moduleSpecifier.text);
+          if (!target) return;
+          const base = path.join(SOURCE_ROOT, target);
+          const resolved = [
+            base,
+            `${base}.ts`,
+            `${base}.tsx`,
+            path.join(base, "index.ts"),
+            path.join(base, "index.tsx"),
+          ].find((candidate) => known.has(candidate));
+          if (resolved) imports.push(resolved);
+        });
+        return [file, imports] as const;
+      }),
+    );
+    const visited = new Set<string>();
+    const stack: string[] = [];
+    const cycles: string[][] = [];
+    const visit = (file: string) => {
+      const position = stack.indexOf(file);
+      if (position >= 0) {
+        cycles.push([...stack.slice(position), file].map(sourcePath));
+        return;
+      }
+      if (visited.has(file)) return;
+      visited.add(file);
+      stack.push(file);
+      graph.get(file)?.forEach(visit);
+      stack.pop();
+    };
+    files
+      .filter((file) =>
+        /^features\/(library|watchlist|media-lists)\//.test(sourcePath(file)),
+      )
+      .forEach(visit);
+    expect(cycles).toEqual([]);
+  });
+
   it("uses public entrypoints for imports across feature and entity modules", () => {
     const violations: string[] = [];
 
@@ -70,6 +139,8 @@ describe("frontend module boundaries", () => {
           continue;
 
         const isPublic = targetOwner.entrypoint === "public";
+        const isAppRoute =
+          source.startsWith("app/") && targetOwner.entrypoint === "routes";
         const isEntityModel =
           targetOwner.layer === "entities" &&
           targetOwner.entrypoint === "model";
@@ -78,7 +149,7 @@ describe("frontend module boundaries", () => {
           targetOwner.entrypoint === "model" &&
           HEADLESS_FEATURE_ENTRYPOINTS.has(targetOwner.name);
 
-        if (!isPublic && !isEntityModel && !isFeatureModel)
+        if (!isPublic && !isAppRoute && !isEntityModel && !isFeatureModel)
           violations.push(`${source} -> ${match[1]}`);
       }
     }

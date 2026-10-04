@@ -170,3 +170,59 @@ it("does not silently skip an unplayable next item", async () => {
     "cannot be played",
   );
 });
+
+it("fills short Plex responses without leaving holes in a requested page", async () => {
+  transport.mockImplementation(async (url: string) => {
+    const params = new URLSearchParams(url.split("?")[1]);
+    const start = Number(params.get("X-Plex-Container-Start"));
+    const size = Math.min(
+      30,
+      Number(params.get("X-Plex-Container-Size")),
+      150 - start,
+    );
+    return response(
+      Array.from({ length: size }, (_, index) =>
+        movie("repeated", start + index),
+      ),
+      { offset: start, totalSize: 150 },
+    );
+  });
+  const page = await createMediaListSource({ kind: "playlist", id: "20" }).page(
+    50,
+    100,
+  );
+  expect(page.items).toHaveLength(100);
+  expect(page.items[0]).toMatchObject({ position: 50, playlistItemID: "50" });
+  expect(page.items[99]).toMatchObject({
+    position: 149,
+    playlistItemID: "149",
+  });
+  expect(transport).toHaveBeenCalledTimes(4);
+});
+
+it("detects a changed playlist occurrence even if the movie ID is unchanged", async () => {
+  transport.mockResolvedValue(
+    response([movie("1", 81)], { offset: 3, totalSize: 4 }),
+  );
+  await expect(
+    getPlaylistQueue({ id: "20", index: 3, itemID: "80" }, "1"),
+  ).rejects.toThrow("changed");
+  await expect(
+    getPlaylistQueue({ id: "20", index: 3, itemID: "81" }, "1"),
+  ).resolves.toHaveLength(1);
+});
+
+it("does not start another subrequest after cancelling a partial window", async () => {
+  const controller = new AbortController();
+  transport.mockImplementation(async () => {
+    controller.abort();
+    return response([movie("1")], { offset: 0, totalSize: 3 });
+  });
+  await expect(
+    createMediaListSource(
+      { kind: "playlist", id: "20" },
+      controller.signal,
+    ).page(0, 100),
+  ).rejects.toMatchObject({ name: "AbortError" });
+  expect(transport).toHaveBeenCalledTimes(1);
+});

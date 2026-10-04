@@ -7,10 +7,9 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import { WatchlistView } from "features/watchlist/public";
+import { WatchlistView } from "features/watchlist/routes";
 import { MediaListsView } from "features/media-lists/public";
-import BrowseRecommendations from "./BrowseRecommendations";
-import BrowseLibrary from "./BrowseLibrary";
+import { BrowseRecommendations, BrowseLibrary } from "features/library/public";
 import { libraryViewTo } from "shared/lib/navigation";
 
 const views = [
@@ -102,7 +101,7 @@ function BrowsePageSelector({
   );
 }
 
-function Library() {
+function LibraryBrowse() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { libraryID } = useParams<{ libraryID: string }>();
   const requestedPage = searchParams.get("view");
@@ -159,4 +158,4 @@ function Library() {
   );
 }
 
-export default Library;
+export default LibraryBrowse;

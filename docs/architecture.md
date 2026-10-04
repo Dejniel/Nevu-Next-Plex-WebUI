@@ -34,7 +34,9 @@ protocol or UI. Prefer narrow contracts over chains of feature internals.
 Each feature exposes its supported UI surface through `public.ts`. Code outside
 a feature imports from that file instead of reaching into `api`, `model`, or
 `ui`. A root `model.ts` may expose a deliberately headless contract when a
-state-only consumer would otherwise load the feature's UI graph. The current set
+state-only consumer would otherwise load the feature's UI graph. A root
+`routes.ts` can expose screens solely to `app`, keeping them out of contracts
+used by other features. The current set
 is encoded in `architectureBoundaries.test.ts`; session additionally provides
 the current authenticated Plex request context across layers. Files inside the
 same feature use direct relative imports so their ownership is visible and
@@ -73,8 +75,10 @@ editing and matching, original-file downloads, and playback-target resolution
 while the shared `MediaCard` remains presentation-focused. `entities/library`
 owns reusable library data and administration requests.
 
-Library, Watchlist, collection, and playlist views share the card toolbar and
-`shared/ui/VirtualGrid`. `features/media-lists` owns the collection/playlist API
+`app/library/LibraryBrowse` composes the library view selector and its screens.
+Watchlist, collection, and playlist views share `LibraryBrowseFrame`; all library
+views reuse the card toolbar and `shared/ui/VirtualGrid`.
+`features/media-lists` owns the collection/playlist API
 adapters and profile-scoped paging; playlist positions remain distinct even when
 titles repeat. Its headless model supplies playlist playback and return links.
 `entities/media` resolves accessible local copies by GUID; Watchlist retains its
@@ -82,6 +86,7 @@ own account API and profile-scoped store rather than using the library range cac
 
 `architectureBoundaries.test.ts` checks the current entry-point and dependency
 conventions. Update those checks alongside intentional architecture changes.
+It also checks runtime import cycles reachable from the browse features.
 Headless entry points help non-UI consumers avoid UI dependencies or cycles.
 
 ## Video playback

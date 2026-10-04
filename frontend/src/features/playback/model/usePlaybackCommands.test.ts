@@ -44,7 +44,10 @@ describe("playlist playback commands", () => {
       playQueue: [movie, { ...movie, ratingKey: "11" }],
       playlistContext: { id: "30", index: 0, libraryID: "2" },
       isGuest: false,
-      runtime: {} as Parameters<typeof usePlaybackCommands>[0]["runtime"],
+      runtime: {
+        getDuration: () => 100,
+        seekToLocal: jest.fn(),
+      } as unknown as Parameters<typeof usePlaybackCommands>[0]["runtime"],
       sync: {
         pause: jest.fn(),
         resume: jest.fn(),
@@ -97,5 +100,28 @@ describe("playlist playback commands", () => {
     );
     expect(options.reportStopped).toHaveBeenCalledTimes(1);
     expect(options.sync.leave).toHaveBeenCalledTimes(1);
+  });
+
+  it("advances when a previously failed or delayed playlist queue becomes ready after the film ended", async () => {
+    options.playQueue = null;
+    await render();
+    commands.handleEnded();
+    expect(options.navigate).not.toHaveBeenCalled();
+    options = { ...options, playQueue: [movie, { ...movie, ratingKey: "11" }] };
+    await render();
+    expect(options.navigate).toHaveBeenCalledTimes(1);
+    expect(options.navigate).toHaveBeenCalledWith(
+      "/watch/11?playlist=30&position=1&fromLibrary=2",
+    );
+  });
+
+  it("does not advance an ended item after seeking back while its queue is loading", async () => {
+    options.playQueue = null;
+    await render();
+    commands.handleEnded();
+    commands.seekTo(10);
+    options = { ...options, playQueue: [movie, movie] };
+    await render();
+    expect(options.navigate).not.toHaveBeenCalled();
   });
 });

@@ -16,6 +16,7 @@ export function usePlaybackQueue(
     metadata?.ratingKey,
     playlist?.id,
     playlist?.index,
+    playlist?.itemID,
   ]);
   const [revision, setRevision] = useState(0);
   const [state, setState] = useState<{
@@ -27,7 +28,7 @@ export function usePlaybackQueue(
   useEffect(() => {
     let alive = true;
     setState({ key, queue: null, error: null });
-    if (!metadata) return;
+    if (!metadata || !profileKey) return;
     const request = playlist
       ? getPlaylistQueue(playlist, metadata.ratingKey)
       : getPlaybackQueueForItem(metadata);
@@ -52,7 +53,7 @@ export function usePlaybackQueue(
     };
     // The serialized key covers playlist identity without depending on a new object on each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, metadata, revision]);
+  }, [key, metadata, profileKey, revision]);
 
   return {
     playQueue: state.key === key ? state.queue : null,

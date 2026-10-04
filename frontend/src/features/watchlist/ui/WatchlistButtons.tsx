@@ -11,17 +11,19 @@ import type { MediaItemData } from "entities/media/model";
 import React from "react";
 import { useBigReader } from "shared/ui";
 import { useWatchlist } from "../model/watchlistStore";
+import { canWatchlist } from "../model/watchlistItem";
 
 function useWatchlistToggle(item: MediaItemData) {
   const selected = useWatchlist((state) => state.has(item.guid));
   const add = useWatchlist((state) => state.add);
   const remove = useWatchlist((state) => state.remove);
   const [loading, setLoading] = React.useState(false);
+  const available = canWatchlist(item);
 
   const toggle = async (event?: React.SyntheticEvent) => {
     event?.preventDefault();
     event?.stopPropagation();
-    if (loading) return;
+    if (loading || !available) return;
 
     setLoading(true);
     try {
@@ -38,11 +40,12 @@ function useWatchlistToggle(item: MediaItemData) {
     }
   };
 
-  return { loading, selected, toggle };
+  return { loading, selected, toggle, available };
 }
 
 export function WatchlistButton({ item }: { item: MediaItemData }) {
-  const { loading, selected, toggle } = useWatchlistToggle(item);
+  const { loading, selected, toggle, available } = useWatchlistToggle(item);
+  if (!available) return null;
 
   return (
     <IconButton
@@ -74,7 +77,8 @@ export function WatchlistButton({ item }: { item: MediaItemData }) {
 }
 
 export function HeroWatchlistButton({ item }: { item: Plex.Metadata }) {
-  const { loading, selected, toggle } = useWatchlistToggle(item);
+  const { loading, selected, toggle, available } = useWatchlistToggle(item);
+  if (!available) return null;
 
   return (
     <Button
@@ -107,7 +111,8 @@ export function WatchlistMenuItem({
   item: MediaItemData;
   onDone?: () => void;
 }) {
-  const { loading, selected, toggle } = useWatchlistToggle(item);
+  const { loading, selected, toggle, available } = useWatchlistToggle(item);
+  if (!available) return null;
 
   return (
     <MenuItem

@@ -43,19 +43,30 @@ export function shouldIgnorePlaybackShortcut(target: EventTarget | null) {
 export function usePlaybackCommands(options: PlaybackCommandOptions) {
   const optionsRef = useRef(options);
   optionsRef.current = options;
+  const completedItem = useRef<string | null>(null);
+  const completionKey = JSON.stringify([
+    options.metadata?.ratingKey,
+    options.playlistContext?.id,
+    options.playlistContext?.index,
+    options.playlistContext?.itemID,
+  ]);
 
   const togglePlayback = useCallback(() => {
     const { runtime, sync } = optionsRef.current;
     const playing = runtime.togglePlaying();
-    if (playing) sync.resume();
-    else sync.pause();
+    if (playing) {
+      completedItem.current = null;
+      sync.resume();
+    } else sync.pause();
   }, []);
   const resumePlayback = useCallback(() => {
+    completedItem.current = null;
     const { runtime, sync } = optionsRef.current;
     runtime.setPlaying(true);
     sync.resume();
   }, []);
   const seekTo = useCallback((time: number) => {
+    completedItem.current = null;
     const { runtime, sync } = optionsRef.current;
     const duration = runtime.getDuration();
     const next = Math.max(0, duration > 0 ? Math.min(time, duration) : time);
@@ -82,6 +93,7 @@ export function usePlaybackCommands(options: PlaybackCommandOptions) {
       optionsRef.current;
     if (!metadata) return;
     if (playlistContext && !playQueue) return;
+    completedItem.current = null;
     const hasNext =
       (Boolean(playlistContext) || metadata.type === "episode") &&
       Boolean(playQueue?.[1]);
@@ -102,6 +114,7 @@ export function usePlaybackCommands(options: PlaybackCommandOptions) {
     seekTo(marker.endTimeOffset / 1000 + 1);
   }, [advance, seekTo]);
   const exitPlayback = useCallback(() => {
+    completedItem.current = null;
     const { metadata, navigate, reportStopped, sync, playlistContext } =
       optionsRef.current;
     sync.leave();
@@ -115,9 +128,27 @@ export function usePlaybackCommands(options: PlaybackCommandOptions) {
     );
   }, []);
   const handleEnded = useCallback(() => {
-    if (optionsRef.current.isGuest) return;
+    const { metadata, playlistContext, playQueue, isGuest } =
+      optionsRef.current;
+    if (isGuest) return;
+    if (playlistContext && !playQueue) {
+      completedItem.current = JSON.stringify([
+        metadata?.ratingKey,
+        playlistContext.id,
+        playlistContext.index,
+        playlistContext.itemID,
+      ]);
+      return;
+    }
     advance(false, true);
   }, [advance]);
+  useEffect(() => {
+    if (completedItem.current !== completionKey) {
+      completedItem.current = null;
+      return;
+    }
+    if (options.playQueue && !options.isGuest) advance(false, true);
+  }, [advance, completionKey, options.isGuest, options.playQueue]);
   const handleSurfaceClick = useCallback(
     (clickCount: number) => {
       if (clickCount === 1) togglePlayback();

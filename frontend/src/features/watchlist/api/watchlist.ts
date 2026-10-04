@@ -1,5 +1,6 @@
 import axios from "axios";
 import { AuthStorage } from "features/session/model";
+import { getWatchlistID } from "../model/watchlistItem";
 
 const DISCOVER_URL = "https://discover.provider.plex.tv";
 
@@ -11,8 +12,8 @@ function accountToken() {
 }
 
 function discoverId(guid: string) {
-  const id = guid.split("/").filter(Boolean).at(-1);
-  if (!id) throw new Error(`Invalid Plex GUID: ${guid}`);
+  const id = getWatchlistID(guid);
+  if (!id) throw new Error("This title does not have a Plex Watchlist identifier.");
   return id;
 }
 

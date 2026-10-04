@@ -1,4 +1,5 @@
-export { default as Browse } from "./ui/Browse";
+export { default as BrowseLibrary } from "./ui/BrowseLibrary";
+export { default as BrowseRecommendations } from "./ui/BrowseRecommendations";
 export { default as LibraryScreen } from "./ui/LibraryScreen";
 export { default as MovieItemSlider } from "./ui/MovieItemSlider";
 export {
@@ -20,4 +21,5 @@ export type {
 } from "./model/LibraryRangeStore";
 export { LibraryPageError } from "./api/libraryPage";
 export { default as LibraryViewToolbar } from "./ui/LibraryViewToolbar";
+export { default as LibraryBrowseFrame } from "./ui/LibraryBrowseFrame";
 export { getLibraryCardWidth, useLibraryCardView } from "./ui/LibraryCardViewControls";

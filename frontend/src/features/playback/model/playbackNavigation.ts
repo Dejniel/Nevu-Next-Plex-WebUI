@@ -28,7 +28,7 @@ export function playbackAdvancePath(
   if (next && playlist)
     return playlistWatchPath(
       next,
-      { ...playlist, index: playlist.index + 1 },
+      { ...playlist, index: playlist.index + 1, itemID: undefined },
       restartNext,
     );
   if (next) return `/watch/${next.ratingKey}${restartNext ? "?t=0" : ""}`;

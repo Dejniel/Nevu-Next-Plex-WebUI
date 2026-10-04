@@ -2,8 +2,8 @@ import { Box } from "@mui/material";
 import { Route, Routes } from "react-router-dom";
 import AppBar from "./shell/AppBar";
 import { HomeScreen } from "features/home/public";
-import { Browse } from "features/library/public";
-import { WatchlistView } from "features/watchlist/public";
+import LibraryBrowse from "./library/LibraryBrowse";
+import { WatchlistView } from "features/watchlist/routes";
 import { MediaListsView } from "features/media-lists/public";
 import { SearchScreen } from "features/search/public";
 import { SettingsScreen } from "features/settings/public";
@@ -21,7 +21,7 @@ export default function AppRoutes() {
       <Box sx={{ width: "100%", height: "auto" }}>
         <Routes>
           <Route path="/" element={<HomeScreen />} />
-          <Route path="/browse/:libraryID" element={<Browse />} />
+          <Route path="/browse/:libraryID" element={<LibraryBrowse />} />
           <Route path="/watchlist" element={<WatchlistView />} />
           <Route path="/playlists" element={<MediaListsView kind="playlist" />} />
           <Route path="/watch/:itemID" element={<PlaybackScreen />} />

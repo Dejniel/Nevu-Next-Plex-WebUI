@@ -79,3 +79,15 @@ it("accepts only valid playlist positions and IDs from URLs", () => {
   ])
     expect(parsePlaylistContext(new URLSearchParams(value))).toBeUndefined();
 });
+
+it("carries the next occurrence ID without reusing the previous occurrence", () => {
+  const next = { ...movie, playlistItemID: 81 };
+  const path = playbackAdvancePath(movie, [movie, next], false, {
+    id: "30",
+    index: 4,
+    itemID: "80",
+  });
+  expect(
+    parsePlaylistContext(new URLSearchParams(path.split("?")[1])),
+  ).toMatchObject({ id: "30", index: 5, itemID: "81" });
+});

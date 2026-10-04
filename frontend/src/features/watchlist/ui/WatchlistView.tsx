@@ -17,7 +17,7 @@ import { useLibraries } from "entities/library/model";
 import { selectLocalMedia, useMediaAvailability } from "entities/media/model";
 import {
   getLibraryCardWidth,
-  LibraryViewToolbar,
+  LibraryBrowseFrame,
   useLibraryCardView,
 } from "features/library/public";
 import { ActionableMediaCard } from "features/media-actions/public";
@@ -80,28 +80,17 @@ export default function WatchlistView({
   }, [load, status]);
 
   return (
-    <Box sx={{ mt: "64px", width: "100%", pb: 8 }}>
-      <Box ref={toolbarRef} sx={{ width: "100%" }}>
-        <LibraryViewToolbar
-          cardView={cardView}
-          leading={
-            <Typography component="h1" variant="h6">
-              Watchlist
-            </Typography>
-          }
-          pageNavigation={pageNavigation}
-          showLeadingOnMobile
-        />
-        <Box
-          sx={{
-            px: { xs: 1, md: 6 },
-            py: 1,
-            display: "flex",
-            alignItems: "center",
-            gap: 1.5,
-            flexWrap: "wrap",
-          }}
-        >
+    <LibraryBrowseFrame
+      toolbarRef={toolbarRef}
+      cardView={cardView}
+      leading={
+        <Typography component="h1" variant="h6">
+          Watchlist
+        </Typography>
+      }
+      pageNavigation={pageNavigation}
+      filters={
+        <>
           {libraryID && (
             <FormControlLabel
               control={
@@ -164,122 +153,120 @@ export default function WatchlistView({
               </IconButton>
             </span>
           </Tooltip>
+        </>
+      }
+    >
+      {error && (
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" onClick={() => void load()}>
+              Retry
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      )}
+      {availability.error && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" onClick={availability.retry}>
+              Retry
+            </Button>
+          }
+        >
+          {availability.error}
+        </Alert>
+      )}
+      {waiting ? (
+        <Box sx={{ minHeight: 220, display: "grid", placeItems: "center" }}>
+          <CircularProgress aria-label="Loading Watchlist" />
         </Box>
-      </Box>
-
-      <Box sx={{ px: { xs: 1, md: 6 }, mt: 2 }}>
-        {error && (
-          <Alert
-            severity="error"
-            sx={{ mb: 2 }}
-            action={
-              <Button color="inherit" onClick={() => void load()}>
-                Retry
-              </Button>
-            }
-          >
-            {error}
-          </Alert>
-        )}
-        {availability.error && (
-          <Alert
-            severity="warning"
-            sx={{ mb: 2 }}
-            action={
-              <Button color="inherit" onClick={availability.retry}>
-                Retry
-              </Button>
-            }
-          >
-            {availability.error}
-          </Alert>
-        )}
-        {waiting ? (
-          <Box sx={{ minHeight: 220, display: "grid", placeItems: "center" }}>
-            <CircularProgress aria-label="Loading Watchlist" />
-          </Box>
-        ) : selected.length > 0 ? (
-          <VirtualGrid
-            count={selected.length}
-            itemWidth={getLibraryCardWidth(cardView.layout, cardView.size)}
-            imageAspectRatio={cardView.layout === "poster" ? 2 / 3 : 16 / 9}
-            footerHeight={94}
-            observeRef={toolbarRef}
-            resetKey={`${libraryID ?? "all"}:${libraryOnly}:${search}:${sort}`}
-            itemKey={(index) => selected[index].guid}
-            renderItem={(index, imageSizes) => {
-              const remote = selected[index];
-              const local = selectLocalMedia(
-                remote,
-                availability.items,
-                libraryID,
-              );
-              const known = !availability.loading && !availability.error;
-              const copies =
-                availability.items.get(remote.guid)?.localItems ?? [];
-              const names = [
-                ...new Set(
-                  copies.map(
-                    (copy) =>
-                      libraries?.find(
-                        (library) =>
-                          String(library.key) === String(copy.librarySectionID),
-                      )?.title ?? `Library ${copy.librarySectionID}`,
-                  ),
+      ) : selected.length > 0 ? (
+        <VirtualGrid
+          count={selected.length}
+          itemWidth={getLibraryCardWidth(cardView.layout, cardView.size)}
+          imageAspectRatio={cardView.layout === "poster" ? 2 / 3 : 16 / 9}
+          footerHeight={94}
+          observeRef={toolbarRef}
+          resetKey={`${libraryID ?? "all"}:${libraryOnly}:${search}:${sort}`}
+          itemKey={(index) => selected[index].guid}
+          renderItem={(index, imageSizes) => {
+            const remote = selected[index];
+            const local = selectLocalMedia(
+              remote,
+              availability.items,
+              libraryID,
+            );
+            const known = !availability.loading && !availability.error;
+            const copies =
+              availability.items.get(remote.guid)?.localItems ?? [];
+            const names = [
+              ...new Set(
+                copies.map(
+                  (copy) =>
+                    libraries?.find(
+                      (library) =>
+                        String(library.key) === String(copy.librarySectionID),
+                    )?.title ?? `Library ${copy.librarySectionID}`,
                 ),
-              ];
-              const label = !known
-                ? availability.error
-                  ? "Availability unknown"
-                  : "Checking availability…"
-                : names.length
-                  ? names.join(" · ")
-                  : "Unavailable on this server";
-              return (
-                <>
-                  <ActionableMediaCard
-                    item={local ?? remote}
-                    PlexTvSource={!local}
-                    canPlay={Boolean(local) && known}
-                    layout={cardView.layout}
-                    imageSizes={imageSizes}
-                    imageLoading="eager"
-                    refetchData={availability.retry}
-                  />
-                  <Tooltip title={label}>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      noWrap
-                      sx={{ display: "block", mt: 0.5 }}
-                    >
-                      {label}
-                    </Typography>
-                  </Tooltip>
-                </>
-              );
-            }}
-          />
-        ) : !error && !unavailableScope ? (
-          <Box sx={{ textAlign: "center", py: 8, color: "text.secondary" }}>
-            <BookmarkBorderRounded sx={{ fontSize: 56, mb: 2 }} />
-            <Typography variant="h6" color="text.primary">
-              {search
-                ? "No matching titles"
-                : libraryOnly && items.length
-                  ? "No Watchlist titles in this library"
-                  : "Your Watchlist is empty"}
-            </Typography>
-            <Typography sx={{ mt: 1 }}>
-              {search
-                ? "Try another title or clear the search."
-                : libraryOnly && items.length
-                  ? "Turn off the library filter to see your full Watchlist."
-                  : "Save films and shows with the bookmark button to find them here."}
-            </Typography>
-          </Box>
-        ) : null}
-      </Box>
-    </Box>
+              ),
+            ];
+            const label = !known
+              ? availability.error
+                ? "Availability unknown"
+                : "Checking availability…"
+              : names.length
+                ? names.join(" · ")
+                : "Unavailable on this server";
+            return (
+              <>
+                <ActionableMediaCard
+                  item={local ?? remote}
+                  PlexTvSource={!local}
+                  canPlay={Boolean(local) && known}
+                  layout={cardView.layout}
+                  imageSizes={imageSizes}
+                  imageLoading="eager"
+                  refetchData={availability.retry}
+                />
+                <Tooltip title={label}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    noWrap
+                    sx={{ display: "block", mt: 0.5 }}
+                  >
+                    {label}
+                  </Typography>
+                </Tooltip>
+              </>
+            );
+          }}
+        />
+      ) : !error && !unavailableScope ? (
+        <Box sx={{ textAlign: "center", py: 8, color: "text.secondary" }}>
+          <BookmarkBorderRounded sx={{ fontSize: 56, mb: 2 }} />
+          <Typography variant="h6" color="text.primary">
+            {search
+              ? "No matching titles"
+              : libraryOnly && items.length
+                ? "No Watchlist titles in this library"
+                : "Your Watchlist is empty"}
+          </Typography>
+          <Typography sx={{ mt: 1 }}>
+            {search
+              ? "Try another title or clear the search."
+              : libraryOnly && items.length
+                ? "Turn off the library filter to see your full Watchlist."
+                : "Save films and shows with the bookmark button to find them here."}
+          </Typography>
+        </Box>
+      ) : null}
+    </LibraryBrowseFrame>
   );
 }

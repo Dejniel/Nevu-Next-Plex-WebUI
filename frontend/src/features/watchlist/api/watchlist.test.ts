@@ -56,6 +56,20 @@ it("returns an empty list when Plex omits watchlist metadata", async () => {
   );
 });
 
+it.each([
+  "plex://episode/123",
+  "plex://season/123",
+  "com.plexapp.agents.none://local?lang=en",
+  "invalid",
+])(
+  "rejects unsupported Watchlist identifier %s before a mutation",
+  async (guid) => {
+    await expect(addToWatchlist(guid)).rejects.toThrow("identifier");
+    await expect(removeFromWatchlist(guid)).rejects.toThrow("identifier");
+    expect(mockedAxios.put).not.toHaveBeenCalled();
+  },
+);
+
 it("fails before a request when no profile token is available", async () => {
   AuthStorage.clearActiveSession();
 

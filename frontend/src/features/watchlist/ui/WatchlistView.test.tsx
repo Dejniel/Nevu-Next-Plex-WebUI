@@ -32,8 +32,20 @@ jest.mock("features/settings/model", () => ({
 jest.mock("features/library/public", () => ({
   getLibraryCardWidth: () => 200,
   useLibraryCardView: () => ({ layout: "poster", size: 40 }),
-  LibraryViewToolbar: ({ leading }: { leading: React.ReactNode }) => (
-    <div>{leading}</div>
+  LibraryBrowseFrame: ({
+    leading,
+    filters,
+    children,
+  }: {
+    leading: React.ReactNode;
+    filters: React.ReactNode;
+    children: React.ReactNode;
+  }) => (
+    <div>
+      {leading}
+      {filters}
+      {children}
+    </div>
   ),
 }));
 jest.mock("features/media-actions/public", () => ({

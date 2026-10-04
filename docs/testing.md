@@ -51,7 +51,8 @@ native Safari HLS, HDR, and hardware transcoding require suitable environments.
 For list browsing, create a collection and a video playlist in test Plex using
 the samples. Check their library views, search, empty states, and back links.
 Verify playlist order with Next, playback completion, and returning to the list;
-include episodes and another profile when available.
+include repeated titles, episodes, and another profile when available. For large
+lists, check the last item and retry a failed page or playback queue.
 
 Stop with `docker compose -f compose.test.yaml down`. Adding `-v` resets the
 test stack's volumes; sample media remains in the host directory.

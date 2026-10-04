@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUserSettings } from "features/settings/model";
 import { createMediaListSource } from "../api/mediaLists";
 import type {
@@ -28,7 +28,12 @@ const empty = (key: string): Snapshot => ({
 /** Pages retain Plex positions, including repeated titles in a playlist. */
 export function useMediaList(query: MediaListQuery) {
   const profileKey = useUserSettings((state) => state.profileKey);
-  const key = JSON.stringify([profileKey, query]);
+  const { kind, libraryID, id, search, sort } = query;
+  const stableQuery = useMemo<MediaListQuery>(
+    () => ({ kind, libraryID, id, search, sort }),
+    [kind, libraryID, id, search, sort],
+  );
+  const key = JSON.stringify([profileKey, stableQuery]);
   const [revision, setRevision] = useState(0);
   const [snapshot, setSnapshot] = useState(() => empty(key));
   const demand = useRef<(start: number, end: number) => void>(() => undefined);
@@ -36,7 +41,14 @@ export function useMediaList(query: MediaListQuery) {
 
   useEffect(() => {
     let alive = true;
-    let state = empty(key);
+    const state = empty(key);
+    const controller = new AbortController();
+    if (!profileKey) {
+      setSnapshot({ ...state, loading: false });
+      demand.current = () => undefined;
+      retryRequest.current = () => undefined;
+      return;
+    }
     const pages = new Set<number>();
     const pending = new Set<number>();
     const failed = new Set<number>();
@@ -47,7 +59,7 @@ export function useMediaList(query: MediaListQuery) {
       if (alive) setSnapshot({ ...state, items: new Map(state.items) });
     };
     try {
-      source = createMediaListSource(JSON.parse(key)[1]);
+      source = createMediaListSource(stableQuery, controller.signal);
     } catch (error) {
       setSnapshot({
         ...state,
@@ -141,8 +153,9 @@ export function useMediaList(query: MediaListQuery) {
     demand.current(0, 0);
     return () => {
       alive = false;
+      controller.abort();
     };
-  }, [key, revision]);
+  }, [key, profileKey, stableQuery, revision]);
 
   const requestRange = useCallback(
     ({ start, end }: { start: number; end: number }) =>

@@ -280,7 +280,7 @@ export default function PlaybackScreen() {
     <PlaybackSession
       key={
         playlistContext
-          ? `${playlistContext.id}:${playlistContext.index}`
+          ? `${playlistContext.id}:${playlistContext.index}:${playlistContext.itemID ?? ""}`
           : "standalone"
       }
       playlistContext={playlistContext}

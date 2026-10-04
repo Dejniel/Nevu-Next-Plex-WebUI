@@ -71,7 +71,7 @@ it("ignores an old response after changing the list or profile", async () => {
   query = { kind: "playlist", id: "21" };
   await act(async () => useUserSettings.setState({ profileKey: "owner:2" }));
   await render();
-  expect(source).toHaveBeenLastCalledWith(query);
+  expect(source).toHaveBeenLastCalledWith(query, expect.any(AbortSignal));
   await act(async () =>
     resolveOld({ offset: 0, total: 1, items: items(0, 1) }),
   );
@@ -128,4 +128,14 @@ it("finishes an empty list and retries an unavailable source", async () => {
   expect(state.error).toBeNull();
   expect(state.loading).toBe(false);
   expect(state.total).toBe(0);
+});
+
+it("does not issue list requests without a profile and aborts old windows", async () => {
+  await render();
+  const signal = source.mock.calls[0][1] as AbortSignal;
+  await act(async () => useUserSettings.setState({ profileKey: null }));
+  expect(signal.aborted).toBe(true);
+  expect(state.loading).toBe(false);
+  expect(state.items.size).toBe(0);
+  expect(source).toHaveBeenCalledTimes(1);
 });

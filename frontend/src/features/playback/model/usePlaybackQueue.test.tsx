@@ -6,6 +6,7 @@ import {
 } from "features/media-lists/model";
 import { getPlaybackQueueForItem } from "../api/playback";
 import { usePlaybackQueue } from "./usePlaybackQueue";
+import { useUserSettings } from "features/settings/model";
 
 jest.mock("features/media-lists/model", () => ({
   getPlaylistQueue: jest.fn(),
@@ -32,6 +33,7 @@ beforeEach(() => {
   ).IS_REACT_ACT_ENVIRONMENT = true;
   root = createRoot(document.createElement("div"));
   playlist = { id: "20", index: 0 };
+  useUserSettings.setState({ profileKey: "owner:1" });
   playlistLookup.mockResolvedValue([movie]);
   defaultLookup.mockResolvedValue([movie]);
 });
@@ -75,4 +77,37 @@ it("surfaces a playlist failure and retries without falling back to the show's q
   expect(state.queueError).toBeNull();
   expect(state.playQueue).toEqual([movie]);
   expect(defaultLookup).not.toHaveBeenCalled();
+});
+
+it("ignores the previous occurrence when its ID changes at the same position", async () => {
+  let resolveOld!: (queue: Plex.Metadata[]) => void;
+  playlist = { id: "20", index: 0, itemID: "80" };
+  playlistLookup.mockReturnValueOnce(
+    new Promise((resolve) => {
+      resolveOld = resolve;
+    }),
+  );
+  await render();
+  playlist = { ...playlist, itemID: "81" };
+  const next = { ratingKey: "new" } as Plex.Metadata;
+  playlistLookup.mockResolvedValueOnce([movie, next]);
+  await render();
+  await act(async () => resolveOld([movie]));
+  expect(playlistLookup).toHaveBeenCalledTimes(2);
+  expect(state.playQueue?.[1]).toBe(next);
+});
+
+it("clears playback queues when the profile disappears and ignores the late response", async () => {
+  let resolveOld!: (queue: Plex.Metadata[]) => void;
+  playlistLookup.mockReturnValueOnce(
+    new Promise((resolve) => {
+      resolveOld = resolve;
+    }),
+  );
+  await render();
+  await act(async () => useUserSettings.setState({ profileKey: null }));
+  await act(async () => resolveOld([movie]));
+  expect(state.playQueue).toBeNull();
+  expect(state.queueError).toBeNull();
+  expect(playlistLookup).toHaveBeenCalledTimes(1);
 });

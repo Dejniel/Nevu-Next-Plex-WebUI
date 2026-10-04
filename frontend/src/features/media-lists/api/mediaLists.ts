@@ -31,6 +31,55 @@ interface Container<T> {
   };
 }
 
+type ListEntryMetadata = Plex.Metadata & {
+  playlistItemID?: number;
+  sourceURI?: string;
+};
+
+/** Fill a requested window even if Plex caps a response below its requested size. */
+async function readWindow<T>(
+  client: PlexClient,
+  path: string,
+  params: URLSearchParams,
+  offset: number,
+  size: number,
+  signal?: AbortSignal,
+) {
+  const items: T[] = [];
+  let total: number | null = null;
+  let section: number | undefined;
+  while (items.length < size) {
+    if (signal?.aborted)
+      throw new DOMException("The request was cancelled.", "AbortError");
+    const start = offset + items.length;
+    const remaining = size - items.length;
+    params.set("X-Plex-Container-Start", String(start));
+    params.set("X-Plex-Container-Size", String(remaining));
+    const response = await client.get<Container<T>>(`${path}?${params}`);
+    const container = response.MediaContainer;
+    if (!container) throw new Error("Plex returned invalid media list data.");
+    const page = container.Metadata ?? [];
+    if (
+      !Array.isArray(page) ||
+      (container.offset ?? start) !== start ||
+      page.length > remaining ||
+      (container.totalSize !== undefined &&
+        (!Number.isSafeInteger(container.totalSize) ||
+          container.totalSize < 0)) ||
+      (!page.length && (container.totalSize ?? 0) > start)
+    )
+      throw new Error("Plex returned incomplete media list data.");
+    section ??= container.librarySectionID;
+    items.push(...page);
+    total =
+      container.totalSize ??
+      (page.length < remaining ? start + page.length : null);
+    if (!page.length || (total !== null && offset + items.length >= total))
+      break;
+  }
+  return { offset, total, items, section };
+}
+
 function clientForSession() {
   const token = AuthStorage.getServerToken();
   if (!token) throw new Error("The active Plex session is missing.");
@@ -60,7 +109,7 @@ function listSummary(
 }
 
 function itemEntry(
-  item: Plex.Metadata & { playlistItemID?: number; sourceURI?: string },
+  item: ListEntryMetadata,
   position: number,
   section?: number,
   localServer?: string,
@@ -90,7 +139,10 @@ function listPath(query: MediaListQuery) {
   return `/library/sections/${encodeURIComponent(query.libraryID)}/collections`;
 }
 
-export function createMediaListSource(query: MediaListQuery) {
+export function createMediaListSource(
+  query: MediaListQuery,
+  signal?: AbortSignal,
+) {
   const client = clientForSession();
   const path = listPath(query);
   const localServer = useServerSession.getState().server?.machineIdentifier;
@@ -120,33 +172,35 @@ export function createMediaListSource(query: MediaListQuery) {
           ? "/items"
           : "/children"
         : "";
-      const response = await client.get<
-        Container<ListMetadata & Plex.Metadata>
-      >(`${path}${suffix}?${params}`);
-      const container = response.MediaContainer;
-      if (!container) throw new Error("Plex returned invalid media list data.");
-      const items = container.Metadata ?? [];
-      if (
-        (container.offset ?? offset) !== offset ||
-        items.length > size ||
-        (items.length === 0 && (container.totalSize ?? 0) > offset)
-      )
-        throw new Error("Plex returned incomplete media list data.");
+      if (query.id) {
+        const page = await readWindow<ListEntryMetadata>(
+          client,
+          path + suffix,
+          params,
+          offset,
+          size,
+          signal,
+        );
+        return {
+          offset,
+          total: page.total,
+          items: page.items.map((item, index) =>
+            itemEntry(item, offset + index, page.section, localServer),
+          ),
+        };
+      }
+      const page = await readWindow<ListMetadata>(
+        client,
+        path,
+        params,
+        offset,
+        size,
+        signal,
+      );
       return {
         offset,
-        total:
-          container.totalSize ??
-          (items.length < size ? offset + items.length : null),
-        items: items.map((item, index) =>
-          query.id
-            ? itemEntry(
-                item,
-                offset + index,
-                container.librarySectionID,
-                localServer,
-              )
-            : listSummary(item, query.kind),
-        ),
+        total: page.total,
+        items: page.items.map((item) => listSummary(item, query.kind)),
       };
     },
   };
@@ -160,8 +214,13 @@ export async function getPlaylistQueue(
     kind: "playlist",
     id: context.id,
   }).page(context.index, 2);
-  const entries = page.items as MediaListEntry[];
-  if (entries[0]?.item.ratingKey !== currentID)
+  const entries = page.items.filter(
+    (item): item is MediaListEntry => item.kind === "media",
+  );
+  if (
+    entries[0]?.item.ratingKey !== currentID ||
+    (context.itemID && entries[0].playlistItemID !== context.itemID)
+  )
     throw new Error(
       "This playlist has changed. Open it again to continue in its current order.",
     );
