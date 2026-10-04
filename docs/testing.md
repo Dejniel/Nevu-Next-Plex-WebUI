@@ -53,6 +53,8 @@ the samples. Check their library views, search, empty states, and back links.
 Verify playlist order with Next, playback completion, and returning to the list;
 include repeated titles, episodes, and another profile when available. For large
 lists, check the last item and retry a failed page or playback queue.
+Check adding from cards and title details to existing and new lists, preserving
+their contents, and action availability for users without management permission.
 
 Stop with `docker compose -f compose.test.yaml down`. Adding `-v` resets the
 test stack's volumes; sample media remains in the host directory.

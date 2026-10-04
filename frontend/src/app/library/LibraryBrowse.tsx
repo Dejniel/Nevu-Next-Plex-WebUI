@@ -8,7 +8,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { WatchlistView } from "features/watchlist/routes";
-import { MediaListsView } from "features/media-lists/public";
+import { MediaListsView } from "features/media-lists/routes";
 import { BrowseRecommendations, BrowseLibrary } from "features/library/public";
 import { libraryViewTo } from "shared/lib/navigation";
 

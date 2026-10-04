@@ -79,8 +79,9 @@ owns reusable library data and administration requests.
 Watchlist, collection, and playlist views share `LibraryBrowseFrame`; all library
 views reuse the card toolbar and `shared/ui/VirtualGrid`.
 `features/media-lists` owns the collection/playlist API
-adapters and profile-scoped paging; playlist positions remain distinct even when
-titles repeat. Its headless model supplies playlist playback and return links.
+adapters, mutations, profile-scoped paging, and the shared add-to-list dialog;
+playlist positions remain distinct even when titles repeat. Its headless model
+supplies playlist playback, return links, and list-action capabilities.
 `entities/media` resolves accessible local copies by GUID; Watchlist retains its
 own account API and profile-scoped store rather than using the library range cache.
 

@@ -4,17 +4,35 @@ import {
   CheckCircleRounded,
   EditRounded,
   PlayArrowRounded,
+  MoreVertRounded,
 } from "@mui/icons-material";
-import { Button, CircularProgress, IconButton, Tooltip } from "@mui/material";
-import { applyMediaWatchedState, isMediaWatched, setMediaPlayedStatus } from "entities/media/model";
+import {
+  Button,
+  CircularProgress,
+  IconButton,
+  Menu,
+  Tooltip,
+} from "@mui/material";
+import {
+  applyMediaWatchedState,
+  isMediaWatched,
+  setMediaPlayedStatus,
+} from "entities/media/model";
 import {
   matchActionLabel,
   OriginalDownloadButton,
   resolvePlaybackTarget,
   type MediaActionCapabilities,
 } from "features/media-actions/public";
-import { HeroWatchlistButton } from "features/watchlist/public";
-import React, { useState } from "react";
+import {
+  HeroWatchlistButton,
+  WatchlistMenuItem,
+} from "features/watchlist/public";
+import {
+  openMediaListDialog,
+  renderMediaListMenuItems,
+} from "features/media-lists/public";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBigReader, useConfirmModal } from "shared/ui";
 import TitleRatingButton from "./TitleRatingButton";
@@ -44,6 +62,10 @@ export default function TitlePrimaryActions({
 }) {
   const navigate = useNavigate();
   const [playLoading, setPlayLoading] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setMenuAnchor(null);
+  }, [data.ratingKey]);
   const watched = isMediaWatched(data);
 
   const play = async () => {
@@ -81,23 +103,59 @@ export default function TitlePrimaryActions({
         variant="contained"
         disabled={playLoading}
         onClick={() => void play()}
-        startIcon={playLoading
-          ? <CircularProgress size={17} color="inherit" />
-          : <PlayArrowRounded fontSize="medium" />}
+        startIcon={
+          playLoading ? (
+            <CircularProgress size={17} color="inherit" />
+          ) : (
+            <PlayArrowRounded fontSize="medium" />
+          )
+        }
         sx={{ height: 38, fontWeight: 700 }}
       >
         Play
-        {data.type === "show" && data.OnDeck?.Metadata &&
-          ` ${data.Children?.size && data.Children.size > 1
-            ? `S${data.OnDeck.Metadata.parentIndex}`
-            : ""}E${data.OnDeck.Metadata.index}`}
+        {data.type === "show" &&
+          data.OnDeck?.Metadata &&
+          ` ${
+            data.Children?.size && data.Children.size > 1
+              ? `S${data.OnDeck.Metadata.parentIndex}`
+              : ""
+          }E${data.OnDeck.Metadata.index}`}
       </Button>
 
-      <OriginalDownloadButton data={data} canDownload={capabilities.canDownload} />
+      <OriginalDownloadButton
+        data={data}
+        canDownload={capabilities.canDownload}
+      />
 
-      <Tooltip placement="top" arrow title="Watchlist">
-        <HeroWatchlistButton item={data} />
-      </Tooltip>
+      <HeroWatchlistButton item={data} />
+
+      {(capabilities.canAddToPlaylist || capabilities.canAddToCollection) && (
+        <Tooltip title="More actions">
+          <IconButton
+            aria-label={`More actions for ${data.title}`}
+            aria-haspopup="menu"
+            aria-expanded={Boolean(menuAnchor)}
+            onClick={(event) => setMenuAnchor(event.currentTarget)}
+            sx={iconButtonStyle}
+          >
+            <MoreVertRounded fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={() => setMenuAnchor(null)}
+      >
+        {renderMediaListMenuItems({
+          capabilities,
+          onSelect: (kind) => {
+            setMenuAnchor(null);
+            openMediaListDialog(kind, data);
+          },
+        })}
+        <WatchlistMenuItem item={data} onDone={() => setMenuAnchor(null)} />
+      </Menu>
 
       {capabilities.canEditMetadata && (
         <Tooltip placement="top" arrow title="Edit metadata">
@@ -125,21 +183,25 @@ export default function TitlePrimaryActions({
 
       <TitleRatingButton item={data} onReviewChanged={onReviewChanged} />
 
-      {capabilities.canSetWatched && <Tooltip
-        placement="top"
-        arrow
-        title={`Mark as ${watched ? "unwatched" : "watched"}`}
-      >
-        <IconButton
-          aria-label={`Mark as ${watched ? "unwatched" : "watched"}`}
-          onClick={toggleWatched}
-          sx={iconButtonStyle}
+      {capabilities.canSetWatched && (
+        <Tooltip
+          placement="top"
+          arrow
+          title={`Mark as ${watched ? "unwatched" : "watched"}`}
         >
-          {watched
-            ? <CheckCircleRounded fontSize="small" />
-            : <CheckCircleOutlineRounded fontSize="small" />}
-        </IconButton>
-      </Tooltip>}
+          <IconButton
+            aria-label={`Mark as ${watched ? "unwatched" : "watched"}`}
+            onClick={toggleWatched}
+            sx={iconButtonStyle}
+          >
+            {watched ? (
+              <CheckCircleRounded fontSize="small" />
+            ) : (
+              <CheckCircleOutlineRounded fontSize="small" />
+            )}
+          </IconButton>
+        </Tooltip>
+      )}
     </>
   );
 }

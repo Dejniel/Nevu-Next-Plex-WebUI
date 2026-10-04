@@ -2,7 +2,11 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useUserSettings } from "features/settings/model";
 import { createMediaListSource } from "../api/mediaLists";
-import type { MediaListPage, MediaListQuery } from "./mediaLists";
+import {
+  MEDIA_LISTS_CHANGED_EVENT,
+  type MediaListPage,
+  type MediaListQuery,
+} from "./mediaLists";
 import { useMediaList } from "./useMediaList";
 
 jest.mock("../api/mediaLists", () => ({ createMediaListSource: jest.fn() }));
@@ -138,4 +142,29 @@ it("does not issue list requests without a profile and aborts old windows", asyn
   expect(state.loading).toBe(false);
   expect(state.items.size).toBe(0);
   expect(source).toHaveBeenCalledTimes(1);
+});
+
+it("refreshes a changed list for its profile without refreshing unrelated lists", async () => {
+  await render();
+  const changed = (extra = {}) =>
+    window.dispatchEvent(
+      new CustomEvent(MEDIA_LISTS_CHANGED_EVENT, {
+        detail: {
+          kind: "playlist",
+          id: "20",
+          libraryID: "2",
+          profileKey: "owner:1",
+          ...extra,
+        },
+      }),
+    );
+  await act(async () => {
+    changed({ id: "21" });
+    changed({ profileKey: "owner:2" });
+    changed({ kind: "collection" });
+  });
+  expect(source).toHaveBeenCalledTimes(1);
+  await act(async () => changed());
+  expect(source).toHaveBeenCalledTimes(2);
+  expect(page).toHaveBeenCalledTimes(2);
 });

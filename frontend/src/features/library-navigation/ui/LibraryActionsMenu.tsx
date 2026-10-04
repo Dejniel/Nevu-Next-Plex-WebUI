@@ -8,6 +8,9 @@ import {
   PushPinRounded,
   RefreshRounded,
   RestartAltRounded,
+  BookmarkRounded,
+  CollectionsBookmarkRounded,
+  PlaylistPlayRounded,
 } from "@mui/icons-material";
 import {
   Divider,
@@ -84,6 +87,15 @@ export default function LibraryActionsMenu({ anchorEl, library, libraries, onClo
   return (
     <>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl && library)} onClose={onClose}>
+        {library && [
+          { view: "watchlist", label: "Watchlist", icon: <BookmarkRounded /> },
+          { view: "collections", label: "Collections", icon: <CollectionsBookmarkRounded /> },
+          { view: "playlists", label: "Playlists", icon: <PlaylistPlayRounded /> },
+        ].map((entry) => <MenuItem key={entry.view} component={Link} to={`/browse/${library.key}?view=${entry.view}`} onClick={onClose}>
+          <ListItemIcon>{entry.icon}</ListItemIcon>
+          <ListItemText>{entry.label}</ListItemText>
+        </MenuItem>)}
+        <Divider />
         <MenuItem onClick={togglePinned}>
           <ListItemIcon>{isPinned ? <PushPinOutlined /> : <PushPinRounded />}</ListItemIcon>
           <ListItemText>{isPinned ? "Unpin" : "Pin"}</ListItemText>

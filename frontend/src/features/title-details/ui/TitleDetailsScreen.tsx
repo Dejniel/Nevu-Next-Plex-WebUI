@@ -9,6 +9,7 @@ import {
   Collapse,
   Divider,
   Grid,
+  IconButton,
   LinearProgress,
   ListItemIcon,
   Menu,
@@ -20,6 +21,7 @@ import {
   Snackbar,
   Stack,
   Typography,
+  Tooltip,
 } from "@mui/material";
 import {
   Link,
@@ -45,6 +47,7 @@ import {
   StarOutlineRounded,
   CheckBoxOutlineBlankRounded,
   CheckBoxRounded,
+  MoreVertRounded,
 } from "@mui/icons-material";
 import { durationInMinutes, durationToText } from "shared/lib/duration";
 import { alpha } from "@mui/material/styles";
@@ -71,6 +74,10 @@ import ExpandableDescription from "./ExpandableDescription";
 import { libraryBrowseTo, mediaWatchTo } from "shared/lib/navigation";
 import { useTitleDetailsData } from "../model/useTitleDetailsData";
 import TitlePrimaryActions from "./TitlePrimaryActions";
+import {
+  openMediaListDialog,
+  renderMediaListMenuItems,
+} from "features/media-lists/public";
 
 const DESKTOP_HERO_HEIGHT = "clamp(560px, 93.333vh, 960px)";
 const detailsPages: Record<string, number> = {
@@ -1472,6 +1479,12 @@ function EpisodeItem({
   setSelectMode?: (selectMode: boolean) => void;
 }): JSX.Element {
   const [item, setItem] = useState(sourceItem);
+  const canManageServer = useCanManageServer();
+  const capabilities = getMediaActionCapabilities(item, {
+    localItem: true,
+    canManageServer,
+    allowDownloads: false,
+  });
   useEffect(() => setItem(sourceItem), [sourceItem]);
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
@@ -1560,6 +1573,13 @@ function EpisodeItem({
           </ListItemIcon>
           Play
         </MenuItem>
+        {renderMediaListMenuItems({
+          capabilities,
+          onSelect: (kind) => {
+            handleClose();
+            openMediaListDialog(kind, item);
+          },
+        })}
         <MenuItem
           onClick={(e) => {
             e.stopPropagation();
@@ -1705,6 +1725,31 @@ function EpisodeItem({
               transition: "all 0.3s ease-out",
             }}
           />
+
+          <Tooltip title="More actions">
+            <IconButton
+              aria-label={`More actions for ${item.title}`}
+              aria-haspopup="menu"
+              aria-expanded={Boolean(contextMenu)}
+              size="small"
+              sx={{
+                position: "absolute",
+                top: 4,
+                right: 4,
+                zIndex: 2,
+                bgcolor: "rgba(18,25,39,0.8)",
+                color: "#fff",
+              }}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const bounds = event.currentTarget.getBoundingClientRect();
+                setContextMenu({ mouseX: bounds.left, mouseY: bounds.bottom });
+              }}
+            >
+              <MoreVertRounded fontSize="small" />
+            </IconButton>
+          </Tooltip>
 
           {(item.viewOffset || isMediaWatched(item)) && (
             <LinearProgress

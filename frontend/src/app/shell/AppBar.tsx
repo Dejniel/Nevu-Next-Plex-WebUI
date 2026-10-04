@@ -321,6 +321,7 @@ S - Skip onscreen markers (intro, credits, etc)
                 <PlaylistPlayRounded />
               </IconButton>
             </Tooltip>
+            <Tooltip title="Watchlist">
             <IconButton
               component={Link}
               to="/watchlist"
@@ -328,6 +329,7 @@ S - Skip onscreen markers (intro, credits, etc)
             >
               <BookmarkRounded />
             </IconButton>
+            </Tooltip>
           </>
         )}
 

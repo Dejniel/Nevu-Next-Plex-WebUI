@@ -1,5 +1,12 @@
 import { AuthStorage, useServerSession } from "features/session/model";
 import { PlexClient } from "shared/api/PlexClient";
+import { useUserSettings } from "features/settings/model";
+import { MEDIA_LISTS_CHANGED_EVENT } from "../model/mediaLists";
+import {
+  assertMediaListItem,
+  type MediaListItem,
+  type MediaListDestination,
+} from "../model/mediaListEditing";
 import type {
   MediaListEntry,
   MediaListPage,
@@ -20,6 +27,8 @@ interface ListMetadata {
   leafCount?: number;
   smart?: boolean | number;
   playlistType?: string;
+  librarySectionID?: number;
+  subtype?: string;
 }
 
 interface Container<T> {
@@ -105,6 +114,11 @@ function listSummary(
     image: item.thumb || item.composite || item.art,
     count: item.childCount ?? item.leafCount ?? 0,
     smart: Boolean(item.smart),
+    libraryID:
+      item.librarySectionID === undefined
+        ? undefined
+        : String(item.librarySectionID),
+    itemType: item.subtype,
   };
 }
 
@@ -232,4 +246,121 @@ export async function getPlaylistQueue(
   )
     throw new Error("The next playlist item cannot be played on this server.");
   return entries.map((entry) => entry.item);
+}
+
+export async function getMediaListChoices(
+  kind: MediaListQuery["kind"],
+  item: MediaListItem,
+  signal: AbortSignal,
+) {
+  assertMediaListItem(kind, item);
+  const source = createMediaListSource(
+    { kind, libraryID: String(item.librarySectionID) },
+    signal,
+  );
+  const lists: MediaListSummary[] = [];
+  for (let offset = 0; ; offset += 100) {
+    const page = await source.page(offset, 100);
+    page.items.forEach((entry) => {
+      if (
+        entry.kind !== "media" &&
+        (kind === "playlist" || !entry.itemType || entry.itemType === item.type)
+      )
+        lists.push(entry);
+    });
+    if (
+      page.items.length < 100 ||
+      (page.total !== null && offset + page.items.length >= page.total)
+    )
+      break;
+  }
+  return lists;
+}
+
+export async function saveMediaListItem(
+  kind: MediaListQuery["kind"],
+  item: MediaListItem,
+  destination: MediaListDestination,
+): Promise<MediaListSummary> {
+  assertMediaListItem(kind, item);
+  if (kind === "collection" && !useServerSession.getState().canManageServer)
+    throw new Error(
+      "Managing collections requires permission to edit this Plex library.",
+    );
+  const client = clientForSession();
+  const token = AuthStorage.getServerToken();
+  const profileKey = useUserSettings.getState().profileKey;
+  const server = useServerSession.getState().server?.machineIdentifier;
+  if (!server)
+    throw new Error("The active Plex server is unavailable. Please try again.");
+  const uri = `server://${server}/com.plexapp.plugins.library/library/metadata/${item.ratingKey}`;
+  const params = new URLSearchParams({ uri });
+  let result: MediaListSummary;
+  if ("id" in destination) {
+    if (!/^\d+$/.test(destination.id))
+      throw new Error("Choose a valid Plex list.");
+    const path = listPath({ kind, id: destination.id });
+    const response = await client.get<Container<ListMetadata>>(path);
+    const existing = response.MediaContainer?.Metadata?.[0];
+    if (!existing) throw new Error("This list is no longer available.");
+    result = listSummary(existing, kind);
+    if (result.smart)
+      throw new Error(
+        "Smart lists add items automatically from their filters.",
+      );
+    if (
+      kind === "collection" &&
+      (result.libraryID !== String(item.librarySectionID) ||
+        result.itemType !== item.type)
+    )
+      throw new Error(
+        "Choose a collection of this media type in the same library.",
+      );
+    if (
+      AuthStorage.getServerToken() !== token ||
+      useUserSettings.getState().profileKey !== profileKey
+    )
+      throw new Error("The active profile changed. Open this action again.");
+    const itemsPath =
+      kind === "playlist"
+        ? `${path}/items`
+        : `/library/collections/${destination.id}/items`;
+    await client.put(`${itemsPath}?${params}`, undefined);
+  } else {
+    const title = destination.title.trim();
+    if (!title) throw new Error("Enter a name for the new list.");
+    params.set("title", title);
+    params.set("smart", "0");
+    params.set(
+      "type",
+      kind === "playlist" ? "video" : item.type === "movie" ? "1" : "2",
+    );
+    if (kind === "collection")
+      params.set("sectionId", String(item.librarySectionID));
+    const response = await client.post<Container<ListMetadata>>(
+      `${kind === "playlist" ? "/playlists" : "/library/collections"}?${params}`,
+    );
+    const created = response.MediaContainer?.Metadata?.[0];
+    if (!created)
+      throw new Error(
+        "Plex did not return the new list. Refresh the lists before trying again.",
+      );
+    result = listSummary(created, kind);
+    if (kind === "collection") result.libraryID = String(item.librarySectionID);
+  }
+  if (
+    AuthStorage.getServerToken() === token &&
+    useUserSettings.getState().profileKey === profileKey
+  )
+    window.dispatchEvent(
+      new CustomEvent(MEDIA_LISTS_CHANGED_EVENT, {
+        detail: {
+          kind,
+          id: result.id,
+          libraryID: String(item.librarySectionID),
+          profileKey,
+        },
+      }),
+    );
+  return result;
 }

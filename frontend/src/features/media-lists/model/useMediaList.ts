@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUserSettings } from "features/settings/model";
 import { createMediaListSource } from "../api/mediaLists";
+import { MEDIA_LISTS_CHANGED_EVENT } from "./mediaLists";
 import type {
   MediaListQuery,
   MediaListRecord,
@@ -164,6 +165,28 @@ export function useMediaList(query: MediaListQuery) {
   );
   const retry = useCallback(() => retryRequest.current(), []);
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
+  useEffect(() => {
+    const changed = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          kind: string;
+          id: string;
+          libraryID: string;
+          profileKey: string;
+        }>
+      ).detail;
+      if (detail?.profileKey !== profileKey || detail.kind !== kind) return;
+      if (
+        id
+          ? detail.id !== id
+          : kind === "collection" && detail.libraryID !== libraryID
+      )
+        return;
+      refresh();
+    };
+    window.addEventListener(MEDIA_LISTS_CHANGED_EVENT, changed);
+    return () => window.removeEventListener(MEDIA_LISTS_CHANGED_EVENT, changed);
+  }, [profileKey, kind, id, libraryID, refresh]);
   return {
     ...(snapshot.key === key ? snapshot : empty(key)),
     requestRange,

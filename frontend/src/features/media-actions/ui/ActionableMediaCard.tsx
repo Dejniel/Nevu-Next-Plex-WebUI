@@ -4,6 +4,10 @@ import { MediaCard, type MediaCardProps } from "entities/media/public";
 import { applyMediaWatchedState, setMediaPlayedStatus } from "entities/media/model";
 import { useCanManageServer, useServerSession } from "features/session/public";
 import { WatchlistButton } from "features/watchlist/public";
+import {
+  openMediaListDialog,
+  type MediaListKind,
+} from "features/media-lists/public";
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { mediaDetailsTo } from "shared/lib/navigation";
@@ -154,6 +158,18 @@ export default function ActionableMediaCard({
     }
   };
 
+  const addToList = async (kind: MediaListKind) => {
+    try {
+      const metadata = await loadFullMetadata();
+      openMediaListDialog(kind, metadata);
+    } catch (error) {
+      if (error instanceof StaleMediaMetadataRequestError) return;
+      useBigReader.getState().setBigReader(
+        "Plex could not load this item. Please try again.",
+      );
+    }
+  };
+
   const unmatch = () => {
     useConfirmModal.getState().setModal({
       title: "Unmatch metadata",
@@ -247,6 +263,7 @@ export default function ActionableMediaCard({
           item={displayItem}
           location={location}
           onClose={() => setAnchor(null)}
+          onAddToList={(kind) => void addToList(kind)}
           onEditMetadata={() => void editMetadata()}
           onMatch={() => setMatchOpen(true)}
           onPlay={() => void play()}

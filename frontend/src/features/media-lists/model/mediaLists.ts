@@ -1,4 +1,5 @@
 export type MediaListKind = "collection" | "playlist";
+export const MEDIA_LISTS_CHANGED_EVENT = "nevu:media-lists-changed";
 
 export interface MediaListSummary {
   kind: MediaListKind;
@@ -8,6 +9,14 @@ export interface MediaListSummary {
   image?: string;
   count: number;
   smart: boolean;
+  libraryID?: string;
+  itemType?: string;
+}
+
+export function mediaListPath(list: MediaListSummary, libraryID?: string) {
+  if (list.kind === "playlist")
+    return playlistReturnPath({ id: list.id, index: 0, libraryID });
+  return `/browse/${list.libraryID ?? libraryID}?view=collections&list=${list.id}`;
 }
 
 export interface MediaListEntry {

@@ -1,5 +1,9 @@
 import type { MediaItemData } from "entities/media/model";
 import { isMatchedMetadata } from "./matching";
+import {
+  getMediaListCapabilities,
+  type MediaListCapabilities,
+} from "features/media-lists/model";
 
 export interface MediaActionContext {
   localItem: boolean;
@@ -7,7 +11,7 @@ export interface MediaActionContext {
   allowDownloads: boolean;
 }
 
-export interface MediaActionCapabilities {
+export interface MediaActionCapabilities extends MediaListCapabilities {
   canEditMetadata: boolean;
   canMatch: boolean;
   canUnmatch: boolean;
@@ -22,15 +26,16 @@ export function getMediaActionCapabilities(
 ): MediaActionCapabilities {
   const canEditMetadata = localItem && canManageServer;
   const canMatch = canEditMetadata && ["movie", "show"].includes(item.type);
-  const similarRatingKey = item.type === "episode"
-    ? item.grandparentRatingKey
-    : item.ratingKey;
+  const similarRatingKey =
+    item.type === "episode" ? item.grandparentRatingKey : item.ratingKey;
 
   return {
+    ...getMediaListCapabilities(item, { localItem, canManageServer }),
     canEditMetadata,
     canMatch,
     canUnmatch: canMatch && isMatchedMetadata(item),
-    canDownload: localItem && allowDownloads && ["movie", "episode"].includes(item.type),
+    canDownload:
+      localItem && allowDownloads && ["movie", "episode"].includes(item.type),
     canSetWatched: localItem,
     similarRatingKey: localItem && similarRatingKey ? similarRatingKey : null,
   };

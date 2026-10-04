@@ -19,6 +19,10 @@ import {
 } from "@mui/material";
 import { isMediaWatched, type MediaItemData } from "entities/media/model";
 import { WatchlistMenuItem } from "features/watchlist/public";
+import {
+  renderMediaListMenuItems,
+  type MediaListKind,
+} from "features/media-lists/public";
 import React from "react";
 import { Link } from "react-router-dom";
 import type { To } from "react-router-dom";
@@ -45,6 +49,7 @@ export default function MediaActionsMenu({
   item,
   location,
   onClose,
+  onAddToList,
   onEditMetadata,
   onMatch,
   onPlay,
@@ -60,6 +65,7 @@ export default function MediaActionsMenu({
   item: MediaItemData;
   location: AppLocation;
   onClose: () => void;
+  onAddToList: (kind: MediaListKind) => void;
   onEditMetadata: () => void;
   onMatch: () => void;
   onPlay: () => void;
@@ -91,6 +97,13 @@ export default function MediaActionsMenu({
       </MenuItem>
 
       <WatchlistMenuItem item={item} onDone={onClose} />
+      {renderMediaListMenuItems({
+        capabilities,
+        onSelect: (kind) => {
+          onClose();
+          onAddToList(kind);
+        },
+      })}
 
       {capabilities.canSetWatched && (
         <MenuItem

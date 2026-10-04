@@ -4,7 +4,8 @@ import AppBar from "./shell/AppBar";
 import { HomeScreen } from "features/home/public";
 import LibraryBrowse from "./library/LibraryBrowse";
 import { WatchlistView } from "features/watchlist/routes";
-import { MediaListsView } from "features/media-lists/public";
+import { MediaListsView } from "features/media-lists/routes";
+import { MediaListActionDialog } from "features/media-lists/public";
 import { SearchScreen } from "features/search/public";
 import { SettingsScreen } from "features/settings/public";
 import { PlaybackScreen } from "features/playback/public";
@@ -30,6 +31,7 @@ export default function AppRoutes() {
           <Route path="/settings/*" element={<SettingsScreen />} />
         </Routes>
       </Box>
+      <MediaListActionDialog />
     </>
   );
 }
