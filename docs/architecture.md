@@ -73,6 +73,10 @@ editing and matching, original-file downloads, and playback-target resolution
 while the shared `MediaCard` remains presentation-focused. `entities/library`
 owns reusable library data and administration requests.
 
+Library and Watchlist views share the card toolbar and `shared/ui/VirtualGrid`.
+`entities/media` resolves accessible local copies by GUID; Watchlist retains its
+own account API and profile-scoped store rather than using the library range cache.
+
 `architectureBoundaries.test.ts` checks the current entry-point and dependency
 conventions. Update those checks alongside intentional architecture changes.
 Headless entry points help non-UI consumers avoid UI dependencies or cycles.

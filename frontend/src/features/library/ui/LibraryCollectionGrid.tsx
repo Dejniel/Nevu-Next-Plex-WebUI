@@ -1,25 +1,17 @@
 import { Alert, Box, Button, Skeleton } from "@mui/material";
-import {
-  useVirtualizer,
-  useWindowVirtualizer,
-  VirtualItem,
-} from "@tanstack/react-virtual";
-import React, { useEffect, useLayoutEffect } from "react";
+import React, { useCallback, useEffect } from "react";
+import VirtualGrid, { type GridRange } from "shared/ui/VirtualGrid";
+import { ActionableMediaCard } from "features/media-actions/public";
 import {
   LIBRARY_RANGE_SIZE,
   libraryRangeStore,
   LibraryQuery,
-  LibraryRangeSnapshot,
   useLibraryQueryRange,
 } from "../model/LibraryRangeStore";
-import { ActionableMediaCard } from "features/media-actions/public";
 import {
   getLibraryCardWidth,
   LibraryCardLayout,
 } from "./LibraryCardViewControls";
-
-const GRID_GAP = 16;
-const INITIAL_PLACEHOLDER_ROWS = 6;
 
 interface LibraryCollectionGridProps {
   query: LibraryQuery | null;
@@ -28,314 +20,69 @@ interface LibraryCollectionGridProps {
   loading?: boolean;
   emptyMessage?: string;
   emptyAction?: React.ReactNode;
-}
-
-interface WindowLibraryCollectionGridProps extends LibraryCollectionGridProps {
   observeRef?: React.RefObject<HTMLElement | null>;
+  scrollElementRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-interface ContainedLibraryCollectionGridProps extends LibraryCollectionGridProps {
-  scrollElementRef: React.RefObject<HTMLDivElement | null>;
+export function WindowLibraryCollectionGrid(props: LibraryCollectionGridProps) {
+  return <LibraryCollectionGrid {...props} />;
 }
 
-interface GridGeometry {
-  width: number;
-  top: number;
-}
-
-interface GridModel {
-  columns: number;
-  displayCount: number;
-  queryKey: string | null;
-  range: LibraryRangeSnapshot;
-  rowCount: number;
-  rowHeight: number;
-  targetCardWidth: number;
-  cardImageSizes: string;
-  refreshAfterMutation?: () => void;
-}
-
-function useGridGeometry(
-  gridRef: React.RefObject<HTMLDivElement | null>,
-  observeRef?: React.RefObject<HTMLElement | null>,
-  scrollElementRef?: React.RefObject<HTMLDivElement | null>,
+export function ContainedLibraryCollectionGrid(
+  props: LibraryCollectionGridProps & {
+    scrollElementRef: React.RefObject<HTMLDivElement | null>;
+  },
 ) {
-  const [geometry, setGeometry] = React.useState<GridGeometry>({ width: 0, top: 0 });
-
-  useLayoutEffect(() => {
-    const grid = gridRef.current;
-    if (!grid) return;
-    let frame = 0;
-    const update = () => {
-      const bounds = grid.getBoundingClientRect();
-      const scrollElement = scrollElementRef?.current;
-      const top = scrollElement
-        ? bounds.top - scrollElement.getBoundingClientRect().top + scrollElement.scrollTop
-        : bounds.top + window.scrollY;
-      const next = { width: bounds.width, top };
-      setGeometry((current) =>
-        current.width === next.width && current.top === next.top ? current : next,
-      );
-    };
-    const scheduleUpdate = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(update);
-    };
-    update();
-    const observer = new ResizeObserver(scheduleUpdate);
-    observer.observe(grid);
-    if (observeRef?.current) observer.observe(observeRef.current);
-    if (scrollElementRef?.current) observer.observe(scrollElementRef.current);
-    window.addEventListener("resize", scheduleUpdate);
-    return () => {
-      cancelAnimationFrame(frame);
-      observer.disconnect();
-      window.removeEventListener("resize", scheduleUpdate);
-    };
-  }, [gridRef, observeRef, scrollElementRef]);
-
-  return geometry;
+  return <LibraryCollectionGrid {...props} />;
 }
 
-function useGridModel(
-  query: LibraryQuery | null,
-  width: number,
-  layout: LibraryCardLayout,
-  cardSize: number,
-  loading: boolean,
-): GridModel {
-  const { queryKey, range } = useLibraryQueryRange(query);
-
-  const targetCardWidth = getLibraryCardWidth(layout, cardSize);
-  const columns = Math.max(
-    1,
-    Math.floor((width + GRID_GAP) / (targetCardWidth + GRID_GAP)),
-  );
-  const cardWidth = width > 0
-    ? Math.min(targetCardWidth, (width - GRID_GAP * (columns - 1)) / columns)
-    : targetCardWidth;
-  const imageRatio = layout === "poster" ? 2 / 3 : 16 / 9;
-  const rowHeight = Math.ceil(cardWidth / imageRatio + 68 + GRID_GAP);
-  const displayCount = query
-    ? range.totalSize ?? Math.max(
-      range.knownSize + (range.hasMore ? 1 : 0),
-      columns * INITIAL_PLACEHOLDER_ROWS,
-    )
-    : loading ? columns * INITIAL_PLACEHOLDER_ROWS : 0;
-
-  return {
-    columns,
-    displayCount,
-    queryKey,
-    range,
-    rowCount: Math.ceil(displayCount / columns),
-    rowHeight,
-    targetCardWidth,
-    cardImageSizes: `${Math.ceil(cardWidth)}px`,
-    ...(query?.source === "onDeck" && queryKey && {
-      refreshAfterMutation: () => libraryRangeStore.invalidateQuery(queryKey),
-    }),
-  };
-}
-
-function useRangeDemand({
-  model,
-  virtualRows,
-  scrollOffset,
-  viewportHeight,
-  scrollMargin,
-}: {
-  model: GridModel;
-  virtualRows: VirtualItem[];
-  scrollOffset: number;
-  viewportHeight: number;
-  scrollMargin: number;
-}) {
-  const firstVirtualRow = virtualRows[0]?.index ?? 0;
-  const lastVirtualRow = virtualRows[virtualRows.length - 1]?.index ?? 0;
-
-  useEffect(() => {
-    if (!model.queryKey || model.rowCount === 0) return;
-    const relativeScroll = Math.max(0, scrollOffset - scrollMargin);
-    const firstVisibleRow = Math.max(0, Math.floor(relativeScroll / model.rowHeight));
-    const lastVisibleRow = Math.min(
-      model.rowCount - 1,
-      Math.ceil((relativeScroll + viewportHeight) / model.rowHeight),
-    );
-    libraryRangeStore.demand(
-      model.queryKey,
-      firstVirtualRow * model.columns,
-      Math.min(model.displayCount - 1, (lastVirtualRow + 1) * model.columns - 1),
-      firstVisibleRow * model.columns,
-      Math.min(model.displayCount - 1, (lastVisibleRow + 1) * model.columns - 1),
-    );
-  }, [
-    firstVirtualRow,
-    lastVirtualRow,
-    model.columns,
-    model.displayCount,
-    model.queryKey,
-    model.rowCount,
-    model.rowHeight,
-    scrollMargin,
-    scrollOffset,
-    viewportHeight,
-  ]);
-}
-
-export function WindowLibraryCollectionGrid({
-  observeRef,
-  ...props
-}: WindowLibraryCollectionGridProps) {
-  const gridRef = React.useRef<HTMLDivElement>(null);
-  const geometry = useGridGeometry(gridRef, observeRef);
-  const model = useGridModel(
-    props.query,
-    geometry.width,
-    props.layout,
-    props.cardSize,
-    Boolean(props.loading),
-  );
-  const previousQueryKeyRef = React.useRef<string | null>(null);
-  const virtualizer = useWindowVirtualizer({
-    count: model.rowCount,
-    estimateSize: () => model.rowHeight,
-    overscan: 3,
-    scrollMargin: geometry.top,
-    useFlushSync: false,
-  });
-  const virtualRows = virtualizer.getVirtualItems();
-
-  useEffect(() => {
-    virtualizer.measure();
-  }, [model.columns, model.rowHeight, virtualizer]);
-
-  useEffect(() => {
-    if (
-      model.queryKey &&
-      previousQueryKeyRef.current &&
-      previousQueryKeyRef.current !== model.queryKey
-    ) window.scrollTo({ top: Math.max(0, geometry.top - 80), behavior: "smooth" });
-    previousQueryKeyRef.current = model.queryKey;
-  }, [geometry.top, model.queryKey]);
-
-  useRangeDemand({
-    model,
-    virtualRows,
-    scrollOffset: virtualizer.scrollOffset || window.scrollY,
-    viewportHeight: window.innerHeight,
-    scrollMargin: geometry.top,
-  });
-
-  return (
-    <Box ref={gridRef} sx={{ width: "100%" }}>
-      <LibraryGridBody
-        {...props}
-        model={model}
-        virtualRows={virtualRows}
-        totalHeight={virtualizer.getTotalSize()}
-        translateOffset={geometry.top}
-        measureElement={virtualizer.measureElement}
-      />
-    </Box>
-  );
-}
-
-export function ContainedLibraryCollectionGrid({
-  scrollElementRef,
-  ...props
-}: ContainedLibraryCollectionGridProps) {
-  const gridRef = React.useRef<HTMLDivElement>(null);
-  const geometry = useGridGeometry(gridRef, undefined, scrollElementRef);
-  const model = useGridModel(
-    props.query,
-    geometry.width,
-    props.layout,
-    props.cardSize,
-    Boolean(props.loading),
-  );
-  const previousQueryKeyRef = React.useRef<string | null>(null);
-  const virtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
-    count: model.rowCount,
-    getScrollElement: () => scrollElementRef.current,
-    estimateSize: () => model.rowHeight,
-    overscan: 3,
-    scrollMargin: geometry.top,
-    useFlushSync: false,
-  });
-  const virtualRows = virtualizer.getVirtualItems();
-
-  useEffect(() => {
-    virtualizer.measure();
-  }, [model.columns, model.rowHeight, virtualizer]);
-
-  useEffect(() => {
-    if (
-      model.queryKey &&
-      previousQueryKeyRef.current &&
-      previousQueryKeyRef.current !== model.queryKey &&
-      scrollElementRef.current
-    ) scrollElementRef.current.scrollTop = 0;
-    previousQueryKeyRef.current = model.queryKey;
-  }, [model.queryKey, scrollElementRef]);
-
-  useRangeDemand({
-    model,
-    virtualRows,
-    scrollOffset: virtualizer.scrollOffset || scrollElementRef.current?.scrollTop || 0,
-    viewportHeight: scrollElementRef.current?.clientHeight || window.innerHeight,
-    scrollMargin: geometry.top,
-  });
-
-  return (
-    <Box ref={gridRef} sx={{ width: "100%" }}>
-      <LibraryGridBody
-        {...props}
-        model={model}
-        virtualRows={virtualRows}
-        totalHeight={virtualizer.getTotalSize()}
-        translateOffset={geometry.top}
-        measureElement={virtualizer.measureElement}
-      />
-    </Box>
-  );
-}
-
-function LibraryGridBody({
-  model,
-  virtualRows,
-  totalHeight,
-  translateOffset,
-  measureElement,
+function LibraryCollectionGrid({
+  query,
   layout,
+  cardSize,
   loading,
   emptyMessage = "This collection is empty.",
   emptyAction,
-}: LibraryCollectionGridProps & {
-  model: GridModel;
-  virtualRows: VirtualItem[];
-  totalHeight: number;
-  translateOffset: number;
-  measureElement: (element: HTMLDivElement | null) => void;
-}) {
-  const initialRangeError = model.range.errors.get(0);
-
-  if (initialRangeError && model.range.items.size === 0 && model.queryKey) {
+  ...gridProps
+}: LibraryCollectionGridProps) {
+  const { queryKey, range } = useLibraryQueryRange(query);
+  useEffect(() => {
+    // Registering the query precedes its first request; the grid's child effect may run earlier.
+    if (queryKey) libraryRangeStore.demand(queryKey, 0, 0);
+  }, [queryKey]);
+  const demand = useCallback(
+    (visible: GridRange) => {
+      if (queryKey)
+        libraryRangeStore.demand(
+          queryKey,
+          visible.start,
+          visible.end,
+          visible.visibleStart,
+          visible.visibleEnd,
+        );
+    },
+    [queryKey],
+  );
+  const initialError = range.errors.get(0);
+  if (initialError && !range.items.size && queryKey)
     return (
       <Alert
         severity="error"
-        action={initialRangeError.retryable ? (
-          <Button color="inherit" onClick={() => libraryRangeStore.retry(model.queryKey as string, 0)}>
-            Retry
-          </Button>
-        ) : undefined}
+        action={
+          initialError.retryable ? (
+            <Button
+              color="inherit"
+              onClick={() => libraryRangeStore.retry(queryKey, 0)}
+            >
+              Retry
+            </Button>
+          ) : undefined
+        }
       >
-        {initialRangeError.message}
+        {initialError.message}
       </Alert>
     );
-  }
-
-  if (model.range.totalSize === 0) {
+  if (query && range.totalSize === 0)
     return (
       <Box
         sx={{
@@ -348,76 +95,52 @@ function LibraryGridBody({
           color: "text.secondary",
         }}
       >
-        <Box>{emptyMessage}</Box>
+        {emptyMessage}
         {emptyAction}
       </Box>
     );
-  }
-
-  if (!model.rowCount && !loading) return null;
+  const refreshAfterMutation =
+    query?.source === "onDeck" && queryKey
+      ? () => libraryRangeStore.invalidateQuery(queryKey)
+      : undefined;
 
   return (
-    <Box
-      sx={{
-        height: totalHeight,
-        minHeight: loading ? model.rowHeight * 2 : 0,
-        position: "relative",
-        width: "100%",
+    <VirtualGrid
+      {...gridProps}
+      count={query ? range.totalSize : loading ? null : 0}
+      minimumCount={range.knownSize + (range.hasMore ? 1 : 0)}
+      itemWidth={getLibraryCardWidth(layout, cardSize)}
+      imageAspectRatio={layout === "poster" ? 2 / 3 : 16 / 9}
+      resetKey={queryKey}
+      onRangeChange={query ? demand : undefined}
+      itemKey={(index) => range.items.get(index)?.ratingKey ?? index}
+      renderItem={(index, imageSizes) => {
+        const item = range.items.get(index);
+        const offset =
+          Math.floor(index / LIBRARY_RANGE_SIZE) * LIBRARY_RANGE_SIZE;
+        const error = range.errors.get(offset);
+        return item ? (
+          <ActionableMediaCard
+            item={item}
+            layout={layout}
+            imageSizes={imageSizes}
+            imageLoading="eager"
+            refetchData={refreshAfterMutation}
+          />
+        ) : error && queryKey ? (
+          <RangeErrorCard
+            layout={layout}
+            onRetry={
+              error.retryable
+                ? () => libraryRangeStore.retry(queryKey, offset)
+                : undefined
+            }
+          />
+        ) : (
+          <CardSkeleton layout={layout} />
+        );
       }}
-    >
-      {virtualRows.map((virtualRow) => (
-        <Box
-          key={virtualRow.key}
-          ref={measureElement}
-          data-index={virtualRow.index}
-          sx={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: model.rowHeight,
-            transform: `translateY(${virtualRow.start - translateOffset}px)`,
-            display: "grid",
-            gridTemplateColumns: `repeat(${model.columns}, minmax(0, 1fr))`,
-            gap: `${GRID_GAP}px`,
-            alignItems: "start",
-          }}
-        >
-          {Array.from({ length: model.columns }, (_, column) => {
-            const itemIndex = virtualRow.index * model.columns + column;
-            if (itemIndex >= model.displayCount) return <Box key={column} />;
-            const item = model.range.items.get(itemIndex);
-            const offset = Math.floor(itemIndex / LIBRARY_RANGE_SIZE) * LIBRARY_RANGE_SIZE;
-            const error = model.range.errors.get(offset);
-            return (
-              <Box
-                key={item?.ratingKey || itemIndex}
-                sx={{ width: `min(100%, ${model.targetCardWidth}px)`, justifySelf: "center" }}
-              >
-                {item ? (
-                  <ActionableMediaCard
-                    item={item}
-                    layout={layout}
-                    imageSizes={model.cardImageSizes}
-                    imageLoading="eager"
-                    refetchData={model.refreshAfterMutation}
-                  />
-                ) : error && model.queryKey ? (
-                  <RangeErrorCard
-                    layout={layout}
-                    onRetry={error.retryable
-                      ? () => libraryRangeStore.retry(model.queryKey as string, offset)
-                      : undefined}
-                  />
-                ) : (
-                  <CardSkeleton layout={layout} />
-                )}
-              </Box>
-            );
-          })}
-        </Box>
-      ))}
-    </Box>
+    />
   );
 }
 
@@ -509,9 +232,13 @@ function RangeErrorCard({
       }}
     >
       {onRetry ? (
-        <Button size="small" onClick={onRetry}>Retry</Button>
+        <Button size="small" onClick={onRetry}>
+          Retry
+        </Button>
       ) : (
-        <Box sx={{ color: "text.secondary", fontSize: "0.75rem" }}>Unavailable</Box>
+        <Box sx={{ color: "text.secondary", fontSize: "0.75rem" }}>
+          Unavailable
+        </Box>
       )}
     </Box>
   );

@@ -1,6 +1,6 @@
 import { Alert, Box, CircularProgress, Grid } from "@mui/material";
 import React, { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ActionableMediaCard } from "features/media-actions/public";
 import { useInView } from "react-intersection-observer";
 import type { LibrarySort } from "@nevu/contracts";
@@ -8,21 +8,20 @@ import LibrarySortDropDown, {
   normalizeLibrarySort,
   sortMetadata,
 } from "./LibrarySortDropDown";
-import { useWatchlist } from "features/watchlist/model";
 import { AppDialog } from "shared/ui";
 import { getLibraryDirectory } from "../api/libraryDirectories";
 
 function LibraryScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [library, setLibrary] = useState<Plex.MediaContainer | null>(null);
 
   const [sortBy, setSortBy] = useState<LibrarySort>(
-    normalizeLibrarySort(localStorage.getItem("sortBy"))
+    normalizeLibrarySort(localStorage.getItem("sortBy")),
   );
-  const [skipFilter, setSkipFilter] = useState(false);
 
   const bkey = searchParams.has("bkey")
     ? decodeURIComponent(searchParams.get("bkey") as string)
@@ -52,46 +51,34 @@ function LibraryScreen() {
 
   useEffect(() => {
     if (!bkey) return;
+    if (bkey === "/plextv/watchlist") {
+      navigate("/watchlist", { replace: true });
+      return;
+    }
+    let active = true;
 
     setLoading(true);
     setError(null);
     setLibrary(null);
     setSortBy(normalizeLibrarySort(localStorage.getItem("sortBy")));
 
-    switch (bkey) {
-      case "/plextv/watchlist":
-        {
-          const watchlist = useWatchlist.getState().items;
-          setLibrary({
-            size: watchlist.length,
-            title1: "Watchlist",
-            librarySectionID: 0,
-            mediaTagPrefix: "",
-            mediaTagVersion: 0,
-            viewGroup: "secondary",
-            Metadata: watchlist,
-          });
-          setLoading(false);
-          setSkipFilter(true);
-        }
-        break;
-      default:
-        getLibraryDirectory(bkey, browseProps)
-          .then((data) => {
-            setLibrary(data);
-            setLoading(false);
-            setSkipFilter(false);
-          })
-          .catch((e) => {
-            setError(e.message);
-            setLoading(false);
-          });
+    getLibraryDirectory(bkey, browseProps)
+      .then((data) => {
+        if (!active) return;
+        setLibrary(data);
+        setLoading(false);
+      })
+      .catch((e) => {
+        if (!active) return;
+        setError(e.message);
+        setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [bkey, browseProps, navigate]);
 
-        break;
-    }
-  }, [bkey, browseProps]);
-
-  if (bkey)
+  if (bkey && bkey !== "/plextv/watchlist")
     return (
       <AppDialog
         open
@@ -109,12 +96,16 @@ function LibraryScreen() {
           >
             <Box
               component="span"
-              sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              sx={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
             >
               {library?.title1 || "Browse"}
               {library?.title2 && ` - ${library.title2}`}
             </Box>
-            {!loading && !skipFilter && (
+            {!loading && (
               <Box component="span" sx={{ ml: "auto", flexShrink: 0 }}>
                 <LibrarySortDropDown sortHook={[sortBy, setSortBy]} />
               </Box>
@@ -144,10 +135,7 @@ function LibraryScreen() {
 
             <Grid container spacing={2} sx={{ width: "100%" }}>
               {library?.Metadata &&
-                (skipFilter
-                  ? library?.Metadata
-                  : sortMetadata(library?.Metadata, sortBy)
-                ).map((item, index) => (
+                sortMetadata(library.Metadata, sortBy).map((item, index) => (
                   <Grid
                     size={{ xs: 12, sm: 6, md: 4, lg: 4, xl: 3 }}
                     key={item.ratingKey}

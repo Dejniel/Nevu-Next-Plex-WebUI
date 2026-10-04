@@ -19,3 +19,5 @@ export type {
   LibraryRangeSnapshot,
 } from "./model/LibraryRangeStore";
 export { LibraryPageError } from "./api/libraryPage";
+export { default as LibraryViewToolbar } from "./ui/LibraryViewToolbar";
+export { getLibraryCardWidth, useLibraryCardView } from "./ui/LibraryCardViewControls";

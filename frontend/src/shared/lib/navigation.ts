@@ -94,7 +94,7 @@ export function mediaWatchTo(item: NavigableMedia): string {
 
 export function libraryViewTo(
   location: AppLocation,
-  view: "recommendations" | "browse"
+  view: "recommendations" | "browse" | "watchlist"
 ): To {
   return withQuery(location, (params) => {
     params.set("view", view);

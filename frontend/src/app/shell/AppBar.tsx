@@ -41,7 +41,6 @@ import { useAuthSession } from "features/session/public";
 import { SPONSOR_URL } from "shared/config/projectLinks";
 import { LibraryNavigation } from "features/library-navigation/public";
 import { SearchBar } from "features/search/public";
-import { libraryBrowseTo } from "shared/lib/navigation";
 
 const barSideSx: SxProps<Theme> = {
   display: "flex",
@@ -313,7 +312,7 @@ S - Skip onscreen markers (intro, credits, etc)
             <SearchBar />
             <IconButton
               component={Link}
-              to={libraryBrowseTo(location, "/plextv/watchlist")}
+              to="/watchlist"
               aria-label="Open watchlist"
             >
               <BookmarkRounded />
@@ -407,7 +406,7 @@ S - Skip onscreen markers (intro, credits, etc)
               <ListItem disablePadding>
                 <ListItemButton
                   component={Link}
-                  to={libraryBrowseTo(location, "/plextv/watchlist")}
+                  to="/watchlist"
                   onClick={() => setDrawerOpen(false)}
                 >
                   <ListItemIcon><BookmarkRounded /></ListItemIcon>

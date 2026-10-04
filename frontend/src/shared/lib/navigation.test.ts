@@ -91,3 +91,15 @@ test("makes library views and recommendation shelves addressable", () => {
   expect(shelfParams.get("view")).toBe("recommendations");
   expect(shelfParams.get("shelf")).toBe("recently-added");
 });
+
+test("keeps Watchlist filters when opening details and switching library views", () => {
+  const current = { pathname: "/browse/2", search: "?view=watchlist&wlScope=all&wlSearch=Alien&sort=titleSort%3Aasc" };
+  const details = mediaDetailsTo(current, { ratingKey: "42", guid: "plex://movie/alien" });
+  const params = new URLSearchParams(String(details.search));
+  expect(params.get("wlScope")).toBe("all");
+  expect(params.get("wlSearch")).toBe("Alien");
+  expect(params.get("mid")).toBe("42");
+  const browse = libraryViewTo(current, "browse");
+  expect(new URLSearchParams(String(browse.search)).get("sort")).toBe("titleSort:asc");
+  expect(new URLSearchParams(String(libraryViewTo(current, "watchlist").search)).get("view")).toBe("watchlist");
+});

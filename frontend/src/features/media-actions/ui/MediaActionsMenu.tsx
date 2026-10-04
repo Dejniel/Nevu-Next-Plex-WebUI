@@ -50,6 +50,7 @@ export default function MediaActionsMenu({
   onPlay,
   onSetWatched,
   onUnmatch,
+  canPlay = true,
 }: {
   anchor: MediaMenuAnchor | null;
   capabilities: MediaActionCapabilities;
@@ -64,6 +65,7 @@ export default function MediaActionsMenu({
   onPlay: () => void;
   onSetWatched: (watched: boolean) => void;
   onUnmatch: () => void;
+  canPlay?: boolean;
 }) {
   const watched = isMediaWatched(item);
   const { similarRatingKey } = capabilities;
@@ -78,6 +80,7 @@ export default function MediaActionsMenu({
       slotProps={{ paper: { sx: { minWidth: 230, maxWidth: "min(360px, 92vw)" } } }}
     >
       <MenuItem
+        disabled={!canPlay}
         onClick={() => {
           onClose();
           onPlay();

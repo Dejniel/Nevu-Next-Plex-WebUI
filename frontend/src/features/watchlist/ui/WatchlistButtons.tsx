@@ -9,6 +9,7 @@ import {
 } from "@mui/material";
 import type { MediaItemData } from "entities/media/model";
 import React from "react";
+import { useBigReader } from "shared/ui";
 import { useWatchlist } from "../model/watchlistStore";
 
 function useWatchlistToggle(item: MediaItemData) {
@@ -26,8 +27,12 @@ function useWatchlistToggle(item: MediaItemData) {
     try {
       if (selected) await remove(item.guid);
       else await add(item as Plex.Metadata);
-    } catch (error) {
-      console.error("Unable to update Plex watchlist", error);
+    } catch {
+      useBigReader
+        .getState()
+        .setBigReader(
+          "Plex could not update your Watchlist. Please try again.",
+        );
     } finally {
       setLoading(false);
     }

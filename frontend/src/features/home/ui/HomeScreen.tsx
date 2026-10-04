@@ -26,7 +26,7 @@ export default function HomeScreen() {
               title="Watchlist"
               data={watchlist}
               plexTvSource
-              link="/plextv/watchlist"
+              browseTo="/watchlist"
             />
           </Box>
         )}
@@ -83,7 +83,7 @@ export default function HomeScreen() {
             title="Watchlist"
             data={watchlist}
             plexTvSource
-            link="/plextv/watchlist"
+            browseTo="/watchlist"
           />
         )}
 

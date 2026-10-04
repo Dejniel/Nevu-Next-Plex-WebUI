@@ -5,7 +5,8 @@ const DISCOVER_URL = "https://discover.provider.plex.tv";
 
 function accountToken() {
   const token = AuthStorage.getProfileAccountToken();
-  if (!token) throw new Error("A Plex account token is required for watchlist access");
+  if (!token)
+    throw new Error("A Plex account token is required for watchlist access");
   return token;
 }
 
@@ -37,18 +38,46 @@ export async function removeFromWatchlist(guid: string): Promise<void> {
   );
 }
 
-export async function getWatchlist(): Promise<Plex.Metadata[]> {
-  const response = await axios.get(
-    `${DISCOVER_URL}/library/sections/watchlist/all`,
-    {
-      headers: { "X-Plex-Token": accountToken() },
-      params: {
-        includeAdvanced: 1,
-        includeMeta: 1,
-        "X-Plex-Container-Start": 0,
-        "X-Plex-Container-Size": 300,
+export async function getWatchlist(
+  signal?: AbortSignal,
+): Promise<Plex.Metadata[]> {
+  const token = accountToken();
+  const pageSize = 100;
+  const items = new Map<string, Plex.Metadata>();
+  let offset = 0;
+
+  while (true) {
+    const response = await axios.get(
+      `${DISCOVER_URL}/library/sections/watchlist/all`,
+      {
+        headers: { "X-Plex-Token": token },
+        signal,
+        params: {
+          includeAdvanced: 1,
+          includeMeta: 1,
+          "X-Plex-Container-Start": offset,
+          "X-Plex-Container-Size": pageSize,
+        },
       },
-    },
-  );
-  return response.data.MediaContainer.Metadata ?? [];
+    );
+    const container = response.data?.MediaContainer;
+    if (!container) throw new Error("Plex returned an invalid watchlist.");
+    const page: Plex.Metadata[] = container.Metadata ?? [];
+    const previousSize = items.size;
+    for (const item of page) {
+      if (!item.guid)
+        throw new Error(
+          "Plex returned a watchlist item without an identifier.",
+        );
+      items.set(item.guid, item);
+    }
+    offset += page.length;
+    if (page.length && items.size === previousSize)
+      throw new Error("Plex could not return the remaining watchlist items.");
+    const total = container.totalSize as number | undefined;
+    if (total !== undefined ? offset >= total : page.length < pageSize)
+      return [...items.values()];
+    if (!page.length)
+      throw new Error("Plex could not return the remaining watchlist items.");
+  }
 }

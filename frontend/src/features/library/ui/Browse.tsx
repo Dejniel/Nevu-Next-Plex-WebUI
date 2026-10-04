@@ -1,23 +1,31 @@
 import React from "react";
 import { Box, Button, ButtonGroup, MenuItem, Select } from "@mui/material";
 import { AnimatePresence } from "framer-motion";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useLocation,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
+import { WatchlistView } from "features/watchlist/public";
 import BrowseRecommendations from "./BrowseRecommendations";
 import BrowseLibrary from "./BrowseLibrary";
 import { libraryViewTo } from "shared/lib/navigation";
 
-type BrowsePages = "recommendations" | "browse";
+type BrowsePages = "recommendations" | "browse" | "watchlist";
 
 function BrowsePageSelector({
   page,
   setPage,
   recommendationsTo,
   browseTo,
+  watchlistTo,
 }: {
   page: BrowsePages;
   setPage: (page: BrowsePages) => void;
   recommendationsTo: ReturnType<typeof libraryViewTo>;
   browseTo: ReturnType<typeof libraryViewTo>;
+  watchlistTo: ReturnType<typeof libraryViewTo>;
 }) {
   return (
     <>
@@ -25,7 +33,7 @@ function BrowsePageSelector({
         value={page}
         onChange={(event) => setPage(event.target.value as BrowsePages)}
         size="small"
-        aria-label="Library view"
+        inputProps={{ "aria-label": "Library view" }}
         sx={{
           display: { xs: "flex", lg: "none" },
           width: 118,
@@ -40,6 +48,7 @@ function BrowsePageSelector({
       >
         <MenuItem value="recommendations">Recommended</MenuItem>
         <MenuItem value="browse">Browse</MenuItem>
+        <MenuItem value="watchlist">Watchlist</MenuItem>
       </Select>
 
       <ButtonGroup
@@ -87,6 +96,14 @@ function BrowsePageSelector({
         >
           Browse
         </Button>
+        <Button
+          component={Link}
+          to={watchlistTo}
+          variant={page === "watchlist" ? "contained" : "outlined"}
+          aria-pressed={page === "watchlist"}
+        >
+          Watchlist
+        </Button>
       </ButtonGroup>
     </>
   );
@@ -95,16 +112,19 @@ function BrowsePageSelector({
 function Library() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
+  const { libraryID } = useParams<{ libraryID: string }>();
   const requestedPage = searchParams.get("view");
   const storedPage = localStorage.getItem("browsePage");
   const page: BrowsePages =
-    requestedPage === "browse" || requestedPage === "recommendations"
+    requestedPage === "browse" ||
+    requestedPage === "recommendations" ||
+    requestedPage === "watchlist"
       ? requestedPage
       : storedPage === "browse"
         ? "browse"
         : "recommendations";
   const setPage = (nextPage: BrowsePages) => {
-    localStorage.setItem("browsePage", nextPage);
+    if (nextPage !== "watchlist") localStorage.setItem("browsePage", nextPage);
     const next = new URLSearchParams(searchParams);
     next.set("view", nextPage);
     next.delete("shelf");
@@ -116,6 +136,7 @@ function Library() {
       setPage={setPage}
       recommendationsTo={libraryViewTo(location, "recommendations")}
       browseTo={libraryViewTo(location, "browse")}
+      watchlistTo={libraryViewTo(location, "watchlist")}
     />
   );
 
@@ -133,8 +154,9 @@ function Library() {
         {page === "recommendations" && (
           <BrowseRecommendations pageNavigation={pageSelector} />
         )}
-        {page === "browse" && (
-          <BrowseLibrary pageNavigation={pageSelector} />
+        {page === "browse" && <BrowseLibrary pageNavigation={pageSelector} />}
+        {page === "watchlist" && (
+          <WatchlistView libraryID={libraryID} pageNavigation={pageSelector} />
         )}
       </AnimatePresence>
     </Box>

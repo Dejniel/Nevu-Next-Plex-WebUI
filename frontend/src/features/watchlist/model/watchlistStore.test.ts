@@ -11,7 +11,7 @@ jest.mock("../api/watchlist", () => ({
   removeFromWatchlist: jest.fn(),
 }));
 
-const item = (guid: string) => ({ guid, ratingKey: guid } as Plex.Metadata);
+const item = (guid: string) => ({ guid, ratingKey: guid }) as Plex.Metadata;
 
 beforeEach(() => {
   jest.resetAllMocks();
@@ -87,4 +87,98 @@ it("updates items only after successful mutations", async () => {
 
   await useWatchlist.getState().remove(movie.guid);
   expect(useWatchlist.getState().items).toEqual([]);
+});
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((success, failure) => {
+    resolve = success;
+    reject = failure;
+  });
+  return { promise, resolve, reject };
+}
+
+it("shares a pending refresh and merges new titles from both the response and mutations", async () => {
+  const request = deferred<Plex.Metadata[]>();
+  (getWatchlist as jest.Mock).mockReturnValue(request.promise);
+  (addToWatchlist as jest.Mock).mockResolvedValue(undefined);
+  const first = useWatchlist.getState().load();
+  expect(useWatchlist.getState().load()).toBe(first);
+  expect(useWatchlist.getState().status).toBe("loading");
+  await useWatchlist.getState().add(item("added"));
+  request.resolve([item("fetched")]);
+  await first;
+  expect(useWatchlist.getState().items.map((entry) => entry.guid)).toEqual([
+    "added",
+    "fetched",
+  ]);
+  expect(getWatchlist).toHaveBeenCalledTimes(1);
+  expect(useWatchlist.getState().status).toBe("ready");
+});
+
+it("keeps successful removals when an older refresh includes that title", async () => {
+  const request = deferred<Plex.Metadata[]>();
+  (getWatchlist as jest.Mock).mockReturnValue(request.promise);
+  (removeFromWatchlist as jest.Mock).mockResolvedValue(undefined);
+  useWatchlist.setState({ items: [item("removed"), item("kept")] });
+  const load = useWatchlist.getState().load();
+  await useWatchlist.getState().remove("removed");
+  request.resolve([item("removed"), item("kept"), item("new")]);
+  await load;
+  expect(useWatchlist.getState().items.map((entry) => entry.guid)).toEqual([
+    "kept",
+    "new",
+  ]);
+});
+
+it("retains cached items after a failure and allows retry without an unhandled rejection", async () => {
+  useWatchlist.setState({ items: [item("cached")] });
+  (getWatchlist as jest.Mock)
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValueOnce([item("updated")]);
+  await expect(useWatchlist.getState().load()).resolves.toBeUndefined();
+  expect(useWatchlist.getState()).toMatchObject({
+    status: "error",
+    items: [item("cached")],
+    error: expect.any(String),
+  });
+  await useWatchlist.getState().load();
+  expect(useWatchlist.getState()).toMatchObject({
+    status: "ready",
+    error: null,
+    items: [item("updated")],
+  });
+});
+
+it("aborts the previous profile's refresh without clearing the next profile's pending request", async () => {
+  const old = deferred<Plex.Metadata[]>();
+  const next = deferred<Plex.Metadata[]>();
+  (getWatchlist as jest.Mock)
+    .mockReturnValueOnce(old.promise)
+    .mockReturnValueOnce(next.promise);
+  const oldLoad = useWatchlist.getState().load();
+  const oldSignal = (getWatchlist as jest.Mock).mock.calls[0][0] as AbortSignal;
+  useWatchlist.getState().reset();
+  expect(oldSignal.aborted).toBe(true);
+  const nextLoad = useWatchlist.getState().load();
+  old.resolve([item("old")]);
+  await oldLoad;
+  expect(useWatchlist.getState().load()).toBe(nextLoad);
+  expect(useWatchlist.getState().items).toEqual([]);
+  next.resolve([item("next")]);
+  await nextLoad;
+  expect(useWatchlist.getState().items).toEqual([item("next")]);
+});
+
+it("does not remove a title from the next profile after an old removal finishes", async () => {
+  const request = deferred<void>();
+  (removeFromWatchlist as jest.Mock).mockReturnValue(request.promise);
+  useWatchlist.setState({ items: [item("same")] });
+  const removal = useWatchlist.getState().remove("same");
+  useWatchlist.getState().reset();
+  useWatchlist.setState({ items: [item("same")] });
+  request.resolve();
+  await removal;
+  expect(useWatchlist.getState().items).toEqual([item("same")]);
 });

@@ -40,12 +40,14 @@ export type ActionableMediaCardProps = Omit<
   "item" | "overlayActions" | "onContextMenu"
 > & Pick<MediaCardProps, "item"> & {
   refetchData?: () => void;
+  canPlay?: boolean;
 };
 
 export default function ActionableMediaCard({
   item,
   PlexTvSource = false,
   refetchData,
+  canPlay = true,
   ...cardProps
 }: ActionableMediaCardProps) {
   const location = useLocation();
@@ -99,7 +101,7 @@ export default function ActionableMediaCard({
   );
 
   const play = async () => {
-    if (playLoading) return;
+    if (playLoading || !canPlay) return;
     setPlayLoading(true);
     try {
       const target = await resolvePlaybackTarget(displayItem, PlexTvSource);
@@ -185,12 +187,12 @@ export default function ActionableMediaCard({
         onContextMenu={openContextMenu}
         overlayActions={
           <>
-            <Tooltip title="Play">
+            <Tooltip title={canPlay ? "Play" : "Unavailable on this server"}>
               <span>
                 <IconButton
                   size="small"
                   aria-label={`Play ${displayItem.title}`}
-                  disabled={playLoading}
+                  disabled={playLoading || !canPlay}
                   onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
@@ -242,6 +244,7 @@ export default function ActionableMediaCard({
           onEditMetadata={() => void editMetadata()}
           onMatch={() => setMatchOpen(true)}
           onPlay={() => void play()}
+          canPlay={canPlay}
           onSetWatched={setWatched}
           onUnmatch={unmatch}
         />

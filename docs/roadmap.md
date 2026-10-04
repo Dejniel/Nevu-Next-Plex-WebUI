@@ -42,6 +42,8 @@ the README and release notes; implementation-only cleanup belongs in the
 - Reuse a common browse shell for layout, sorting, grids, and pagination while
   keeping separate API adapters for libraries, collections, and playlists.
 - Add routes for collection and playlist indexes and their contents.
+- Reuse the library/Watchlist layout and local availability model while preserving
+  playlist order and separate source APIs.
 
 ## Later
 

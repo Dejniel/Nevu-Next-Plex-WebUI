@@ -47,3 +47,6 @@ export {
   extraTypeLabel,
 } from "./model/mediaExtras";
 export type { TitleExtra } from "./model/mediaExtras";
+export { indexMediaAvailability, isMediaInLibrary, selectLocalMedia } from "./model/mediaAvailability";
+export type { MediaAvailability } from "./model/mediaAvailability";
+export { useMediaAvailability } from "./model/useMediaAvailability";
