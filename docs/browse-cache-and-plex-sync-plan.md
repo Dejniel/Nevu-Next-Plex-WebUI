@@ -1,10 +1,12 @@
 # Browse cache and selective Plex synchronization
 
-Status: stages 1 and 2 complete; stage 3 planned. Recorded on 2026-10-05.
+Status: all three stages complete. Recorded on 2026-10-05.
 
 Contracts, observed events, baseline costs, and verification are recorded in the
 [stage 1 results](browse-sync-stage1.md). Delivered library ownership and selective
 runtime updates are recorded in the [stage 2 results](browse-sync-stage2.md).
+List/Watchlist migration, removed mechanisms and final costs are recorded in the
+[stage 3 results](browse-sync-stage3.md).
 
 This document records the direction, behavior to preserve, implementation plan,
 and remaining questions. Cache ownership and selective synchronization are one
@@ -38,8 +40,7 @@ At the starting commit, these problems remained:
 
 The previous cache cleanup is therefore a starting point, not a completed
 simplification. Preserve its useful behavior while removing the replaced layers.
-Stage 2 removes these overlaps for the library; lists, Watchlist and availability
-await stage 3.
+Stages 2 and 3 remove these overlaps for the library, lists, Watchlist and availability.
 
 ## Technology and ownership
 
@@ -219,7 +220,7 @@ overwrite new ones, safe metadata updates avoid structural refresh, and structur
 updates preserve scroll/filters without mixing page positions. Reassess the design
 if this requires another controller comparable to `PagedCollection`.
 
-### 3. Lists, Watchlist, availability, and removal of old mechanisms — planned
+### 3. Lists, Watchlist, availability, and removal of old mechanisms — complete
 
 - Migrate collection/playlist pages and summaries, preserving repeated positions,
   playback context, targeted list changes, and conservative smart-list recovery.

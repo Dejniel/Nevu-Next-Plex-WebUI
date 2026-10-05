@@ -11,33 +11,24 @@ import {
 import type { MediaItemData } from "entities/media/model";
 import React from "react";
 import { useBigReader } from "shared/ui";
-import { useWatchlist } from "../model/watchlistStore";
-import { canWatchlist } from "../model/watchlistItem";
+import { useWatchlistAction } from "../model/watchlistQuery";
 
 function useWatchlistToggle(item: MediaItemData) {
-  const selected = useWatchlist((state) => state.has(item.guid));
-  const add = useWatchlist((state) => state.add);
-  const remove = useWatchlist((state) => state.remove);
-  const [loading, setLoading] = React.useState(false);
-  const available = canWatchlist(item);
+  const { selected, loading, available, toggle: update } = useWatchlistAction(item);
 
   const toggle = async (event?: React.SyntheticEvent) => {
     event?.preventDefault();
     event?.stopPropagation();
     if (loading || !available) return;
 
-    setLoading(true);
     try {
-      if (selected) await remove(item.guid);
-      else await add(item as Plex.Metadata);
+      await update();
     } catch {
       useBigReader
         .getState()
         .setBigReader(
           "Plex could not update your Watchlist. Please try again.",
         );
-    } finally {
-      setLoading(false);
     }
   };
 

@@ -10,7 +10,6 @@ import {
   useServerSession,
 } from "features/session/public";
 import Startup, { useStartupState } from "./startup/Startup";
-import { useWatchlist } from "features/watchlist/model";
 import { useLibraries } from "entities/library/model";
 import AppRoutes from "./AppRoutes";
 import { useBrowseSynchronization } from "./useBrowseSynchronization";
@@ -58,8 +57,6 @@ function App() {
   useBrowseSynchronization(sessionRevision);
 
   useEffect(() => {
-    useWatchlist.getState().reset();
-    void useWatchlist.getState().load();
     useLibraries.getState().reset();
     void useLibraries.getState().load();
     void useServerSession.getState().refresh();

@@ -1,15 +1,19 @@
 import type { Mock } from "vitest";
 import { serverQueryClient } from "shared/api/queryClient";
-import { watchlistQueryKey } from "../model/watchlistStore";
+import { watchlistQueryKey, useWatchlistAction } from "../model/watchlistQuery";
+import { useAuthSession } from "features/session/model";
+import { notifyManager } from "@tanstack/react-query";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
   indexMediaAvailability,
   useMediaAvailability,
 } from "entities/media/model";
-import { useWatchlist as mockWatchlist } from "../model/watchlistStore";
 import { getWatchlist } from "../api/watchlist";
 import WatchlistView from "./WatchlistView";
+
+beforeAll(() => notifyManager.setScheduler(queueMicrotask));
+afterAll(() => notifyManager.setScheduler(callback => setTimeout(callback, 0)));
 
 vi.mock("react-router-dom", async () => {
   const { useState } = await import("react");
@@ -62,15 +66,17 @@ vi.mock("features/media-actions/public", () => ({
   }: {
     item: Plex.Metadata;
     canPlay: boolean;
-  }) => (
+  }) => {
+    const action = useWatchlistAction(item);
+    return (
     <div data-rating-key={item.ratingKey}>
       {item.title}
       <button disabled={!canPlay}>Play {item.title}</button>
-      <button onClick={() => void mockWatchlist.getState().remove(item.guid)}>
+      <button onClick={() => void action.toggle()}>
         Remove {item.title}
       </button>
     </div>
-  ),
+  ); },
 }));
 vi.mock("shared/ui/VirtualGrid", () => ({
   default: ({
@@ -89,9 +95,9 @@ vi.mock("shared/ui/VirtualGrid", () => ({
 }));
 
 const items = [
-  { guid: "one", ratingKey: "one", title: "Alpha", year: 2024 },
-  { guid: "two", ratingKey: "two", title: "Beta", year: 2020 },
-  { guid: "three", ratingKey: "three", title: "Remote" },
+  { guid: "plex://movie/one", type: "movie", ratingKey: "one", title: "Alpha", year: 2024 },
+  { guid: "plex://movie/two", type: "movie", ratingKey: "two", title: "Beta", year: 2020 },
+  { guid: "plex://movie/three", type: "movie", ratingKey: "three", title: "Remote" },
 ] as Plex.Metadata[];
 const copies = [
   { ...items[0], ratingKey: "10", librarySectionID: 1 },
@@ -107,9 +113,10 @@ beforeEach(() => {
   (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  mockWatchlist.getState().reset();
+  serverQueryClient.clear();
+  useAuthSession.setState({ status: "ready", revision: 1 });
   (getWatchlist as Mock).mockResolvedValue(items);
-  serverQueryClient.setQueryData(watchlistQueryKey(), { items, loaded: true });
+  serverQueryClient.setQueryData(watchlistQueryKey("user:1"), items);
   (useMediaAvailability as Mock).mockReturnValue({
     items: indexMediaAvailability(copies),
     loading: false,

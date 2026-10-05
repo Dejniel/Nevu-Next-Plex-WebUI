@@ -3,7 +3,7 @@ import { AuthStorage, useServerSession } from "features/session/model";
 import { useUserSettings } from "features/settings/model";
 import { ProxiedRequest } from "shared/api/backend";
 import { getMediaListChoices, saveMediaListItem } from "./mediaLists";
-import { subscribeToMediaListChanges } from "../model/listChanges";
+import { subscribeToMediaChanges } from "entities/media/model";
 import type { MediaListItem } from "../model/mediaListEditing";
 
 vi.mock("shared/api/backend", () => ({ ProxiedRequest: vi.fn() }));
@@ -143,7 +143,7 @@ it.each(["token", "profile"])(
 
 it("publishes changes only after a successful mutation for the active profile", async () => {
   const changed = vi.fn();
-  const unsubscribe = subscribeToMediaListChanges(changed);
+  const unsubscribe = subscribeToMediaChanges(changed);
   try {
     transport.mockResolvedValue({ status: 403, data: {} });
     await expect(
@@ -153,9 +153,10 @@ it("publishes changes only after a successful mutation for the active profile", 
     transport.mockResolvedValue(response([list("playlist")]));
     await saveMediaListItem("playlist", movie, { title: "Weekend" });
     expect(changed.mock.calls[0][0]).toEqual({
-      kind: "playlist",
+      kind: "list",
+      listKind: "playlist",
       id: "20",
-      libraryID: "2",
+      serverId: "local",
       profileKey: "owner:1",
     });
   } finally {

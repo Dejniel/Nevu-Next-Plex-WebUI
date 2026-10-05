@@ -1,7 +1,6 @@
 import { publishMediaChange } from "entities/media/model";
 import { AuthStorage, getActiveServerScope } from "features/session/model";
 import { ProxiedRequest } from "shared/api/backend";
-import { invalidateLibraryCache } from "shared/lib/libraryCache";
 
 export interface MetadataUpdate {
   title?: string;
@@ -81,7 +80,6 @@ export async function updateMetadata(
   );
 
   if (response.status >= 200 && response.status < 300) {
-    invalidateLibraryCache(scope ? { profileKey: scope.profileKey } : undefined);
     if (scope) publishMediaChange({ ...scope, kind: "item", effect: "unknown", id: ratingKey });
     return;
   }

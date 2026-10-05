@@ -35,3 +35,5 @@ export function createRequestLimiter(limit = 2) {
     });
   };
 }
+
+export const runPageRequest = createRequestLimiter(2);

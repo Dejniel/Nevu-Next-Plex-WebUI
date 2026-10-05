@@ -83,7 +83,7 @@ export function libraryFilterUnaffected(
   filter: LibraryFilterExpression | undefined,
   changed: readonly string[],
 ): boolean;
-export function changedLibraryFields(before: LibraryCardDto, after: LibraryCardDto): string[];
+export function changedMediaFields(before: object, after: object): string[];
 export interface LibraryItemUpdateDto {
   item: LibraryCardDto | null;
   metadata?: unknown;

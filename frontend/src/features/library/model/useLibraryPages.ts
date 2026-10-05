@@ -1,5 +1,5 @@
 import { hashKey, useQueries, useQuery } from "@tanstack/react-query";
-import type { LibraryCardDto } from "@nevu/contracts";
+import type { LibraryCardDto, LibraryPageDto } from "@nevu/contracts";
 import { useServerSession } from "features/session/model";
 import { serverQueryClient } from "shared/api/queryClient";
 import type { GridRange } from "shared/ui/VirtualGrid";
@@ -26,7 +26,15 @@ export function useLibraryPages(query: LibraryQuery | null | undefined, range = 
   const first = serverQueryClient.getQueryData(
     libraryPageOptions(serverId, source, revision, 0).queryKey,
   );
-  const total = first?.totalSize ?? (first && !first.hasMore ? first.size : null);
+  const tail =
+    first?.totalSize === null
+      ? serverQueryClient
+          .getQueriesData<LibraryPageDto>({
+            queryKey: [...libraryResultQueryKey(serverId, source), "page", revision],
+          })
+          .find(([, page]) => page?.hasMore === false)?.[1]
+      : undefined;
+  const total = first?.totalSize ?? (tail ? tail.offset + tail.size : null);
   const visible = new Set(libraryRangeOffsets(range.visibleStart, range.visibleEnd, total));
   const offsets = [...new Set([0, ...libraryRangeOffsets(range.start, range.end, total)])].sort(
     (a, b) => Number(visible.has(b)) - Number(visible.has(a)),
@@ -61,8 +69,6 @@ export function useLibraryPages(query: LibraryQuery | null | undefined, range = 
       page.items.forEach((item, index) => items.set(page.offset + index, item)),
     );
   const knownSize = Math.max(0, ...pages.map((page) => page.offset + page.size));
-  const tail = pages.find((page) => !page.hasMore);
-  const totalSize = total ?? (tail ? tail.offset + tail.size : null);
   const refreshError = window.error as LibraryPageError | null;
   if (refreshError || consistencyError) errors.set(0, refreshError ?? consistencyError!);
   return {
@@ -70,8 +76,8 @@ export function useLibraryPages(query: LibraryQuery | null | undefined, range = 
     items,
     errors,
     knownSize,
-    totalSize,
-    hasMore: totalSize === null,
+    totalSize: total,
+    hasMore: total === null,
     refresh: () => window.refetch(),
     retry: (offset: number) =>
       refreshError || consistencyError

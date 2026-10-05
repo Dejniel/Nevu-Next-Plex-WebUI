@@ -83,27 +83,33 @@ adapters, mutations, profile-scoped paging, and the shared add-to-list dialog;
 playlist positions remain distinct even when titles repeat. Its headless model
 supplies playlist playback, return links, and list-action capabilities.
 `entities/media` resolves accessible local copies by GUID; Watchlist retains its
-own account API and profile-scoped store rather than using the library range cache.
+account API and profile-scoped Query resource, separate from library paging.
 
 `architectureBoundaries.test.ts` checks the current entry-point and dependency
 conventions. Update those checks alongside intentional architecture changes.
 It also checks runtime import cycles reachable from the browse features.
 Headless entry points help non-UI consumers avoid UI dependencies or cycles.
 
-One `serverQueryClient` owns responses, requests and eviction. Library consumers
-observe real page queries and share a window descriptor containing its published
-revision. That window coordinates atomic replacement and native lifecycle refresh;
-a small transport limiter bounds concurrency. Full title metadata also uses Query.
-Session changes clear requests/data; Plex hints and local mutations update scoped
-resources. Safe canonical changes patch cards and backend random catalogs;
-structural/unknown effects stage a new window. See the
-[stage 2 results](browse-sync-stage2.md).
+One `serverQueryClient` owns browse responses, requests and eviction. Library,
+collection and playlist consumers observe actual page queries and share a window
+descriptor containing only the published revision. `shared/lib/queryWindow`
+prepares and validates replacement pages before publication; a small transport
+limiter bounds page work. Summaries publish with list pages, and repeated playlist
+entries retain their positions and IDs. Full title metadata also uses Query.
 
-Collections/playlists still use `PagedCollection`; availability and lists retain
-their refresh scheduler/buses, and Watchlist mirrors Query into Zustand. Their
-replacement and selective rules are stage 3 of the
-[browse cache and Plex synchronization plan](browse-cache-and-plex-sync-plan.md).
+`app/browseSynchronization` batches scoped Plex hints and confirmed local changes.
+Feature rules patch compatible occurrences or refresh affected windows; one
+canonical read can supply library cards, lists, details and availability. Random
+catalog freshness stays in the backend. Unknown collection/smart-list dependencies
+retain scoped recovery. Session changes clear Query requests and data.
+
+Watchlist reads and confirmed membership mutations use Query directly; local
+availability caches plain metadata arrays, with GUID indexes derived by consumers.
+Native stale mount/focus/reconnect and visible intervals replace the scheduler.
 Cloud Watchlist freshness remains distinct from local server notifications.
+The old paged controller, refresh buses and Zustand Watchlist mirror are removed.
+See the [stage 3 results](browse-sync-stage3.md) and the
+[completed implementation plan](browse-cache-and-plex-sync-plan.md).
 
 ## Video playback
 

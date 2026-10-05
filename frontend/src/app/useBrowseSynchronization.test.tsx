@@ -1,114 +1,118 @@
-import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
-  mediaChangeFromServer,
   connectPlexServerEvents,
+  mediaChangeFromServer,
   type PlexServerChange,
 } from "features/session/model";
-import { invalidateMediaLists } from "features/media-lists/model";
-import { invalidateLibraryCache } from "shared/lib/libraryCache";
+import { publishMediaChange } from "entities/media/model";
+import { startBrowseSynchronization } from "./browseSynchronization";
 import { useBrowseSynchronization } from "./useBrowseSynchronization";
 
-let mockProfile: string | null;
+let profile: string | null;
+let serverId: string;
+let revision: number;
 vi.mock("features/settings/model", () => ({
   useUserSettings: Object.assign(
-    (select: (state: { profileKey: string | null }) => unknown) =>
-      select({ profileKey: mockProfile }),
-    { getState: () => ({ profileKey: mockProfile }) },
+    (select: (state: { profileKey: string | null }) => unknown) => select({ profileKey: profile }),
+    { getState: () => ({ profileKey: profile }) },
   ),
 }));
 vi.mock("features/session/model", () => ({
   AuthStorage: { getServerToken: () => "test-token" },
   connectPlexServerEvents: vi.fn(),
   useServerSession: Object.assign(
-    (select: (state: unknown) => unknown) => select({ server: { machineIdentifier: "server" } }),
-    { getState: () => ({ server: { machineIdentifier: "server" } }) },
+    (select: (state: unknown) => unknown) => select({ server: { machineIdentifier: serverId } }),
+    { getState: () => ({ server: { machineIdentifier: serverId } }) },
   ),
-  mediaChangeFromServer: vi.fn(() => ({ serverId: "server", profileKey: mockProfile, kind: "recovery" })),
+  mediaChangeFromServer: vi.fn((_change, scope) => ({ ...scope, kind: "recovery" })),
 }));
-vi.mock("features/media-lists/model", () => ({
-  invalidateMediaLists: vi.fn(),
-}));
-vi.mock("shared/lib/libraryCache", () => ({
-  invalidateLibraryCache: vi.fn(),
-}));
-vi.mock("features/library/model", () => ({ startLibrarySynchronization: () => ({ enqueue: vi.fn(), dispose: vi.fn() }) }));
+vi.mock("./browseSynchronization", () => ({ startBrowseSynchronization: vi.fn() }));
+const connect = vi.mocked(connectPlexServerEvents);
+const start = vi.mocked(startBrowseSynchronization);
+const disconnect = vi.fn();
 let root: Root;
-const connect = connectPlexServerEvents as Mock;
-const close = vi.fn();
 function Harness() {
-  useBrowseSynchronization(0);
+  useBrowseSynchronization(revision);
   return null;
 }
 const render = async () => {
   await act(async () => root.render(<Harness />));
 };
 beforeEach(() => {
-  (
-    globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
-  ).IS_REACT_ACT_ENVIRONMENT = true;
-  vi.resetAllMocks();
-  mockProfile = "owner:1";
-  connect.mockReturnValue(close);
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.clearAllMocks();
+  profile = "owner:1";
+  serverId = "server";
+  revision = 0;
+  connect.mockReturnValue(disconnect);
+  start.mockImplementation(() => ({ enqueue: vi.fn(), dispose: vi.fn() }));
   root = createRoot(document.createElement("div"));
 });
 afterEach(async () => {
   await act(async () => root.unmount());
+  vi.unstubAllGlobals();
 });
 
-it("routes section changes to that section's collections and availability, including cross-library smart playlists", async () => {
+it("sends translated SSE and confirmed local changes through the same synchronization batch", async () => {
   await render();
-  const changed = connect.mock.calls[0][1] as (
-    change: PlexServerChange,
-  ) => void;
-  changed({ kind: "library", sectionId: "2" });
-  expect(mediaChangeFromServer).toHaveBeenCalled();
-  expect(invalidateLibraryCache).toHaveBeenCalledWith({
+  const scope = { serverId, profileKey: profile };
+  const batch = start.mock.results[0].value;
+  const received = connect.mock.calls[0][1];
+  received({ kind: "library", sectionId: "2" });
+  expect(mediaChangeFromServer).toHaveBeenCalledWith({ kind: "library", sectionId: "2" }, scope);
+  expect(batch.enqueue).toHaveBeenCalledWith({ ...scope, kind: "recovery" });
+  publishMediaChange({
+    ...scope,
     profileKey: "owner:1",
-    sectionId: "2",
-  });
-  expect(invalidateMediaLists).toHaveBeenCalledWith({
-    profileKey: "owner:1",
-    kind: "collection",
-    libraryID: "2",
-  });
-  expect(invalidateMediaLists).toHaveBeenCalledWith({
-    profileKey: "owner:1",
-    kind: "playlist",
-  });
-});
-
-it("targets individual lists and closes the old profile's stream before accepting another profile", async () => {
-  await render();
-  const old = connect.mock.calls[0][1] as (change: PlexServerChange) => void;
-  old({ kind: "playlist", id: "8" });
-  expect(invalidateMediaLists).toHaveBeenLastCalledWith({
-    profileKey: "owner:1",
-    kind: "playlist",
+    kind: "list",
+    listKind: "playlist",
     id: "8",
-    libraryID: undefined,
   });
-  expect(invalidateLibraryCache).not.toHaveBeenCalled();
-  mockProfile = "owner:2";
+  expect(batch.enqueue).toHaveBeenLastCalledWith({
+    ...scope,
+    kind: "list",
+    listKind: "playlist",
+    id: "8",
+  });
+});
+
+it("disposes the old scope and rejects its late stream callbacks and local changes", async () => {
   await render();
-  expect(close).toHaveBeenCalledTimes(1);
-  (invalidateMediaLists as Mock).mockClear();
+  const old = connect.mock.calls[0][1] as (event: PlexServerChange) => void;
+  const batch = start.mock.results[0].value;
+  const isCurrent = start.mock.calls[0][1];
+  expect(isCurrent()).toBe(true);
+  profile = "owner:2";
+  await render();
+  expect(disconnect).toHaveBeenCalledTimes(1);
+  expect(batch.dispose).toHaveBeenCalledTimes(1);
+  expect(isCurrent()).toBe(false);
+  vi.mocked(batch.enqueue).mockClear();
   old({ kind: "server", reason: "reconnect" });
-  expect(invalidateMediaLists).not.toHaveBeenCalled();
-  const current = connect.mock.calls[1][1] as (
-    change: PlexServerChange,
-  ) => void;
-  current({ kind: "server", reason: "reconnect" });
-  expect(invalidateLibraryCache).toHaveBeenLastCalledWith({
-    profileKey: "owner:2",
-    sectionId: undefined,
+  publishMediaChange({ serverId, profileKey: profile, kind: "recovery" });
+  expect(batch.enqueue).not.toHaveBeenCalled();
+  expect(start.mock.results[1].value.enqueue).toHaveBeenCalledWith({
+    serverId,
+    profileKey: profile,
+    kind: "recovery",
   });
-  expect(invalidateMediaLists).toHaveBeenCalledTimes(2);
+});
+
+it("reconnects when the server or session revision changes", async () => {
+  await render();
+  serverId = "other-server";
+  await render();
+  revision++;
+  await render();
+  expect(start).toHaveBeenCalledTimes(3);
+  expect(start.mock.calls[1][0]).toEqual({ serverId, profileKey: profile });
+  expect(disconnect).toHaveBeenCalledTimes(2);
 });
 
 it("does not connect without an active profile", async () => {
-  mockProfile = null;
+  profile = null;
   await render();
   expect(connect).not.toHaveBeenCalled();
+  expect(start).not.toHaveBeenCalled();
 });

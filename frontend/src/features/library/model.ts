@@ -1,4 +1,6 @@
 export { getLibraryDirectory } from "./api/libraryDirectories";
 export { libraryResultQueryKey, libraryPageQueryKey } from "./model/libraryQuery";
 export { decideLibrarySynchronization } from "./model/librarySynchronization";
-export { startLibrarySynchronization } from "./model/librarySync";
+export { applyLibraryChanges } from "./model/librarySync";
+export { libraryPageOptions, libraryWindowKey } from "./model/libraryPages";
+export { invalidateRandomCatalogs, synchronizeLibraryItem } from "./api/libraryPage";

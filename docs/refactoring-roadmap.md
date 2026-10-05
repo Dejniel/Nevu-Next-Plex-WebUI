@@ -10,8 +10,6 @@ It is not a second rewrite and should not drive file movement for its own sake.
 
 ### Current focus
 
-- Simplify browse cache ownership together with selective Plex synchronization;
-  follow the [implementation plan](browse-cache-and-plex-sync-plan.md).
 - Reduce large composition components where it clarifies a workflow or supports
   planned product work.
 
@@ -35,18 +33,16 @@ It is not a second rewrite and should not drive file movement for its own sake.
 
 ## Recommended next steps
 
-### Browse cache ownership and Plex synchronization — in progress
+### Browse cache ownership and Plex synchronization — complete
 
-The first cleanup introduced one TanStack Query client, but retained too much
-manual request state, adapters, and mirrored data. It is not the final ownership
-model. Rework page queries and selective updates together, preserving arbitrary
-library jumps and atomic window refresh. Decisions, limits, sequencing, and
-completion checks are recorded in the
+Library, collection and playlist queries now cache actual responses; a shared
+revision coordinates atomic window publication and preserves arbitrary jumps.
+Watchlist uses native Query reads/mutations without its Zustand mirror. Plex
+events and confirmed mutations share selective updates, with conservative
+recovery for unknown dependencies. Decisions and completion checks are in the
 [browse cache and Plex synchronization plan](browse-cache-and-plex-sync-plan.md).
-Stages 1 and 2 are complete: contracts/baselines are in the
-[stage 1 results](browse-sync-stage1.md); native library pages, selective runtime
-updates and backend catalog freshness are in the [stage 2 results](browse-sync-stage2.md).
-Next: lists, Watchlist and availability, then removal of their old mechanisms.
+All three stages are complete; removed mechanisms, final costs and verification
+are in the [stage 3 results](browse-sync-stage3.md).
 
 ### 1. Lazy media metadata resource — complete
 
@@ -89,12 +85,12 @@ Replace global `Plex` types with imported request and view models one endpoint
 family at a time. Start where a product change already requires understanding a
 response shape; avoid a repository-wide type-only rewrite.
 
-### 6. Make Plex notification updates more selective
+### 6. Make Plex notification updates more selective — complete
 
-This is part of the browse cache workstream above. Define item/structural/recovery
-decisions first, migrate the library with those decisions, then lists and
-Watchlist/availability. Include backend random-catalog freshness and measured
-request counts; do not implement synchronization twice against old and new caches.
+Delivered with the browse cache workstream above. Known stable changes patch
+compatible cached occurrences; membership/dependency changes stage scoped windows.
+Backend random catalogs share those decisions. Unknown predicates and missed
+notifications still require recovery, with measured scan and request limits.
 
 ## Verification
 

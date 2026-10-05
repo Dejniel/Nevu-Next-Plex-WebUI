@@ -2,6 +2,16 @@
 
 Status: structural migration completed on 2026-09-29
 
+## Lists, Watchlist and final cache cleanup — 2026-10-05
+
+Completed stage 3: actual Query list pages and summaries, native Watchlist
+reads/mutations, selective availability updates and one scoped synchronization
+batch shared with the library. Removed `PagedCollection`, the old queue/window
+loader, refresh scheduler/buses and Watchlist Zustand mirror. Stage 3 reduces
+application code by 460 lines; stages 2 and 3 together reduce it by 69 lines
+against stage 1. Verification and remaining consistency limits are in the
+[stage 3 results](browse-sync-stage3.md).
+
 ## Library Query ownership and selective sync — 2026-10-05
 
 Replaced `LibraryRangeStore` with actual Query page responses and a shared
@@ -28,9 +38,9 @@ refreshes. Session cleanup cancels all cached requests; cancellation now reaches
 the Plex HTTP transport. Inactive range caches expire after five minutes.
 
 Follow-up review found overlapping manual request state, adapters, and a Watchlist
-mirror. Further simplification and selective synchronization are planned together
+mirror. The resulting simplification and selective synchronization are recorded
 in the [browse cache and Plex synchronization plan](browse-cache-and-plex-sync-plan.md);
-stages 1 and 2 are complete, while list/Watchlist/availability migration remains planned.
+all three stages are now complete.
 
 ## Plex reviews — 2026-10-05
 

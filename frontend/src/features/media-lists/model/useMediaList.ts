@@ -1,106 +1,87 @@
-import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { hashKey, useQueries, useQuery } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
+import { useServerSession } from "features/session/model";
 import { useUserSettings } from "features/settings/model";
+import { serverQueryClient } from "shared/api/queryClient";
+import type { GridRange } from "shared/ui/VirtualGrid";
 import {
-  getPagedCollection,
-  emptyCollection,
-} from "shared/lib/PagedCollection";
-import { useAutoRefresh } from "shared/lib/useAutoRefresh";
-import { createMediaListSource } from "../api/mediaLists";
-import { subscribeToMediaListChanges } from "./listChanges";
-import type {
-  MediaListQuery,
-  MediaListRecord,
-  MediaListSummary,
-} from "./mediaLists";
+  type ListPage,
+  listPageOptions,
+  listRangeOffsets,
+  listWindowOptions,
+  mediaListResultKey,
+  validateListWindow,
+} from "./listPages";
+import type { MediaListQuery, MediaListRecord } from "./mediaLists";
 
-const EMPTY = emptyCollection<MediaListRecord, MediaListSummary>();
-const noSubscription = () => () => {};
-const emptySnapshot = () => EMPTY;
-
-/** Keep Plex positions, including repeated titles, through the shared range cache. */
+const initialRange: GridRange = { start: 0, end: 0, visibleStart: 0, visibleEnd: 0 };
 export function useMediaList(query: MediaListQuery) {
-  const profileKey = useUserSettings((state) => state.profileKey);
-  const { kind, libraryID, id, search, sort } = query;
-  const key = JSON.stringify([profileKey, kind, libraryID, id, search, sort]);
-  const collection = profileKey
-    ? getPagedCollection<MediaListRecord, MediaListSummary>(
-        [
-          "media-lists",
-          profileKey,
-          kind,
-          libraryID ?? null,
-          id ?? null,
-          search ?? "",
-          sort ?? "",
-        ],
-        {
-          pageSize: 100,
-          loadFirst: true,
-          page: (offset, signal) =>
-            createMediaListSource(
-              { kind, libraryID, id, search, sort },
-              signal,
-            ).page(offset, 100),
-          info: (signal) =>
-            createMediaListSource(
-              { kind, libraryID, id, search, sort },
-              signal,
-            ).summary(),
-        },
-      )
-    : null;
-  const snapshot = useSyncExternalStore(
-    collection?.subscribe ?? noSubscription,
-    collection?.snapshot ?? emptySnapshot,
+  const profileKey = useUserSettings((state) => state.profileKey) ?? "";
+  const serverId = useServerSession((state) => state.server?.machineIdentifier) ?? "";
+  const scope = { profileKey, serverId };
+  const enabled = Boolean(profileKey && serverId);
+  const key = hashKey(mediaListResultKey(scope, query));
+  const [selection, setSelection] = useState({ key, range: initialRange });
+  const range = selection.key === key ? selection.range : initialRange;
+  const requestRange = useCallback((next: GridRange) => setSelection({ key, range: next }), [key]);
+  const window = useQuery(
+    { ...listWindowOptions(serverQueryClient, scope, query), enabled },
+    serverQueryClient,
   );
-  useEffect(() => {
-    collection?.retain();
-    return () => collection?.release();
-  }, [collection]);
-
-  const automatic = useAutoRefresh(collection ? key : null, () =>
-    collection?.refresh(),
+  const revision = window.data.revision;
+  const first = serverQueryClient.getQueryData(listPageOptions(scope, query, revision, 0).queryKey);
+  const total =
+    first?.total ??
+    serverQueryClient
+      .getQueriesData<ListPage>({
+        queryKey: [...mediaListResultKey(scope, query), "page", revision],
+      })
+      .find(([, page]) => page?.total != null)?.[1]?.total ??
+    null;
+  const visible = new Set(listRangeOffsets(range.visibleStart, range.visibleEnd, total));
+  const offsets = [...new Set([0, ...listRangeOffsets(range.start, range.end, total)])].sort(
+    (a, b) => Number(visible.has(b)) - Number(visible.has(a)),
   );
-  useEffect(
-    () =>
-      subscribeToMediaListChanges((change) => {
-        if (
-          change.profileKey !== profileKey ||
-          (change.kind && change.kind !== kind)
-        )
-          return;
-        if (id && change.id && change.id !== id) return;
-        if (
-          kind === "collection" &&
-          change.libraryID &&
-          change.libraryID !== libraryID
-        )
-          return;
-        automatic.current?.invalidate();
-      }),
-    [profileKey, kind, id, libraryID, automatic],
+  const results = useQueries(
+    {
+      queries: enabled
+        ? offsets.map((offset) => ({
+            ...listPageOptions(scope, query, revision, offset, visible.has(offset) ? 0 : 1),
+            enabled: !window.isFetching && !window.error,
+          }))
+        : [],
+    },
+    serverQueryClient,
   );
-
-  const requestRange = useCallback(
-    ({ start, end }: { start: number; end: number }) =>
-      collection?.demand(start, end),
-    [collection],
-  );
-  const retry = useCallback(() => collection?.retry(), [collection]);
-  const refresh = useCallback(() => {
-    void automatic.current?.refresh();
-  }, [automatic]);
+  const pages = results.flatMap((result) => (result.data ? [result.data] : []));
+  let error: Error | null = window.error;
+  let consistent = true;
+  if (pages.some((page) => page.offset === 0)) {
+    try {
+      validateListWindow(pages, query.kind);
+    } catch (failure) {
+      error = failure as Error;
+      consistent = false;
+    }
+  }
+  const items = new Map<number, MediaListRecord>();
+  if (consistent)
+    pages.forEach((page) =>
+      page.items.forEach((item, index) => items.set(page.offset + index, item)),
+    );
+  const knownSize = Math.max(0, ...pages.map((page) => page.offset + page.items.length));
   return {
     key,
-    items: snapshot.items,
-    summary: snapshot.info,
-    total: snapshot.totalSize,
-    error: snapshot.errors.values().next().value?.message ?? null,
-    loading: Boolean(
-      collection && !["loaded", "error"].includes(snapshot.ranges.get(0) ?? ""),
-    ),
+    items,
+    summary: enabled ? (first?.summary ?? null) : null,
+    total,
+    knownSize,
+    error: (error ?? results.find((result) => result.error)?.error)?.message ?? null,
+    loading: Boolean(enabled && !first && !error && results[0]?.isPending),
     requestRange,
-    retry,
-    refresh,
+    retry: () =>
+      error
+        ? window.refetch()
+        : Promise.all(results.filter((result) => result.error).map((result) => result.refetch())),
   };
 }

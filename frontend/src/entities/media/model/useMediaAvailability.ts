@@ -1,56 +1,29 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useServerSession } from "features/session/model";
 import { serverQueryClient } from "shared/api/queryClient";
-import { subscribeToLibraryCache } from "shared/lib/libraryCache";
-import { useAutoRefresh } from "shared/lib/useAutoRefresh";
-import { getLocalMediaMatches } from "../api/mediaAvailability";
-import {
-  indexMediaAvailability,
-  type MediaAvailability,
-} from "./mediaAvailability";
+import { availabilityQueryOptions } from "./availabilityQuery";
+import { indexMediaAvailability } from "./mediaAvailability";
 
-const empty = new Map<string, MediaAvailability>();
-
-export function useMediaAvailability(
-  guids: readonly string[],
-  profileKey: string | null,
-) {
-  const key = JSON.stringify([...new Set(guids)].sort());
-  const requested = useMemo<string[]>(() => JSON.parse(key), [key]);
-  const enabled = Boolean(profileKey && requested.length);
+const empty: Plex.Metadata[] = [];
+export function useMediaAvailability(guids: readonly string[], profileKey: string | null) {
+  const serverId = useServerSession((state) => state.server?.machineIdentifier) ?? "";
+  const enabled = Boolean(serverId && profileKey && guids.length);
   const result = useQuery(
-    {
-      queryKey: ["availability", profileKey, key],
-      enabled,
-      queryFn: async ({ signal }) =>
-        indexMediaAvailability(await getLocalMediaMatches(requested, signal)),
-    },
+    { ...availabilityQueryOptions({ serverId, profileKey: profileKey ?? "" }, guids), enabled },
     serverQueryClient,
   );
-  const refresh = useAutoRefresh(
-    enabled ? `${profileKey}:${key}` : null,
-    async () => {
-      await result.refetch({ cancelRefetch: false });
-    },
-  );
-  useEffect(
-    () =>
-      subscribeToLibraryCache((scope) => {
-        if (!scope?.profileKey || scope.profileKey === profileKey)
-          refresh.current?.invalidate();
-      }),
-    [profileKey, refresh],
-  );
-  const retry = useCallback(() => {
-    void refresh.current?.refresh();
-  }, [refresh]);
+  const data = enabled ? (result.data ?? empty) : empty;
+  const items = useMemo(() => indexMediaAvailability(data), [data]);
   return {
-    items: enabled ? (result.data ?? empty) : empty,
+    items,
     loading: enabled && result.isPending,
     error:
       enabled && result.isError
         ? "Could not check which titles are available on this server."
         : null,
-    retry,
+    retry: () => {
+      void result.refetch();
+    },
   };
 }

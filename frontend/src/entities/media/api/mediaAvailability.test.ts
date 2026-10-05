@@ -89,7 +89,7 @@ it("does not start requests for an aborted lookup", async () => {
   controller.abort();
   await expect(
     getLocalMediaMatches(["plex://movie/one"], controller.signal),
-  ).resolves.toEqual([]);
+  ).rejects.toMatchObject({ name: "AbortError" });
   expect(transport).not.toHaveBeenCalled();
 });
 

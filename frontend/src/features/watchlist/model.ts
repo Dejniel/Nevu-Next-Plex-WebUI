@@ -1,1 +1,1 @@
-export { useWatchlist } from "./model/watchlistStore";
+export { useWatchlist } from "./model/watchlistQuery";

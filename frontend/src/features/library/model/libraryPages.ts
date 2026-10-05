@@ -1,6 +1,7 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import type { LibraryPageDto } from "@nevu/contracts";
-import { createRequestLimiter } from "shared/lib/requestLimiter";
+import { runPageRequest } from "shared/lib/requestLimiter";
+import { pageOffsets, queryWindowKey, queryWindowOptions } from "shared/lib/queryWindow";
 import { getLibraryPage, LibraryPageError } from "../api/libraryPage";
 import {
   LIBRARY_RANGE_SIZE,
@@ -9,13 +10,8 @@ import {
   type LibraryQuery,
 } from "./libraryQuery";
 
-const run = createRequestLimiter(2);
-let nextRevision = 0;
-export interface LibraryWindow {
-  revision: number;
-}
 export const libraryWindowKey = (serverId: string, query: LibraryQuery) =>
-  [...libraryResultQueryKey(serverId, query), "window"] as const;
+  queryWindowKey(libraryResultQueryKey(serverId, query));
 
 export function libraryPageOptions(
   serverId: string,
@@ -27,7 +23,7 @@ export function libraryPageOptions(
   return queryOptions({
     queryKey: libraryPageQueryKey(serverId, query, revision, offset),
     queryFn: ({ signal }) =>
-      run(signal, priority, async () => {
+      runPageRequest(signal, priority, async () => {
         const page = await getLibraryPage({ ...query, offset, size: LIBRARY_RANGE_SIZE }, signal);
         if (page.offset !== offset)
           throw new LibraryPageError("Plex returned a mismatched page.", true);
@@ -58,70 +54,16 @@ export function validateLibraryWindow(pages: readonly LibraryPageDto[]) {
   }
 }
 
-/** The descriptor is coordination only; every response lives in its page query.
- * Native observers supply the union of all consumers' current windows. */
 export function libraryWindowOptions(client: QueryClient, serverId: string, query: LibraryQuery) {
-  const key = libraryWindowKey(serverId, query);
-  const prefix = libraryResultQueryKey(serverId, query);
-  return queryOptions({
-    queryKey: key,
-    initialData: (): LibraryWindow => ({ revision: ++nextRevision }),
-    staleTime: 30_000,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    refetchInterval: 60_000,
-    queryFn: async ({ signal }): Promise<LibraryWindow> => {
-      const published = client.getQueryData<LibraryWindow>(key)!;
-      const revision = ++nextRevision;
-      const cancel = () => {
-        void client.cancelQueries({ queryKey: [...prefix, "page", revision] });
-      };
-      signal.addEventListener("abort", cancel, { once: true });
-      try {
-        const first = await client.fetchQuery(libraryPageOptions(serverId, query, revision, 0));
-        const total = first.totalSize ?? (!first.hasMore ? first.size : null);
-        const pages = new Map<number, LibraryPageDto>([[0, first]]);
-        // Recheck after each batch: scrolling or another consumer can join during refresh.
-        while (true) {
-          signal.throwIfAborted();
-          const offsets = client
-            .getQueryCache()
-            .findAll({ queryKey: [...prefix, "page", published.revision] })
-            .filter((page) => page.getObserversCount() > 0)
-            .map((page) => Number(page.queryKey[6]))
-            .filter((offset) => !pages.has(offset) && (total === null || offset < total));
-          if (!offsets.length) break;
-          await Promise.all(
-            offsets.map(async (offset) => {
-              pages.set(
-                offset,
-                await client.fetchQuery(libraryPageOptions(serverId, query, revision, offset)),
-              );
-            }),
-          );
-        }
-        validateLibraryWindow([...pages.values()]);
-        signal.throwIfAborted();
-        return { revision };
-      } catch (error) {
-        await client.cancelQueries({ queryKey: [...prefix, "page", revision] });
-        throw error;
-      } finally {
-        signal.removeEventListener("abort", cancel);
-      }
-    },
-  });
+  return queryWindowOptions(
+    client,
+    libraryResultQueryKey(serverId, query),
+    (revision, offset) => libraryPageOptions(serverId, query, revision, offset),
+    (first) => first.totalSize ?? (!first.hasMore ? first.size : null),
+    validateLibraryWindow,
+  );
 }
 
 export function libraryRangeOffsets(start: number, end: number, total: number | null) {
-  const offsets: number[] = [];
-  const last = total === null ? end : Math.min(end, total - 1);
-  for (
-    let offset = Math.floor(Math.max(0, start) / LIBRARY_RANGE_SIZE) * LIBRARY_RANGE_SIZE;
-    offset <= last;
-    offset += LIBRARY_RANGE_SIZE
-  )
-    offsets.push(offset);
-  return offsets;
+  return pageOffsets(start, end, total, LIBRARY_RANGE_SIZE);
 }

@@ -1,3 +1,5 @@
+import type { LibraryItemUpdateDto } from "@nevu/contracts";
+
 export interface MediaScope {
   serverId: string;
   profileKey: string;
@@ -19,6 +21,11 @@ export type MediaChange = MediaScope & { sectionId?: string } & (
   );
 
 export type SynchronizationDecision = "ignore" | "patch" | "refresh";
+
+export interface ReconciledMediaChange {
+  change: MediaChange;
+  update?: LibraryItemUpdateDto;
+}
 
 export function matchesMediaScope(scope: MediaScope, change: MediaScope) {
   return scope.serverId === change.serverId && scope.profileKey === change.profileKey;

@@ -10,7 +10,7 @@ import HomeEmptyState from "./HomeEmptyState";
 import { homeHeroContentSx } from "./homeHeroLayout";
 
 export default function HomeScreen() {
-  const watchlist = useWatchlist((state) => state.items);
+  const watchlist = useWatchlist().data ?? [];
   const canManageServer = useCanManageServer();
   const { settings } = useUserSettings();
   const { shelves, hero, heroLoading, catalogStatus, clearHero, refresh } =

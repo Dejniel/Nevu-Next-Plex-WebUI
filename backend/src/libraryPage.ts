@@ -10,7 +10,7 @@ import type {
     LibrarySource,
     LibrarySort,
 } from '@nevu/contracts';
-import { changedLibraryFields, libraryFilterUnaffected, mediaMetadataIncludes } from '@nevu/contracts';
+import { changedMediaFields, libraryFilterUnaffected, mediaMetadataIncludes } from '@nevu/contracts';
 import axios from 'axios';
 import { createHash } from 'node:crypto';
 import express from 'express';
@@ -672,7 +672,7 @@ export function createLibraryPageRouter({
                 const catalog = randomCatalogs.get(key);
                 const before = catalog?.items.find(card => card.ratingKey === id);
                 if (!before && sectionId && key.split(':')[1] !== sectionId) continue;
-                const fields = before && item ? changedLibraryFields(before, item) : [];
+                const fields = before && item ? changedMediaFields(before, item) : [];
                 const stable = before && item && catalog &&
                     !fields.some(field => ['type', 'librarySectionID', 'parentRatingKey', 'grandparentRatingKey', 'Collection'].includes(field)) &&
                     libraryFilterUnaffected(catalog.request.filterExpression, fields) &&

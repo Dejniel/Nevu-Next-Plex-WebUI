@@ -244,8 +244,9 @@ export default function MediaListsView({
       ) : (
         data.items.size > 0 && (
           <VirtualGrid
+            key={data.key}
             count={data.total}
-            minimumCount={data.items.size + 100}
+            minimumCount={data.knownSize + (data.total === null ? 1 : 0)}
             itemWidth={getLibraryCardWidth(cardView.layout, cardView.size)}
             imageAspectRatio={cardView.layout === "poster" ? 2 / 3 : 16 / 9}
             footerHeight={94}
@@ -295,7 +296,6 @@ export default function MediaListsView({
                     layout={cardView.layout}
                     imageSizes={imageSizes}
                     imageLoading="eager"
-                    refetchData={data.refresh}
                     playbackTo={
                       kind === "playlist" &&
                       id &&

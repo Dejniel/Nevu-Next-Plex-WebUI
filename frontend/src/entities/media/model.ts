@@ -25,19 +25,21 @@ export {
   parseTrackPreference,
   preferenceFromStream,
 } from "./model/mediaVersions";
-export type {
-  MediaVersion,
-  TrackChoice,
-  TrackPreference,
-} from "./model/mediaVersions";
+export type { MediaVersion, TrackChoice, TrackPreference } from "./model/mediaVersions";
 export type { MediaItemData } from "./model/media";
-export { matchesMediaScope, publishMediaChange, subscribeToMediaChanges } from "./model/mediaChanges";
-export { mediaMetadataQueryKey, mediaMetadataQueryOptions } from "./model/mediaMetadataQuery";
-export type { MediaChange, MediaScope, SynchronizationDecision } from "./model/mediaChanges";
 export {
-  applyMediaWatchedState,
-  isMediaWatched,
-} from "./model/mediaWatchedState";
+  matchesMediaScope,
+  publishMediaChange,
+  subscribeToMediaChanges,
+} from "./model/mediaChanges";
+export { mediaMetadataQueryKey, mediaMetadataQueryOptions } from "./model/mediaMetadataQuery";
+export type {
+  MediaChange,
+  MediaScope,
+  ReconciledMediaChange,
+  SynchronizationDecision,
+} from "./model/mediaChanges";
+export { applyMediaWatchedState, isMediaWatched } from "./model/mediaWatchedState";
 export { pingMediaPlayback } from "./api/mediaPlayback";
 export { useMediaPlaybackSource } from "./model/useMediaPlaybackSource";
 export type { PlexPlaybackSource } from "./model/mediaPlayback";
@@ -50,6 +52,12 @@ export {
   extraTypeLabel,
 } from "./model/mediaExtras";
 export type { TitleExtra } from "./model/mediaExtras";
-export { indexMediaAvailability, isMediaInLibrary, selectLocalMedia } from "./model/mediaAvailability";
+export {
+  indexMediaAvailability,
+  isMediaInLibrary,
+  selectLocalMedia,
+} from "./model/mediaAvailability";
 export type { MediaAvailability } from "./model/mediaAvailability";
 export { useMediaAvailability } from "./model/useMediaAvailability";
+export { applyAvailabilityChanges, hasCachedAvailableMedia } from "./model/availabilitySync";
+export { availabilityQueryOptions } from "./model/availabilityQuery";

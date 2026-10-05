@@ -2,7 +2,6 @@ import { publishMediaChange } from "../model/mediaChanges";
 import { authedGetStrict, getActiveServerScope, getXPlexProps } from "features/session/model";
 import { queryBuilder } from "shared/lib/query";
 import { getIncludeProps } from "../model/mediaIncludes";
-import { invalidateLibraryCache } from "shared/lib/libraryCache";
 
 export async function getMediaMetadata(id: string, signal?: AbortSignal): Promise<Plex.Metadata> {
   if (!id) return {} as Plex.Metadata;
@@ -49,6 +48,5 @@ export async function setMediaPlayedStatus(watched: boolean, ratingKey: string):
       ...getXPlexProps(),
     })}`,
   );
-  invalidateLibraryCache(scope ? { profileKey: scope.profileKey } : undefined);
   if (scope) publishMediaChange({ ...scope, kind: "item", effect: "unknown", id: ratingKey });
 }

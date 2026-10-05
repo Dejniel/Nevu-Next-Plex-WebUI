@@ -1,6 +1,6 @@
 import type { Mock } from "vitest";
 import { plexClient } from "features/session/model";
-import { invalidateLibraryCache } from "shared/lib/libraryCache";
+import { publishMediaChange } from "entities/media/model";
 import {
   applyMetadataMatch,
   buildApplyMatchPath,
@@ -10,11 +10,11 @@ import {
 } from "./matching";
 
 vi.mock("features/session/model", () => ({
-  getActiveServerScope: () => null,
+  getActiveServerScope: () => ({ serverId: "server", profileKey: "owner" }),
   plexClient: { get: vi.fn(), put: vi.fn() },
 }));
-vi.mock("shared/lib/libraryCache", () => ({
-  invalidateLibraryCache: vi.fn(),
+vi.mock("entities/media/model", () => ({
+  publishMediaChange: vi.fn(),
 }));
 
 beforeEach(() => vi.clearAllMocks());
@@ -49,7 +49,7 @@ it("normalizes Plex SearchResult candidates", async () => {
   ]);
 });
 
-it("applies the selected match and invalidates cached library pages", async () => {
+it("applies the selected match and publishes its scoped effect", async () => {
   (plexClient.put as Mock).mockResolvedValue({});
   const candidate = {
     guid: "plex://movie/1",
@@ -66,10 +66,10 @@ it("applies the selected match and invalidates cached library pages", async () =
     buildApplyMatchPath("42", candidate),
     {},
   );
-  expect(invalidateLibraryCache).toHaveBeenCalledTimes(1);
+  expect(publishMediaChange).toHaveBeenCalledWith({ serverId: "server", profileKey: "owner", kind: "item", effect: "unknown", id: "42" });
 });
 
-it("unmatches an item and invalidates cached library pages", async () => {
+it("unmatches an item and publishes its scoped effect", async () => {
   (plexClient.put as Mock).mockResolvedValue({});
 
   await unmatchMetadata("12/3");
@@ -78,5 +78,5 @@ it("unmatches an item and invalidates cached library pages", async () => {
     "/library/metadata/12%2F3/unmatch",
     {},
   );
-  expect(invalidateLibraryCache).toHaveBeenCalledTimes(1);
+  expect(publishMediaChange).toHaveBeenCalledWith({ serverId: "server", profileKey: "owner", kind: "item", effect: "unknown", id: "12/3" });
 });

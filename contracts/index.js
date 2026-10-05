@@ -33,7 +33,7 @@ function libraryFilterUnaffected(filter, changed) {
     ? libraryFieldsUnaffected(filter.field, changed)
     : filter.children.every((child) => libraryFilterUnaffected(child, changed));
 }
-function changedLibraryFields(before, after) {
+function changedMediaFields(before, after) {
   return [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(
     (field) => JSON.stringify(before[field]) !== JSON.stringify(after[field]),
   );
@@ -57,6 +57,6 @@ const mediaMetadataIncludes = Object.fromEntries(
 module.exports = {
   libraryFieldsUnaffected,
   libraryFilterUnaffected,
-  changedLibraryFields,
+  changedMediaFields,
   mediaMetadataIncludes,
 };

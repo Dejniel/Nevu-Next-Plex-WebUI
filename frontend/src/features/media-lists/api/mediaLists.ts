@@ -1,7 +1,7 @@
 import { AuthStorage, useServerSession } from "features/session/model";
 import { PlexClient } from "shared/api/PlexClient";
 import { useUserSettings } from "features/settings/model";
-import { invalidateMediaLists } from "../model/listChanges";
+import { publishMediaChange } from "entities/media/model";
 import {
   assertMediaListItem,
   type MediaListItem,
@@ -350,15 +350,21 @@ export async function saveMediaListItem(
     result = listSummary(created, kind);
     if (kind === "collection") result.libraryID = String(item.librarySectionID);
   }
-  if (
-    AuthStorage.getServerToken() === token &&
-    useUserSettings.getState().profileKey === profileKey
-  )
-    invalidateMediaLists({
-      kind,
-      id: result.id,
-      libraryID: String(item.librarySectionID),
-      profileKey,
+  const scope = { serverId: server, profileKey };
+  publishMediaChange({
+    ...scope,
+    kind: "list",
+    listKind: kind,
+    id: result.id,
+    ...(kind === "collection" && { sectionId: String(item.librarySectionID) }),
+  });
+  if (kind === "collection")
+    publishMediaChange({
+      ...scope,
+      kind: "item",
+      effect: "unknown",
+      id: item.ratingKey,
+      sectionId: String(item.librarySectionID),
     });
   return result;
 }

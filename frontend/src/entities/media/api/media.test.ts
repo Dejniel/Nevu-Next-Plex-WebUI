@@ -2,7 +2,7 @@ import type { Mock } from "vitest";
 import {
   authedGetStrict,
 } from "features/session/model";
-import { invalidateLibraryCache } from "shared/lib/libraryCache";
+import { publishMediaChange } from "../model/mediaChanges";
 import {
   getMediaByGuid,
   getMediaChildren,
@@ -11,15 +11,15 @@ import {
 } from "./media";
 
 vi.mock("features/session/model", () => ({
-  getActiveServerScope: () => null,
+  getActiveServerScope: () => ({ serverId: "server", profileKey: "owner" }),
   authedGetStrict: vi.fn(),
   getXPlexProps: () => ({}),
 }));
 vi.mock("shared/lib/query", () => ({
   queryBuilder: () => "query",
 }));
-vi.mock("shared/lib/libraryCache", () => ({
-  invalidateLibraryCache: vi.fn(),
+vi.mock("../model/mediaChanges", () => ({
+  publishMediaChange: vi.fn(),
 }));
 
 beforeEach(() => vi.clearAllMocks());
@@ -41,11 +41,11 @@ it("only returns a GUID lookup when Plex returned the requested item", async () 
   await expect(getMediaByGuid("plex://movie/1")).resolves.toBeNull();
 });
 
-it("updates watched state and invalidates library data", async () => {
+it("publishes a scoped item effect after confirming watched state", async () => {
   (authedGetStrict as Mock).mockResolvedValue({});
 
   await setMediaPlayedStatus(true, "12");
 
   expect(authedGetStrict).toHaveBeenCalledWith("/:/scrobble?query");
-  expect(invalidateLibraryCache).toHaveBeenCalled();
+  expect(publishMediaChange).toHaveBeenCalledWith({ serverId: "server", profileKey: "owner", kind: "item", effect: "unknown", id: "12" });
 });

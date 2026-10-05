@@ -28,7 +28,7 @@ export async function getLocalMediaMatches(
         const seen = new Set<string>();
         let offset = 0;
         while (true) {
-          if (signal?.aborted) return;
+          signal?.throwIfAborted();
           const params = new URLSearchParams({
             guid: batch.join(","),
             includeExternalMedia: "0",

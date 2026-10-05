@@ -21,15 +21,16 @@ import {
 } from "features/library/public";
 import { ActionableMediaCard } from "features/media-actions/public";
 import { useUserSettings } from "features/settings/model";
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import VirtualGrid from "shared/ui/VirtualGrid";
-import { useAutoRefresh } from "shared/lib/useAutoRefresh";
 import {
   selectWatchlistItems,
   type WatchlistSort,
 } from "../model/watchlistBrowse";
-import { useWatchlist } from "../model/watchlistStore";
+import { useWatchlist } from "../model/watchlistQuery";
+
+const empty: Plex.Metadata[] = [];
 
 export default function WatchlistView({
   libraryID,
@@ -38,14 +39,15 @@ export default function WatchlistView({
   libraryID?: string;
   pageNavigation?: React.ReactNode;
 }) {
-  const { items, status, hasLoaded, error, load } = useWatchlist();
+  const watchlist = useWatchlist();
+  const items = watchlist.data ?? empty;
+  const error = watchlist.isError ? "Could not refresh your Plex Watchlist. Please try again." : null;
   const profileKey = useUserSettings((state) => state.profileKey);
   const libraries = useLibraries((state) => state.libraries);
   const availability = useMediaAvailability(
     items.map((item) => item.guid),
     profileKey,
   );
-  useAutoRefresh(profileKey, () => load());
   const cardView = useLibraryCardView();
   const toolbarRef = useRef<HTMLDivElement>(null);
   const [params, setParams] = useSearchParams();
@@ -72,15 +74,9 @@ export default function WatchlistView({
     [availability.items, items, libraryID, libraryOnly, search, sort],
   );
   const waiting =
-    (!hasLoaded &&
-      items.length === 0 &&
-      (status === "idle" || status === "loading")) ||
+    (Boolean(profileKey) && watchlist.isPending) ||
     (libraryOnly && availability.loading);
   const unavailableScope = libraryOnly && Boolean(availability.error);
-
-  useEffect(() => {
-    if (profileKey) void load(30_000);
-  }, [load, profileKey]);
 
   return (
     <LibraryBrowseFrame
@@ -141,7 +137,7 @@ export default function WatchlistView({
           severity="error"
           sx={{ mb: 2 }}
           action={
-            <Button color="inherit" onClick={() => void load()}>
+            <Button color="inherit" onClick={() => void watchlist.refetch()}>
               Retry
             </Button>
           }
@@ -212,7 +208,6 @@ export default function WatchlistView({
                   layout={cardView.layout}
                   imageSizes={imageSizes}
                   imageLoading="eager"
-                  refetchData={availability.retry}
                 />
                 <Tooltip title={label}>
                   <Typography

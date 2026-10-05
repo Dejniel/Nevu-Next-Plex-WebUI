@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { invalidateLibraryCache } from "shared/lib/libraryCache";
+import { getActiveServerScope } from "features/session/model";
+import { publishMediaChange } from "entities/media/model";
 import { getLibraries } from "../api/libraries";
 
 interface LibrariesState {
@@ -36,6 +37,7 @@ export const useLibraries = create<LibrariesState>((set) => ({
 }));
 
 export function notifyLibrariesChanged() {
-  invalidateLibraryCache();
+  const scope = getActiveServerScope();
+  if (scope) publishMediaChange({ ...scope, kind: "recovery" });
   window.dispatchEvent(new Event(LIBRARIES_CHANGED_EVENT));
 }

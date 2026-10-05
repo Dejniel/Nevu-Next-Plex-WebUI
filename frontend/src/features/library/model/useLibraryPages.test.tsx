@@ -289,6 +289,11 @@ it("retries a first-page error and discovers an unknown total at the final short
   await settle();
   await render(<Harness start={64} />);
   expect(latest.totalSize).toBe(70);
+  await render(<Harness />);
+  expect(latest.totalSize).toBe(70);
+  const reads = fetch.mock.calls.length;
+  await render(<Harness start={128} />);
+  expect(fetch).toHaveBeenCalledTimes(reads);
 });
 
 it("refreshes parent aggregates when an untyped result contains a changed episode", async () => {

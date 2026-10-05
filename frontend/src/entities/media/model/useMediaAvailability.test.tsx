@@ -5,7 +5,8 @@ beforeAll(() => notifyManager.setScheduler(queueMicrotask));
 afterAll(() => notifyManager.setScheduler((callback) => setTimeout(callback, 0)));
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { invalidateLibraryCache } from "shared/lib/libraryCache";
+import { useServerSession } from "features/session/model";
+import { applyAvailabilityChanges } from "./availabilitySync";
 import { getLocalMediaMatches } from "../api/mediaAvailability";
 import { useMediaAvailability } from "./useMediaAvailability";
 
@@ -39,12 +40,15 @@ beforeEach(() => {
   ).IS_REACT_ACT_ENVIRONMENT = true;
   guids = ["one"];
   profile = "owner:1";
+  useServerSession.setState({ server: { machineIdentifier: "server" } as Plex.ServerPreferences });
   element = document.createElement("div");
   root = createRoot(element);
   lookup.mockResolvedValue([movie]);
 });
 afterEach(async () => {
   await act(async () => root.unmount());
+  serverQueryClient.clear();
+  vi.useRealTimers();
 });
 
 it("reuses availability when a caller only reorders the same GUIDs", async () => {
@@ -88,7 +92,7 @@ it("ignores an earlier list's response after changing items", async () => {
   expect([...state.items.keys()]).toEqual(["two"]);
 });
 
-it("surfaces failures, retries and refreshes after library invalidation", async () => {
+it("surfaces failures, retries and refreshes after a scoped recovery", async () => {
   lookup.mockRejectedValueOnce(new Error("offline"));
   await render();
   expect(state.error).toBeTruthy();
@@ -96,13 +100,12 @@ it("surfaces failures, retries and refreshes after library invalidation", async 
   await act(async () => state.retry());
   expect(state.error).toBeNull();
   expect(state.items.has("one")).toBe(true);
-  vi.useFakeTimers();
   await act(async () => {
-    invalidateLibraryCache();
-    vi.advanceTimersByTime(500);
+    await applyAvailabilityChanges(serverQueryClient, [{ change: {
+      serverId: "server", profileKey: "owner:1", kind: "recovery",
+    } }]);
   });
   expect(lookup).toHaveBeenCalledTimes(3);
-  vi.useRealTimers();
 });
 
 it("does not request data or keep loading without an active profile", async () => {
@@ -132,13 +135,13 @@ it("refreshes unchanged GUIDs on the visible interval and ignores another profil
   vi.useFakeTimers();
   await render();
   await act(async () => {
-    invalidateLibraryCache({ profileKey: "owner:2" });
-    vi.advanceTimersByTime(500);
+    await applyAvailabilityChanges(serverQueryClient, [{ change: {
+      serverId: "server", profileKey: "owner:2", kind: "recovery",
+    } }]);
   });
   expect(lookup).toHaveBeenCalledTimes(1);
   lookup.mockResolvedValueOnce([]);
   await act(async () => vi.advanceTimersByTime(60_000));
-  await act(async () => vi.advanceTimersByTime(500));
   expect(lookup).toHaveBeenCalledTimes(2);
   expect(state.items.size).toBe(0);
   vi.useRealTimers();

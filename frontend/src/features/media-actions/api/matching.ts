@@ -1,6 +1,5 @@
 import { publishMediaChange } from "entities/media/model";
 import { getActiveServerScope, plexClient } from "features/session/model";
-import { invalidateLibraryCache } from "shared/lib/libraryCache";
 import {
   MetadataMatchCandidate,
   MetadataMatchCriteria,
@@ -47,13 +46,11 @@ export async function searchMetadataMatches(ratingKey: string, criteria: Metadat
 export async function applyMetadataMatch(ratingKey: string, candidate: MetadataMatchCandidate) {
   const scope = getActiveServerScope();
   await plexClient.put(buildApplyMatchPath(ratingKey, candidate), {});
-  invalidateLibraryCache(scope ? { profileKey: scope.profileKey } : undefined);
   if (scope) publishMediaChange({ ...scope, kind: "item", effect: "unknown", id: ratingKey });
 }
 
 export async function unmatchMetadata(ratingKey: string) {
   const scope = getActiveServerScope();
   await plexClient.put(itemPath(ratingKey, "unmatch"), {});
-  invalidateLibraryCache(scope ? { profileKey: scope.profileKey } : undefined);
   if (scope) publishMediaChange({ ...scope, kind: "item", effect: "unknown", id: ratingKey });
 }
