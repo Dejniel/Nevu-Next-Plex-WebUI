@@ -15,10 +15,8 @@ export {
   useLibraryQueryRange,
   useLibraryRange,
 } from "./model/LibraryRangeStore";
-export type {
-  LibraryQuery,
-  LibraryRangeSnapshot,
-} from "./model/LibraryRangeStore";
+export type { LibraryRangeSnapshot } from "./model/LibraryRangeStore";
+export type { LibraryQuery } from "./model/libraryQuery";
 export { LibraryPageError } from "./api/libraryPage";
 export { default as LibraryViewToolbar } from "./ui/LibraryViewToolbar";
 export { default as LibraryBrowseFrame } from "./ui/LibraryBrowseFrame";

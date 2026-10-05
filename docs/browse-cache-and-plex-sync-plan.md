@@ -1,13 +1,16 @@
 # Browse cache and selective Plex synchronization
 
-Status: planned; implementation has not started. Recorded on 2026-10-05.
+Status: stage 1 complete; stages 2 and 3 planned. Recorded on 2026-10-05.
+
+Contracts, observed events, baseline costs, and verification are recorded in the
+[stage 1 results](browse-sync-stage1.md). Selective runtime updates are not active yet.
 
 This document records the direction, behavior to preserve, implementation plan,
 and remaining questions. Cache ownership and selective synchronization are one
 workstream: synchronization rules inform the cache design before its consumers
 are migrated. See the [refactoring roadmap](refactoring-roadmap.md) for other work.
 
-## Goal and current assessment
+## Goal and starting assessment
 
 Use TanStack Query to replace our general request/cache machinery, retaining
 explicit Plex ordering and virtual-window rules. Reduce overlapping ownership
@@ -19,7 +22,7 @@ and documentation/package files by 46. These counts do not establish architectur
 simplicity. Useful changes to retain include request sharing, transport cancellation,
 session cleanup, and tests for stale responses and catalog generations.
 
-The current design still has overlapping layers:
+At the starting commit, these problems remained:
 
 - `PagedCollection` maintains items, request statuses, errors, and consumer counts
   around Query. Page query functions return `null` and manually update a separate
@@ -28,12 +31,13 @@ The current design still has overlapping layers:
 - Watchlist mirrors Query data and status into Zustand through a `QueryObserver`.
 - `RefreshScheduler` handles browser lifecycle and request coordination while
   Query's focus/reconnect refresh is disabled.
-- Ordinary library notifications lose their item ID and change details in
-  `serverChanges`; `useBrowseSynchronization` consequently invalidates the section,
+- Ordinary library notifications lost their item ID and change details in
+  `serverChanges`; `useBrowseSynchronization` consequently invalidated the section,
   its collections, and all profile playlists.
 
 The previous cache cleanup is therefore a starting point, not a completed
 simplification. Preserve its useful behavior while removing the replaced layers.
+Stage 1 preserves notification details; the remaining cache overlaps await migration.
 
 ## Technology and ownership
 
@@ -184,7 +188,7 @@ server snapshot contract, which is not promised by this refactor.
 
 ## Implementation sequence
 
-### 1. Change contract and decision rules
+### 1. Change contract and decision rules — complete
 
 - Preserve validated event details; add sanitized real-payload fixtures where
   available and retain an explicit unknown case.
@@ -199,7 +203,7 @@ Done when representative/unknown events produce justified scopes, structural
 changes cannot be mistaken for safe patches, and the library migration has a
 concrete query/revision contract. No broad stack migration is required.
 
-### 2. Library cache and selective synchronization together
+### 2. Library cache and selective synchronization together — planned
 
 - Return real page responses from Query; connect visible ranges directly to page
   queries and keep only necessary priority/window coordination.
@@ -213,7 +217,7 @@ overwrite new ones, safe metadata updates avoid structural refresh, and structur
 updates preserve scroll/filters without mixing page positions. Reassess the design
 if this requires another controller comparable to `PagedCollection`.
 
-### 3. Lists, Watchlist, availability, and removal of old mechanisms
+### 3. Lists, Watchlist, availability, and removal of old mechanisms — planned
 
 - Migrate collection/playlist pages and summaries, preserving repeated positions,
   playback context, targeted list changes, and conservative smart-list recovery.

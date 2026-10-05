@@ -4,8 +4,8 @@ import { createRoot } from "react-dom/client";
 import { getLibraryPage } from "../api/libraryPage";
 import {
   libraryRangeStore,
-  type LibraryQuery,
 } from "../model/LibraryRangeStore";
+import type { LibraryQuery } from "../model/libraryQuery";
 import { WindowLibraryCollectionGrid } from "./LibraryCollectionGrid";
 
 vi.mock("../api/libraryPage", () => ({ getLibraryPage: vi.fn() }));

@@ -1,11 +1,7 @@
 import type {
   LibraryCardDto,
-  LibraryFilterExpression,
-  LibraryItemType,
   LibraryPageDto,
   LibraryPageRequest,
-  LibrarySource,
-  LibrarySort,
 } from "@nevu/contracts";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { QueryClient } from "@tanstack/react-query";
@@ -20,19 +16,9 @@ import {
 } from "shared/lib/PagedCollection";
 import { RequestQueue } from "shared/lib/RequestQueue";
 import { getLibraryPage, LibraryPageError } from "../api/libraryPage";
-import { libraryFilterExpressionKey } from "./libraryFilterExpression";
+import { LIBRARY_RANGE_SIZE, libraryQueryKey, type LibraryQuery } from "./libraryQuery";
 import { isRandomLibrarySort } from "./librarySort";
 
-export const LIBRARY_RANGE_SIZE = 64;
-export interface LibraryQuery {
-  profileKey: string;
-  sectionId: number;
-  source?: LibrarySource;
-  type?: LibraryItemType;
-  sort: LibrarySort;
-  filterExpression?: LibraryFilterExpression;
-  seed?: string;
-}
 export type LibraryRangeSnapshot = CollectionSnapshot<LibraryCardDto>;
 type PageFetcher = (
   request: LibraryPageRequest,
@@ -40,17 +26,6 @@ type PageFetcher = (
 ) => Promise<LibraryPageDto>;
 const EMPTY_SNAPSHOT = emptyCollection<LibraryCardDto>();
 
-export function libraryQueryKey(query: LibraryQuery) {
-  return JSON.stringify([
-    query.profileKey,
-    query.sectionId,
-    query.source || "all",
-    query.type || "any",
-    query.sort,
-    libraryFilterExpressionKey(query.filterExpression),
-    query.seed || "",
-  ]);
-}
 const cacheKey = (key: string) => {
   const [profile, section] = JSON.parse(key);
   return ["library", profile, String(section), key] as const;

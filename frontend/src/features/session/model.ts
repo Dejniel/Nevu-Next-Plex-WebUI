@@ -6,6 +6,7 @@ export { useServerSession } from "./model/serverSession";
 export { PLEX_SESSION_INVALID_EVENT } from "./model/sessionEvents";
 export { connectPlexServerEvents } from "./api/serverEvents";
 export type { PlexServerChange } from "./model/serverChanges";
+export { mediaChangeFromServer } from "./model/serverChanges";
 export {
   authedGet,
   authedGetStrict,

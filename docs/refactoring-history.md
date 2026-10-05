@@ -2,6 +2,13 @@
 
 Status: structural migration completed on 2026-09-29
 
+## Plex synchronization contract — 2026-10-05
+
+Stage 1 preserves timeline identity/state and defines scoped item/list/recovery
+effects, pure update decisions, and library page/revision identity. Sanitized real
+SSE fixtures and request-cost baselines precede the cache migration; selective
+runtime updates are not yet connected. See the [stage 1 results](browse-sync-stage1.md).
+
 ## Browse cache cleanup — 2026-10-05
 
 Library, collection/playlist, Watchlist, and local-availability requests now use
@@ -13,7 +20,7 @@ the Plex HTTP transport. Inactive range caches expire after five minutes.
 Follow-up review found overlapping manual request state, adapters, and a Watchlist
 mirror. Further simplification and selective synchronization are planned together
 in the [browse cache and Plex synchronization plan](browse-cache-and-plex-sync-plan.md);
-that implementation has not started.
+stage 1 is complete, while cache migration remains planned.
 
 ## Plex reviews — 2026-10-05
 

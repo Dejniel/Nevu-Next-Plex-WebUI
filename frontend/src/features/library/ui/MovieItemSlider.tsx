@@ -11,9 +11,9 @@ import {
 } from "./LibraryCardViewControls";
 import {
   libraryRangeStore,
-  LibraryQuery,
   useLibraryQueryRange,
 } from "../model/LibraryRangeStore";
+import type { LibraryQuery } from "../model/libraryQuery";
 import { libraryBrowseTo } from "shared/lib/navigation";
 
 const QUERY_SHELF_LIMIT = 40;

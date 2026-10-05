@@ -47,11 +47,10 @@ import {
   replaceLibraryRandomSeed,
 } from "../model/libraryRandom";
 import {
-  libraryQueryKey,
   libraryRangeStore,
-  LibraryQuery,
   useLibraryRange,
 } from "../model/LibraryRangeStore";
+import { libraryQueryKey, type LibraryQuery } from "../model/libraryQuery";
 
 function isLibraryItemType(value: string | null | undefined): value is LibraryItemType {
   return value === "movie" || value === "show" || value === "episode";

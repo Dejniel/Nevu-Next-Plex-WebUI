@@ -1,0 +1,68 @@
+{
+  "serverVersion": "1.43.4.10903-e5521bd8c",
+  "samples": [
+    {
+      "event": "timeline",
+      "data": {
+        "TimelineEntry": [
+          {
+            "identifier": "com.plexapp.plugins.library",
+            "sectionID": 1,
+            "itemID": "101",
+            "type": 1,
+            "state": 3,
+            "updatedAt": 1700000000,
+            "metadataState": "loading"
+          }
+        ]
+      }
+    },
+    {
+      "event": "timeline",
+      "data": {
+        "TimelineEntry": [
+          {
+            "identifier": "com.plexapp.plugins.library",
+            "sectionID": 1,
+            "itemID": "101",
+            "type": 1,
+            "state": 5,
+            "updatedAt": 1700000000
+          }
+        ]
+      }
+    },
+    {
+      "event": "timeline",
+      "data": {
+        "TimelineEntry": [
+          {
+            "identifier": "com.plexapp.plugins.library",
+            "sectionID": 1,
+            "itemID": "201",
+            "type": 15,
+            "state": 0,
+            "updatedAt": 1700000000,
+            "metadataState": "created"
+          }
+        ]
+      }
+    },
+    {
+      "event": "timeline",
+      "data": {
+        "TimelineEntry": [
+          {
+            "identifier": "com.plexapp.plugins.library",
+            "sectionID": 1,
+            "itemID": "201",
+            "type": 15,
+            "state": 9,
+            "updatedAt": 1700000000,
+            "metadataState": "deleted"
+          }
+        ]
+      }
+    }
+  ]
+}

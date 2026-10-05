@@ -86,12 +86,12 @@ it("targets individual lists and closes the old profile's stream before acceptin
   await render();
   expect(close).toHaveBeenCalledTimes(1);
   (invalidateMediaLists as Mock).mockClear();
-  old({ kind: "server" });
+  old({ kind: "server", reason: "reconnect" });
   expect(invalidateMediaLists).not.toHaveBeenCalled();
   const current = connect.mock.calls[1][1] as (
     change: PlexServerChange,
   ) => void;
-  current({ kind: "server" });
+  current({ kind: "server", reason: "reconnect" });
   expect(invalidateLibraryCache).toHaveBeenLastCalledWith({
     profileKey: "owner:2",
     sectionId: undefined,

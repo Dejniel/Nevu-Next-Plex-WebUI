@@ -99,7 +99,10 @@ removal in the [browse cache and Plex synchronization plan](browse-cache-and-ple
 Features own invalidation rules; session changes clear cached requests and data.
 Session supplies profile identity and authenticated Plex SSE through the HTTP
 proxy. `app` routes coalesced hints through headless model contracts; current
-library hints trigger broad refreshes. Focus/reconnect/visible-view checks also
+library hints trigger broad refreshes. The parser now retains item IDs and
+processing states; pure synchronization policies and page-key contracts are ready
+for the migration, as recorded in the [stage 1 results](browse-sync-stage1.md).
+Focus/reconnect/visible-view checks also
 cover recovery and cloud Watchlist freshness. The plan describes target ownership;
 this paragraph describes the implementation currently in use.
 

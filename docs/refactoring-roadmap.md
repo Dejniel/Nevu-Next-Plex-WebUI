@@ -43,6 +43,9 @@ model. Rework page queries and selective updates together, preserving arbitrary
 library jumps and atomic window refresh. Decisions, limits, sequencing, and
 completion checks are recorded in the
 [browse cache and Plex synchronization plan](browse-cache-and-plex-sync-plan.md).
+Stage 1 is complete: event evidence, pure decisions, page identity, and baseline
+request costs are in the [stage 1 results](browse-sync-stage1.md). Next is the
+library migration with selective runtime updates; existing broad refresh remains.
 
 ### 1. Lazy media metadata resource — complete
 

@@ -10,10 +10,9 @@ import {
   librarySortOptions,
 } from "../model/librarySort";
 import {
-  libraryQueryKey,
-  LibraryQuery,
   libraryRangeStore,
 } from "../model/LibraryRangeStore";
+import { libraryQueryKey, type LibraryQuery } from "../model/libraryQuery";
 import { AppDialog } from "shared/ui";
 import {
   LibraryCardViewControls,

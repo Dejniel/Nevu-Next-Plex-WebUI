@@ -7,12 +7,11 @@ import type {
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  LibraryQuery,
   LibraryRangeStore,
   libraryRangeStore,
-  libraryQueryKey,
   useLibraryQueryRange,
 } from "./LibraryRangeStore";
+import { libraryQueryKey, type LibraryQuery } from "./libraryQuery";
 import { invalidateLibraryCache } from "shared/lib/libraryCache";
 import { LibraryPageError } from "../api/libraryPage";
 

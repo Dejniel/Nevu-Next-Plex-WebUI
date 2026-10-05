@@ -3,11 +3,10 @@ import React, { useCallback, useEffect } from "react";
 import VirtualGrid, { type GridRange } from "shared/ui/VirtualGrid";
 import { ActionableMediaCard } from "features/media-actions/public";
 import {
-  LIBRARY_RANGE_SIZE,
   libraryRangeStore,
-  LibraryQuery,
   useLibraryQueryRange,
 } from "../model/LibraryRangeStore";
+import { LIBRARY_RANGE_SIZE, type LibraryQuery } from "../model/libraryQuery";
 import {
   getLibraryCardWidth,
   LibraryCardLayout,

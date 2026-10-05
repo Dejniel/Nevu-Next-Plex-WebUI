@@ -30,7 +30,7 @@ export function connectPlexServerEvents(
     interrupted = true;
   };
   stream.onopen = () => {
-    if (interrupted) onChange({ kind: "server" });
+    if (interrupted) onChange({ kind: "server", reason: "reconnect" });
     interrupted = false;
   };
   return () => {

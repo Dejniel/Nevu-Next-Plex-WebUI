@@ -17,7 +17,7 @@ import {
   matchRecommendationDirectory,
   pickPreferredTag,
 } from "../model/libraryRecommendations";
-import { LibraryQuery } from "../model/LibraryRangeStore";
+import type { LibraryQuery } from "../model/libraryQuery";
 import { recommendationShelfTo } from "shared/lib/navigation";
 
 interface RecommendationShelf {

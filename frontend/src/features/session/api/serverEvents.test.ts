@@ -35,7 +35,7 @@ it("uses the existing proxy and parses named events without exposing partial med
       data: JSON.stringify({ TimelineEntry: { type: 1, sectionID: "2" } }),
     }),
   );
-  expect(change).toHaveBeenCalledWith({ kind: "library", sectionId: "2" });
+  expect(change).toHaveBeenCalledWith({ kind: "library", sectionId: "2", type: 1 });
   close();
   current.dispatchEvent(new MessageEvent("timeline", { data: "{}" }));
   expect(current.close).toHaveBeenCalledTimes(1);
@@ -50,7 +50,7 @@ it("invalidates on reconnection and removes every callback when a profile is clo
   expect(change).not.toHaveBeenCalled();
   current.onerror?.();
   current.onopen?.();
-  expect(change).toHaveBeenCalledWith({ kind: "server" });
+  expect(change).toHaveBeenCalledWith({ kind: "server", reason: "reconnect" });
   close();
   expect(current.onopen).toBeNull();
   expect(current.onerror).toBeNull();
