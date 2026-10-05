@@ -12,7 +12,6 @@ const apiPaths = [
   "/sharing",
   "/libraries",
   "/library-page",
-  "/reviews",
   "/discover",
   "/socket.io",
   "/nevu-remote",

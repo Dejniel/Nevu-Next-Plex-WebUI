@@ -329,6 +329,8 @@ function parseFilterExpression(value: unknown): LibraryFilterExpression | null |
                         !filterOperators.has(operator as LibraryFilterOperator) ||
                     typeof filterValue !== 'string' || !filterValue.trim() ||
                     filterValue.length > MAX_FILTER_VALUE_LENGTH ||
+                        // Filter values must reject C0 controls and DEL before URL encoding.
+                        // oxlint-disable-next-line no-control-regex
                         /[\u0000-\u001f\u007f]/.test(filterValue)
                 ) throw new InvalidLibraryPageError('Invalid filter condition');
                 return {

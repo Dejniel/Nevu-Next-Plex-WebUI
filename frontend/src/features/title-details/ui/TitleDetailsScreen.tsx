@@ -1,25 +1,18 @@
 import {
   Alert,
-  Avatar,
   Box,
   Button,
   Checkbox,
-  Chip,
   CircularProgress,
   Collapse,
   Divider,
-  Grid,
   IconButton,
   LinearProgress,
   ListItemIcon,
   Menu,
   MenuItem,
-  Paper,
-  Rating,
   Select,
-  Skeleton,
   Snackbar,
-  Stack,
   Typography,
   Tooltip,
 } from "@mui/material";
@@ -44,7 +37,6 @@ import {
   CheckCircleRounded,
   PlayArrowRounded,
   CheckCircleOutlineRounded,
-  StarOutlineRounded,
   CheckBoxOutlineBlankRounded,
   CheckBoxRounded,
   MoreVertRounded,
@@ -53,9 +45,7 @@ import { durationInMinutes, durationToText } from "shared/lib/duration";
 import { alpha } from "@mui/material/styles";
 import { AnimatePresence, motion } from "motion/react";
 import { AppDialog, StretchedLink, useConfirmModal } from "shared/ui";
-import { PlexCommunity } from "../api/plexCommunity";
-import moment from "moment";
-import { getNevuReviews } from "../api/reviews";
+import TitleReviews from "./TitleReviews";
 import TitleOverview from "./TitleOverview";
 import TitleDetails from "./TitleDetails";
 import TitleMedia from "./TitleMedia";
@@ -122,7 +112,6 @@ function TitleDetailsScreen() {
   const posterRef = React.useRef<HTMLDivElement>(null);
 
   const [page, setPage] = useState<number>(0);
-  const [reviewRevision, setReviewRevision] = useState(0);
   const [editMetadataOpen, setEditMetadataOpen] = useState(false);
   const [matchOpen, setMatchOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -566,9 +555,6 @@ function TitleDetailsScreen() {
                     onDataChanged={setData}
                     onEditMetadata={() => setEditMetadataOpen(true)}
                     onMatch={() => setMatchOpen(true)}
-                    onReviewChanged={() =>
-                      setReviewRevision((value) => value + 1)
-                    }
                   />
                 )}
               </Box>
@@ -814,7 +800,7 @@ function TitleDetailsScreen() {
               />
             )}
             {page === 3 && (
-              <MetaPageReviews data={data} revision={reviewRevision} />
+              <TitleReviews data={data} />
             )}
             {page === 4 && data && <TitleMedia data={data} />}
           </AnimatePresence>
@@ -1051,400 +1037,6 @@ function EpisodesPage({
         </Box>
       )}
     </>
-  );
-}
-
-function MetaPageReviews({
-  data,
-  revision,
-}: {
-  data: Plex.Metadata | undefined;
-  revision: number;
-}) {
-  const [reviews, setReviews] = useState<{
-    plexReviews: PlexCommunity.ReviewsData | null;
-    nevuReviews: PerPlexed.Reviews.Review[];
-  } | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [loadWarning, setLoadWarning] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!data) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setLoadWarning(null);
-    const metaID = data.guid.split("/").pop();
-    if (!metaID) {
-      setLoadWarning(
-        "This item does not have a valid Plex metadata identifier.",
-      );
-      setLoading(false);
-      return;
-    }
-
-    Promise.allSettled([
-      PlexCommunity.getUserReviews(metaID),
-      getNevuReviews(data.guid),
-    ]).then(([plexResult, nevuResult]) => {
-      if (cancelled) return;
-      let plexReviews =
-        plexResult.status === "fulfilled" ? plexResult.value : null;
-      const nevuReviews =
-        nevuResult.status === "fulfilled" ? nevuResult.value : [];
-
-      if (plexReviews) {
-        const topReviewIDs = new Set(
-          plexReviews.topReviews?.nodes.map(({ id }) => id) || [],
-        );
-        plexReviews = {
-          ...plexReviews,
-          recentReviews: {
-            ...plexReviews.recentReviews,
-            nodes:
-              plexReviews.recentReviews?.nodes.filter(
-                ({ id }) => !topReviewIDs.has(id),
-              ) || [],
-          },
-        };
-      }
-
-      if (!plexReviews && nevuResult.status === "rejected")
-        setLoadWarning(
-          "Community and Nevu reviews are temporarily unavailable.",
-        );
-      else if (!plexReviews)
-        setLoadWarning("Plex community reviews are temporarily unavailable.");
-      else if (nevuResult.status === "rejected")
-        setLoadWarning(
-          nevuResult.reason instanceof Error
-            ? nevuResult.reason.message
-            : "Nevu reviews are temporarily unavailable.",
-        );
-
-      setReviews({ plexReviews, nevuReviews });
-      setLoading(false);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [data, revision]);
-
-  const renderReviewsSection = (
-    title: string,
-    reviewNodes: any[] | undefined,
-    isEmpty: boolean,
-    isNevu: boolean = false,
-  ) => {
-    if (isEmpty) return null;
-    return (
-      <Box sx={{ width: "100%", mb: 5 }}>
-        <Typography variant="h6" sx={{ fontWeight: "bold", color: "text.primary", mb: 2 }}>
-          {title}
-        </Typography>
-
-        {reviewNodes && reviewNodes.length > 0 ? (
-          <Grid container spacing={3} sx={{ width: "100%" }}>
-            {reviewNodes?.map((review, index) => {
-              const username = isNevu
-                ? (review as PerPlexed.Reviews.Review).user.username
-                : (review as PlexCommunity.ActivityReview).userV2?.username;
-
-              const avatarSrc = isNevu
-                ? (review as PerPlexed.Reviews.Review).user.avatar
-                : (review as PlexCommunity.ActivityReview).userV2?.avatar;
-
-              const hasSpoilers = isNevu
-                ? (review as PerPlexed.Reviews.Review).spoilers
-                : (review as PlexCommunity.ActivityReview).hasSpoilers;
-
-              const reviewDate = isNevu
-                ? (review as PerPlexed.Reviews.Review).created_at
-                : (review as PlexCommunity.ActivityReview).date;
-              const message =
-                typeof review.message === "string" &&
-                !["No text provided", "No review text provided"].includes(
-                  review.message,
-                )
-                  ? review.message
-                  : "";
-
-              return (
-                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={title + index}>
-                  <Paper
-                    elevation={0}
-                    sx={{
-                      p: 2.5,
-                      bgcolor: (theme) =>
-                        alpha(theme.palette.background.paper, 0.4),
-                      borderRadius: 2,
-                      height: "100%",
-                      transition: "all 0.2s ease",
-                      "&:hover": {
-                        bgcolor: (theme) =>
-                          alpha(theme.palette.background.paper, 0.6),
-                        transform: "translateY(-4px)",
-                        boxShadow: (theme) =>
-                          `0 8px 16px -2px ${alpha(
-                            theme.palette.common.black,
-                            0.15,
-                          )}`,
-                      },
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1.5,
-                        mb: 2,
-                        position: "relative",
-                      }}
-                    >
-                      <Avatar
-                        src={avatarSrc}
-                        sx={{ width: 42, height: 42, boxShadow: 1 }}
-                      >
-                        {username?.charAt(0) || "U"}
-                      </Avatar>
-                      <Box sx={{ flex: 1 }}>
-                        <Stack
-                          spacing={0.5}
-                          direction={"row"}
-                          sx={{ justifyContent: "flex-start", alignItems: "center" }}
-                        >
-                          <Typography noWrap sx={{ fontWeight: "medium" }}>
-                            {username || "Anonymous User"}
-                          </Typography>
-                          {review.visibility === "GLOBAL" && (
-                            <Chip label="Global" size="small" color="info" />
-                          )}
-                          {review.visibility === "LOCAL" && (
-                            <Chip label="Local" size="small" color="info" />
-                          )}
-                        </Stack>
-
-                        <Box sx={{ display: "flex", alignItems: "center" }}>
-                          <Rating
-                            value={(review.reviewRating ?? review.rating) / 2}
-                            precision={0.5}
-                            size="small"
-                            readOnly
-                            sx={{
-                              color: (theme) => theme.palette.primary.main,
-                            }}
-                          />
-                          <Typography
-                            variant="caption"
-                            sx={{ ml: 1, color: "text.secondary" }}
-                          >
-                            {moment(new Date(reviewDate)).fromNow()}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Box>
-
-                    {message && (
-                      <>
-                        <Divider sx={{ mb: 2 }} />
-                        <Typography
-                          sx={{
-                            fontSize: "0.95rem",
-                            color: "text.secondary",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            display: "-webkit-box",
-                            WebkitLineClamp: 5,
-                            WebkitBoxOrient: "vertical",
-                            lineHeight: 1.6,
-
-                            ...(hasSpoilers && {
-                              filter: "blur(10px)",
-                              transition: "filter 0.2s ease",
-                              "&:hover": {
-                                filter: "blur(0)",
-                                transition: "filter 3s ease",
-                              },
-                            }),
-                          }}
-                        >
-                          {message}
-                        </Typography>
-                      </>
-                    )}
-                  </Paper>
-                </Grid>
-              );
-            })}
-          </Grid>
-        ) : (
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              py: 4,
-              width: "100%",
-              bgcolor: (theme) => alpha(theme.palette.background.paper, 0.2),
-              borderRadius: 2,
-            }}
-          >
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              No reviews available in this category
-            </Typography>
-          </Box>
-        )}
-      </Box>
-    );
-  };
-
-  const totalReviews =
-    (data?.Review?.length ?? 0) +
-    (reviews?.plexReviews?.topReviews?.nodes.length ?? 0) +
-    (reviews?.plexReviews?.friendReviews?.nodes.length ?? 0) +
-    (reviews?.plexReviews?.recentReviews?.nodes.length ?? 0) +
-    (reviews?.nevuReviews?.length ?? 0);
-
-  return (
-    <Box
-      component={motion.div}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
-      sx={{
-        width: "100%",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "flex-start",
-        justifyContent: "flex-start",
-        gap: 4,
-        userSelect: "none",
-      }}
-    >
-      {totalReviews === 0 && !loading && (
-        <Typography>No one has reviewed this title yet.</Typography>
-      )}
-
-      {loadWarning && (
-        <Alert severity="warning" sx={{ width: "100%" }}>
-          {loadWarning}
-        </Alert>
-      )}
-
-      {(data?.Review?.length ?? 0) > 0 && (
-        <Box sx={{ width: "100%" }}>
-          <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
-            Critic reviews
-          </Typography>
-          <Grid container spacing={3} sx={{ width: "100%" }}>
-            {data?.Review?.map((review) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={review.id}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 2.5,
-                    bgcolor: (theme) =>
-                      alpha(theme.palette.background.paper, 0.4),
-                    height: "100%",
-                  }}
-                >
-                  <Typography sx={{ fontWeight: "bold" }}>{review.tag}</Typography>
-                  <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
-                    {review.source}
-                  </Typography>
-                  <Typography sx={{ lineHeight: 1.6 }}>
-                    {review.text}
-                  </Typography>
-                </Paper>
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      )}
-
-      {loading ? (
-        <Grid container spacing={3} sx={{ width: "100%" }}>
-          {[1, 2, 3].map((item) => (
-            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={item}>
-              <Box
-                sx={{
-                  p: 2,
-                  bgcolor: (theme) =>
-                    alpha(theme.palette.background.paper, 0.4),
-                  borderRadius: 2,
-                  height: "100%",
-                }}
-              >
-                <Box
-                  sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}
-                >
-                  <Skeleton variant="circular" width={40} height={40} />
-                  <Box sx={{ flex: 1 }}>
-                    <Skeleton variant="text" width="70%" height={24} />
-                    <Skeleton variant="text" width="40%" height={20} />
-                  </Box>
-                </Box>
-                <Skeleton variant="text" />
-                <Skeleton variant="text" />
-                <Skeleton variant="text" width="80%" />
-              </Box>
-            </Grid>
-          ))}
-        </Grid>
-      ) : !reviews && (data?.Review?.length ?? 0) === 0 ? (
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            py: 6,
-            width: "100%",
-            bgcolor: (theme) => alpha(theme.palette.background.paper, 0.2),
-            borderRadius: 2,
-          }}
-        >
-          <StarOutlineRounded
-            sx={{ fontSize: 60, color: "text.disabled", mb: 2 }}
-          />
-          <Typography variant="body1" sx={{ color: "text.secondary" }}>
-            No reviews available for this title yet
-          </Typography>
-        </Box>
-      ) : reviews ? (
-        <Box sx={{ width: "100%" }}>
-          {renderReviewsSection(
-            "NEVU Reviews",
-            reviews.nevuReviews,
-            !reviews.nevuReviews.length,
-            true,
-          )}
-
-          {renderReviewsSection(
-            "Recent Reviews",
-            reviews.plexReviews?.recentReviews?.nodes,
-            !reviews.plexReviews?.recentReviews?.nodes.length,
-          )}
-
-          {renderReviewsSection(
-            "Top Reviews",
-            reviews.plexReviews?.topReviews?.nodes,
-            !reviews.plexReviews?.topReviews?.nodes.length,
-          )}
-
-          {renderReviewsSection(
-            "Friend Reviews",
-            reviews.plexReviews?.friendReviews?.nodes,
-            !reviews.plexReviews?.friendReviews?.nodes.length,
-          )}
-        </Box>
-      ) : null}
-    </Box>
   );
 }
 

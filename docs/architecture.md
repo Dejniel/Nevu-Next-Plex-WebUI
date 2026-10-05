@@ -131,9 +131,9 @@ available environment.
 
 ## Backend persistence
 
-`backend/src/database.ts` creates the Prisma client with the SQLite adapter.
-The CLI and runtime share `databaseConfig.ts`; the existing database path and
-Unix-millisecond timestamps are preserved. Startup synchronizes the schema
-before serving requests, and shutdown disconnects the database. Docker builds
-JavaScript on the builder's architecture and installs native SQLite separately
-for the target image. Socket handlers receive their server explicitly.
+`backend/src/database.ts` uses `better-sqlite3` for one profile-scoped settings
+table. Parameterized statements read and upsert options; initialization creates
+the table if missing and shutdown closes the connection. Plex owns ratings and
+reviews. Docker builds JavaScript on the builder's architecture and installs
+native SQLite separately for the target image. Socket handlers receive their
+server explicitly.

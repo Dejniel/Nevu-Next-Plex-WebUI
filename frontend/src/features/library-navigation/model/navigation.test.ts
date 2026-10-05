@@ -19,13 +19,11 @@ it("matches only the selected library route", () => {
   expect(isLibraryRouteActive("/browse/1-other", "1")).toBe(false);
 });
 
-it("migrates legacy visibility settings to pinned libraries", () => {
-  const result = normalizeLibraryNavigation(libraries, {
-    LIBRARY_shows: "false",
-  });
+it("pins all libraries by default", () => {
+  const result = normalizeLibraryNavigation(libraries, {});
 
-  expect(result.pinned.map((library) => library.uuid)).toEqual(["movies", "anime"]);
-  expect(result.unpinned.map((library) => library.uuid)).toEqual(["shows"]);
+  expect(result.pinned.map((library) => library.uuid)).toEqual(["movies", "shows", "anime"]);
+  expect(result.unpinned).toEqual([]);
 });
 
 it("keeps a saved order and pins newly discovered libraries", () => {

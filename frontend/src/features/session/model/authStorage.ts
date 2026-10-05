@@ -83,27 +83,6 @@ export const AuthStorage = {
 
   clearAll() {
     localStorage.removeItem(OWNER_TOKEN_KEY);
-    localStorage.removeItem("accAccessToken");
-    localStorage.removeItem("accessToken");
     clearActiveSessionCopies();
-  },
-
-  migrateLegacySession() {
-    const legacyAccountToken = localStorage.getItem("accAccessToken");
-    const legacyServerToken = localStorage.getItem("accessToken");
-
-    if (!this.getOwnerToken() && legacyAccountToken)
-      this.setOwnerToken(legacyAccountToken);
-
-    if (!this.getActiveSession() && legacyAccountToken && legacyServerToken) {
-      this.saveActiveSession({
-        profile: null,
-        accountToken: legacyAccountToken,
-        serverToken: legacyServerToken,
-      });
-    }
-
-    localStorage.removeItem("accAccessToken");
-    localStorage.removeItem("accessToken");
   },
 };

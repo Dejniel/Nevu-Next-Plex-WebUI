@@ -5,9 +5,6 @@ import AppProviders from "./app/AppProviders";
 import { initializeRuntime } from "./app/bootstrap";
 import "./index.css";
 
-import "@fontsource-variable/quicksand";
-import "@fontsource-variable/rubik";
-import "@fontsource/ibm-plex-sans";
 import "@fontsource-variable/inter";
 
 initializeRuntime();

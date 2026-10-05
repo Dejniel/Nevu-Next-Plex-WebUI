@@ -1,7 +1,5 @@
 const defaultConfig: PerPlexed.ConfigOptions = {
-  DISABLE_PROXY: false,
   DISABLE_NEVU_SYNC: false,
-  DISABLE_GLOBAL_REVIEWS: false,
 };
 
 function loadConfig(): PerPlexed.ConfigOptions {

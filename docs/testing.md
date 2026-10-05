@@ -12,9 +12,8 @@ Commands are listed in [Development](../README.md#development). Record which
 checks passed and which scenarios remain unverified when an environment or
 account capability is unavailable.
 
-Backend tests include real SQLite: schema synchronization, upgrade from the
-Prisma 6 schema, retained dates and relations, transaction rollback, profile
-isolation, and persistence after reconnecting. Each test uses a temporary database.
+Backend tests use temporary SQLite databases to check initialization, existing
+settings, profile isolation, parameterized writes, and persistence after reopening.
 
 ## Standalone Plex + Nevu
 
@@ -54,6 +53,8 @@ native Safari HLS, HDR, and hardware transcoding require suitable environments.
 
 On title pages, resize through desktop/mobile layouts and change text size.
 Check action overflow, keyboard focus, and original-file selection from the menu.
+Save and clear a rating, including a failed request. Check Plex reviews, spoiler
+expansion, and the placeholder linking to Plex for written reviews.
 
 For list browsing, create a collection and a video playlist in test Plex using
 the samples. Check their library views, search, empty states, and back links.

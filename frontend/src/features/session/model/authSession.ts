@@ -72,7 +72,6 @@ export const useAuthSession = create<AuthSessionState>((set, get) => ({
   initialize: async () => {
     const generation = ++operationGeneration;
     set({ status: "initializing", error: null });
-    AuthStorage.migrateLegacySession();
 
     const ownerToken = AuthStorage.getOwnerToken();
     if (!ownerToken) {

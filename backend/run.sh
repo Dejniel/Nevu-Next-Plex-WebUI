@@ -24,5 +24,4 @@ if [ "${TLS_SELF_SIGNED:-false}" = "true" ]; then
     export TLS_CERT_PATH TLS_KEY_PATH
 fi
 
-npm run db:push
 exec node dist/index.js

@@ -1,13 +1,13 @@
 import express from 'express';
-import type { PrismaClient } from './generated/prisma/client.js';
+import type { UserOptionsDatabase } from './database.js';
 import { CheckPlexUser } from './common/plex.js';
 
 interface UserOptionsRouterOptions {
-    prisma: Pick<PrismaClient, 'userOption'>;
+    database: Pick<UserOptionsDatabase, 'getOptions' | 'getOption' | 'setOption'>;
     checkPlexUser?: typeof CheckPlexUser;
 }
 
-export function createUserOptionsRouter({ prisma, checkPlexUser = CheckPlexUser }: UserOptionsRouterOptions) {
+export function createUserOptionsRouter({ database, checkPlexUser = CheckPlexUser }: UserOptionsRouterOptions) {
     const router = express.Router();
 
     router.use(async (req, res, next) => {
@@ -20,13 +20,11 @@ export function createUserOptionsRouter({ prisma, checkPlexUser = CheckPlexUser 
     });
 
     router.get('/', async (_req, res) => {
-        res.send(await prisma.userOption.findMany({ where: { userUid: res.locals.userUid } }));
+        res.send(database.getOptions(res.locals.userUid));
     });
 
     router.get('/:key', async (req, res) => {
-        const option = await prisma.userOption.findFirst({
-            where: { userUid: res.locals.userUid, key: req.params.key },
-        });
+        const option = database.getOption(res.locals.userUid, req.params.key);
         if (!option) return res.status(404).send('Option not found');
         res.send(option);
     });
@@ -36,11 +34,7 @@ export function createUserOptionsRouter({ prisma, checkPlexUser = CheckPlexUser 
         if (typeof key !== 'string' || !key || typeof value !== 'string' || !value)
             return res.status(400).send('Bad request');
         const userUid: string = res.locals.userUid;
-        res.send(await prisma.userOption.upsert({
-            where: { userUid_key: { userUid, key } },
-            update: { value },
-            create: { userUid, key, value },
-        }));
+        res.send(database.setOption(userUid, key, value));
     });
 
     return router;

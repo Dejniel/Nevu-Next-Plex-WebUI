@@ -49,5 +49,5 @@ test("accepts absolute library paths, removes duplicates and rejects relative pa
   );
   assert.equal(libraryLocations(["relative/path"]), null);
   assert.equal(libraryLocations([]), null);
-  assert.equal(libraryLocations(new Array(21).fill("/media")), null);
+  assert.equal(libraryLocations(Array.from({ length: 21 }, () => "/media")), null);
 });

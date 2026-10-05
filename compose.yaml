@@ -8,17 +8,14 @@ services:
     restart: unless-stopped
     ports:
       - "${NEVU_PORT:-3000}:3000"
-      - "${NEVU_DISCOVERY_PORT:-44201}:44201/udp"
     volumes:
       - nevu-data:/app/data
     environment:
       PLEX_SERVER: ${PLEX_SERVER:?Set PLEX_SERVER in .env or the stack environment}
-      PORT: ${NEVU_PORT:-3000}
       LISTEN_PORT: 3000
       DISABLE_TLS_VERIFY: ${DISABLE_TLS_VERIFY:-false}
       DISABLE_NEVU_SYNC: ${DISABLE_NEVU_SYNC:-false}
       DISABLE_REQUEST_LOGGING: ${DISABLE_REQUEST_LOGGING:-false}
-      DISABLE_GLOBAL_REVIEWS: ${DISABLE_GLOBAL_REVIEWS:-false}
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

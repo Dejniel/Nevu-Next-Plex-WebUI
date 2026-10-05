@@ -36,16 +36,4 @@ describe("AuthStorage", () => {
     expect(sessionStorage.getItem("nevu.auth.activeSession")).not.toBeNull();
   });
 
-  it("migrates the existing Nevu tokens", () => {
-    localStorage.setItem("accAccessToken", "old-account-token");
-    localStorage.setItem("accessToken", "old-server-token");
-
-    AuthStorage.migrateLegacySession();
-
-    expect(AuthStorage.getOwnerToken()).toBe("old-account-token");
-    expect(AuthStorage.getProfileAccountToken()).toBe("old-account-token");
-    expect(AuthStorage.getServerToken()).toBe("old-server-token");
-    expect(localStorage.getItem("accAccessToken")).toBeNull();
-    expect(localStorage.getItem("accessToken")).toBeNull();
-  });
 });

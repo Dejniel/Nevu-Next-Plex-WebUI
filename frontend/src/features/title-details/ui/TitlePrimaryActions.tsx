@@ -95,14 +95,12 @@ export default function TitlePrimaryActions({
   onDataChanged,
   onEditMetadata,
   onMatch,
-  onReviewChanged,
 }: {
   capabilities: MediaActionCapabilities;
   data: Plex.Metadata;
   onDataChanged: (data: Plex.Metadata) => void;
   onEditMetadata: () => void;
   onMatch: () => void;
-  onReviewChanged: () => void;
 }) {
   const navigate = useNavigate();
   const [playLoading, setPlayLoading] = useState(false);
@@ -238,7 +236,7 @@ export default function TitlePrimaryActions({
       <ActionSlot id="rating" hidden={hidden("rating")}>
         <TitleRatingButton
           item={data}
-          onReviewChanged={onReviewChanged}
+          onChanged={onDataChanged}
           menuRef={ratingMenuRef}
         />
       </ActionSlot>

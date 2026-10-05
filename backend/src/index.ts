@@ -9,11 +9,9 @@ import { randomBytes } from 'node:crypto';
 import { createDatabase } from './database.js';
 import { registerSync } from './common/sync.js';
 import { registerRemote } from './common/remote.js';
-import { Discovery } from 'udp-discovery';
 import { createPlexSharingRouter } from './plexSharing.js';
 import { createPlexLibrariesRouter } from './plexLibraries.js';
 import { APP_VERSION } from './appVersion.js';
-import { createReviewsRouter } from './reviews.js';
 import { createLibraryPageRouter } from './libraryPage.js';
 import { safeRequestUrl, shouldLogRequest } from './requestLogging.js';
 import { parsePlexServerUrl } from './plexServerUrl.js';
@@ -24,14 +22,12 @@ import { httpErrorHandler } from './httpErrors.js';
 /*
  * ENVIRONMENT VARIABLES
     *
-    * PORT: The port you published the docker container to, defaults to 3000 (For discovery)
     * LISTEN_PORT: The port the server will listen on, defaults to 3000
     * PLEX_SERVER: The URL of the Plex server that the frontend will connect to
     * TLS_CERT_PATH and TLS_KEY_PATH?: Enable HTTPS with the provided PEM files
     * DISABLE_TLS_VERIFY?: If set to true, the proxy will not check any https ssl certificates
     * DISABLE_NEVU_SYNC?: If set to true, NEVU sync (watch together) will be disabled
     * DISABLE_REQUEST_LOGGING?: If set to true, the server will not log any requests
-    * DISABLE_GLOBAL_REVIEWS?: If set to true, nevu community reviews will be disabled
 **/
 const deploymentID = randomBytes(8).toString('hex');
 
@@ -42,22 +38,9 @@ const status: PerPlexed.Status = {
 }
 
 const app = express();
-const prisma = createDatabase();
-await prisma.$connect();
-const discovery = new Discovery();
+const database = createDatabase();
 
 console.log(`Deployment ID: ${deploymentID}`);
-
-discovery.announce("Nevu", {
-    port: parseInt(process.env.PORT || '3000'),
-    type: 'nevu',
-    protocol: 'tcp',
-    txt: {
-        deploymentID,
-        version: APP_VERSION,
-        plexServer: process.env.PLEX_SERVER,
-    }
-}, 500, true);
 
 const configuredPlexServerUrl = parsePlexServerUrl(process.env.PLEX_SERVER);
 const plexServerUrl = configuredPlexServerUrl ?? new URL('http://localhost:32400');
@@ -101,20 +84,6 @@ function getDiscoverHeaders(req: express.Request) {
 }
 
 (async () => {
-    if (process.env.PROXY_PLEX_SERVER) {
-        status.error = true;
-        status.message = 'PROXY_PLEX_SERVER environment variable is deprecated. \nPlease use PLEX_SERVER instead';
-        console.error('PROXY_PLEX_SERVER environment variable is deprecated. \nPlease use PLEX_SERVER instead');
-        return;
-    }
-
-    if (process.env.DISABLE_PROXY) {
-        status.error = true;
-        status.message = 'DISABLE_PROXY environment variable is deprecated. \nPlease remove it from your environment variables';
-        console.error('DISABLE_PROXY environment variable is deprecated. \nPlease remove it from your environment variables');
-        return;
-    }
-
     if (!process.env.PLEX_SERVER) {
         status.error = true;
         status.message = 'PLEX_SERVER environment variable not set';
@@ -195,9 +164,7 @@ app.get('/config', (req, res) => {
         PLEX_SERVER: process.env.PLEX_SERVER,
         DEPLOYMENTID: deploymentID,
         CONFIG: {
-            DISABLE_PROXY: process.env.DISABLE_PROXY === 'true',
             DISABLE_NEVU_SYNC: process.env.DISABLE_NEVU_SYNC === 'true',
-            DISABLE_GLOBAL_REVIEWS: process.env.DISABLE_GLOBAL_REVIEWS === 'true',
         }
     });
 });
@@ -216,11 +183,6 @@ app.use('/library-page', createLibraryPageRouter({
     plexServer: process.env.PLEX_SERVER || 'http://localhost:32400',
     httpAgent: plexHttpAgent,
     httpsAgent: plexHttpsAgent,
-}));
-
-app.use('/reviews', createReviewsRouter({
-    prisma,
-    globalReviewsEnabled: process.env.DISABLE_GLOBAL_REVIEWS !== 'true',
 }));
 
 app.post('/discover/extras', async (req, res) => {
@@ -271,7 +233,7 @@ app.post('/discover/stream', async (req, res) => {
     }
 });
 
-app.use('/user/options', createUserOptionsRouter({ prisma }));
+app.use('/user/options', createUserOptionsRouter({ database }));
 
 app.use(express.static('www'));
 
@@ -344,7 +306,7 @@ async function shutdown() {
     verifiedHttpsAgent.destroy();
     noVerifyHttpsAgent.destroy();
     plexEventAgent.destroy();
-    await prisma.$disconnect();
+    database.close();
     process.exit(0);
 }
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {

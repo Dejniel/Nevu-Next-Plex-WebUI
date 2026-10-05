@@ -46,9 +46,8 @@ export function normalizeLibraryNavigation(
   const storedOrder = stored?.order.filter((id) => available.has(id)) || [];
   const newIds = ids.filter((id) => !storedOrder.includes(id));
   const order = [...storedOrder, ...newIds];
-  const legacyPinned = ids.filter((id) => settings[`LIBRARY_${id}`] !== "false");
   const pinned = unique([
-    ...(stored?.pinned.filter((id) => available.has(id)) || legacyPinned),
+    ...(stored?.pinned.filter((id) => available.has(id)) || ids),
     ...(stored ? newIds : []),
   ]);
   const byId = new Map(libraries.map((library) => [library.uuid, library]));

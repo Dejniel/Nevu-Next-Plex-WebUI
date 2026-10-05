@@ -7,11 +7,11 @@ const applicationDirectory = fileURLToPath(new URL('../', import.meta.url));
 const envFile = resolve(applicationDirectory, '.env');
 if (existsSync(envFile)) loadEnvFile(envFile);
 
-export function resolveDatabaseUrl(value = 'file:./data/perplexed.db') {
+export function resolveDatabasePath(value = 'file:./data/perplexed.db') {
     if (!value.startsWith('file:') || value.length === 5)
         throw new Error('DATABASE_URL must be a local SQLite file URL');
 
-    return `file:${resolve(applicationDirectory, value.slice(5))}`;
+    return resolve(applicationDirectory, value.slice(5));
 }
 
-export const DATABASE_URL = resolveDatabaseUrl(process.env.DATABASE_URL);
+export const DATABASE_PATH = resolveDatabasePath(process.env.DATABASE_URL);

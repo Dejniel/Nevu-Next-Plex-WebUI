@@ -1,6 +1,17 @@
-# Frontend refactoring history
+# Refactoring history
 
 Status: structural migration completed on 2026-09-29
+
+## Dependency modernization and cleanup — 2026-10-05
+
+- Updated runtime, build tools, TypeScript, frontend packages, and Express.
+- Removed Prisma and its startup CLI; SQLite now stores only profile settings.
+- Removed local/global Nevu reviews and unused UDP discovery, font packages,
+  Moment, and legacy token/library preference migrations.
+- Added backend lint to CI and weekly dependency checks. Written Plex reviews
+  remain a separate product task; ratings and review display stay supported.
+- Old token storage requires signing in again; old library visibility settings
+  fall back to the default pins. Current sessions and navigation are retained.
 
 ## Unified playback — 2026-09-30
 

@@ -1,44 +1,51 @@
 import { StarOutlineRounded, StarRounded } from "@mui/icons-material";
-import { Button, Popover, Rating } from "@mui/material";
+import {
+  Alert,
+  Button,
+  CircularProgress,
+  Popover,
+  Rating,
+} from "@mui/material";
 import React, { useImperativeHandle, useState } from "react";
 import { setMediaRating } from "../api/rating";
-import AddReviewDialog from "./AddReviewDialog";
 
 export default function TitleRatingButton({
   item,
-  onReviewChanged,
+  onChanged,
   menuRef,
 }: {
   item: Plex.Metadata;
-  onReviewChanged?: () => void;
+  onChanged: (item: Plex.Metadata) => void;
   menuRef?: React.Ref<{ open: (anchor: HTMLElement) => void }>;
 }) {
-  const [rating, setRating] = useState<number | null>(
-    (item.userRating && item.userRating / 2) ?? null,
-  );
-  const [reviewOpen, setReviewOpen] = useState(false);
+  const rating = item.userRating ? item.userRating / 2 : null;
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   useImperativeHandle(menuRef, () => ({ open: setAnchor }), []);
 
-  const clearRating = () => {
-    setRating(null);
-    item.userRating = undefined;
-    void setMediaRating(-1, item.ratingKey);
+  const saveRating = async (value: number | null) => {
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      if (
+        !(await setMediaRating(value === null ? -1 : value * 2, item.ratingKey))
+      )
+        throw new Error("Plex could not save your rating.");
+      onChanged({
+        ...item,
+        userRating: value === null ? undefined : value * 2,
+      });
+    } catch {
+      setError("Plex could not save your rating. Try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <>
-      {reviewOpen && (
-        <AddReviewDialog
-          item={item}
-          onClose={() => setReviewOpen(false)}
-          onChanged={(value) => {
-            setRating(value);
-            item.userRating = value ? value * 2 : undefined;
-            onReviewChanged?.();
-          }}
-        />
-      )}
       <Popover
         anchorEl={anchor}
         open={anchor !== null}
@@ -61,27 +68,22 @@ export default function TitleRatingButton({
           value={rating}
           precision={0.5}
           size="large"
-          onChange={(_, value) => {
-            setRating(value);
-            if (value === null) return;
-            item.userRating = value * 2;
-            void setMediaRating(value * 2, item.ratingKey);
-          }}
+          disabled={saving}
+          onChange={(_, value) => void saveRating(value)}
           onClick={(event) => event.stopPropagation()}
           onContextMenu={(event) => {
             event.preventDefault();
-            clearRating();
+            void saveRating(null);
           }}
         />
+        {saving && <CircularProgress size={16} />}
+        {error && <Alert severity="error">{error}</Alert>}
         <Button
-          variant="contained"
           size="small"
-          onClick={() => {
-            setReviewOpen(true);
-            setAnchor(null);
-          }}
+          disabled={saving || rating === null}
+          onClick={() => void saveRating(null)}
         >
-          Add Review
+          Clear rating
         </Button>
       </Popover>
       <Button
@@ -91,7 +93,8 @@ export default function TitleRatingButton({
         onClick={(event) => setAnchor(event.currentTarget)}
         onContextMenu={(event) => {
           event.preventDefault();
-          clearRating();
+          setAnchor(event.currentTarget);
+          void saveRating(null);
         }}
       >
         {rating ? (

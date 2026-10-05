@@ -22,11 +22,6 @@ It is not a second rewrite and should not drive file movement for its own sake.
 - Revisit match state management when matching gains more criteria, providers,
   or support for additional media types.
 - Make Plex notification updates more selective and reduce browse refresh costs.
-- Follow stable Prisma CLI fixes for the pinned
-  [`deepmerge-ts`](https://github.com/advisories/GHSA-ggr8-5vv4-36mx) and
-  [`mysql2`](https://github.com/advisories/GHSA-3f6p-5ww8-9rcr)
-  advisories. The affected paths concern config merging and MySQL support;
-  Nevu uses a static Prisma config and SQLite. Recheck when upstream releases fixes.
 
 ## Working approach
 

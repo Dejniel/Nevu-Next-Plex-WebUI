@@ -24,18 +24,14 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 FROM build-base AS backend-build
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 make g++ \
-    && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 COPY contracts/ ./contracts/
 WORKDIR /build/backend
 
 COPY backend/package.json backend/package-lock.json ./
-COPY backend/prisma/ ./prisma/
-RUN npm ci
+RUN npm ci --ignore-scripts
 COPY backend/ ./
-RUN npm run db:generate && npm run build
+RUN npm run build
 
 FROM backend-base AS backend-dependencies
 RUN apt-get update \
@@ -60,17 +56,13 @@ LABEL org.opencontainers.image.source="https://github.com/Dejniel/Nevu-Next-Plex
       org.opencontainers.image.licenses="GPL-3.0"
 
 COPY backend/package.json backend/package-lock.json ./
-COPY backend/prisma/ ./prisma/
 COPY --from=backend-dependencies /build/backend/node_modules/ ./node_modules/
 COPY --from=backend-build /build/backend/dist/ ./dist/
-COPY backend/prisma7.config.ts ./
-COPY --from=backend-build /build/backend/src/databaseConfig.ts ./src/databaseConfig.ts
 COPY --from=frontend-build /build/frontend/build/ ./www/
 COPY backend/run.sh ./run.sh
 RUN chmod +x ./run.sh
 
 EXPOSE 3000
-EXPOSE 44201/udp
 VOLUME ["/app/data"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \

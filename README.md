@@ -26,7 +26,7 @@ Nevu Next is a modified fork of [Ipmake/NevuForPlex](https://github.com/Ipmake/N
 - **Collections and video playlists** alongside library views, with search, sorting, paged contents, and playlist playback in Plex order. Card and title menus add media to existing or new lists; collection editing follows library management permissions. Library menus provide direct links to lists and Watchlist.
 - **Personalized navigation** with library pinning, unpinning, and ordering for each profile.
 - **Richer title pages** with adaptive trailers, ratings, critic and community reviews, cast, related titles, extras, media details, and technical information.
-- **Ratings and reviews** with Plex ratings, Plex community and friend reviews, and editable local or global Nevu reviews with spoiler marking.
+- **Ratings and reviews** with Plex ratings, Plex community and friend reviews with spoiler protection. Written reviews can be added in Plex.
 - **Integrated playback** with quality selection, automatic audio and subtitle matching, seek previews, intro and credits skipping, resume support, and optional automatic next-episode playback.
 - **Multiple media versions** with combined audio and subtitle lists; choosing a track automatically switches to the file that contains it.
 - **On-demand subtitle search and download** with editable search criteria, language and Forced/SDH preferences, Plex provider results, and automatic selection during playback.
@@ -96,7 +96,7 @@ docker compose up -d
 
 Open Plex at `http://192.168.1.10:32400/web` and Nevu Next at `http://192.168.1.10:3000`. The claim token is only needed for Plex's first start.
 
-Timezone, custom Plex user/group IDs, a dedicated `/transcode` mount, hardware acceleration, and additional Plex or Nevu discovery ports are optional and depend on the host. Add them only when your installation requires them.
+Timezone, custom Plex user/group IDs, a dedicated `/transcode` mount, hardware acceleration, and additional Plex discovery ports are optional and depend on the host. Add them only when your installation requires them.
 
 ### Docker commands: Nevu Next with an existing Plex server
 
@@ -147,7 +147,7 @@ Requires Node.js 26.10.0 (`.node-version`) and npm 12.2.0; Docker builds use
 Buildx/BuildKit. Run the backend and frontend in separate terminals:
 
 ```bash
-(cd backend && npm ci && npm run db:generate && npm run db:push && \
+(cd backend && npm ci && \
   PLEX_SERVER=http://192.168.1.10:32400 npm run dev)
 
 (cd frontend && npm ci && npm start)
@@ -155,15 +155,15 @@ Buildx/BuildKit. Run the backend and frontend in separate terminals:
 
 Open `http://localhost:4000`. Vite proxies API, notification, and Watch Together
 requests to `http://localhost:3000`; set `NEVU_DEV_BACKEND` to use another backend.
-Prisma and SQLite install scripts are pinned and explicitly approved in
-`backend/package.json`. The generated client lives in `backend/src/generated`
-and is compiled with the backend; generated files are not committed.
+The SQLite install script is pinned and explicitly approved in
+`backend/package.json`; review that approval when updating the driver. Settings
+use one SQLite table created on first start, without an ORM or migration CLI.
 
 Checks:
 
 ```bash
 (cd frontend && npm run typecheck && npm run lint && npm test && npm run build)
-(cd backend && npm test)
+(cd backend && npm run lint && npm test)
 docker buildx build --load -t nevu-next:test .
 ```
 
