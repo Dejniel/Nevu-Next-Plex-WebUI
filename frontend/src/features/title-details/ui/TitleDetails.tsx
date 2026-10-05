@@ -19,7 +19,7 @@ function Detail({ label, value }: { label: string; value?: React.ReactNode }) {
   if (!value) return null;
   return (
     <Box sx={{ minWidth: 0 }}>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+      <Typography variant="body2" sx={{ color: "text.secondary", mb: 0.5 }}>
         {label}
       </Typography>
       <Typography sx={{ overflowWrap: "anywhere" }}>{value}</Typography>
@@ -122,7 +122,7 @@ export default function TitleDetails({
         {loadingExtras && extras.length === 0 ? (
           <CircularProgress size={28} />
         ) : extras.length === 0 ? (
-          <Typography color="text.secondary">
+          <Typography sx={{ color: "text.secondary" }}>
             No additional extras are available.
           </Typography>
         ) : (
@@ -156,7 +156,7 @@ export default function TitleDetails({
                       <Typography noWrap sx={{ fontWeight: 700 }}>
                         {extra.metadata.title}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{ color: "text.secondary" }}>
                         {extraTypeLabel(extra.metadata)}
                         {extra.metadata.duration
                           ? ` · ${durationToText(extra.metadata.duration)}`
@@ -210,7 +210,7 @@ export default function TitleDetails({
                     <Typography noWrap sx={{ fontWeight: 600 }}>
                       {role.tag}
                     </Typography>
-                    <Typography noWrap variant="body2" color="text.secondary">
+                    <Typography noWrap variant="body2" sx={{ color: "text.secondary" }}>
                       {role.role}
                     </Typography>
                   </Box>

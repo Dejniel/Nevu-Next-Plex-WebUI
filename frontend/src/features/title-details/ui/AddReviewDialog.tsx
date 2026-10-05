@@ -215,7 +215,7 @@ function AddReviewDialog({
         </Box>
       ) : (
         <>
-          <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+          <Typography variant="subtitle1" gutterBottom sx={{ color: "text.secondary" }}>
             {item.title}
           </Typography>
           <Divider sx={{ my: 2 }} />

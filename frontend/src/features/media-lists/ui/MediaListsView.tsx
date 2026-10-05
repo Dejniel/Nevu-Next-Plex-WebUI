@@ -131,7 +131,7 @@ export default function MediaListsView({
                   Play playlist
                 </Button>
               )}
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {kind === "playlist" ? "Playlist order" : "Collection order"}
                 {data.summary?.smart ? " · Smart" : ""}
               </Typography>
@@ -158,12 +158,7 @@ export default function MediaListsView({
               </Select>
             </>
           )}
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            role="status"
-            sx={{ ml: "auto" }}
-          >
+          <Typography variant="body2" role="status" sx={{ color: "text.secondary", ml: "auto" }}>
             {data.total === null
               ? data.loading
                 ? "Loading…"
@@ -177,18 +172,14 @@ export default function MediaListsView({
           {kind === "playlist" && !id && (
             <Typography
               variant="body2"
-              color="text.secondary"
-              sx={{ px: { xs: 1, md: 6 }, pb: 1 }}
+              sx={{ color: "text.secondary", px: { xs: 1, md: 6 }, pb: 1 }}
             >
               Video playlists for the active profile. They can contain titles
               from several libraries.
             </Typography>
           )}
           {data.summary?.summary && (
-            <Typography
-              color="text.secondary"
-              sx={{ px: { xs: 1, md: 6 }, py: 1 }}
-            >
+            <Typography sx={{ color: "text.secondary", px: { xs: 1, md: 6 }, py: 1 }}>
               {data.summary.summary}
             </Typography>
           )}
@@ -240,7 +231,7 @@ export default function MediaListsView({
                 ? "No matching lists"
                 : `No ${title.toLowerCase()} yet`}
           </Typography>
-          <Typography color="text.secondary">
+          <Typography sx={{ color: "text.secondary" }}>
             {search && !id
               ? "Try a different search."
               : id
@@ -292,7 +283,7 @@ export default function MediaListsView({
                 return (
                   <Box sx={{ p: 2, bgcolor: "action.hover", borderRadius: 1 }}>
                     <Typography>{record.item.title}</Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       This item cannot be opened on this server.
                     </Typography>
                   </Box>
@@ -318,7 +309,7 @@ export default function MediaListsView({
                     }
                   />
                   {kind === "playlist" && (
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {index + 1}
                     </Typography>
                   )}

@@ -43,6 +43,9 @@ Nevu Next is a modified fork of [Ipmake/NevuForPlex](https://github.com/Ipmake/N
 
 Nevu Next currently targets Plex movie and TV libraries. It is not an official Plex product and is not affiliated with Plex, Inc.
 
+Supported browsers: Chrome 117+, Edge 121+, Firefox 121+, and Safari 17+
+(including iOS), following [Material UI's browser requirements](https://mui.com/material-ui/migration/upgrade-to-v9/).
+
 ## Installation
 
 For a complete installation, use the ready Portainer Stack / Docker Compose example. If Plex already exists, the two Docker commands in the second example are enough. Both variants use the published multi-platform image from GitHub Container Registry.

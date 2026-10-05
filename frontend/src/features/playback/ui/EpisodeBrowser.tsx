@@ -161,11 +161,7 @@ function EpisodeBrowser({
                         }}
                       >
                         <Box sx={{ p: 2, pb: 1 }}>
-                          <Typography
-                            variant="subtitle1"
-                            noWrap
-                            fontWeight="medium"
-                          >
+                          <Typography variant="subtitle1" noWrap sx={{ fontWeight: "medium" }}>
                             {item.grandparentTitle}
                           </Typography>
                         </Box>
@@ -198,11 +194,9 @@ function EpisodeBrowser({
                           >
                             <Typography
                               variant="body2"
-                              fontWeight={
-                                selectedSeason === season.index
-                                  ? "medium"
-                                  : "normal"
-                              }
+                              sx={{
+                                fontWeight: selectedSeason === season.index ? "medium" : "normal",
+                              }}
                             >
                               {season.title}
                             </Typography>
@@ -365,22 +359,16 @@ function EpisodeBrowser({
                                       gap: 0.5,
                                     }}
                                   >
-                                    <Typography
-                                      color="text.secondary"
-                                      variant="body2"
-                                    >
+                                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                                       {episode.index}
                                     </Typography>
-                                    <Typography
-                                      color="text.secondary"
-                                      variant="body2"
-                                    >
+                                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                                       •
                                     </Typography>
                                     <Typography
                                       variant="subtitle2"
-                                      fontWeight="medium"
                                       noWrap
+                                      sx={{ fontWeight: "medium" }}
                                     >
                                       {episode.title}
                                     </Typography>
@@ -388,8 +376,7 @@ function EpisodeBrowser({
 
                                   <Typography
                                     variant="caption"
-                                    color="text.secondary"
-                                    sx={{ whiteSpace: "nowrap" }}
+                                    sx={{ color: "text.secondary", whiteSpace: "nowrap" }}
                                   >
                                     {durationInMinutes(episode.duration)} min
                                   </Typography>
@@ -397,8 +384,8 @@ function EpisodeBrowser({
 
                                 <Typography
                                   variant="body2"
-                                  color="text.secondary"
                                   sx={{
+                                    color: "text.secondary",
                                     overflow: "hidden",
                                     textOverflow: "ellipsis",
                                     display: "-webkit-box",

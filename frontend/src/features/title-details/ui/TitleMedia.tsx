@@ -12,7 +12,7 @@ function Value({ label, value }: { label: string; value?: React.ReactNode }) {
   if (value === undefined || value === null || value === "") return null;
   return (
     <Box>
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>
         {label}
       </Typography>
       <Typography>{value}</Typography>
@@ -24,7 +24,7 @@ export default function TitleMedia({ data }: { data: Plex.Metadata }) {
   const media = data.Media || [];
   if (media.length === 0) {
     return (
-      <Typography color="text.secondary">
+      <Typography sx={{ color: "text.secondary" }}>
         Technical details are available on individual episodes.
       </Typography>
     );

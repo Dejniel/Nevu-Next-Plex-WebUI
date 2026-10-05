@@ -37,7 +37,7 @@ export default defineConfig({
   },
   build: {
     outDir: "build",
-    target: ["chrome109", "edge109", "firefox115", "safari15.4"],
+    target: ["chrome117", "edge121", "firefox121", "safari17"],
   },
   test: {
     globals: true,

@@ -46,7 +46,7 @@ function SettingsInfo() {
           About Nevu Next
         </Typography>
 
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           Nevu Next Plex WebUI was created and is maintained by{" "}
           <a
             href="https://github.com/Dejniel"
@@ -64,7 +64,7 @@ function SettingsInfo() {
           browsing and playing an existing Plex movie and TV library.
         </Typography>
 
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           Nevu Next builds on the work of{" "}
           <a
             href="https://ipmake.dev"
@@ -128,7 +128,7 @@ function SettingsInfo() {
             Fuel the Future of Nevu
           </Typography>
 
-          <Typography variant="body1" paragraph>
+          <Typography variant="body1" sx={{ mb: 2 }}>
             Your support makes all the difference! Every contribution helps us
             build new features, improve performance, and keep this project
             thriving for the entire community.

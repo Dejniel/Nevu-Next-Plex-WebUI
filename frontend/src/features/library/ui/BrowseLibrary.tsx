@@ -16,7 +16,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import React, { useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import AdvancedLibraryFilterDialog from "./AdvancedLibraryFilterDialog";

@@ -11,7 +11,7 @@ import {
   PushPinOutlined,
   PushPinRounded,
 } from "@mui/icons-material";
-import { Reorder, useDragControls } from "framer-motion";
+import { Reorder, useDragControls } from "motion/react";
 import React, { useEffect, useState } from "react";
 import { AppDialog } from "shared/ui";
 import {

@@ -36,7 +36,7 @@ export default function HomeEmptyState({
       >
         Your next great watch starts here.
       </Typography>
-      <Typography color="text.secondary" sx={{ mt: 2, maxWidth: 520, lineHeight: 1.7 }}>
+      <Typography sx={{ color: "text.secondary", mt: 2, maxWidth: 520, lineHeight: 1.7 }}>
         {canManageServer
           ? "Add movies or TV shows to Plex and make yourself at home. Your collection will appear here once a library has been scanned."
           : "No movies or TV shows are available for this profile yet. Ask the server owner to add media or share a library with you."}

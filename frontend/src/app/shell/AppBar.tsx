@@ -373,11 +373,13 @@ S - Skip onscreen markers (intro, credits, etc)
           anchor="left"
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
-          PaperProps={{
-            sx: {
-              width: 280,
-              backgroundColor: "#121212EE",
-              backdropFilter: "blur(20px)",
+          slotProps={{
+            paper: {
+              sx: {
+                width: 280,
+                backgroundColor: "#121212EE",
+                backdropFilter: "blur(20px)",
+              },
             },
           }}
         >

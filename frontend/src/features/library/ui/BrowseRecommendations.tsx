@@ -1,6 +1,6 @@
 import type { LibraryFilterExpression, LibraryItemType } from "@nevu/contracts";
 import { Box, CircularProgress, Typography } from "@mui/material";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import React, { useEffect } from "react";
 import { useLocation, useParams, useSearchParams } from "react-router-dom";
 import { plexProfileKey, useAuthSession } from "features/session/model";

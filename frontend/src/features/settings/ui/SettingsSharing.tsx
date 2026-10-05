@@ -271,7 +271,7 @@ export default function SettingsSharing() {
       ) : (
         <Box sx={{ width: "100%", mt: 3 }}>
           {orderedShares.length === 0 ? (
-            <Typography color="text.secondary">No libraries are currently shared.</Typography>
+            <Typography sx={{ color: "text.secondary" }}>No libraries are currently shared.</Typography>
           ) : orderedShares.map((share) => {
             const names = share.librarySectionIds
               .map((id) => libraryNames.get(id))
@@ -294,15 +294,15 @@ export default function SettingsSharing() {
                 <Avatar sx={{ width: 40, height: 40 }}><PersonRounded /></Avatar>
                 <Box sx={{ minWidth: 0 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                    <Typography fontWeight={600} noWrap>{share.displayName}</Typography>
+                    <Typography noWrap sx={{ fontWeight: 600 }}>{share.displayName}</Typography>
                     {share.home && <Chip label="Plex Home" size="small" variant="outlined" />}
                   </Box>
                   {share.account && (
-                    <Typography variant="body2" color="text.secondary" noWrap>
+                    <Typography variant="body2" noWrap sx={{ color: "text.secondary" }}>
                       {share.account}
                     </Typography>
                   )}
-                  <Typography variant="body2" color="text.secondary" noWrap>
+                  <Typography variant="body2" noWrap sx={{ color: "text.secondary" }}>
                     {share.allLibraries ? "All libraries" : names || "No available libraries"}
                     {share.allowDownloads ? " · Downloads allowed" : ""}
                   </Typography>

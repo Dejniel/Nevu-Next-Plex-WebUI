@@ -65,7 +65,7 @@ export default function WatchTogetherDialog() {
         }}
       >
         <Collapse in={error !== null}>
-          <Typography color="error" fontSize={14}>
+          <Typography color="error" sx={{ fontSize: 14 }}>
             {error}
           </Typography>
         </Collapse>

@@ -151,12 +151,13 @@ function FilterValueEditor({
               </Button>
             ) : undefined}
             slotProps={{
+              ...params.slotProps,
               input: {
-                ...params.InputProps,
+                ...params.slotProps.input,
                 endAdornment: (
                   <>
                     {loading && <CircularProgress color="inherit" size={16} />}
-                    {params.InputProps.endAdornment}
+                    {params.slotProps.input.endAdornment}
                   </>
                 ),
               },

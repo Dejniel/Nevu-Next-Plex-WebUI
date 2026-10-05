@@ -155,15 +155,17 @@ export default function ProfilePickerScreen() {
             value={pin}
             inputRef={pinInputRef}
             autoComplete="one-time-code"
-            inputProps={{
-              "aria-label": "PIN",
-              "aria-busy": unlocking,
-              inputMode: "numeric",
-              maxLength: 4,
-              pattern: "[0-9]*",
-              readOnly: unlocking,
-              autoCorrect: "off",
-              spellCheck: false,
+            slotProps={{
+              htmlInput: {
+                "aria-label": "PIN",
+                "aria-busy": unlocking,
+                inputMode: "numeric",
+                maxLength: 4,
+                pattern: "[0-9]*",
+                readOnly: unlocking,
+                autoCorrect: "off",
+                spellCheck: false,
+              },
             }}
             onChange={(event) => {
               const nextPin = event.target.value.replace(/\D/g, "").slice(0, 4);

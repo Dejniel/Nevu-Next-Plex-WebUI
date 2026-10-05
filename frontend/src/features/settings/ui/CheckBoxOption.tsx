@@ -14,7 +14,7 @@ function CheckBoxOption({
 }) {
   return (
     <Box sx={{ width: "100%", display: "flex", flexDirection: "column" }}>
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
         <Checkbox
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}

@@ -126,12 +126,7 @@ export default function WatchlistView({
             <MenuItem value="title">Title</MenuItem>
             <MenuItem value="year">Newest releases</MenuItem>
           </Select>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            role="status"
-            sx={{ ml: "auto" }}
-          >
+          <Typography variant="body2" role="status" sx={{ color: "text.secondary", ml: "auto" }}>
             {unavailableScope
               ? "Availability unknown"
               : waiting
@@ -222,9 +217,8 @@ export default function WatchlistView({
                 <Tooltip title={label}>
                   <Typography
                     variant="caption"
-                    color="text.secondary"
                     noWrap
-                    sx={{ display: "block", mt: 0.5 }}
+                    sx={{ color: "text.secondary", display: "block", mt: 0.5 }}
                   >
                     {label}
                   </Typography>
@@ -236,7 +230,7 @@ export default function WatchlistView({
       ) : !error && !unavailableScope ? (
         <Box sx={{ textAlign: "center", py: 8, color: "text.secondary" }}>
           <BookmarkBorderRounded sx={{ fontSize: 56, mb: 2 }} />
-          <Typography variant="h6" color="text.primary">
+          <Typography variant="h6" sx={{ color: "text.primary" }}>
             {search
               ? "No matching titles"
               : libraryOnly && items.length

@@ -199,7 +199,7 @@ function AddToMediaListForm({
         <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
           {item.title}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {kind === "playlist"
             ? "Add to the end of a playlist for your current profile."
             : "Collections organize titles in this library for everyone with access."}
@@ -280,7 +280,7 @@ function AddToMediaListForm({
                   <Typography sx={{ overflowWrap: "anywhere" }}>
                     {option.title}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {option.smart
                       ? "Smart · managed by filters"
                       : `${option.count} items`}

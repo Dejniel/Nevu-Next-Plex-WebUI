@@ -153,7 +153,7 @@ function MobileLibraries({
       {unpinned.length > 0 && (
         <>
           <Divider sx={{ my: 1 }} />
-          <Typography variant="overline" color="text.secondary" sx={{ px: 2 }}>
+          <Typography variant="overline" sx={{ color: "text.secondary", px: 2 }}>
             More
           </Typography>
           {unpinned.map((library) => (
@@ -284,7 +284,7 @@ function LibrariesDropdown({
                 {index === pinned.length && unpinned.length > 0 && (
                   <>
                     <Divider sx={{ my: 1 }} />
-                    <Typography variant="overline" color="text.secondary" sx={{ px: 1 }}>
+                    <Typography variant="overline" sx={{ color: "text.secondary", px: 1 }}>
                       Unpinned
                     </Typography>
                   </>

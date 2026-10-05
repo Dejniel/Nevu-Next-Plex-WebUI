@@ -288,11 +288,11 @@ export default function MatchMetadataDialog({
                 </Box>
                 <Box sx={{ minWidth: 0 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                    <Typography fontWeight={700} noWrap>{candidate.name}</Typography>
-                    {candidate.year && <Typography color="text.secondary">{candidate.year}</Typography>}
+                    <Typography noWrap sx={{ fontWeight: 700 }}>{candidate.name}</Typography>
+                    {candidate.year && <Typography sx={{ color: "text.secondary" }}>{candidate.year}</Typography>}
                     {current && <Chip size="small" label="Current match" />}
                   </Box>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
                     {matchSourceLabel(candidate.guid)} · {candidate.guid}
                   </Typography>
                   {candidate.summary && (

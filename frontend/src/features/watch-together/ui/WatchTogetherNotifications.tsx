@@ -63,7 +63,7 @@ function NotificationCard({
       <Icon sx={{ color: "white", fontSize: "2rem" }} />
       <Divider orientation="vertical" variant="middle" flexItem sx={{ mx: 2 }} />
       <Box sx={{ minWidth: 0, flex: 1 }}>
-        <Typography color="white" fontWeight="bold" noWrap>
+        <Typography color="white" noWrap sx={{ fontWeight: "bold" }}>
           {user.name}
         </Typography>
         <Typography color="white" variant="body2">

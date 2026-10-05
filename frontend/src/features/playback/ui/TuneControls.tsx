@@ -6,8 +6,7 @@ export function TuneSectionLabel({ children }: React.PropsWithChildren) {
   return (
     <Typography
       variant="caption"
-      color="text.secondary"
-      sx={{ display: "block", px: 2, pt: 1.5, pb: 0.5 }}
+      sx={{ color: "text.secondary", display: "block", px: 2, pt: 1.5, pb: 0.5 }}
     >
       {children}
     </Typography>
@@ -130,7 +129,7 @@ function TuneText({ primary, secondary }: { primary: string; secondary?: string 
     <Box sx={{ minWidth: 0, textAlign: "right" }}>
       <Typography variant="body2" noWrap>{primary}</Typography>
       {secondary && (
-        <Typography variant="caption" color="text.secondary" noWrap display="block">
+        <Typography variant="caption" noWrap sx={{ color: "text.secondary", display: "block" }}>
           {secondary}
         </Typography>
       )}

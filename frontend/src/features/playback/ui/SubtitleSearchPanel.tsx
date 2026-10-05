@@ -286,11 +286,7 @@ export default function SubtitleSearchPanel({
         </FormControl>
 
         {criteriaChanged && (
-          <Typography
-            variant="caption"
-            color="primary.light"
-            sx={{ gridColumn: "1 / -1" }}
-          >
+          <Typography variant="caption" sx={{ color: "primary.light", gridColumn: "1 / -1" }}>
             Search criteria changed. Press search or Enter to refresh results.
           </Typography>
         )}
@@ -299,7 +295,7 @@ export default function SubtitleSearchPanel({
       {error && <Alert severity="error" sx={{ borderRadius: 0 }}>{error}</Alert>}
 
       {!loading && results?.length === 0 && (
-        <Typography color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
+        <Typography sx={{ color: "text.secondary", py: 4, textAlign: "center" }}>
           No subtitles found.
         </Typography>
       )}
@@ -353,7 +349,11 @@ export default function SubtitleSearchPanel({
                   </Tooltip>
                 )}
               </Box>
-              <Typography variant="caption" color="text.secondary" noWrap display="block">
+              <Typography
+                variant="caption"
+                noWrap
+                sx={{ color: "text.secondary", display: "block" }}
+              >
                 {detail}
               </Typography>
               {(subtitle.forced || subtitle.hearingImpaired) && (

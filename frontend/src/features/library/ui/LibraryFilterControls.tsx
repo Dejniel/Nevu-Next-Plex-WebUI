@@ -213,7 +213,7 @@ export function LibraryFilterSelect({
       size="small"
       disabled={disabled || !selectableFields.length}
       aria-label="Filter library"
-      MenuProps={{ PaperProps: { sx: { maxHeight: 420 } } }}
+      MenuProps={{ slotProps: { paper: { sx: { maxHeight: 420 } } } }}
       sx={{ minWidth: 170, maxWidth: 280 }}
     >
       {stage === "fields" ? [

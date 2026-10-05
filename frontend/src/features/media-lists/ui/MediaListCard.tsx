@@ -73,7 +73,7 @@ export default function MediaListCard({
       <Typography noWrap sx={{ mt: 1, fontWeight: 700 }} title={list.title}>
         {list.title}
       </Typography>
-      <Typography noWrap variant="body2" color="text.secondary">
+      <Typography noWrap variant="body2" sx={{ color: "text.secondary" }}>
         {list.count} {list.count === 1 ? "item" : "items"}
         {list.smart ? " · Smart" : ""}
       </Typography>

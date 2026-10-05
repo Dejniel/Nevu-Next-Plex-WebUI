@@ -248,7 +248,7 @@ function PreferenceField({
         <Select label={preference.label} value={value} onChange={(event) => onChange(String(event.target.value))}>
           {choices.map((choice) => <MenuItem key={choice.value} value={choice.value}>{choice.label}</MenuItem>)}
         </Select>
-        {preference.summary && <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>{preference.summary}</Typography>}
+        {preference.summary && <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.5 }}>{preference.summary}</Typography>}
       </FormControl>
     );
   }
@@ -412,7 +412,7 @@ function LibraryEditor({
                       secondaryAction={<Tooltip title="Remove folder"><IconButton onClick={() => setLocations((items) => items.filter((item) => item !== path))}><DeleteOutlineRounded /></IconButton></Tooltip>}
                     >
                       <ListItemIcon><FolderRounded /></ListItemIcon>
-                      <ListItemText primary={path} primaryTypographyProps={{ sx: { fontFamily: "monospace" } }} />
+                      <ListItemText primary={path} slotProps={{ primary: { sx: { fontFamily: "monospace" } } }} />
                     </ListItem>
                   ))}
                   {!locations.length && <ListItem><ListItemText primary="No folders selected." /></ListItem>}
@@ -429,7 +429,7 @@ function LibraryEditor({
                     onChange={(value) => setPreferences((current) => ({ ...current, [setting.id]: value }))}
                   />
                 ))}
-                {!visiblePreferences.length && <Typography color="text.secondary">No advanced settings are available.</Typography>}
+                {!visiblePreferences.length && <Typography sx={{ color: "text.secondary" }}>No advanced settings are available.</Typography>}
               </Box>
             )}
           </>
@@ -505,7 +505,7 @@ export default function SettingsLibrariesAdmin() {
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 2 }}>
         <Box>
           <Typography variant="h4">Libraries</Typography>
-          <Typography color="text.secondary">Create and maintain Plex libraries.</Typography>
+          <Typography sx={{ color: "text.secondary" }}>Create and maintain Plex libraries.</Typography>
         </Box>
         <Button
           component={Link}
@@ -545,7 +545,7 @@ export default function SettingsLibrariesAdmin() {
               <ListItemText
                 primary={library.title}
                 secondary={`${library.locations.join(", ") || "No folders"}${library.refreshing ? " · Scanning" : ""}`}
-                secondaryTypographyProps={{ noWrap: true }}
+                slotProps={{ secondary: { noWrap: true } }}
               />
             </ListItem>
           ))}

@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Button, ButtonGroup, MenuItem, Select } from "@mui/material";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "motion/react";
 import {
   Link,
   useLocation,

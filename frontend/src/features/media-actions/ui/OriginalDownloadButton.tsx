@@ -83,7 +83,7 @@ export default function OriginalDownloadButton({
             <DownloadRounded fontSize="small" sx={{ mr: 1.5, flexShrink: 0 }} />
             <Box sx={{ minWidth: 0 }}>
               <Typography noWrap>{download.filename}</Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {formatDownloadDetails(download)}
               </Typography>
             </Box>

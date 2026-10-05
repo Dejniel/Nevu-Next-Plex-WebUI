@@ -60,7 +60,6 @@ export default function AppDialog({
       onClose={() => {
         if (!busy) onClose();
       }}
-      disableEscapeKeyDown={busy}
       maxWidth={false}
       aria-labelledby={hasTitle ? titleId : undefined}
       aria-label={hasTitle ? undefined : "Dialog"}

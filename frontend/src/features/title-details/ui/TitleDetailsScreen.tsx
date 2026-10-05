@@ -51,7 +51,7 @@ import {
 } from "@mui/icons-material";
 import { durationInMinutes, durationToText } from "shared/lib/duration";
 import { alpha } from "@mui/material/styles";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import { AppDialog, StretchedLink, useConfirmModal } from "shared/ui";
 import { PlexCommunity } from "../api/plexCommunity";
 import moment from "moment";
@@ -104,7 +104,7 @@ function TitleScore({
 
   return (
     <Box sx={{ display: "flex", alignItems: "baseline", gap: 0.5 }}>
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="body2" sx={{ color: "text.secondary" }}>
         {label}
       </Typography>
       <Typography sx={{ fontWeight: 700 }}>{score}</Typography>
@@ -585,7 +585,7 @@ function TitleDetailsScreen() {
                   mt: 2,
                 }}
               >
-                <Typography color="text.secondary">Genres: </Typography>
+                <Typography sx={{ color: "text.secondary" }}>Genres: </Typography>
                 {data?.Genre?.slice(0, 5).map((genre, index) => (
                   <Typography
                     component={Link}
@@ -627,7 +627,7 @@ function TitleDetailsScreen() {
                   >
                     {languages && languages.length > 0 && (
                       <>
-                        <Typography color="text.secondary">Audio: </Typography>
+                        <Typography sx={{ color: "text.secondary" }}>Audio: </Typography>
                         {languages.slice(0, 10).map((lang, index) => (
                           <Typography
                             key={index}
@@ -659,7 +659,7 @@ function TitleDetailsScreen() {
                   >
                     {subtitles && subtitles.length > 0 && (
                       <>
-                        <Typography color="text.secondary">
+                        <Typography sx={{ color: "text.secondary" }}>
                           Subtitles:{" "}
                         </Typography>
                         {subtitles.slice(0, 10).map((lang, index) => (
@@ -1142,12 +1142,7 @@ function MetaPageReviews({
     if (isEmpty) return null;
     return (
       <Box sx={{ width: "100%", mb: 5 }}>
-        <Typography
-          variant="h6"
-          fontWeight="bold"
-          color="text.primary"
-          sx={{ mb: 2 }}
-        >
+        <Typography variant="h6" sx={{ fontWeight: "bold", color: "text.primary", mb: 2 }}>
           {title}
         </Typography>
 
@@ -1218,11 +1213,10 @@ function MetaPageReviews({
                       <Box sx={{ flex: 1 }}>
                         <Stack
                           spacing={0.5}
-                          justifyContent={"flex-start"}
                           direction={"row"}
-                          alignItems="center"
+                          sx={{ justifyContent: "flex-start", alignItems: "center" }}
                         >
-                          <Typography fontWeight="medium" noWrap>
+                          <Typography noWrap sx={{ fontWeight: "medium" }}>
                             {username || "Anonymous User"}
                           </Typography>
                           {review.visibility === "GLOBAL" && (
@@ -1299,7 +1293,7 @@ function MetaPageReviews({
               borderRadius: 2,
             }}
           >
-            <Typography color="text.secondary" variant="body2">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               No reviews available in this category
             </Typography>
           </Box>
@@ -1344,7 +1338,7 @@ function MetaPageReviews({
 
       {(data?.Review?.length ?? 0) > 0 && (
         <Box sx={{ width: "100%" }}>
-          <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
             Critic reviews
           </Typography>
           <Grid container spacing={3} sx={{ width: "100%" }}>
@@ -1359,12 +1353,8 @@ function MetaPageReviews({
                     height: "100%",
                   }}
                 >
-                  <Typography fontWeight="bold">{review.tag}</Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 2 }}
-                  >
+                  <Typography sx={{ fontWeight: "bold" }}>{review.tag}</Typography>
+                  <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
                     {review.source}
                   </Typography>
                   <Typography sx={{ lineHeight: 1.6 }}>
@@ -1422,7 +1412,7 @@ function MetaPageReviews({
           <StarOutlineRounded
             sx={{ fontSize: 60, color: "text.disabled", mb: 2 }}
           />
-          <Typography color="text.secondary" variant="body1">
+          <Typography variant="body1" sx={{ color: "text.secondary" }}>
             No reviews available for this title yet
           </Typography>
         </Box>

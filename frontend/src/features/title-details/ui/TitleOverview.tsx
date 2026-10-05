@@ -127,11 +127,7 @@ export default function TitleOverview({
             {reviews.map((review) => (
               <Paper key={review.id} sx={{ p: 2.5, height: "100%" }}>
                 <Typography sx={{ fontWeight: 700 }}>{review.tag}</Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 1.5 }}
-                >
+                <Typography variant="body2" sx={{ color: "text.secondary", mb: 1.5 }}>
                   {review.source}
                 </Typography>
                 <Typography
@@ -201,7 +197,7 @@ export default function TitleOverview({
                   <Typography noWrap sx={{ fontWeight: 600 }}>
                     {role.tag}
                   </Typography>
-                  <Typography noWrap variant="body2" color="text.secondary">
+                  <Typography noWrap variant="body2" sx={{ color: "text.secondary" }}>
                     {role.role}
                   </Typography>
                 </Box>
