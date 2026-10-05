@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -8,30 +9,32 @@ import { useWatchlist as mockWatchlist } from "../model/watchlistStore";
 import { getWatchlist } from "../api/watchlist";
 import WatchlistView from "./WatchlistView";
 
-jest.mock("react-router-dom", () => ({
-  useSearchParams: () =>
-    jest.requireActual("react").useState(new URLSearchParams()),
-}));
+vi.mock("react-router-dom", async () => {
+  const { useState } = await import("react");
+  return { useSearchParams: () => useState(new URLSearchParams()) };
+});
 
-jest.mock("../api/watchlist", () => ({
-  getWatchlist: jest.fn(),
-  removeFromWatchlist: jest.fn().mockResolvedValue(undefined),
+vi.mock("../api/watchlist", () => ({
+  getWatchlist: vi.fn(),
+  removeFromWatchlist: vi.fn().mockResolvedValue(undefined),
 }));
-jest.mock("entities/media/model", () => ({
-  ...jest.requireActual("entities/media/model"),
-  useMediaAvailability: jest.fn(),
+vi.mock("entities/media/model", async () => ({
+  ...(await vi.importActual<typeof import("entities/media/model")>(
+    "entities/media/model",
+  )),
+  useMediaAvailability: vi.fn(),
 }));
-jest.mock("entities/library/model", () => ({
+vi.mock("entities/library/model", () => ({
   useLibraries: () => [
     { key: "1", title: "Movies" },
     { key: "2", title: "Other movies" },
   ],
 }));
-jest.mock("features/settings/model", () => ({
+vi.mock("features/settings/model", () => ({
   useUserSettings: (select: (state: unknown) => unknown) =>
     select({ profileKey: "user:1" }),
 }));
-jest.mock("features/library/public", () => ({
+vi.mock("features/library/public", () => ({
   getLibraryCardWidth: () => 200,
   useLibraryCardView: () => ({ layout: "poster", size: 40 }),
   LibraryBrowseFrame: ({
@@ -50,7 +53,7 @@ jest.mock("features/library/public", () => ({
     </div>
   ),
 }));
-jest.mock("features/media-actions/public", () => ({
+vi.mock("features/media-actions/public", () => ({
   ActionableMediaCard: ({
     item,
     canPlay,
@@ -67,8 +70,7 @@ jest.mock("features/media-actions/public", () => ({
     </div>
   ),
 }));
-jest.mock("shared/ui/VirtualGrid", () => ({
-  __esModule: true,
+vi.mock("shared/ui/VirtualGrid", () => ({
   default: ({
     count,
     renderItem,
@@ -104,13 +106,13 @@ beforeEach(() => {
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
   mockWatchlist.getState().reset();
-  (getWatchlist as jest.Mock).mockResolvedValue(items);
+  (getWatchlist as Mock).mockResolvedValue(items);
   mockWatchlist.setState({ items, status: "ready" });
-  (useMediaAvailability as jest.Mock).mockReturnValue({
+  (useMediaAvailability as Mock).mockReturnValue({
     items: indexMediaAvailability(copies),
     loading: false,
     error: null,
-    retry: jest.fn(),
+    retry: vi.fn(),
   });
   element = document.createElement("div");
   document.body.appendChild(element);
@@ -152,11 +154,11 @@ it("shows the full list from Home and reacts to removing a title without reopeni
 });
 
 it("reports a failed availability lookup without presenting a false empty library", async () => {
-  (useMediaAvailability as jest.Mock).mockReturnValue({
+  (useMediaAvailability as Mock).mockReturnValue({
     items: new Map(),
     loading: false,
     error: "Availability request failed",
-    retry: jest.fn(),
+    retry: vi.fn(),
   });
   await render("1");
   expect(element.textContent).toContain("Availability unknown");

@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import {
   addToWatchlist,
   getWatchlist,
@@ -5,22 +6,22 @@ import {
 } from "../api/watchlist";
 import { useWatchlist } from "./watchlistStore";
 
-jest.mock("../api/watchlist", () => ({
-  addToWatchlist: jest.fn(),
-  getWatchlist: jest.fn(),
-  removeFromWatchlist: jest.fn(),
+vi.mock("../api/watchlist", () => ({
+  addToWatchlist: vi.fn(),
+  getWatchlist: vi.fn(),
+  removeFromWatchlist: vi.fn(),
 }));
 
 const item = (guid: string) => ({ guid, ratingKey: guid }) as Plex.Metadata;
 
 beforeEach(() => {
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   useWatchlist.getState().reset();
 });
 
 it("ignores a load response after the active profile is reset", async () => {
   let resolveRequest!: (items: Plex.Metadata[]) => void;
-  (getWatchlist as jest.Mock).mockReturnValue(
+  (getWatchlist as Mock).mockReturnValue(
     new Promise((resolve) => {
       resolveRequest = resolve;
     }),
@@ -36,7 +37,7 @@ it("ignores a load response after the active profile is reset", async () => {
 
 it("does not update the next profile after an old mutation finishes", async () => {
   let finishAdd!: () => void;
-  (addToWatchlist as jest.Mock).mockReturnValue(
+  (addToWatchlist as Mock).mockReturnValue(
     new Promise<void>((resolve) => {
       finishAdd = resolve;
     }),
@@ -53,12 +54,12 @@ it("does not update the next profile after an old mutation finishes", async () =
 it("does not let an overlapping refresh overwrite a completed mutation", async () => {
   let resolveLoad!: (items: Plex.Metadata[]) => void;
   let finishAdd!: () => void;
-  (getWatchlist as jest.Mock).mockReturnValue(
+  (getWatchlist as Mock).mockReturnValue(
     new Promise((resolve) => {
       resolveLoad = resolve;
     }),
   );
-  (addToWatchlist as jest.Mock).mockReturnValue(
+  (addToWatchlist as Mock).mockReturnValue(
     new Promise<void>((resolve) => {
       finishAdd = resolve;
     }),
@@ -76,8 +77,8 @@ it("does not let an overlapping refresh overwrite a completed mutation", async (
 });
 
 it("updates items only after successful mutations", async () => {
-  (addToWatchlist as jest.Mock).mockResolvedValue(undefined);
-  (removeFromWatchlist as jest.Mock).mockResolvedValue(undefined);
+  (addToWatchlist as Mock).mockResolvedValue(undefined);
+  (removeFromWatchlist as Mock).mockResolvedValue(undefined);
   const movie = item("plex://movie/1");
 
   await useWatchlist.getState().add(movie);
@@ -101,8 +102,8 @@ function deferred<T>() {
 
 it("shares a pending refresh and merges new titles from both the response and mutations", async () => {
   const request = deferred<Plex.Metadata[]>();
-  (getWatchlist as jest.Mock).mockReturnValue(request.promise);
-  (addToWatchlist as jest.Mock).mockResolvedValue(undefined);
+  (getWatchlist as Mock).mockReturnValue(request.promise);
+  (addToWatchlist as Mock).mockResolvedValue(undefined);
   const first = useWatchlist.getState().load();
   expect(useWatchlist.getState().load()).toBe(first);
   expect(useWatchlist.getState().status).toBe("loading");
@@ -119,8 +120,8 @@ it("shares a pending refresh and merges new titles from both the response and mu
 
 it("keeps successful removals when an older refresh includes that title", async () => {
   const request = deferred<Plex.Metadata[]>();
-  (getWatchlist as jest.Mock).mockReturnValue(request.promise);
-  (removeFromWatchlist as jest.Mock).mockResolvedValue(undefined);
+  (getWatchlist as Mock).mockReturnValue(request.promise);
+  (removeFromWatchlist as Mock).mockResolvedValue(undefined);
   useWatchlist.setState({ items: [item("removed"), item("kept")] });
   const load = useWatchlist.getState().load();
   await useWatchlist.getState().remove("removed");
@@ -134,7 +135,7 @@ it("keeps successful removals when an older refresh includes that title", async 
 
 it("retains cached items after a failure and allows retry without an unhandled rejection", async () => {
   useWatchlist.setState({ items: [item("cached")] });
-  (getWatchlist as jest.Mock)
+  (getWatchlist as Mock)
     .mockRejectedValueOnce(new Error("offline"))
     .mockResolvedValueOnce([item("updated")]);
   await expect(useWatchlist.getState().load()).resolves.toBeUndefined();
@@ -154,11 +155,11 @@ it("retains cached items after a failure and allows retry without an unhandled r
 it("aborts the previous profile's refresh without clearing the next profile's pending request", async () => {
   const old = deferred<Plex.Metadata[]>();
   const next = deferred<Plex.Metadata[]>();
-  (getWatchlist as jest.Mock)
+  (getWatchlist as Mock)
     .mockReturnValueOnce(old.promise)
     .mockReturnValueOnce(next.promise);
   const oldLoad = useWatchlist.getState().load();
-  const oldSignal = (getWatchlist as jest.Mock).mock.calls[0][0] as AbortSignal;
+  const oldSignal = (getWatchlist as Mock).mock.calls[0][0] as AbortSignal;
   useWatchlist.getState().reset();
   expect(oldSignal.aborted).toBe(true);
   const nextLoad = useWatchlist.getState().load();
@@ -173,7 +174,7 @@ it("aborts the previous profile's refresh without clearing the next profile's pe
 
 it("does not remove a title from the next profile after an old removal finishes", async () => {
   const request = deferred<void>();
-  (removeFromWatchlist as jest.Mock).mockReturnValue(request.promise);
+  (removeFromWatchlist as Mock).mockReturnValue(request.promise);
   useWatchlist.setState({ items: [item("same")] });
   const removal = useWatchlist.getState().remove("same");
   useWatchlist.getState().reset();
@@ -184,7 +185,7 @@ it("does not remove a title from the next profile after an old removal finishes"
 });
 
 it("skips a recent successful load on re-entry but permits forced refresh and resets freshness with the profile", async () => {
-  (getWatchlist as jest.Mock).mockResolvedValue([]);
+  (getWatchlist as Mock).mockResolvedValue([]);
   await useWatchlist.getState().load();
   await useWatchlist.getState().load(30_000);
   expect(getWatchlist).toHaveBeenCalledTimes(1);
@@ -196,10 +197,10 @@ it("skips a recent successful load on re-entry but permits forced refresh and re
 });
 
 it("keeps an already loaded empty state during a background refresh", async () => {
-  (getWatchlist as jest.Mock).mockResolvedValueOnce([]);
+  (getWatchlist as Mock).mockResolvedValueOnce([]);
   await useWatchlist.getState().load();
   const request = deferred<Plex.Metadata[]>();
-  (getWatchlist as jest.Mock).mockReturnValueOnce(request.promise);
+  (getWatchlist as Mock).mockReturnValueOnce(request.promise);
   const pending = useWatchlist.getState().load();
   expect(useWatchlist.getState()).toMatchObject({
     items: [],

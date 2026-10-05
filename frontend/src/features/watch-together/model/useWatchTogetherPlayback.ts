@@ -35,7 +35,7 @@ export function useWatchTogetherPlayback(
     );
   // The current state is sampled when the media changes; regular updates are
   // sent by the interval below.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // oxlint-disable-next-line react/exhaustive-deps
   }, [isHost, options.itemID, socket]);
 
   useEffect(() => {

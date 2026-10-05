@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import VideoPlayer from "./VideoPlayer";
@@ -5,8 +6,8 @@ import type { VideoPlayerProps } from "./VideoPlayer";
 import { createStreamingPlayer } from "shared/lib/video/shaka";
 import type { VideoPlayerHandle } from "shared/lib/video/types";
 
-jest.mock("shared/lib/video/shaka", () => ({
-  createStreamingPlayer: jest.fn(),
+vi.mock("shared/lib/video/shaka", () => ({
+  createStreamingPlayer: vi.fn(),
   streamingMimeType: () => "application/dash+xml",
 }));
 let root: Root;
@@ -19,27 +20,27 @@ const render = () =>
   });
 function engine() {
   return {
-    attach: jest.fn().mockResolvedValue(undefined),
-    load: jest.fn().mockResolvedValue(undefined),
-    destroy: jest.fn().mockResolvedValue(undefined),
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
+    attach: vi.fn().mockResolvedValue(undefined),
+    load: vi.fn().mockResolvedValue(undefined),
+    destroy: vi.fn().mockResolvedValue(undefined),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
   };
 }
 
 beforeEach(() => {
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  jest.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
-  jest
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+  vi
     .spyOn(HTMLMediaElement.prototype, "pause")
     .mockImplementation(() => undefined);
-  jest
+  vi
     .spyOn(HTMLMediaElement.prototype, "load")
     .mockImplementation(() => undefined);
-  jest
+  vi
     .spyOn(HTMLMediaElement.prototype, "readyState", "get")
     .mockReturnValue(1);
   element = document.createElement("div");
@@ -53,19 +54,19 @@ beforeEach(() => {
     },
     playing: true,
   };
-  (createStreamingPlayer as jest.Mock).mockResolvedValue(engine());
+  (createStreamingPlayer as Mock).mockResolvedValue(engine());
 });
 afterEach(async () => {
   await act(async () => root.unmount());
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 it("passes an absolute Plex manifest URL to Shaka", async () => {
   const player = engine();
-  (createStreamingPlayer as jest.Mock).mockResolvedValue(player);
+  (createStreamingPlayer as Mock).mockResolvedValue(player);
   await render();
   expect(player.load).toHaveBeenCalledWith(
-    "http://localhost/dynproxy/video/:/transcode/universal/start.mpd",
+    `${window.location.origin}/dynproxy/video/:/transcode/universal/start.mpd`,
     null,
     "application/dash+xml",
   );
@@ -75,7 +76,7 @@ it("passes the resume position to Shaka before its playhead initializes", async 
   const player = engine();
   props.startTime = 12.5;
   props.playing = false;
-  (createStreamingPlayer as jest.Mock).mockResolvedValue(player);
+  (createStreamingPlayer as Mock).mockResolvedValue(player);
   await render();
   expect(player.load).toHaveBeenCalledWith(
     expect.any(String),
@@ -101,7 +102,7 @@ it("waits for engine destruction before attaching the next source", async () => 
       finish = resolve;
     }),
   );
-  (createStreamingPlayer as jest.Mock)
+  (createStreamingPlayer as Mock)
     .mockResolvedValueOnce(first)
     .mockResolvedValueOnce(engine());
   await render();
@@ -118,7 +119,7 @@ it("waits for engine destruction before attaching the next source", async () => 
 
 it("disposes a late engine without attaching it after unmount", async () => {
   let finish!: (player: ReturnType<typeof engine>) => void;
-  (createStreamingPlayer as jest.Mock).mockReturnValue(
+  (createStreamingPlayer as Mock).mockReturnValue(
     new Promise<ReturnType<typeof engine>>((resolve) => {
       finish = resolve;
     }),
@@ -145,8 +146,8 @@ it("exposes duration only after the streaming source finishes loading", async ()
       complete = resolve;
     }),
   );
-  (createStreamingPlayer as jest.Mock).mockResolvedValue(player);
-  jest
+  (createStreamingPlayer as Mock).mockResolvedValue(player);
+  vi
     .spyOn(HTMLMediaElement.prototype, "duration", "get")
     .mockReturnValue(100);
   await render();
@@ -156,9 +157,9 @@ it("exposes duration only after the streaming source finishes loading", async ()
 });
 
 it("reports autoplay denial without treating it as a codec error", async () => {
-  props.onPlayRejected = jest.fn();
-  props.onError = jest.fn();
-  (HTMLMediaElement.prototype.play as jest.Mock).mockRejectedValue(
+  props.onPlayRejected = vi.fn();
+  props.onError = vi.fn();
+  (HTMLMediaElement.prototype.play as Mock).mockRejectedValue(
     new DOMException("Autoplay blocked", "NotAllowedError"),
   );
   await render();
@@ -168,8 +169,8 @@ it("reports autoplay denial without treating it as a codec error", async () => {
 
 it("waits for native metadata before resuming a paused streaming source", async () => {
   props.playing = false;
-  props.onReady = jest.fn();
-  const readiness = jest
+  props.onReady = vi.fn();
+  const readiness = vi
     .spyOn(HTMLMediaElement.prototype, "readyState", "get")
     .mockReturnValue(0);
   await render();

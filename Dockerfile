@@ -1,21 +1,23 @@
-ARG NODE_IMAGE=node:22.14.0-bookworm-slim@sha256:1c18d9ab3af4585870b92e4dbc5cac5a0dc77dd13df1a5905cea89fc720eb05b
+ARG NODE_IMAGE=node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2
 ARG APP_VERSION=dev
 
-FROM ${NODE_IMAGE} AS frontend-build
+FROM ${NODE_IMAGE} AS node-base
+RUN npm install --global npm@12.2.0 && npm cache clean --force
+
+FROM node-base AS frontend-build
 ARG APP_VERSION
 WORKDIR /build
 COPY contracts/ ./contracts/
 WORKDIR /build/frontend
 ENV CI=true \
-    GENERATE_SOURCEMAP=false \
-    REACT_APP_VERSION=${APP_VERSION}
+    VITE_APP_VERSION=${APP_VERSION}
 
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
 RUN npm run typecheck && npm run build
 
-FROM ${NODE_IMAGE} AS backend-base
+FROM node-base AS backend-base
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl openssl tini \
     && rm -rf /var/lib/apt/lists/*

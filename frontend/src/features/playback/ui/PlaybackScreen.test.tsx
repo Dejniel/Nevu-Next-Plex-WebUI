@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import PlaybackScreen from "./PlaybackScreen";
@@ -8,9 +9,9 @@ let mockVideoProps: VideoPlayerProps;
 let mockCurrentTime: number;
 let mockDuration: number;
 let mockItemID: string;
-const mockRecover = jest.fn();
-jest.mock("shared/ui", () => {
-  const React = require("react");
+const mockRecover = vi.fn();
+vi.mock("shared/ui", async () => {
+  const React = await import("react");
   return {
     AppDialog: () => null,
     CenteredSpinner: () => null,
@@ -22,32 +23,32 @@ jest.mock("shared/ui", () => {
       React.useImperativeHandle(ref, () => ({
         getCurrentTime: () => mockCurrentTime,
         getDuration: () => mockDuration,
-        seekTo: jest.fn(),
+        seekTo: vi.fn(),
       }));
       return null;
     }),
   };
 });
-jest.mock("react-router-dom", () => ({
+vi.mock("react-router-dom", () => ({
   useParams: () => ({ itemID: mockItemID }),
-  useNavigate: () => jest.fn(),
+  useNavigate: () => vi.fn(),
   useSearchParams: () => [new URLSearchParams("t=12000")],
 }));
-jest.mock("../model/usePlaybackMedia", () => ({
+vi.mock("../model/usePlaybackMedia", () => ({
   usePlaybackMedia: () => ({
     metadata: { ratingKey: "42", type: "movie" },
     source: { id: "source", url: "/video", type: "file" },
     recoverSource: mockRecover,
   }),
 }));
-jest.mock("../model/usePlaybackTimeline", () => ({
-  usePlaybackTimeline: jest.fn().mockReturnValue({ reportStopped: jest.fn() }),
+vi.mock("../model/usePlaybackTimeline", () => ({
+  usePlaybackTimeline: vi.fn().mockReturnValue({ reportStopped: vi.fn() }),
 }));
-jest.mock("features/watch-together/public", () => ({
-  useWatchTogetherPlayback: () => ({ pause: jest.fn() }),
+vi.mock("features/watch-together/public", () => ({
+  useWatchTogetherPlayback: () => ({ pause: vi.fn() }),
 }));
-jest.mock("./PlaybackControlsOverlay", () => () => null);
-jest.mock("./PlaybackInfoOverlay", () => () => null);
+vi.mock("./PlaybackControlsOverlay", () => ({ default: () => null }));
+vi.mock("./PlaybackInfoOverlay", () => ({ default: () => null }));
 
 let root: Root;
 const render = () =>
@@ -58,9 +59,9 @@ beforeEach(() => {
   (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  jest.clearAllMocks();
-  (usePlaybackTimeline as jest.Mock).mockReturnValue({
-    reportStopped: jest.fn(),
+  vi.clearAllMocks();
+  (usePlaybackTimeline as Mock).mockReturnValue({
+    reportStopped: vi.fn(),
   });
   root = createRoot(document.createElement("div"));
   mockItemID = "42";

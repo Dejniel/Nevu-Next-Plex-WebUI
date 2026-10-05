@@ -1,3 +1,4 @@
+import type { Mocked } from "vitest";
 import axios from "axios";
 import { AuthStorage, HomeProfile } from "features/session/model";
 import {
@@ -6,9 +7,9 @@ import {
   userSettingsCacheKey,
 } from "./userSettings";
 
-jest.mock("axios");
+vi.mock("axios");
 
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+const mockedAxios = axios as Mocked<typeof axios>;
 const profile: HomeProfile = {
   id: 2,
   title: "Home user",
@@ -38,7 +39,7 @@ function deferred<T>() {
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   useUserSettings.getState().reset();
   saveSession();
 });

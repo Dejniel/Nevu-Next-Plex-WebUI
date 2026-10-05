@@ -1,3 +1,4 @@
+import type { Mock, MockInstance } from "vitest";
 import React, { act } from "react";
 import { createRoot, Root } from "react-dom/client";
 import {
@@ -8,13 +9,13 @@ import {
 } from "../api/home";
 import { useHomeDiscovery } from "./useHomeDiscovery";
 
-jest.mock("../api/home", () => ({
-  getHomeLibraries: jest.fn(),
-  getHomeGenres: jest.fn(),
-  getHomeLibraryWindow: jest.fn(),
-  getHomeMetadata: jest.fn(),
+vi.mock("../api/home", () => ({
+  getHomeLibraries: vi.fn(),
+  getHomeGenres: vi.fn(),
+  getHomeLibraryWindow: vi.fn(),
+  getHomeMetadata: vi.fn(),
 }));
-jest.mock("entities/library/model", () => ({
+vi.mock("entities/library/model", () => ({
   LIBRARIES_CHANGED_EVENT: "nevu:libraries-changed",
 }));
 
@@ -24,7 +25,7 @@ let state: ReturnType<typeof useHomeDiscovery>;
 let root: Root;
 let element: HTMLDivElement;
 let settings: Record<string, string>;
-let consoleError: jest.SpyInstance;
+let consoleError: MockInstance;
 
 function Harness() {
   state = useHomeDiscovery(settings);
@@ -32,17 +33,17 @@ function Harness() {
 }
 
 beforeEach(() => {
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-  consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+  consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
   settings = {};
   element = document.createElement("div");
   document.body.appendChild(element);
   root = createRoot(element);
-  (getHomeLibraries as jest.Mock).mockResolvedValue([]);
-  (getHomeLibraryWindow as jest.Mock).mockResolvedValue({ size: 0 });
-  (getHomeGenres as jest.Mock).mockResolvedValue([]);
-  (getHomeMetadata as jest.Mock).mockResolvedValue(null);
+  (getHomeLibraries as Mock).mockResolvedValue([]);
+  (getHomeLibraryWindow as Mock).mockResolvedValue({ size: 0 });
+  (getHomeGenres as Mock).mockResolvedValue([]);
+  (getHomeMetadata as Mock).mockResolvedValue(null);
 });
 
 afterEach(async () => {
@@ -56,7 +57,7 @@ async function renderHome() {
 }
 
 it("finishes loading an account with no movie or TV libraries", async () => {
-  (getHomeLibraries as jest.Mock).mockResolvedValue([
+  (getHomeLibraries as Mock).mockResolvedValue([
     { key: "3", uuid: "music", title: "Music", type: "artist" },
   ]);
 
@@ -69,7 +70,7 @@ it("finishes loading an account with no movie or TV libraries", async () => {
 });
 
 it("recognizes existing empty libraries when Plex omits Metadata", async () => {
-  (getHomeLibraries as jest.Mock).mockResolvedValue([movies, shows]);
+  (getHomeLibraries as Mock).mockResolvedValue([movies, shows]);
 
   await renderHome();
 
@@ -79,8 +80,8 @@ it("recognizes existing empty libraries when Plex omits Metadata", async () => {
 });
 
 it("keeps a populated library ready even when none of its media has hero artwork", async () => {
-  (getHomeLibraries as jest.Mock).mockResolvedValue([movies]);
-  (getHomeLibraryWindow as jest.Mock).mockResolvedValue({
+  (getHomeLibraries as Mock).mockResolvedValue([movies]);
+  (getHomeLibraryWindow as Mock).mockResolvedValue({
     size: 1,
     totalSize: 1,
     Metadata: [{ ratingKey: "10", title: "A movie", type: "movie" }],
@@ -95,8 +96,8 @@ it("keeps a populated library ready even when none of its media has hero artwork
 
 it("checks unpinned libraries before deciding that the catalog is empty", async () => {
   settings = { LIBRARY_movies: "false" };
-  (getHomeLibraries as jest.Mock).mockResolvedValue([movies]);
-  (getHomeLibraryWindow as jest.Mock).mockResolvedValue({ size: 1, totalSize: 5 });
+  (getHomeLibraries as Mock).mockResolvedValue([movies]);
+  (getHomeLibraryWindow as Mock).mockResolvedValue({ size: 1, totalSize: 5 });
 
   await renderHome();
 
@@ -105,8 +106,8 @@ it("checks unpinned libraries before deciding that the catalog is empty", async 
 });
 
 it("shows a loading error instead of an empty catalog when a library request fails", async () => {
-  (getHomeLibraries as jest.Mock).mockResolvedValue([movies]);
-  (getHomeLibraryWindow as jest.Mock).mockRejectedValue(new Error("Unavailable"));
+  (getHomeLibraries as Mock).mockResolvedValue([movies]);
+  (getHomeLibraryWindow as Mock).mockRejectedValue(new Error("Unavailable"));
 
   await renderHome();
 
@@ -115,11 +116,11 @@ it("shows a loading error instead of an empty catalog when a library request fai
 });
 
 it("can refresh after media is added to an empty library", async () => {
-  (getHomeLibraries as jest.Mock).mockResolvedValue([movies]);
+  (getHomeLibraries as Mock).mockResolvedValue([movies]);
   await renderHome();
   expect(state.catalogStatus).toBe("empty");
 
-  (getHomeLibraryWindow as jest.Mock).mockResolvedValue({ size: 1, totalSize: 1 });
+  (getHomeLibraryWindow as Mock).mockResolvedValue({ size: 1, totalSize: 1 });
   await act(async () => state.refresh());
 
   expect(state.catalogStatus).toBe("ready");
@@ -127,14 +128,14 @@ it("can refresh after media is added to an empty library", async () => {
 
 it("ignores an old catalog result after refresh", async () => {
   let finishOldRequest!: (value: { size: number }) => void;
-  (getHomeLibraries as jest.Mock).mockResolvedValue([movies]);
-  (getHomeLibraryWindow as jest.Mock).mockImplementationOnce(() =>
+  (getHomeLibraries as Mock).mockResolvedValue([movies]);
+  (getHomeLibraryWindow as Mock).mockImplementationOnce(() =>
     new Promise((resolve) => { finishOldRequest = resolve; }),
   );
   await renderHome();
   expect(state.catalogStatus).toBe("loading");
 
-  (getHomeLibraryWindow as jest.Mock).mockResolvedValue({ size: 1, totalSize: 1 });
+  (getHomeLibraryWindow as Mock).mockResolvedValue({ size: 1, totalSize: 1 });
   await act(async () => state.refresh());
   expect(state.catalogStatus).toBe("ready");
 

@@ -140,7 +140,8 @@ Even a bug report with browser details, Plex server version, relevant logs, and 
 
 ## Development
 
-Requires Node.js 22 and npm. Run the backend and frontend in separate terminals:
+Requires Node.js 26.10.0 (`.node-version`) and npm 12.2.0. Run the backend and
+frontend in separate terminals:
 
 ```bash
 (cd backend && npm ci && npm run db:generate && npm run db:push && \
@@ -149,11 +150,15 @@ Requires Node.js 22 and npm. Run the backend and frontend in separate terminals:
 (cd frontend && npm ci && npm start)
 ```
 
+Open `http://localhost:4000`. Vite proxies API, notification, and Watch Together
+requests to `http://localhost:3000`; set `NEVU_DEV_BACKEND` to use another backend.
+Prisma's pinned install scripts are explicitly approved in `backend/package.json`.
+
 Checks:
 
 ```bash
-(cd frontend && npm run typecheck && CI=true npm test -- --watchAll=false && npm run build)
-(cd backend && npm run build)
+(cd frontend && npm run typecheck && npm run lint && npm test && npm run build)
+(cd backend && npm test)
 docker build -t nevu-next:test .
 ```
 

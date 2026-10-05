@@ -1,13 +1,16 @@
+import type { Mock } from "vitest";
 import { authedGetStrict } from "features/session/model";
 import { getLibraryFilterValues } from "./libraryFilterValues";
 
-jest.mock("features/session/model", () => ({
-  authedGetStrict: jest.fn(),
+vi.mock("features/session/model", () => ({
+  authedGetStrict: vi.fn(),
 }));
 
-const request = authedGetStrict as jest.Mock;
+const request = authedGetStrict as Mock;
 
-beforeEach(() => request.mockReset());
+beforeEach(() => {
+  request.mockReset();
+});
 
 const source: Plex.Filter = {
   filter: "genre",

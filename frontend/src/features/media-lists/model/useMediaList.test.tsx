@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useUserSettings } from "features/settings/model";
@@ -6,10 +7,10 @@ import { type MediaListPage, type MediaListQuery } from "./mediaLists";
 import { useMediaList } from "./useMediaList";
 import { invalidateMediaLists } from "./listChanges";
 
-jest.mock("../api/mediaLists", () => ({ createMediaListSource: jest.fn() }));
-const source = createMediaListSource as jest.Mock;
-const page = jest.fn();
-const summary = jest.fn();
+vi.mock("../api/mediaLists", () => ({ createMediaListSource: vi.fn() }));
+const source = createMediaListSource as Mock;
+const page = vi.fn();
+const summary = vi.fn();
 let root: Root;
 let query: MediaListQuery;
 let state: ReturnType<typeof useMediaList>;
@@ -29,7 +30,7 @@ const items = (offset: number, length = 100) =>
   }));
 
 beforeEach(() => {
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
@@ -46,7 +47,7 @@ beforeEach(() => {
 });
 afterEach(async () => {
   await act(async () => root.unmount());
-  jest.useRealTimers();
+  vi.useRealTimers();
 });
 
 it("starts the first page itself and deduplicates overlapping grid demand", async () => {
@@ -143,7 +144,7 @@ it("does not issue list requests without a profile and aborts old windows", asyn
 });
 
 it("refreshes a changed list for its profile without refreshing unrelated lists", async () => {
-  jest.useFakeTimers();
+  vi.useFakeTimers();
   await render();
   const changed = (extra = {}) =>
     invalidateMediaLists({
@@ -160,10 +161,10 @@ it("refreshes a changed list for its profile without refreshing unrelated lists"
   });
   expect(source).toHaveBeenCalledTimes(1);
   await act(async () => changed());
-  await act(async () => jest.advanceTimersByTime(500));
+  await act(async () => vi.advanceTimersByTime(500));
   expect(source).toHaveBeenCalledTimes(2);
   expect(page).toHaveBeenCalledTimes(2);
-  jest.useRealTimers();
+  vi.useRealTimers();
 });
 
 function deferred<T>() {

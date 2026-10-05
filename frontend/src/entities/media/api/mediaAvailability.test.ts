@@ -1,9 +1,10 @@
+import type { Mock } from "vitest";
 import { AuthStorage } from "features/session/model";
 import { ProxiedRequest } from "shared/api/backend";
 import { getLocalMediaMatches } from "./mediaAvailability";
 
-jest.mock("shared/api/backend", () => ({ ProxiedRequest: jest.fn() }));
-const transport = ProxiedRequest as jest.Mock;
+vi.mock("shared/api/backend", () => ({ ProxiedRequest: vi.fn() }));
+const transport = ProxiedRequest as Mock;
 const movie = (
   ratingKey: string,
   guid = "plex://movie/one",
@@ -15,7 +16,7 @@ const response = (items: Plex.Metadata[], totalSize?: number) => ({
 });
 
 beforeEach(() => {
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   AuthStorage.saveActiveSession({
     profile: null,
     accountToken: "account",

@@ -66,8 +66,8 @@ function QueryRetentionHarness({ value }: { value: LibraryQuery | null }) {
 
 it("retains a canonical query when an equivalent object replaces it", () => {
   libraryRangeStore.clear();
-  const ensure = jest.spyOn(libraryRangeStore, "ensure");
-  const release = jest.spyOn(libraryRangeStore, "release");
+  const ensure = vi.spyOn(libraryRangeStore, "ensure");
+  const release = vi.spyOn(libraryRangeStore, "release");
   const root = createRoot(document.createElement("div"));
   const first = query();
 
@@ -405,7 +405,7 @@ it("does not retry a non-retryable range failure", async () => {
 
 it("ignores in-flight responses after the store is cleared", async () => {
   let resolvePage: ((value: LibraryPageDto) => void) | undefined;
-  const store = new LibraryRangeStore((request) => new Promise((resolve) => {
+  const store = new LibraryRangeStore(() => new Promise((resolve) => {
     resolvePage = resolve;
   }));
   const key = store.ensure(query());
@@ -461,26 +461,26 @@ it("retains cached library data after a failed refresh and retries atomically", 
 });
 
 it("routes library invalidation to the matching mounted profile and section", async () => {
-  jest.useFakeTimers();
+  vi.useFakeTimers();
   libraryRangeStore.clear();
-  const refresh = jest.spyOn(libraryRangeStore, "revalidateQuery").mockResolvedValue(undefined);
+  const refresh = vi.spyOn(libraryRangeStore, "revalidateQuery").mockResolvedValue(undefined);
   const root = createRoot(document.createElement("div"));
   await act(async () => root.render(React.createElement(QueryRetentionHarness, { value: query() })));
   await act(async () => {
     invalidateLibraryCache({ profileKey: "other", sectionId: "1" });
     invalidateLibraryCache({ profileKey: "owner", sectionId: "2" });
-    jest.advanceTimersByTime(500);
+    vi.advanceTimersByTime(500);
   });
   expect(refresh).not.toHaveBeenCalled();
   await act(async () => {
     invalidateLibraryCache({ profileKey: "owner", sectionId: "1" });
-    jest.advanceTimersByTime(500);
+    vi.advanceTimersByTime(500);
   });
   expect(refresh).toHaveBeenCalledTimes(1);
   await act(async () => root.unmount());
   refresh.mockRestore();
   libraryRangeStore.clear();
-  jest.useRealTimers();
+  vi.useRealTimers();
 });
 
 it("aborts an inactive replacement and does not let it overwrite a reactivated query", async () => {

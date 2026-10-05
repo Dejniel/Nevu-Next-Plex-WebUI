@@ -1,11 +1,14 @@
+import type { MockedFunction } from "vitest";
 import { ProxiedRequest } from "shared/api/backend";
 import { getServerSessionContext } from "./server";
 
-jest.mock("shared/api/backend", () => ({ ProxiedRequest: jest.fn() }));
+vi.mock("shared/api/backend", () => ({ ProxiedRequest: vi.fn() }));
 
-const request = ProxiedRequest as jest.MockedFunction<typeof ProxiedRequest>;
+const request = ProxiedRequest as MockedFunction<typeof ProxiedRequest>;
 
-beforeEach(() => request.mockReset());
+beforeEach(() => {
+  request.mockReset();
+});
 
 it("loads the server and its capabilities with the active token", async () => {
   request

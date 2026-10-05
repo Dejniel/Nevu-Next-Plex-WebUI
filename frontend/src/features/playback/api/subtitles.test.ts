@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import { AuthStorage } from "features/session/model";
 import { ProxiedRequest } from "shared/api/backend";
 import {
@@ -8,9 +9,9 @@ import {
 } from "./subtitles";
 import type { SubtitleSearchResult } from "../model/subtitles";
 
-jest.mock("shared/api/backend", () => ({ ProxiedRequest: jest.fn() }));
+vi.mock("shared/api/backend", () => ({ ProxiedRequest: vi.fn() }));
 
-const request = ProxiedRequest as jest.Mock;
+const request = ProxiedRequest as Mock;
 const result: SubtitleSearchResult = {
   id: 77,
   key: "/library/streams/77",
@@ -26,7 +27,7 @@ const result: SubtitleSearchResult = {
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   AuthStorage.saveActiveSession({
     profile: null,
     accountToken: "account-token",

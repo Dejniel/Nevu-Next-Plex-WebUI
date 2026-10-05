@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -9,26 +10,26 @@ import { invalidateLibraryCache } from "shared/lib/libraryCache";
 import { useBrowseSynchronization } from "./useBrowseSynchronization";
 
 let mockProfile: string | null;
-jest.mock("features/settings/model", () => ({
+vi.mock("features/settings/model", () => ({
   useUserSettings: Object.assign(
     (select: (state: { profileKey: string | null }) => unknown) =>
       select({ profileKey: mockProfile }),
     { getState: () => ({ profileKey: mockProfile }) },
   ),
 }));
-jest.mock("features/session/model", () => ({
+vi.mock("features/session/model", () => ({
   AuthStorage: { getServerToken: () => "test-token" },
-  connectPlexServerEvents: jest.fn(),
+  connectPlexServerEvents: vi.fn(),
 }));
-jest.mock("features/media-lists/model", () => ({
-  invalidateMediaLists: jest.fn(),
+vi.mock("features/media-lists/model", () => ({
+  invalidateMediaLists: vi.fn(),
 }));
-jest.mock("shared/lib/libraryCache", () => ({
-  invalidateLibraryCache: jest.fn(),
+vi.mock("shared/lib/libraryCache", () => ({
+  invalidateLibraryCache: vi.fn(),
 }));
 let root: Root;
-const connect = connectPlexServerEvents as jest.Mock;
-const close = jest.fn();
+const connect = connectPlexServerEvents as Mock;
+const close = vi.fn();
 function Harness() {
   useBrowseSynchronization(0);
   return null;
@@ -40,7 +41,7 @@ beforeEach(() => {
   (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   mockProfile = "owner:1";
   connect.mockReturnValue(close);
   root = createRoot(document.createElement("div"));
@@ -84,7 +85,7 @@ it("targets individual lists and closes the old profile's stream before acceptin
   mockProfile = "owner:2";
   await render();
   expect(close).toHaveBeenCalledTimes(1);
-  (invalidateMediaLists as jest.Mock).mockClear();
+  (invalidateMediaLists as Mock).mockClear();
   old({ kind: "server" });
   expect(invalidateMediaLists).not.toHaveBeenCalled();
   const current = connect.mock.calls[1][1] as (

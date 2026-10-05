@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import { AuthStorage, useServerSession } from "features/session/model";
 import { useUserSettings } from "features/settings/model";
 import { ProxiedRequest } from "shared/api/backend";
@@ -5,8 +6,8 @@ import { getMediaListChoices, saveMediaListItem } from "./mediaLists";
 import { subscribeToMediaListChanges } from "../model/listChanges";
 import type { MediaListItem } from "../model/mediaListEditing";
 
-jest.mock("shared/api/backend", () => ({ ProxiedRequest: jest.fn() }));
-const transport = ProxiedRequest as jest.Mock;
+vi.mock("shared/api/backend", () => ({ ProxiedRequest: vi.fn() }));
+const transport = ProxiedRequest as Mock;
 const movie: MediaListItem = {
   ratingKey: "3",
   title: "Movie",
@@ -30,7 +31,7 @@ const params = (call: number) =>
   new URL(transport.mock.calls[call][0], "http://plex.test").searchParams;
 
 beforeEach(() => {
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   AuthStorage.saveActiveSession({
     profile: null,
     accountToken: "account",
@@ -63,7 +64,7 @@ it.each(["playlist", "collection"] as const)(
     expect(params(0).get("type")).toBe(kind === "playlist" ? "video" : "1");
     expect(params(0).get("sectionId")).toBe(kind === "playlist" ? null : "2");
     expect(result).toMatchObject({ id: "20", title: "Weekend", kind });
-    if (kind === "collection") expect(result.libraryID).toBe("2");
+    expect(result.libraryID).toBe(kind === "collection" ? "2" : undefined);
   },
 );
 
@@ -141,7 +142,7 @@ it.each(["token", "profile"])(
 );
 
 it("publishes changes only after a successful mutation for the active profile", async () => {
-  const changed = jest.fn();
+  const changed = vi.fn();
   const unsubscribe = subscribeToMediaListChanges(changed);
   try {
     transport.mockResolvedValue({ status: 403, data: {} });

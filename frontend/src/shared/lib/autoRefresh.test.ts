@@ -9,31 +9,31 @@ const subscribe = (callback: () => void | Promise<void>) => {
   return subscription;
 };
 const advance = async (time: number) => {
-  jest.advanceTimersByTime(time);
+  vi.advanceTimersByTime(time);
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
 };
 beforeEach(() => {
-  jest.useFakeTimers();
+  vi.useFakeTimers();
   scheduler = new RefreshScheduler();
   visible = "visible";
   subscriptions = [];
-  jest
+  vi
     .spyOn(document, "visibilityState", "get")
     .mockImplementation(() => visible);
 });
 afterEach(() => {
   subscriptions.forEach((subscription) => subscription.dispose());
-  jest.restoreAllMocks();
-  jest.useRealTimers();
+  vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 it("coalesces event bursts and disposes the shared browser listeners and clock", async () => {
-  const refresh = jest.fn();
+  const refresh = vi.fn();
   const subscription = subscribe(refresh);
-  const another = subscribe(jest.fn());
-  expect(jest.getTimerCount()).toBe(1);
+  const another = subscribe(vi.fn());
+  expect(vi.getTimerCount()).toBe(1);
   for (let i = 0; i < 20; i++) subscription.invalidate();
   await advance(499);
   expect(refresh).not.toHaveBeenCalled();
@@ -44,11 +44,11 @@ it("coalesces event bursts and disposes the shared browser listeners and clock",
   another.dispose();
   await advance(120_000);
   expect(refresh).toHaveBeenCalledTimes(1);
-  expect(jest.getTimerCount()).toBe(0);
+  expect(vi.getTimerCount()).toBe(0);
 });
 
 it("retains hidden invalidations and revalidates once when the tab becomes visible", async () => {
-  const refresh = jest.fn();
+  const refresh = vi.fn();
   const subscription = subscribe(refresh);
   visible = "hidden";
   subscription.invalidate();
@@ -62,7 +62,7 @@ it("retains hidden invalidations and revalidates once when the tab becomes visib
 });
 
 it("does not refresh fresh data on focus but checks stale data and network recovery", async () => {
-  const refresh = jest.fn();
+  const refresh = vi.fn();
   subscribe(refresh);
   window.dispatchEvent(new Event("focus"));
   await advance(500);
@@ -82,7 +82,7 @@ it("shares pending refreshes and runs one follow-up for mutations received durin
   const pending = new Promise<void>((resolve) => {
     finish = resolve;
   });
-  const refresh = jest.fn().mockReturnValueOnce(pending);
+  const refresh = vi.fn().mockReturnValueOnce(pending);
   const subscription = subscribe(refresh);
   const first = subscription.refresh();
   expect(subscription.refresh()).toBe(first);
@@ -98,7 +98,7 @@ it("shares pending refreshes and runs one follow-up for mutations received durin
 });
 
 it("retries failures on the normal interval without an immediate retry loop", async () => {
-  const refresh = jest.fn().mockRejectedValue(new Error("offline"));
+  const refresh = vi.fn().mockRejectedValue(new Error("offline"));
   const subscription = subscribe(refresh);
   await subscription.refresh();
   await advance(59_999);
@@ -108,7 +108,7 @@ it("retries failures on the normal interval without an immediate retry loop", as
 });
 
 it("does not start a queued callback after its resource is disposed", async () => {
-  const refresh = jest.fn();
+  const refresh = vi.fn();
   const subscription = subscribe(refresh);
   const pending = subscription.refresh();
   subscription.dispose();

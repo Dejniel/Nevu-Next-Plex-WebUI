@@ -151,7 +151,7 @@ export default function SubtitleSearchPanel({
       requestID.current += 1;
     };
     // Search once when this active file opens; edits require an explicit search.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react/exhaustive-deps
   }, [metadata.ratingKey, version.media.id, version.part.id]);
 
   const criteriaChanged =

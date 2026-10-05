@@ -1,13 +1,14 @@
+import type { Mock } from "vitest";
 import { getServerSessionContext } from "../api/server";
 import { AuthStorage } from "./authStorage";
 import { useServerSession } from "./serverSession";
 
-jest.mock("../api/server", () => ({ getServerSessionContext: jest.fn() }));
+vi.mock("../api/server", () => ({ getServerSessionContext: vi.fn() }));
 
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   useServerSession.getState().reset();
 });
 
@@ -17,7 +18,7 @@ it("loads server details and management capability for the active session", asyn
     accountToken: "account",
     serverToken: "server",
   });
-  (getServerSessionContext as jest.Mock).mockResolvedValue({
+  (getServerSessionContext as Mock).mockResolvedValue({
     server: { friendlyName: "Media" },
     providers: { Feature: [{ type: "manage" }] },
   });
@@ -37,7 +38,7 @@ it("does not restore a stale response after the session is reset", async () => {
     serverToken: "server",
   });
   let resolveRequest!: (value: unknown) => void;
-  (getServerSessionContext as jest.Mock).mockReturnValue(
+  (getServerSessionContext as Mock).mockReturnValue(
     new Promise((resolve) => {
       resolveRequest = resolve;
     }),

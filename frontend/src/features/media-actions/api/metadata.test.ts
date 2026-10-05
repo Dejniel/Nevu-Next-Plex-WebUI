@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import { AuthStorage } from "features/session/model";
 import { ProxiedRequest } from "shared/api/backend";
 import {
@@ -8,14 +9,14 @@ import {
   updateMetadata,
 } from "./metadata";
 
-jest.mock("shared/api/backend", () => ({ ProxiedRequest: jest.fn() }));
+vi.mock("shared/api/backend", () => ({ ProxiedRequest: vi.fn() }));
 
-const request = ProxiedRequest as jest.Mock;
+const request = ProxiedRequest as Mock;
 
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   AuthStorage.saveActiveSession({
     profile: null,
     accountToken: "account-token",

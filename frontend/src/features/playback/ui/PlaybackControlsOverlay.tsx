@@ -92,7 +92,7 @@ export default function PlaybackControlsOverlay({
       surface?.removeEventListener("pointermove", handleMouseMove);
     };
     // The routed playback surface remains mounted for this overlay's lifetime.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -102,7 +102,7 @@ export default function PlaybackControlsOverlay({
     return () => {
       if (surface) surface.style.cursor = "default";
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react/exhaustive-deps
   }, [playing, showControls]);
 
   if (!metadata) return null;

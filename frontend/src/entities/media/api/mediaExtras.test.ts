@@ -1,14 +1,18 @@
+import type { Mocked } from "vitest";
 import axios from "axios";
 import { AuthStorage } from "features/session/model";
 import { resolveDiscoverExtra } from "./mediaExtras";
 import type { TitleExtra } from "../model/mediaExtras";
 
-jest.mock("axios");
-jest.mock("shared/api/backend", () => ({
+vi.mock("axios");
+vi.mock("shared/api/backend", async () => ({
+  ...(await vi.importActual<typeof import("shared/api/backend")>(
+    "shared/api/backend",
+  )),
   getBackendURL: () => "http://backend",
 }));
 
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+const mockedAxios = axios as Mocked<typeof axios>;
 const path = "/library/metadata/abcdef/extras/123abc/parts/hls.m3u8";
 const extra: TitleExtra = {
   source: "discover",
@@ -18,7 +22,7 @@ const extra: TitleExtra = {
 };
 
 beforeEach(() => {
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   localStorage.clear();
   sessionStorage.clear();
   AuthStorage.saveActiveSession({

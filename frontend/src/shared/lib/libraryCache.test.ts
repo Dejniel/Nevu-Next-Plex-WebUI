@@ -5,7 +5,7 @@ import {
 } from "./libraryCache";
 
 it("notifies active library cache owners", () => {
-  const listener = jest.fn();
+  const listener = vi.fn();
   const unsubscribe = subscribeToLibraryCache(listener);
 
   invalidateLibraryCache();

@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import { authedGetStrict } from "features/session/model";
 import {
   getHomeGenres,
@@ -6,14 +7,16 @@ import {
   getHomeMetadata,
 } from "./home";
 
-jest.mock("features/session/model", () => ({
-  authedGetStrict: jest.fn(),
+vi.mock("features/session/model", () => ({
+  authedGetStrict: vi.fn(),
   getXPlexProps: () => ({}),
 }));
 
-const request = authedGetStrict as jest.Mock;
+const request = authedGetStrict as Mock;
 
-beforeEach(() => request.mockReset());
+beforeEach(() => {
+  request.mockReset();
+});
 
 it("loads the Plex libraries used by home discovery", async () => {
   const libraries = [{ key: "1", title: "Movies", type: "movie" }];

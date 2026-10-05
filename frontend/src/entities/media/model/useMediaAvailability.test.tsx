@@ -1,13 +1,14 @@
+import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { invalidateLibraryCache } from "shared/lib/libraryCache";
 import { getLocalMediaMatches } from "../api/mediaAvailability";
 import { useMediaAvailability } from "./useMediaAvailability";
 
-jest.mock("../api/mediaAvailability", () => ({
-  getLocalMediaMatches: jest.fn(),
+vi.mock("../api/mediaAvailability", () => ({
+  getLocalMediaMatches: vi.fn(),
 }));
-const lookup = getLocalMediaMatches as jest.Mock;
+const lookup = getLocalMediaMatches as Mock;
 const movie = {
   guid: "one",
   ratingKey: "1",
@@ -27,7 +28,7 @@ async function render() {
 }
 
 beforeEach(() => {
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
@@ -90,13 +91,13 @@ it("surfaces failures, retries and refreshes after library invalidation", async 
   await act(async () => state.retry());
   expect(state.error).toBeNull();
   expect(state.items.has("one")).toBe(true);
-  jest.useFakeTimers();
+  vi.useFakeTimers();
   await act(async () => {
     invalidateLibraryCache();
-    jest.advanceTimersByTime(500);
+    vi.advanceTimersByTime(500);
   });
   expect(lookup).toHaveBeenCalledTimes(3);
-  jest.useRealTimers();
+  vi.useRealTimers();
 });
 
 it("does not request data or keep loading without an active profile", async () => {
@@ -123,17 +124,17 @@ it("keeps checked availability through background loading and a failed retry", a
 });
 
 it("refreshes unchanged GUIDs on the visible interval and ignores another profile's invalidation", async () => {
-  jest.useFakeTimers();
+  vi.useFakeTimers();
   await render();
   await act(async () => {
     invalidateLibraryCache({ profileKey: "owner:2" });
-    jest.advanceTimersByTime(500);
+    vi.advanceTimersByTime(500);
   });
   expect(lookup).toHaveBeenCalledTimes(1);
   lookup.mockResolvedValueOnce([]);
-  await act(async () => jest.advanceTimersByTime(60_000));
-  await act(async () => jest.advanceTimersByTime(500));
+  await act(async () => vi.advanceTimersByTime(60_000));
+  await act(async () => vi.advanceTimersByTime(500));
   expect(lookup).toHaveBeenCalledTimes(2);
   expect(state.items.size).toBe(0);
-  jest.useRealTimers();
+  vi.useRealTimers();
 });

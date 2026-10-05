@@ -1,9 +1,11 @@
 import { PlexClient, PlexRequestError } from "./PlexClient";
 
-const transport = jest.fn();
+const transport = vi.fn();
 const client = new PlexClient(() => "server-token", transport);
 
-beforeEach(() => transport.mockReset());
+beforeEach(() => {
+  transport.mockReset();
+});
 
 it("adds Plex authentication headers to requests", async () => {
   transport.mockResolvedValue({ status: 200, data: { ok: true } });

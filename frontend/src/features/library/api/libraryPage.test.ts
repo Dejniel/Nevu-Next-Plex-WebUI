@@ -19,7 +19,7 @@ const request = {
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
   AuthStorage.saveActiveSession({
     profile: null,
     accountToken: "account",
@@ -28,7 +28,7 @@ beforeEach(() => {
 });
 
 it("preserves backend retryability in range errors", async () => {
-  jest.spyOn(axios, "get").mockRejectedValue({
+  vi.spyOn(axios, "get").mockRejectedValue({
     isAxiosError: true,
     response: {
       status: 502,
@@ -42,7 +42,7 @@ it("preserves backend retryability in range errors", async () => {
 });
 
 it("serializes nested filter expressions without client-only labels", async () => {
-  const get = jest.spyOn(axios, "get").mockResolvedValue({
+  const get = vi.spyOn(axios, "get").mockResolvedValue({
     data: { offset: 0, size: 0, totalSize: 0, hasMore: false, items: [] },
   });
   const filterExpression = {
@@ -81,7 +81,7 @@ it("serializes nested filter expressions without client-only labels", async () =
 });
 
 it("forwards an allowlisted collection source to the backend", async () => {
-  const get = jest.spyOn(axios, "get").mockResolvedValue({
+  const get = vi.spyOn(axios, "get").mockResolvedValue({
     data: { offset: 0, size: 0, totalSize: 0, hasMore: false, items: [] },
   });
 
@@ -91,9 +91,9 @@ it("forwards an allowlisted collection source to the backend", async () => {
 });
 
 it("notifies the auth boundary when Plex rejects the active token", async () => {
-  const listener = jest.fn();
+  const listener = vi.fn();
   window.addEventListener(PLEX_SESSION_INVALID_EVENT, listener);
-  jest.spyOn(axios, "get").mockRejectedValue({
+  vi.spyOn(axios, "get").mockRejectedValue({
     isAxiosError: true,
     response: { status: 401, data: { error: "Session expired", retryable: false } },
   });

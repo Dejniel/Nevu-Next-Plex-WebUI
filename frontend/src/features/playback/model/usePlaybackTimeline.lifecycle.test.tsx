@@ -5,11 +5,11 @@ import { pingMediaPlayback } from "entities/media/model";
 import { usePlaybackTimeline } from "./usePlaybackTimeline";
 import type { PlexPlaybackSource } from "entities/media/model";
 
-jest.mock("../api/playback", () => ({
-  getTimelineUpdate: jest.fn().mockResolvedValue({ MediaContainer: {} }),
+vi.mock("../api/playback", () => ({
+  getTimelineUpdate: vi.fn().mockResolvedValue({ MediaContainer: {} }),
 }));
-jest.mock("entities/media/model", () => ({
-  pingMediaPlayback: jest.fn().mockResolvedValue(undefined),
+vi.mock("entities/media/model", () => ({
+  pingMediaPlayback: vi.fn().mockResolvedValue(undefined),
 }));
 let root: Root;
 let itemID: string;
@@ -25,7 +25,7 @@ function Harness() {
     buffering: false,
     getCurrentTime: () => time,
     getDuration: () => duration,
-    onTermination: jest.fn(),
+    onTermination: vi.fn(),
   });
   return null;
 }
@@ -34,8 +34,8 @@ const render = () =>
     root.render(<Harness />);
   });
 beforeEach(() => {
-  jest.clearAllMocks();
-  jest.useFakeTimers();
+  vi.clearAllMocks();
+  vi.useFakeTimers();
   (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
@@ -47,12 +47,12 @@ beforeEach(() => {
 });
 afterEach(async () => {
   await act(async () => root.unmount());
-  jest.useRealTimers();
+  vi.useRealTimers();
 });
 it("does not report an unloaded video and pings only the owned source", async () => {
   await render();
   await act(async () => {
-    jest.advanceTimersByTime(10000);
+    vi.advanceTimersByTime(10000);
   });
   expect(getTimelineUpdate).not.toHaveBeenCalled();
   expect(pingMediaPlayback).not.toHaveBeenCalled();
@@ -65,7 +65,7 @@ it("does not report an unloaded video and pings only the owned source", async ()
   };
   await render();
   await act(async () => {
-    jest.advanceTimersByTime(10000);
+    vi.advanceTimersByTime(10000);
   });
   expect(getTimelineUpdate).toHaveBeenCalledWith(
     42,
@@ -122,7 +122,7 @@ it("reports a changed stream using its new source session", async () => {
   time = 12;
   await render();
   await act(async () => {
-    jest.advanceTimersByTime(5000);
+    vi.advanceTimersByTime(5000);
   });
   expect(getTimelineUpdate).toHaveBeenCalledWith(
     42,

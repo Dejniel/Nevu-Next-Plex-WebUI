@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -7,9 +8,9 @@ import {
 import { useMediaPlaybackSource } from "./useMediaPlaybackSource";
 import type { PlexPlaybackSource } from "./mediaPlayback";
 
-jest.mock("../api/mediaPlayback", () => ({
-  resolveMediaPlayback: jest.fn(),
-  releaseMediaPlayback: jest.fn(),
+vi.mock("../api/mediaPlayback", () => ({
+  resolveMediaPlayback: vi.fn(),
+  releaseMediaPlayback: vi.fn(),
 }));
 let root: Root;
 let element: HTMLDivElement;
@@ -32,14 +33,14 @@ const render = () =>
   });
 
 beforeEach(() => {
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
   element = document.createElement("div");
   root = createRoot(element);
   metadata = { ratingKey: "1" } as Plex.Metadata;
-  (resolveMediaPlayback as jest.Mock).mockResolvedValue(source);
+  (resolveMediaPlayback as Mock).mockResolvedValue(source);
 });
 afterEach(async () => {
   await act(async () => root.unmount());
@@ -55,7 +56,7 @@ it("releases the old Plex session when the item changes", async () => {
 
 it("discards and releases a session that resolves after the item changes", async () => {
   let complete!: (source: PlexPlaybackSource) => void;
-  (resolveMediaPlayback as jest.Mock).mockReturnValueOnce(
+  (resolveMediaPlayback as Mock).mockReturnValueOnce(
     new Promise((resolve) => {
       complete = resolve;
     }),
@@ -63,7 +64,7 @@ it("discards and releases a session that resolves after the item changes", async
   await render();
   metadata = { ratingKey: "2" } as Plex.Metadata;
   const second = { ...source, id: "second", sessionID: "session-2" };
-  (resolveMediaPlayback as jest.Mock).mockResolvedValue(second);
+  (resolveMediaPlayback as Mock).mockResolvedValue(second);
   await render();
   await act(async () => complete(source));
   expect(state.source).toBe(second);
@@ -72,7 +73,7 @@ it("discards and releases a session that resolves after the item changes", async
 
 it("releases the Plex session when unmounted during negotiation", async () => {
   let complete!: (source: PlexPlaybackSource) => void;
-  (resolveMediaPlayback as jest.Mock).mockReturnValue(
+  (resolveMediaPlayback as Mock).mockReturnValue(
     new Promise((resolve) => {
       complete = resolve;
     }),
@@ -104,7 +105,7 @@ it("does not convert media because of a network error", async () => {
 });
 
 it("can explicitly retry failed negotiation", async () => {
-  (resolveMediaPlayback as jest.Mock).mockRejectedValueOnce(
+  (resolveMediaPlayback as Mock).mockRejectedValueOnce(
     new Error("Plex unavailable"),
   );
   await render();
@@ -121,7 +122,7 @@ it("stops its session on a real page unload and removes the listener on unmount"
   );
   expect(releaseMediaPlayback).toHaveBeenCalledWith(source, true);
   await act(async () => root.unmount());
-  (releaseMediaPlayback as jest.Mock).mockClear();
+  (releaseMediaPlayback as Mock).mockClear();
   window.dispatchEvent(
     new PageTransitionEvent("pagehide", { persisted: false }),
   );

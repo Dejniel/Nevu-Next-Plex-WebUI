@@ -46,17 +46,17 @@ describe("playlist playback commands", () => {
       isGuest: false,
       runtime: {
         getDuration: () => 100,
-        seekToLocal: jest.fn(),
+        seekToLocal: vi.fn(),
       } as unknown as Parameters<typeof usePlaybackCommands>[0]["runtime"],
       sync: {
-        pause: jest.fn(),
-        resume: jest.fn(),
-        seek: jest.fn(),
-        end: jest.fn(),
-        leave: jest.fn(),
+        pause: vi.fn(),
+        resume: vi.fn(),
+        seek: vi.fn(),
+        end: vi.fn(),
+        leave: vi.fn(),
       },
-      navigate: jest.fn(),
-      reportStopped: jest.fn().mockResolvedValue(undefined),
+      navigate: vi.fn(),
+      reportStopped: vi.fn().mockResolvedValue(undefined),
       getSurface: () => null,
     };
   });

@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { getLibraryPage } from "../api/libraryPage";
@@ -7,16 +8,15 @@ import {
 } from "../model/LibraryRangeStore";
 import { WindowLibraryCollectionGrid } from "./LibraryCollectionGrid";
 
-jest.mock("../api/libraryPage", () => ({ getLibraryPage: jest.fn() }));
-jest.mock("features/media-actions/public", () => ({
+vi.mock("../api/libraryPage", () => ({ getLibraryPage: vi.fn() }));
+vi.mock("features/media-actions/public", () => ({
   ActionableMediaCard: ({ item }: { item: Plex.Metadata }) => (
     <div>{item.title}</div>
   ),
 }));
-jest.mock("shared/ui/VirtualGrid", () => {
-  const { useEffect } = jest.requireActual("react");
+vi.mock("shared/ui/VirtualGrid", async () => {
+  const { useEffect } = await import("react");
   return {
-    __esModule: true,
     default: function MockGrid({
       count,
       renderItem,
@@ -45,7 +45,7 @@ it("starts loading after registering the query even if the child already request
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
   libraryRangeStore.clear();
-  const request = getLibraryPage as jest.Mock;
+  const request = getLibraryPage as Mock;
   request.mockImplementation(async ({ offset, sectionId }) => ({
     offset,
     size: 1,

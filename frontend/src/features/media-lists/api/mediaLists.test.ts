@@ -1,9 +1,10 @@
+import type { Mock } from "vitest";
 import { AuthStorage, useServerSession } from "features/session/model";
 import { ProxiedRequest } from "shared/api/backend";
 import { createMediaListSource, getPlaylistQueue } from "./mediaLists";
 
-jest.mock("shared/api/backend", () => ({ ProxiedRequest: jest.fn() }));
-const transport = ProxiedRequest as jest.Mock;
+vi.mock("shared/api/backend", () => ({ ProxiedRequest: vi.fn() }));
+const transport = ProxiedRequest as Mock;
 const movie = (id: string, playlistItemID?: number) => ({
   ratingKey: id,
   type: "movie",
@@ -16,7 +17,7 @@ const response = (Metadata: unknown[], extra = {}) => ({
 });
 
 beforeEach(() => {
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   AuthStorage.saveActiveSession({
     profile: null,
     accountToken: "account",

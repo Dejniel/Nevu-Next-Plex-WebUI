@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { getMediaMetadata, type MediaItemData } from "entities/media/model";
@@ -6,7 +7,7 @@ import {
   useLazyMediaMetadata,
 } from "./useLazyMediaMetadata";
 
-jest.mock("entities/media/model", () => ({ getMediaMetadata: jest.fn() }));
+vi.mock("entities/media/model", () => ({ getMediaMetadata: vi.fn() }));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -35,13 +36,13 @@ async function renderCard() {
 }
 
 beforeEach(() => {
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   item = movie;
   element = document.createElement("div");
   document.body.appendChild(element);
   root = createRoot(element);
-  (getMediaMetadata as jest.Mock).mockResolvedValue(fullMovie);
+  (getMediaMetadata as Mock).mockResolvedValue(fullMovie);
 });
 
 afterEach(async () => {
@@ -70,7 +71,7 @@ it("loads lazily and reuses cached metadata even before React rerenders", async 
 
 it("shares one guarded request between concurrent callers", async () => {
   const request = deferred<Plex.Metadata>();
-  (getMediaMetadata as jest.Mock).mockReturnValue(request.promise);
+  (getMediaMetadata as Mock).mockReturnValue(request.promise);
   await renderCard();
   let first!: Promise<Plex.Metadata>;
   let second!: Promise<Plex.Metadata>;
@@ -90,7 +91,7 @@ it("shares one guarded request between concurrent callers", async () => {
 
 it("allows retrying a failed request and shares the retry", async () => {
   const failure = new Error("Plex unavailable");
-  (getMediaMetadata as jest.Mock).mockRejectedValueOnce(failure);
+  (getMediaMetadata as Mock).mockRejectedValueOnce(failure);
   await renderCard();
   await act(async () => {
     const first = state.load();
@@ -113,7 +114,7 @@ it("invalidates loaded metadata and fetches the new match on demand", async () =
   await renderCard();
   await act(async () => { await state.load(); });
   const matched = { ...fullMovie, guid: "plex://movie/new", title: "New match" };
-  (getMediaMetadata as jest.Mock).mockResolvedValue(matched);
+  (getMediaMetadata as Mock).mockResolvedValue(matched);
 
   act(() => state.invalidate());
   expect(state.data).toBeNull();
@@ -127,7 +128,7 @@ it("invalidates loaded metadata and fetches the new match on demand", async () =
 
 it("rejects an invalidated response for every caller without replacing fresh data", async () => {
   const oldRequest = deferred<Plex.Metadata>();
-  (getMediaMetadata as jest.Mock).mockReturnValueOnce(oldRequest.promise);
+  (getMediaMetadata as Mock).mockReturnValueOnce(oldRequest.promise);
   await renderCard();
   let firstResult!: Promise<Plex.Metadata | Error>;
   let secondResult!: Promise<Plex.Metadata | Error>;
@@ -137,7 +138,7 @@ it("rejects an invalidated response for every caller without replacing fresh dat
     state.invalidate();
   });
   const unmatched = { ...fullMovie, guid: "local://1", title: "Unmatched" };
-  (getMediaMetadata as jest.Mock).mockResolvedValue(unmatched);
+  (getMediaMetadata as Mock).mockResolvedValue(unmatched);
   await act(async () => { await state.load(); });
   await act(async () => oldRequest.resolve(fullMovie));
 
@@ -150,7 +151,7 @@ it("rejects an invalidated response for every caller without replacing fresh dat
 it("does not let an old failure clear or fail a newer pending request", async () => {
   const oldRequest = deferred<Plex.Metadata>();
   const newRequest = deferred<Plex.Metadata>();
-  (getMediaMetadata as jest.Mock)
+  (getMediaMetadata as Mock)
     .mockReturnValueOnce(oldRequest.promise)
     .mockReturnValueOnce(newRequest.promise);
   await renderCard();
@@ -173,7 +174,7 @@ it("does not let an old failure clear or fail a newer pending request", async ()
 
 it("rejects all old callers when the card changes while loading", async () => {
   const oldRequest = deferred<Plex.Metadata>();
-  (getMediaMetadata as jest.Mock).mockReturnValueOnce(oldRequest.promise);
+  (getMediaMetadata as Mock).mockReturnValueOnce(oldRequest.promise);
   await renderCard();
   let firstResult!: Promise<Plex.Metadata | Error>;
   let secondResult!: Promise<Plex.Metadata | Error>;
@@ -186,7 +187,7 @@ it("rejects all old callers when the card changes while loading", async () => {
   expect(state.data).toBeNull();
   expect(state.status).toBe("idle");
   const nextMetadata = { ...item, summary: "Another movie's metadata" } as Plex.Metadata;
-  (getMediaMetadata as jest.Mock).mockResolvedValue(nextMetadata);
+  (getMediaMetadata as Mock).mockResolvedValue(nextMetadata);
   await act(async () => { await state.load(); });
   await act(async () => oldRequest.resolve(fullMovie));
 
@@ -214,7 +215,7 @@ it("prevents delayed actions for an old item from touching the new cache", async
   item = { ...movie, ratingKey: "2" };
   await renderCard();
   const currentMetadata = { ...fullMovie, ratingKey: "2" };
-  (getMediaMetadata as jest.Mock).mockResolvedValue(currentMetadata);
+  (getMediaMetadata as Mock).mockResolvedValue(currentMetadata);
   await act(async () => { await state.load(); });
 
   await expect(oldActions.load()).rejects.toBeInstanceOf(StaleMediaMetadataRequestError);
@@ -226,7 +227,7 @@ it("prevents delayed actions for an old item from touching the new cache", async
 
 it("keeps a local edit cached and prevents a pending response from undoing it", async () => {
   const request = deferred<Plex.Metadata>();
-  (getMediaMetadata as jest.Mock).mockReturnValue(request.promise);
+  (getMediaMetadata as Mock).mockReturnValue(request.promise);
   await renderCard();
   let pendingResult!: Promise<Plex.Metadata | Error>;
   act(() => { pendingResult = state.load().catch((error) => error); });
@@ -243,7 +244,7 @@ it("keeps a local edit cached and prevents a pending response from undoing it", 
 
 it("rejects a pending result after unmounting", async () => {
   const request = deferred<Plex.Metadata>();
-  (getMediaMetadata as jest.Mock).mockReturnValue(request.promise);
+  (getMediaMetadata as Mock).mockReturnValue(request.promise);
   await renderCard();
   let result!: Promise<Plex.Metadata | Error>;
   act(() => { result = state.load().catch((error) => error); });

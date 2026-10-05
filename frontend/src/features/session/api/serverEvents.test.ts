@@ -1,20 +1,21 @@
 import { connectPlexServerEvents } from "./serverEvents";
 
-jest.mock("shared/api/backend", () => ({
+vi.mock("shared/api/backend", () => ({
   getBackendURL: () => "https://nevu.test",
 }));
-let current: FakeStream;
+const streams: FakeStream[] = [];
 class FakeStream extends EventTarget {
   onerror: (() => void) | null = null;
   onopen: (() => void) | null = null;
-  close = jest.fn();
+  close = vi.fn();
   constructor(public url: string) {
     super();
-    current = this;
+    streams.push(this);
   }
 }
 const original = globalThis.EventSource;
 beforeEach(() => {
+  streams.length = 0;
   globalThis.EventSource = FakeStream as unknown as typeof EventSource;
 });
 afterEach(() => {
@@ -22,8 +23,9 @@ afterEach(() => {
 });
 
 it("uses the existing proxy and parses named events without exposing partial media objects", () => {
-  const change = jest.fn();
+  const change = vi.fn();
   const close = connectPlexServerEvents("test-token", change);
+  const current = streams[0];
   const url = new URL(current.url);
   expect(url.origin).toBe("https://nevu.test");
   expect(url.pathname).toBe("/dynproxy/:/eventsource/notifications");
@@ -41,8 +43,9 @@ it("uses the existing proxy and parses named events without exposing partial med
 });
 
 it("invalidates on reconnection and removes every callback when a profile is closed", () => {
-  const change = jest.fn();
+  const change = vi.fn();
   const close = connectPlexServerEvents("test-token", change);
+  const current = streams[0];
   current.onopen?.();
   expect(change).not.toHaveBeenCalled();
   current.onerror?.();

@@ -9,7 +9,7 @@ const video = {
 };
 
 it("checks the actual dimensions, bitrate and codec with MediaCapabilities", async () => {
-  const decodingInfo = jest.fn().mockResolvedValue({ supported: true });
+  const decodingInfo = vi.fn().mockResolvedValue({ supported: true });
   expect(
     await canDecodeVideo(
       {
@@ -29,7 +29,7 @@ it("checks the actual dimensions, bitrate and codec with MediaCapabilities", asy
 });
 
 it("does not advertise an unsupported MSE codec", async () => {
-  const decodingInfo = jest.fn();
+  const decodingInfo = vi.fn();
   expect(
     await canDecodeVideo(
       {

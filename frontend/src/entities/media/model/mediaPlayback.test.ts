@@ -103,7 +103,7 @@ it("keeps HEVC when this device can decode its profile", async () => {
     bitDepth: 10,
     level: 153,
   };
-  const decodingInfo = jest.fn().mockResolvedValue({ supported: true });
+  const decodingInfo = vi.fn().mockResolvedValue({ supported: true });
   const plan = await planMediaPlayback(sample, {}, false, {
     ...probe,
     decodingInfo,

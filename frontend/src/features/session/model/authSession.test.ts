@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import {
   getHomeProfiles,
   getPlexUser,
@@ -8,12 +9,12 @@ import {
 import { AuthStorage, HomeProfile } from "./authStorage";
 import { useAuthSession } from "./authSession";
 
-jest.mock("../api/plexAuth", () => ({
-  getHomeProfiles: jest.fn(),
-  getPlexUser: jest.fn(),
-  resolveServerToken: jest.fn(),
-  switchHomeProfile: jest.fn(),
-  validateServerToken: jest.fn(),
+vi.mock("../api/plexAuth", () => ({
+  getHomeProfiles: vi.fn(),
+  getPlexUser: vi.fn(),
+  resolveServerToken: vi.fn(),
+  switchHomeProfile: vi.fn(),
+  validateServerToken: vi.fn(),
 }));
 
 const owner = {
@@ -41,7 +42,7 @@ const profile: HomeProfile = {
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   useAuthSession.setState({
     status: "initializing",
     profiles: [],
@@ -57,8 +58,8 @@ beforeEach(() => {
 describe("auth session", () => {
   it("shows the profile picker after validating the owner", async () => {
     AuthStorage.setOwnerToken("owner-token");
-    (getPlexUser as jest.Mock).mockResolvedValue(owner);
-    (getHomeProfiles as jest.Mock).mockResolvedValue([profile]);
+    (getPlexUser as Mock).mockResolvedValue(owner);
+    (getHomeProfiles as Mock).mockResolvedValue([profile]);
 
     await useAuthSession.getState().initialize();
 
@@ -68,9 +69,9 @@ describe("auth session", () => {
 
   it("stores the selected Home profile and its active user", async () => {
     AuthStorage.setOwnerToken("owner-token");
-    (switchHomeProfile as jest.Mock).mockResolvedValue("profile-token");
-    (resolveServerToken as jest.Mock).mockResolvedValue("server-token");
-    (getPlexUser as jest.Mock).mockResolvedValue(member);
+    (switchHomeProfile as Mock).mockResolvedValue("profile-token");
+    (resolveServerToken as Mock).mockResolvedValue("server-token");
+    (getPlexUser as Mock).mockResolvedValue(member);
 
     await expect(
       useAuthSession.getState().selectProfile(profile, "1234"),
@@ -96,11 +97,11 @@ describe("auth session", () => {
       accountToken: "profile-token",
       serverToken: "old-server-token",
     });
-    (getPlexUser as jest.Mock)
+    (getPlexUser as Mock)
       .mockResolvedValueOnce(owner)
       .mockResolvedValueOnce(member);
-    (validateServerToken as jest.Mock).mockResolvedValue(false);
-    (resolveServerToken as jest.Mock).mockResolvedValue("new-server-token");
+    (validateServerToken as Mock).mockResolvedValue(false);
+    (resolveServerToken as Mock).mockResolvedValue("new-server-token");
 
     await useAuthSession.getState().initialize();
 
@@ -114,7 +115,7 @@ describe("auth session", () => {
 
   it("keeps saved credentials when Plex is temporarily unavailable", async () => {
     AuthStorage.setOwnerToken("owner-token");
-    (getPlexUser as jest.Mock).mockRejectedValue(new Error("Network Error"));
+    (getPlexUser as Mock).mockRejectedValue(new Error("Network Error"));
 
     await useAuthSession.getState().initialize();
 
@@ -125,7 +126,7 @@ describe("auth session", () => {
 
   it("clears an expired account and explains why sign-in is required", async () => {
     AuthStorage.setOwnerToken("expired-token");
-    (getPlexUser as jest.Mock).mockResolvedValue(null);
+    (getPlexUser as Mock).mockResolvedValue(null);
 
     await useAuthSession.getState().initialize();
 

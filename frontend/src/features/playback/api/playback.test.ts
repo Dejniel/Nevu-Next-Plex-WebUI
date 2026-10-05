@@ -1,16 +1,19 @@
+import type { Mock } from "vitest";
 import { authedGet } from "features/session/model";
 import { getPlaybackMetadata, getTimelineUpdate } from "./playback";
 
-jest.mock("features/session/model", () => ({
-  authedGet: jest.fn(),
-  authedPost: jest.fn(),
-  plexClient: { put: jest.fn() },
+vi.mock("features/session/model", () => ({
+  authedGet: vi.fn(),
+  authedPost: vi.fn(),
+  plexClient: { put: vi.fn() },
   getXPlexProps: () => ({}),
 }));
 
-const request = authedGet as jest.Mock;
+const request = authedGet as Mock;
 
-beforeEach(() => request.mockReset());
+beforeEach(() => {
+  request.mockReset();
+});
 
 it("returns metadata without filtering non-playable parent types", async () => {
   const show = { ratingKey: "9", type: "show", title: "Example" };

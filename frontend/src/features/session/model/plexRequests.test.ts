@@ -1,3 +1,4 @@
+import type { MockedFunction } from "vitest";
 import { ProxiedRequest } from "shared/api/backend";
 import {
   authedGet,
@@ -5,11 +6,13 @@ import {
   PlexRequestError,
 } from "./plexRequests";
 
-jest.mock("shared/api/backend", () => ({ ProxiedRequest: jest.fn() }));
+vi.mock("shared/api/backend", () => ({ ProxiedRequest: vi.fn() }));
 
-const request = ProxiedRequest as jest.MockedFunction<typeof ProxiedRequest>;
+const request = ProxiedRequest as MockedFunction<typeof ProxiedRequest>;
 
-beforeEach(() => request.mockReset());
+beforeEach(() => {
+  request.mockReset();
+});
 
 it("returns successful Plex responses from strict authenticated requests", async () => {
   request.mockResolvedValue({ status: 200, data: { ok: true } } as never);

@@ -117,7 +117,7 @@ export default function MatchMetadataDialog({
     setError(null);
     void search(nextCriteria);
     // The dialog is reset for a new item or each explicit open.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react/exhaustive-deps
   }, [open, item.ratingKey, search]);
 
   const submitSearch = (event: FormEvent) => {

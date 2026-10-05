@@ -1023,6 +1023,7 @@ function EpisodesPage({
         >
           {episodes?.map((episode) => (
             <EpisodeItem
+              key={episode.ratingKey}
               item={episode}
               refetchData={refetchEpisodes}
               selected={selectedEpisodes.some(

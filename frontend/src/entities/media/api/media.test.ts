@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import {
   authedGet,
   authedGetStrict,
@@ -10,22 +11,22 @@ import {
   setMediaPlayedStatus,
 } from "./media";
 
-jest.mock("features/session/model", () => ({
-  authedGet: jest.fn(),
-  authedGetStrict: jest.fn(),
+vi.mock("features/session/model", () => ({
+  authedGet: vi.fn(),
+  authedGetStrict: vi.fn(),
   getXPlexProps: () => ({}),
 }));
-jest.mock("shared/lib/query", () => ({
+vi.mock("shared/lib/query", () => ({
   queryBuilder: () => "query",
 }));
-jest.mock("shared/lib/libraryCache", () => ({
-  invalidateLibraryCache: jest.fn(),
+vi.mock("shared/lib/libraryCache", () => ({
+  invalidateLibraryCache: vi.fn(),
 }));
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => vi.clearAllMocks());
 
 it("loads metadata and children from Plex", async () => {
-  (authedGetStrict as jest.Mock)
+  (authedGetStrict as Mock)
     .mockResolvedValueOnce({ MediaContainer: { Metadata: [{ ratingKey: "1" }] } })
     .mockResolvedValueOnce({ MediaContainer: { Metadata: [{ ratingKey: "2" }] } });
 
@@ -34,7 +35,7 @@ it("loads metadata and children from Plex", async () => {
 });
 
 it("only returns a GUID lookup when Plex returned the requested item", async () => {
-  (authedGetStrict as jest.Mock).mockResolvedValue({
+  (authedGetStrict as Mock).mockResolvedValue({
     MediaContainer: { Metadata: [{ guid: "plex://movie/other" }] },
   });
 
@@ -42,7 +43,7 @@ it("only returns a GUID lookup when Plex returned the requested item", async () 
 });
 
 it("updates watched state and invalidates library data", async () => {
-  (authedGet as jest.Mock).mockResolvedValue({});
+  (authedGet as Mock).mockResolvedValue({});
 
   await setMediaPlayedStatus(true, "12");
 

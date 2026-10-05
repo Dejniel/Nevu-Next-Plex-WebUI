@@ -1,10 +1,7 @@
 import axios from "axios";
 
-export const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === 'development'
-
 export function getBackendURL() {
-    if (isDev) return "http://localhost:3000";
-    else return "";
+    return "";
 }
 
 export function ProxiedRequest(url: string, method: "GET" | "POST" | "PUT", headers?: Record<string, string>, data?: any) {

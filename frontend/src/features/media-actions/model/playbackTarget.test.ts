@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import {
   getMediaByGuid,
   getMediaChildren,
@@ -5,13 +6,13 @@ import {
 } from "entities/media/model";
 import { resolvePlaybackTarget } from "./playbackTarget";
 
-jest.mock("entities/media/model", () => ({
-  getMediaByGuid: jest.fn(),
-  getMediaChildren: jest.fn(),
-  getMediaMetadata: jest.fn(),
+vi.mock("entities/media/model", () => ({
+  getMediaByGuid: vi.fn(),
+  getMediaChildren: vi.fn(),
+  getMediaMetadata: vi.fn(),
 }));
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => vi.clearAllMocks());
 
 it("uses the item directly for a local movie", async () => {
   await expect(
@@ -27,7 +28,7 @@ it("uses the item directly for a local movie", async () => {
 });
 
 it("resolves a Discover item to its local server item", async () => {
-  (getMediaByGuid as jest.Mock).mockResolvedValue(null);
+  (getMediaByGuid as Mock).mockResolvedValue(null);
 
   await expect(
     resolvePlaybackTarget(
@@ -43,14 +44,14 @@ it("resolves a Discover item to its local server item", async () => {
 });
 
 it("selects On Deck or the first episode for a show", async () => {
-  (getMediaMetadata as jest.Mock)
+  (getMediaMetadata as Mock)
     .mockResolvedValueOnce({
       OnDeck: { Metadata: { ratingKey: "episode-2", type: "episode" } },
     })
     .mockResolvedValueOnce({
       Children: { Metadata: [{ ratingKey: "season-1" }] },
     });
-  (getMediaChildren as jest.Mock).mockResolvedValue([
+  (getMediaChildren as Mock).mockResolvedValue([
     { ratingKey: "episode-1", type: "episode" },
   ]);
   const show = {

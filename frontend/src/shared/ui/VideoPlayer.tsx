@@ -173,13 +173,13 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
         }
       };
       // Source identity owns the engine; event callbacks remain current via the ref.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      // oxlint-disable-next-line react/exhaustive-deps
     }, [props.source]);
 
     useEffect(() => {
       if (props.playing ?? props.autoPlay) playIfRequested();
       else videoRef.current?.pause();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      // oxlint-disable-next-line react/exhaustive-deps
     }, [props.playing, props.autoPlay]);
 
     useEffect(() => {

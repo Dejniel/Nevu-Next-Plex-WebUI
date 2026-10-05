@@ -1,3 +1,4 @@
+import type { Mocked } from "vitest";
 import axios from "axios";
 import { AuthStorage } from "features/session/model";
 import {
@@ -11,14 +12,14 @@ import {
   updateLibrary,
 } from "./libraryAdmin";
 
-jest.mock("axios");
+vi.mock("axios");
 
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+const mockedAxios = axios as Mocked<typeof axios>;
 
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   AuthStorage.saveActiveSession({
     profile: null,
     accountToken: "manager-token",

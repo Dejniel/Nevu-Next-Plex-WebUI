@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import { authedGetStrict } from "features/session/model";
 import {
   getLibrary,
@@ -5,17 +6,17 @@ import {
   getLibrarySecondary,
 } from "./libraryDirectories";
 
-jest.mock("features/session/model", () => ({
-  authedGetStrict: jest.fn(),
+vi.mock("features/session/model", () => ({
+  authedGetStrict: vi.fn(),
 }));
-jest.mock("shared/lib/query", () => ({
+vi.mock("shared/lib/query", () => ({
   queryBuilder: () => "query",
 }));
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => vi.clearAllMocks());
 
 it("loads section details and arbitrary library directories", async () => {
-  (authedGetStrict as jest.Mock)
+  (authedGetStrict as Mock)
     .mockResolvedValueOnce({ MediaContainer: { title1: "Movies" } })
     .mockResolvedValueOnce({ MediaContainer: { Metadata: [{ ratingKey: "1" }] } });
 
@@ -25,13 +26,13 @@ it("loads section details and arbitrary library directories", async () => {
 });
 
 it("normalizes an omitted secondary directory collection", async () => {
-  (authedGetStrict as jest.Mock).mockResolvedValue({ MediaContainer: {} });
+  (authedGetStrict as Mock).mockResolvedValue({ MediaContainer: {} });
 
   await expect(getLibrarySecondary("1", "genre")).resolves.toEqual([]);
 });
 
 it("normalizes an empty media directory without Metadata", async () => {
-  (authedGetStrict as jest.Mock).mockResolvedValue({ MediaContainer: { size: 0 } });
+  (authedGetStrict as Mock).mockResolvedValue({ MediaContainer: { size: 0 } });
 
   await expect(getLibraryDirectory("/library/onDeck")).resolves.toEqual({
     size: 0,
@@ -40,7 +41,7 @@ it("normalizes an empty media directory without Metadata", async () => {
 });
 
 it("rejects a missing container instead of treating it as an empty directory", async () => {
-  (authedGetStrict as jest.Mock).mockResolvedValue({});
+  (authedGetStrict as Mock).mockResolvedValue({});
 
   await expect(getLibraryDirectory("/library/onDeck")).rejects.toThrow(
     "Plex returned an invalid library directory",

@@ -52,7 +52,7 @@ export function usePlaybackQueue(
       alive = false;
     };
     // The serialized key covers playlist identity without depending on a new object on each render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react/exhaustive-deps
   }, [key, metadata, profileKey, revision]);
 
   return {

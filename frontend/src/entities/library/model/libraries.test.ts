@@ -1,16 +1,17 @@
+import type { Mock } from "vitest";
 import { getLibraries } from "../api/libraries";
 import { useLibraries } from "./libraries";
 
-jest.mock("../api/libraries", () => ({ getLibraries: jest.fn() }));
+vi.mock("../api/libraries", () => ({ getLibraries: vi.fn() }));
 
 beforeEach(() => {
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   useLibraries.getState().reset();
 });
 
 it("ignores a library response from a reset profile", async () => {
   let resolveRequest!: (libraries: Plex.LibarySection[]) => void;
-  (getLibraries as jest.Mock).mockReturnValue(
+  (getLibraries as Mock).mockReturnValue(
     new Promise((resolve) => {
       resolveRequest = resolve;
     }),

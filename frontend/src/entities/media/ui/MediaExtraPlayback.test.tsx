@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import MediaExtraPlayback from "./MediaExtraPlayback";
@@ -9,18 +10,18 @@ import { resolveDiscoverExtra } from "../api/mediaExtras";
 let mockVideoProps: VideoPlayerProps;
 let mockCurrentTime: number;
 let mockDuration: number;
-const mockRecover = jest.fn();
-jest.mock("../model/useMediaPlaybackSource", () => ({
+const mockRecover = vi.fn();
+vi.mock("../model/useMediaPlaybackSource", () => ({
   useMediaPlaybackSource: () => ({
     source: { id: "source", url: "/file", type: "file" },
     error: null,
     recover: mockRecover,
   }),
 }));
-jest.mock("../api/mediaExtras", () => ({ resolveDiscoverExtra: jest.fn() }));
-jest.mock("shared/ui/VideoPlayer", () => {
-  const React = require("react");
-  return React.forwardRef(function MockVideo(
+vi.mock("../api/mediaExtras", () => ({ resolveDiscoverExtra: vi.fn() }));
+vi.mock("shared/ui/VideoPlayer", async () => {
+  const React = await import("react");
+  return { default: React.forwardRef(function MockVideo(
     props: VideoPlayerProps,
     ref: React.Ref<unknown>,
   ) {
@@ -30,7 +31,7 @@ jest.mock("shared/ui/VideoPlayer", () => {
       getDuration: () => mockDuration,
     }));
     return null;
-  });
+  }) };
 });
 
 const extra = {
@@ -49,7 +50,7 @@ beforeEach(() => {
   ).IS_REACT_ACT_ENVIRONMENT = true;
   container = document.createElement("div");
   root = createRoot(container);
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   mockDuration = 0;
   mockCurrentTime = 0;
   mockRecover.mockReturnValue(true);
@@ -94,7 +95,7 @@ const retry = () =>
   });
 
 it("shows the preparation failure and retries Discover without reloading the page", async () => {
-  (resolveDiscoverExtra as jest.Mock)
+  (resolveDiscoverExtra as Mock)
     .mockRejectedValueOnce(new Error("Discover unavailable (HTTP 502)."))
     .mockResolvedValueOnce(discoverSource);
 
@@ -109,7 +110,7 @@ it("shows the preparation failure and retries Discover without reloading the pag
 });
 
 it("preserves the playback position on retry and resets it for a different extra", async () => {
-  (resolveDiscoverExtra as jest.Mock).mockResolvedValue(discoverSource);
+  (resolveDiscoverExtra as Mock).mockResolvedValue(discoverSource);
   await renderDiscover();
   mockDuration = 100;
   mockCurrentTime = 42;
@@ -131,7 +132,7 @@ it("preserves the playback position on retry and resets it for a different extra
 
 it("ignores a stale Discover failure after switching to a different extra", async () => {
   let rejectOld!: (reason: Error) => void;
-  (resolveDiscoverExtra as jest.Mock)
+  (resolveDiscoverExtra as Mock)
     .mockReturnValueOnce(
       new Promise<VideoSource>((_, reject) => {
         rejectOld = reject;

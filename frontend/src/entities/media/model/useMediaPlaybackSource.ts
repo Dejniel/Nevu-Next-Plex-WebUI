@@ -69,7 +69,7 @@ export function useMediaPlaybackSource(
       void releaseMediaPlayback(ownedSource);
     };
     // Version objects are reconstructed from metadata; indexes identify the selection.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react/exhaustive-deps
   }, [
     metadata,
     version?.mediaIndex,

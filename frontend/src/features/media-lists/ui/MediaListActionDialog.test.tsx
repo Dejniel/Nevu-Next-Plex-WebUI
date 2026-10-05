@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useUserSettings } from "features/settings/model";
@@ -9,15 +10,15 @@ import {
 import type { MediaListSummary } from "../model/mediaLists";
 import MediaListActionDialog from "./MediaListActionDialog";
 
-jest.mock("../api/mediaLists", () => ({
-  getMediaListChoices: jest.fn(),
-  saveMediaListItem: jest.fn(),
+vi.mock("../api/mediaLists", () => ({
+  getMediaListChoices: vi.fn(),
+  saveMediaListItem: vi.fn(),
 }));
-jest.mock("shared/ui", () => ({
-  AppDialog: require("shared/ui/AppDialog").default,
+vi.mock("shared/ui", async () => ({
+  AppDialog: (await import("shared/ui/AppDialog")).default,
 }));
-jest.mock("react-router-dom", () => {
-  const React = require("react");
+vi.mock("react-router-dom", async () => {
+  const React = await import("react");
   return {
     Link: React.forwardRef(function Link(
       { to, children, ...props }: { to: string; children?: React.ReactNode },
@@ -32,8 +33,8 @@ jest.mock("react-router-dom", () => {
   };
 });
 
-const choices = getMediaListChoices as jest.Mock;
-const save = saveMediaListItem as jest.Mock;
+const choices = getMediaListChoices as Mock;
+const save = saveMediaListItem as Mock;
 const movie = {
   ratingKey: "3",
   title: "Movie",
@@ -52,7 +53,7 @@ let root: Root;
 let host: HTMLDivElement;
 
 beforeEach(async () => {
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;

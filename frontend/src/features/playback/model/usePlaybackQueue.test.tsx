@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -8,12 +9,12 @@ import { getPlaybackQueueForItem } from "../api/playback";
 import { usePlaybackQueue } from "./usePlaybackQueue";
 import { useUserSettings } from "features/settings/model";
 
-jest.mock("features/media-lists/model", () => ({
-  getPlaylistQueue: jest.fn(),
+vi.mock("features/media-lists/model", () => ({
+  getPlaylistQueue: vi.fn(),
 }));
-jest.mock("../api/playback", () => ({ getPlaybackQueueForItem: jest.fn() }));
-const playlistLookup = getPlaylistQueue as jest.Mock;
-const defaultLookup = getPlaybackQueueForItem as jest.Mock;
+vi.mock("../api/playback", () => ({ getPlaybackQueueForItem: vi.fn() }));
+const playlistLookup = getPlaylistQueue as Mock;
+const defaultLookup = getPlaybackQueueForItem as Mock;
 const movie = { ratingKey: "1", type: "movie" } as Plex.Metadata;
 let root: Root;
 let playlist: PlaylistPlaybackContext | undefined;
@@ -27,7 +28,7 @@ async function render() {
 }
 
 beforeEach(() => {
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;

@@ -1,7 +1,7 @@
 import { loadPageWindow } from "./loadPageWindow";
 
 it("loads only distinct relevant offsets and skips windows beyond a shortened list", async () => {
-  const fetch = jest.fn(async (offset: number) => ({
+  const fetch = vi.fn(async (offset: number) => ({
     offset,
     total: 150,
     items: [offset],
@@ -21,7 +21,7 @@ it.each([
 ])(
   "rejects changing totals, offsets or generations instead of publishing a mixed window",
   async (second) => {
-    const fetch = jest
+    const fetch = vi
       .fn()
       .mockResolvedValueOnce({
         offset: 0,

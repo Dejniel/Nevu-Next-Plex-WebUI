@@ -1,42 +1,43 @@
+import type { Mock, MockedFunction } from "vitest";
 import { Socket } from "socket.io-client";
 import { createWatchTogetherSocket } from "../api/socket";
 import { useWatchTogetherSession } from "./session";
 
-jest.mock("../api/socket", () => ({
-  createWatchTogetherSocket: jest.fn(),
+vi.mock("../api/socket", () => ({
+  createWatchTogetherSocket: vi.fn(),
 }));
 
 type Handler = (...args: any[]) => void;
 
 interface SocketStub {
-  on: jest.Mock<SocketStub, [string, Handler]>;
-  once: jest.Mock<SocketStub, [string, Handler]>;
-  off: jest.Mock<SocketStub, [string, Handler]>;
-  connect: jest.Mock<SocketStub, []>;
-  disconnect: jest.Mock<SocketStub, []>;
+  on: Mock<(event: string, handler: Handler) => SocketStub>;
+  once: Mock<(event: string, handler: Handler) => SocketStub>;
+  off: Mock<(event: string, handler: Handler) => SocketStub>;
+  connect: Mock<() => SocketStub>;
+  disconnect: Mock<() => SocketStub>;
   trigger: (event: string, ...args: any[]) => void;
 }
 
 function socketStub() {
   const handlers = new Map<string, { handler: Handler; once: boolean }[]>();
   const socket: SocketStub = {
-    on: jest.fn((event: string, handler: Handler) => {
+    on: vi.fn((event: string, handler: Handler) => {
       handlers.set(event, [...(handlers.get(event) || []), { handler, once: false }]);
       return socket;
     }),
-    once: jest.fn((event: string, handler: Handler) => {
+    once: vi.fn((event: string, handler: Handler) => {
       handlers.set(event, [...(handlers.get(event) || []), { handler, once: true }]);
       return socket;
     }),
-    off: jest.fn((event: string, handler: Handler) => {
+    off: vi.fn((event: string, handler: Handler) => {
       handlers.set(
         event,
         (handlers.get(event) || []).filter((entry) => entry.handler !== handler),
       );
       return socket;
     }),
-    connect: jest.fn(() => socket),
-    disconnect: jest.fn(() => {
+    connect: vi.fn(() => socket),
+    disconnect: vi.fn(() => {
       socket.trigger("disconnect");
       return socket;
     }),
@@ -52,13 +53,13 @@ function socketStub() {
   return socket;
 }
 
-const createSocketMock = createWatchTogetherSocket as jest.MockedFunction<
+const createSocketMock = createWatchTogetherSocket as MockedFunction<
   typeof createWatchTogetherSocket
 >;
 
 describe("watch-together session", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     useWatchTogetherSession.setState({
       socket: null,
       status: "disconnected",

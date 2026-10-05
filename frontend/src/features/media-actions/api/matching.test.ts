@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import { plexClient } from "features/session/model";
 import { invalidateLibraryCache } from "shared/lib/libraryCache";
 import {
@@ -8,14 +9,14 @@ import {
   unmatchMetadata,
 } from "./matching";
 
-jest.mock("features/session/model", () => ({
-  plexClient: { get: jest.fn(), put: jest.fn() },
+vi.mock("features/session/model", () => ({
+  plexClient: { get: vi.fn(), put: vi.fn() },
 }));
-jest.mock("shared/lib/libraryCache", () => ({
-  invalidateLibraryCache: jest.fn(),
+vi.mock("shared/lib/libraryCache", () => ({
+  invalidateLibraryCache: vi.fn(),
 }));
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => vi.clearAllMocks());
 
 it("builds a manual Plex match search without empty optional fields", () => {
   expect(
@@ -31,7 +32,7 @@ it("builds a manual Plex match search without empty optional fields", () => {
 });
 
 it("normalizes Plex SearchResult candidates", async () => {
-  (plexClient.get as jest.Mock).mockResolvedValue({
+  (plexClient.get as Mock).mockResolvedValue({
     MediaContainer: {
       SearchResult: [
         { guid: "plex://movie/1", name: "Film", year: 2024 },
@@ -48,7 +49,7 @@ it("normalizes Plex SearchResult candidates", async () => {
 });
 
 it("applies the selected match and invalidates cached library pages", async () => {
-  (plexClient.put as jest.Mock).mockResolvedValue({});
+  (plexClient.put as Mock).mockResolvedValue({});
   const candidate = {
     guid: "plex://movie/1",
     name: "A title & more",
@@ -68,7 +69,7 @@ it("applies the selected match and invalidates cached library pages", async () =
 });
 
 it("unmatches an item and invalidates cached library pages", async () => {
-  (plexClient.put as jest.Mock).mockResolvedValue({});
+  (plexClient.put as Mock).mockResolvedValue({});
 
   await unmatchMetadata("12/3");
 

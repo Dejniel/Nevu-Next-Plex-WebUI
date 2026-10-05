@@ -1,20 +1,23 @@
+import type { Mock } from "vitest";
 import { AuthStorage } from "features/session/model";
 import { ProxiedRequest } from "shared/api/backend";
 import { setMediaRating } from "./rating";
 
-jest.mock("features/session/model", () => ({
-  ...jest.requireActual("features/session/model"),
+vi.mock("features/session/model", async () => ({
+  ...(await vi.importActual<typeof import("features/session/model")>(
+    "features/session/model",
+  )),
   getXPlexProps: () => ({}),
 }));
-jest.mock("shared/lib/query", () => ({
+vi.mock("shared/lib/query", () => ({
   queryBuilder: () => "rating-query",
 }));
-jest.mock("shared/api/backend", () => ({ ProxiedRequest: jest.fn() }));
+vi.mock("shared/api/backend", () => ({ ProxiedRequest: vi.fn() }));
 
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   AuthStorage.saveActiveSession({
     profile: null,
     accountToken: "account",
@@ -23,12 +26,11 @@ beforeEach(() => {
 });
 
 it("reports whether Plex accepted a rating", async () => {
-  (ProxiedRequest as jest.Mock).mockResolvedValue({ status: 200 });
+  (ProxiedRequest as Mock).mockResolvedValue({ status: 200 });
 
   await expect(setMediaRating(8, "12")).resolves.toBe(true);
-  expect(ProxiedRequest).toHaveBeenCalledWith(
-    "/:/rate?rating-query",
-    "GET",
-    { "X-Plex-Token": "server", accept: "application/json" },
-  );
+  expect(ProxiedRequest).toHaveBeenCalledWith("/:/rate?rating-query", "GET", {
+    "X-Plex-Token": "server",
+    accept: "application/json",
+  });
 });

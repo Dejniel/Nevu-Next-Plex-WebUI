@@ -175,7 +175,7 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     };
     // Quality changes restart the current source explicitly. They must not
     // repeat the complete initial selection flow.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react/exhaustive-deps
   }, [options.itemID, initialRevision]);
 
   const mediaVersions = metadata ? getMediaVersions(metadata) : [];

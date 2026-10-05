@@ -1,8 +1,9 @@
+// @vitest-environment node
 import fs from "fs";
 import path from "path";
-import ts from "typescript";
+import { parseSync, Visitor } from "oxc-parser";
 
-const SOURCE_ROOT = __dirname;
+const SOURCE_ROOT = import.meta.dirname;
 const HEADLESS_FEATURE_ENTRYPOINTS = new Set([
   "session",
   "settings",
@@ -14,7 +15,39 @@ const HEADLESS_FEATURE_ENTRYPOINTS = new Set([
   "media-lists",
 ]);
 const SOURCE_EXTENSION = /\.(ts|tsx)$/;
-const IMPORT = /(?:from\s+|import\s*\()\s*["']([^"']+)["']/g;
+
+function dependencies(file: string, contents: string, runtimeOnly = false) {
+  const parsed = parseSync(file, contents);
+  expect(parsed.errors).toEqual([]);
+  const imports = parsed.module.staticImports
+    .filter(
+      (statement) =>
+        !runtimeOnly ||
+        statement.entries.length === 0 ||
+        statement.entries.some((entry) => !entry.isType),
+    )
+    .map((statement) => statement.moduleRequest.value);
+  const exports = parsed.module.staticExports.flatMap((statement) =>
+    statement.entries.flatMap((entry) =>
+      entry.moduleRequest && (!runtimeOnly || !entry.isType)
+        ? [entry.moduleRequest.value]
+        : [],
+    ),
+  );
+  const dynamic: string[] = [];
+  if (!runtimeOnly) {
+    new Visitor({
+      ImportExpression(node) {
+        if (
+          node.source.type === "Literal" &&
+          typeof node.source.value === "string"
+        )
+          dynamic.push(node.source.value);
+      },
+    }).visit(parsed.program);
+  }
+  return [...new Set([...imports, ...exports, ...dynamic])];
+}
 
 function sourceFiles(directory: string): string[] {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -51,6 +84,34 @@ function moduleOwner(relativePath: string) {
 }
 
 describe("frontend module boundaries", () => {
+  it("separates runtime edges from type imports and deferred loading", () => {
+    const source = `
+      import type { Shape } from "./shape";
+      import { type Color } from "./color";
+      import { draw, type Canvas } from "./drawing";
+      import "./setup";
+      export type { Size } from "./size";
+      export { paint, type Brush } from "./painting";
+      const later = () => import("./lazy");
+      // import "./comment";
+      const text = 'import "./text"';
+    `;
+    expect(dependencies("fixture.ts", source)).toEqual([
+      "./shape",
+      "./color",
+      "./drawing",
+      "./setup",
+      "./size",
+      "./painting",
+      "./lazy",
+    ]);
+    expect(dependencies("fixture.ts", source, true)).toEqual([
+      "./drawing",
+      "./setup",
+      "./painting",
+    ]);
+  });
+
   it("keeps browse features free of runtime import cycles", () => {
     const files = sourceFiles(SOURCE_ROOT).filter(
       (file) => !file.includes(".test.") && !file.endsWith(".d.ts"),
@@ -58,41 +119,22 @@ describe("frontend module boundaries", () => {
     const known = new Set(files);
     const graph = new Map(
       files.map((file) => {
-        const parsed = ts.createSourceFile(
-          file,
-          fs.readFileSync(file, "utf8"),
-          ts.ScriptTarget.Latest,
-        );
         const imports: string[] = [];
-        parsed.statements.forEach((statement) => {
-          if (
-            !ts.isImportDeclaration(statement) &&
-            !ts.isExportDeclaration(statement)
-          )
-            return;
-          if (
-            !statement.moduleSpecifier ||
-            !ts.isStringLiteral(statement.moduleSpecifier)
-          )
-            return;
-          if (
-            ts.isImportDeclaration(statement)
-              ? statement.importClause?.isTypeOnly
-              : statement.isTypeOnly
-          )
-            return;
-          const target = targetPath(file, statement.moduleSpecifier.text);
-          if (!target) return;
-          const base = path.join(SOURCE_ROOT, target);
-          const resolved = [
-            base,
-            `${base}.ts`,
-            `${base}.tsx`,
-            path.join(base, "index.ts"),
-            path.join(base, "index.tsx"),
-          ].find((candidate) => known.has(candidate));
-          if (resolved) imports.push(resolved);
-        });
+        dependencies(file, fs.readFileSync(file, "utf8"), true).forEach(
+          (specifier) => {
+            const target = targetPath(file, specifier);
+            if (!target) return;
+            const base = path.join(SOURCE_ROOT, target);
+            const resolved = [
+              base,
+              `${base}.ts`,
+              `${base}.tsx`,
+              path.join(base, "index.ts"),
+              path.join(base, "index.tsx"),
+            ].find((candidate) => known.has(candidate));
+            if (resolved) imports.push(resolved);
+          },
+        );
         return [file, imports] as const;
       }),
     );
@@ -127,8 +169,8 @@ describe("frontend module boundaries", () => {
       const owner = moduleOwner(source);
       const contents = fs.readFileSync(file, "utf8");
 
-      for (const match of contents.matchAll(IMPORT)) {
-        const target = targetPath(file, match[1]);
+      for (const specifier of dependencies(file, contents)) {
+        const target = targetPath(file, specifier);
         if (!target) continue;
         const targetOwner = moduleOwner(target);
         if (!targetOwner) continue;
@@ -150,7 +192,7 @@ describe("frontend module boundaries", () => {
           HEADLESS_FEATURE_ENTRYPOINTS.has(targetOwner.name);
 
         if (!isPublic && !isAppRoute && !isEntityModel && !isFeatureModel)
-          violations.push(`${source} -> ${match[1]}`);
+          violations.push(`${source} -> ${specifier}`);
       }
     }
 
@@ -165,8 +207,8 @@ describe("frontend module boundaries", () => {
       const sourceLayer = moduleLayer(source);
       const contents = fs.readFileSync(file, "utf8");
 
-      for (const match of contents.matchAll(IMPORT)) {
-        const target = targetPath(file, match[1]);
+      for (const specifier of dependencies(file, contents)) {
+        const target = targetPath(file, specifier);
         if (!target) continue;
         const targetLayer = moduleLayer(target);
 
@@ -180,7 +222,7 @@ describe("frontend module boundaries", () => {
           sourceLayer === "features" && targetLayer === "app";
 
         if (sharedViolation || entityViolation || featureViolation)
-          violations.push(`${source} -> ${match[1]}`);
+          violations.push(`${source} -> ${specifier}`);
       }
     }
 
@@ -191,7 +233,6 @@ describe("frontend module boundaries", () => {
     const allowedRootFiles = new Set([
       "architectureBoundaries.test.ts",
       "index.tsx",
-      "react-app-env.d.ts",
       "types.d.ts",
     ]);
     const rootRuntimeFiles = fs
