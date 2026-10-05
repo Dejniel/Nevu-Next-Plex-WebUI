@@ -37,7 +37,7 @@ export async function getLocalMediaMatches(
           });
           const response = await client.get<{
             MediaContainer?: Plex.MediaContainer;
-          }>(`/library/all?${params}`);
+          }>(`/library/all?${params}`, signal);
           const container = response.MediaContainer;
           if (!container)
             throw new Error("Plex returned invalid availability data.");

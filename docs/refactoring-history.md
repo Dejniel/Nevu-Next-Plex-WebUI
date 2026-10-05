@@ -2,6 +2,14 @@
 
 Status: structural migration completed on 2026-09-29
 
+## Browse cache cleanup — 2026-10-05
+
+Library, collection/playlist, Watchlist, and local-availability requests now use
+one TanStack Query client. A shared range adapter preserves random catalog
+generations, playlist positions, explicit retries, and atomic visible-window
+refreshes. Session cleanup cancels all cached requests; cancellation now reaches
+the Plex HTTP transport. Inactive range caches expire after five minutes.
+
 ## Plex reviews — 2026-10-05
 
 Written reviews can be created and edited directly through Plex Community, using

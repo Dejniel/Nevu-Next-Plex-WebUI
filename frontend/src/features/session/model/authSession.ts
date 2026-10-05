@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { clearLibraryCache } from "shared/lib/libraryCache";
+import { serverQueryClient } from "shared/api/queryClient";
 import {
   getHomeProfiles,
   getPlexUser,
@@ -40,7 +40,7 @@ interface AuthSessionState {
 let operationGeneration = 0;
 
 function resetSessionData() {
-  clearLibraryCache();
+  serverQueryClient.clear();
   useServerSession.getState().reset();
 }
 

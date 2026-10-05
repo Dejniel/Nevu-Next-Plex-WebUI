@@ -16,6 +16,7 @@ it("adds Plex authentication headers to requests", async () => {
     "GET",
     { "X-Plex-Token": "server-token", accept: "application/json" },
     undefined,
+    undefined,
   );
 });
 
@@ -28,4 +29,11 @@ it("reports non-successful Plex responses with their status", async () => {
       response: "unavailable",
     }),
   );
+});
+
+it("passes request cancellation through to the HTTP transport", async () => {
+  transport.mockResolvedValue({ status: 200, data: {} });
+  const controller = new AbortController();
+  await client.get("/library/all", controller.signal);
+  expect(transport.mock.calls[0][4]).toBe(controller.signal);
 });

@@ -420,9 +420,10 @@ it("ignores in-flight responses after the store is cleared", async () => {
 it("keeps old positions until a complete visible replacement is ready and drops other cached ranges", async () => {
   const completions = new Map<number, (value: LibraryPageDto) => void>();
   let refreshing = false;
-  const store = new LibraryRangeStore((request) => refreshing
-    ? new Promise((resolve) => completions.set(request.offset, resolve))
+  const fetch = vi.fn((request: LibraryPageRequest) => refreshing
+    ? new Promise<LibraryPageDto>((resolve) => completions.set(request.offset, resolve))
     : Promise.resolve(page(request, [card(`old-${request.offset}`)], 192)));
+  const store = new LibraryRangeStore(fetch);
   const key = store.ensure(query());
   store.demand(key, 0, 191);
   await flush();
@@ -430,13 +431,15 @@ it("keeps old positions until a complete visible replacement is ready and drops 
   const before = [...store.getSnapshot(key).items];
   refreshing = true;
   const pending = store.revalidateQuery(key);
-  expect(store.revalidateQuery(key)).toBe(pending);
+  const shared = store.revalidateQuery(key);
   await flush();
+  expect(fetch).toHaveBeenCalledTimes(4);
   completions.get(0)!({ offset: 0, size: 1, totalSize: 192, hasMore: true, items: [card("new-0")] });
   await flush();
   expect([...store.getSnapshot(key).items]).toEqual(before);
   completions.get(64)!({ offset: 64, size: 1, totalSize: 192, hasMore: true, items: [card("new-64")] });
-  await pending;
+  await Promise.all([pending, shared]);
+  expect(fetch).toHaveBeenCalledTimes(5);
   expect([...store.getSnapshot(key).items.keys()]).toEqual([0, 64]);
   expect(store.getSnapshot(key).items.get(64)?.ratingKey).toBe("new-64");
 });

@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { serverQueryClient } from "shared/api/queryClient";
 import { subscribeToLibraryCache } from "shared/lib/libraryCache";
 import { useAutoRefresh } from "shared/lib/useAutoRefresh";
 import { getLocalMediaMatches } from "../api/mediaAvailability";
@@ -15,83 +17,26 @@ export function useMediaAvailability(
 ) {
   const key = JSON.stringify([...new Set(guids)].sort());
   const requested = useMemo<string[]>(() => JSON.parse(key), [key]);
-  const request = useRef<() => Promise<void>>(async () => undefined);
-  const [state, setState] = useState({
-    profileKey,
-    items: empty,
-    ready: false,
-    loading: Boolean(profileKey && requested.length),
-    error: null as string | null,
-  });
-
-  useEffect(() => {
-    let active = true;
-    let pending: Promise<void> | null = null;
-    const controller = new AbortController();
-    const refresh = () => {
-      if (pending) return pending;
-      if (!profileKey || !requested.length) {
-        setState({
-          profileKey,
-          items: empty,
-          ready: true,
-          loading: false,
-          error: null,
-        });
-        return Promise.resolve();
-      }
-      setState((previous) => ({
-        ...previous,
-        profileKey,
-        items: previous.profileKey === profileKey ? previous.items : empty,
-        ready: previous.profileKey === profileKey && previous.ready,
-        loading: !(previous.profileKey === profileKey && previous.ready),
-        error: null,
-      }));
-      pending = getLocalMediaMatches(requested, controller.signal)
-        .then((items) => {
-          if (active)
-            setState({
-              profileKey,
-              items: indexMediaAvailability(items),
-              ready: true,
-              loading: false,
-              error: null,
-            });
-        })
-        .catch(() => {
-          if (active)
-            setState((previous) => ({
-              ...previous,
-              loading: false,
-              error:
-                "Could not check which titles are available on this server.",
-            }));
-        })
-        .finally(() => {
-          pending = null;
-        });
-      return pending;
-    };
-    request.current = refresh;
-    void refresh();
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [key, profileKey, requested]);
-
+  const enabled = Boolean(profileKey && requested.length);
+  const result = useQuery(
+    {
+      queryKey: ["availability", profileKey, key],
+      enabled,
+      queryFn: async ({ signal }) =>
+        indexMediaAvailability(await getLocalMediaMatches(requested, signal)),
+    },
+    serverQueryClient,
+  );
   const refresh = useAutoRefresh(
-    profileKey && requested.length ? `${profileKey}:${key}` : null,
-    () => request.current(),
+    enabled ? `${profileKey}:${key}` : null,
+    async () => {
+      await result.refetch({ cancelRefetch: false });
+    },
   );
   useEffect(
     () =>
-      subscribeToLibraryCache((action, scope) => {
-        if (
-          action === "invalidate" &&
-          (!scope?.profileKey || scope.profileKey === profileKey)
-        )
+      subscribeToLibraryCache((scope) => {
+        if (!scope?.profileKey || scope.profileKey === profileKey)
           refresh.current?.invalidate();
       }),
     [profileKey, refresh],
@@ -99,11 +44,13 @@ export function useMediaAvailability(
   const retry = useCallback(() => {
     void refresh.current?.refresh();
   }, [refresh]);
-  const current = state.profileKey === profileKey;
   return {
-    items: current ? state.items : empty,
-    loading: current ? state.loading : Boolean(profileKey && requested.length),
-    error: current ? state.error : null,
+    items: enabled ? (result.data ?? empty) : empty,
+    loading: enabled && result.isPending,
+    error:
+      enabled && result.isError
+        ? "Could not check which titles are available on this server."
+        : null,
     retry,
   };
 }

@@ -10,8 +10,7 @@ It is not a second rewrite and should not drive file movement for its own sake.
 
 ### Current focus
 
-- Simplify reusable media actions and make their loading and permission rules
-  explicit and testable.
+- Make Plex notification updates more selective and reduce browse refresh costs.
 - Reduce large composition components where it clarifies a workflow or supports
   planned product work.
 
@@ -21,7 +20,6 @@ It is not a second rewrite and should not drive file movement for its own sake.
   namespace.
 - Revisit match state management when matching gains more criteria, providers,
   or support for additional media types.
-- Make Plex notification updates more selective and reduce browse refresh costs.
 
 ## Working approach
 
@@ -35,6 +33,13 @@ It is not a second rewrite and should not drive file movement for its own sake.
 - Remove replaced implementations once their callers have migrated.
 
 ## Recommended next steps
+
+### Browse cache ownership — complete
+
+TanStack Query owns request state and cache lifetime for library, media lists,
+Watchlist, and availability. `PagedCollection` shares range loading and atomic
+window replacement; adapters retain Plex-specific ordering and catalog rules.
+Selective notification updates below remain separate work.
 
 ### 1. Lazy media metadata resource — complete
 

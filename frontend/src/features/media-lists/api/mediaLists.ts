@@ -64,7 +64,7 @@ async function readWindow<T>(
     const remaining = size - items.length;
     params.set("X-Plex-Container-Start", String(start));
     params.set("X-Plex-Container-Size", String(remaining));
-    const response = await client.get<Container<T>>(`${path}?${params}`);
+    const response = await client.get<Container<T>>(`${path}?${params}`, signal);
     const container = response.MediaContainer;
     if (!container) throw new Error("Plex returned invalid media list data.");
     const page = container.Metadata ?? [];
@@ -163,7 +163,7 @@ export function createMediaListSource(
   return {
     async summary(): Promise<MediaListSummary | null> {
       if (!query.id) return null;
-      const response = await client.get<Container<ListMetadata>>(path);
+      const response = await client.get<Container<ListMetadata>>(path, signal);
       const item = response.MediaContainer?.Metadata?.[0];
       if (!item)
         throw new Error(

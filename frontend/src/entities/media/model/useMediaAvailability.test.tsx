@@ -1,4 +1,8 @@
 import type { Mock } from "vitest";
+import { notifyManager } from "@tanstack/react-query";
+import { serverQueryClient } from "shared/api/queryClient";
+beforeAll(() => notifyManager.setScheduler(queueMicrotask));
+afterAll(() => notifyManager.setScheduler((callback) => setTimeout(callback, 0)));
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { invalidateLibraryCache } from "shared/lib/libraryCache";
@@ -29,6 +33,7 @@ async function render() {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  serverQueryClient.clear();
   (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;

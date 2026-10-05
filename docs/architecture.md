@@ -91,8 +91,13 @@ It also checks runtime import cycles reachable from the browse features.
 Headless entry points help non-UI consumers avoid UI dependencies or cycles.
 
 Browse models retain their caches during background revalidation. `shared/lib`
-owns the visible-tab refresh scheduler and atomic page-window loader; features
-own their queries and invalidation rules. Session supplies a common profile key
+owns the visible-tab refresh scheduler, prioritized range queue, and atomic
+page-window loader. TanStack Query owns request cancellation, sharing, freshness,
+and cache lifetime through one `serverQueryClient`. `PagedCollection` preserves
+absolute positions and replaces a visible window atomically; library and media
+list adapters supply Plex queries and catalog rules. Watchlist and availability
+use the same client. Features own invalidation rules; session changes clear all
+cached requests and data. Session supplies a common profile key
 and owns the authenticated Plex SSE connection through the existing HTTP proxy.
 `app` routes its hints through headless model contracts. Events are coalesced;
 focus, reconnect and a visible-view interval also check freshness, including
@@ -113,8 +118,8 @@ engine. Plex supplies conversions; Nevu has no separate transcoder.
 - Plex transport and HTTP error conversion live in `shared/api/PlexClient.ts`;
   token and Plex session parameters are supplied by the headless session model.
 - Feature API modules translate transport data into the feature contract.
-- Prefer feature-owned server data caches and global stores for session or
-  application state.
+- Keep queries and invalidation rules in their features; use global stores for
+  session or application state.
 - Keep pure parsing, normalization, and query-key functions in `model`, with
   focused tests where useful.
 - Reuse feature API operations instead of duplicating requests in components.

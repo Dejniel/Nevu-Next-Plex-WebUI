@@ -7,6 +7,7 @@ type PlexTransport = (
   method: PlexHttpMethod,
   headers?: Record<string, string>,
   data?: unknown,
+  signal?: AbortSignal,
 ) => Promise<{ status: number; data: any }>;
 
 export class PlexRequestError extends Error {
@@ -25,7 +26,12 @@ export class PlexClient {
     private readonly transport: PlexTransport = ProxiedRequest,
   ) {}
 
-  async request<T = any>(url: string, method: PlexHttpMethod, body?: unknown) {
+  async request<T = any>(
+    url: string,
+    method: PlexHttpMethod,
+    body?: unknown,
+    signal?: AbortSignal,
+  ) {
     const response = await this.transport(
       url,
       method,
@@ -34,14 +40,15 @@ export class PlexClient {
         accept: "application/json",
       },
       body,
+      signal,
     );
 
     if (response.status === 200) return response.data as T;
     throw new PlexRequestError(response.status, response.data);
   }
 
-  get<T = any>(url: string) {
-    return this.request<T>(url, "GET");
+  get<T = any>(url: string, signal?: AbortSignal) {
+    return this.request<T>(url, "GET", undefined, signal);
   }
 
   post<T = any>(url: string, body?: unknown) {

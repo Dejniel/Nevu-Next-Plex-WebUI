@@ -1,4 +1,6 @@
 import type { Mock } from "vitest";
+import { serverQueryClient } from "shared/api/queryClient";
+import { watchlistQueryKey } from "../model/watchlistStore";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -31,8 +33,8 @@ vi.mock("entities/library/model", () => ({
   ],
 }));
 vi.mock("features/settings/model", () => ({
-  useUserSettings: (select: (state: unknown) => unknown) =>
-    select({ profileKey: "user:1" }),
+  useUserSettings: Object.assign((select: (state: unknown) => unknown) =>
+    select({ profileKey: "user:1" }), { getState: () => ({ profileKey: "user:1" }) }),
 }));
 vi.mock("features/library/public", () => ({
   getLibraryCardWidth: () => 200,
@@ -107,7 +109,7 @@ beforeEach(() => {
   ).IS_REACT_ACT_ENVIRONMENT = true;
   mockWatchlist.getState().reset();
   (getWatchlist as Mock).mockResolvedValue(items);
-  mockWatchlist.setState({ items, status: "ready" });
+  serverQueryClient.setQueryData(watchlistQueryKey(), { items, loaded: true });
   (useMediaAvailability as Mock).mockReturnValue({
     items: indexMediaAvailability(copies),
     loading: false,

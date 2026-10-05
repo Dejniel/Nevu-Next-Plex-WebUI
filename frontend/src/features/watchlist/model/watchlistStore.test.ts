@@ -1,10 +1,13 @@
 import type { Mock } from "vitest";
+import { serverQueryClient } from "shared/api/queryClient";
+import { useUserSettings } from "features/settings/model";
 import {
   addToWatchlist,
   getWatchlist,
   removeFromWatchlist,
 } from "../api/watchlist";
-import { useWatchlist } from "./watchlistStore";
+import { useWatchlist, watchlistQueryKey } from "./watchlistStore";
+const seed = (items: Plex.Metadata[]) => serverQueryClient.setQueryData(watchlistQueryKey(), { items, loaded: true });
 
 vi.mock("../api/watchlist", () => ({
   addToWatchlist: vi.fn(),
@@ -16,6 +19,7 @@ const item = (guid: string) => ({ guid, ratingKey: guid }) as Plex.Metadata;
 
 beforeEach(() => {
   vi.resetAllMocks();
+  useUserSettings.setState({ profileKey: "owner:1" });
   useWatchlist.getState().reset();
 });
 
@@ -105,11 +109,11 @@ it("shares a pending refresh and merges new titles from both the response and mu
   (getWatchlist as Mock).mockReturnValue(request.promise);
   (addToWatchlist as Mock).mockResolvedValue(undefined);
   const first = useWatchlist.getState().load();
-  expect(useWatchlist.getState().load()).toBe(first);
+  const duplicate = useWatchlist.getState().load();
   expect(useWatchlist.getState().status).toBe("loading");
   await useWatchlist.getState().add(item("added"));
   request.resolve([item("fetched")]);
-  await first;
+  await Promise.all([first, duplicate]);
   expect(useWatchlist.getState().items.map((entry) => entry.guid)).toEqual([
     "added",
     "fetched",
@@ -122,7 +126,7 @@ it("keeps successful removals when an older refresh includes that title", async 
   const request = deferred<Plex.Metadata[]>();
   (getWatchlist as Mock).mockReturnValue(request.promise);
   (removeFromWatchlist as Mock).mockResolvedValue(undefined);
-  useWatchlist.setState({ items: [item("removed"), item("kept")] });
+  seed([item("removed"), item("kept")]);
   const load = useWatchlist.getState().load();
   await useWatchlist.getState().remove("removed");
   request.resolve([item("removed"), item("kept"), item("new")]);
@@ -134,7 +138,7 @@ it("keeps successful removals when an older refresh includes that title", async 
 });
 
 it("retains cached items after a failure and allows retry without an unhandled rejection", async () => {
-  useWatchlist.setState({ items: [item("cached")] });
+  seed([item("cached")]);
   (getWatchlist as Mock)
     .mockRejectedValueOnce(new Error("offline"))
     .mockResolvedValueOnce([item("updated")]);
@@ -165,20 +169,21 @@ it("aborts the previous profile's refresh without clearing the next profile's pe
   const nextLoad = useWatchlist.getState().load();
   old.resolve([item("old")]);
   await oldLoad;
-  expect(useWatchlist.getState().load()).toBe(nextLoad);
+  const sharedNext = useWatchlist.getState().load();
+  expect(getWatchlist).toHaveBeenCalledTimes(2);
   expect(useWatchlist.getState().items).toEqual([]);
   next.resolve([item("next")]);
-  await nextLoad;
+  await Promise.all([nextLoad, sharedNext]);
   expect(useWatchlist.getState().items).toEqual([item("next")]);
 });
 
 it("does not remove a title from the next profile after an old removal finishes", async () => {
   const request = deferred<void>();
   (removeFromWatchlist as Mock).mockReturnValue(request.promise);
-  useWatchlist.setState({ items: [item("same")] });
+  seed([item("same")]);
   const removal = useWatchlist.getState().remove("same");
   useWatchlist.getState().reset();
-  useWatchlist.setState({ items: [item("same")] });
+  seed([item("same")]);
   request.resolve();
   await removal;
   expect(useWatchlist.getState().items).toEqual([item("same")]);

@@ -1,4 +1,5 @@
 import type { Mock } from "vitest";
+import { serverQueryClient } from "shared/api/queryClient";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useUserSettings } from "features/settings/model";
@@ -31,6 +32,7 @@ const items = (offset: number, length = 100) =>
 
 beforeEach(() => {
   vi.resetAllMocks();
+  serverQueryClient.clear();
   (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
@@ -120,12 +122,13 @@ it("limits concurrent requests and stops requesting past the end", async () => {
 });
 
 it("finishes an empty list and retries an unavailable source", async () => {
-  source.mockImplementationOnce(() => {
+  source.mockImplementation(() => {
     throw new Error("missing session");
   });
   await render();
   expect(state.loading).toBe(false);
   expect(state.error).toBe("missing session");
+  source.mockReturnValue({ page, summary });
   page.mockResolvedValueOnce({ offset: 0, total: 0, items: [] });
   await act(async () => state.retry());
   expect(state.error).toBeNull();
@@ -135,12 +138,15 @@ it("finishes an empty list and retries an unavailable source", async () => {
 
 it("does not issue list requests without a profile and aborts old windows", async () => {
   await render();
-  const signal = source.mock.calls[0][1] as AbortSignal;
+  const pending = deferred<MediaListPage>();
+  page.mockReturnValueOnce(pending.promise);
+  await act(async () => state.requestRange({ start: 100, end: 199 }));
+  const signal = source.mock.lastCall![1] as AbortSignal;
   await act(async () => useUserSettings.setState({ profileKey: null }));
   expect(signal.aborted).toBe(true);
   expect(state.loading).toBe(false);
   expect(state.items.size).toBe(0);
-  expect(source).toHaveBeenCalledTimes(1);
+  expect(page).toHaveBeenCalledTimes(2);
 });
 
 it("refreshes a changed list for its profile without refreshing unrelated lists", async () => {
@@ -159,10 +165,9 @@ it("refreshes a changed list for its profile without refreshing unrelated lists"
     changed({ profileKey: "owner:2" });
     changed({ kind: "collection" });
   });
-  expect(source).toHaveBeenCalledTimes(1);
+  expect(page).toHaveBeenCalledTimes(1);
   await act(async () => changed());
   await act(async () => vi.advanceTimersByTime(500));
-  expect(source).toHaveBeenCalledTimes(2);
   expect(page).toHaveBeenCalledTimes(2);
   vi.useRealTimers();
 });
@@ -191,7 +196,7 @@ it("keeps the grid visible and replaces only the current window atomically after
   });
   expect(state.loading).toBe(false);
   expect([...state.items]).toEqual(oldItems);
-  expect(source).toHaveBeenCalledTimes(2);
+  expect(page).toHaveBeenCalledTimes(4);
   await act(async () =>
     first.resolve({ offset: 0, total: 400, items: items(0) }),
   );
@@ -236,7 +241,7 @@ it("ignores a pre-refresh page and a replacement completed after switching profi
   const replacement = deferred<MediaListPage>();
   page.mockReturnValueOnce(replacement.promise);
   await act(async () => state.refresh());
-  const signal = source.mock.calls[1][1] as AbortSignal;
+  const signal = source.mock.lastCall![1] as AbortSignal;
   await act(async () => useUserSettings.setState({ profileKey: "owner:2" }));
   expect(signal.aborted).toBe(true);
   await act(async () => {
@@ -245,4 +250,13 @@ it("ignores a pre-refresh page and a replacement completed after switching profi
   });
   expect(state.total).toBe(500);
   expect(state.items.size).toBe(100);
+});
+
+it("recreates a mounted list after the session cache is cleared", async () => {
+  await render();
+  page.mockResolvedValueOnce({ offset: 0, total: 1, items: items(0, 1) });
+  await act(async () => serverQueryClient.clear());
+  expect(state.total).toBe(1);
+  expect(state.items.size).toBe(1);
+  expect(state.loading).toBe(false);
 });

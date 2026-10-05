@@ -1,5 +1,4 @@
 import {
-  clearLibraryCache,
   invalidateLibraryCache,
   subscribeToLibraryCache,
 } from "./libraryCache";
@@ -9,9 +8,8 @@ it("notifies active library cache owners", () => {
   const unsubscribe = subscribeToLibraryCache(listener);
 
   invalidateLibraryCache();
-  clearLibraryCache();
   unsubscribe();
   invalidateLibraryCache();
 
-  expect(listener.mock.calls).toEqual([["invalidate"], ["clear"]]);
+  expect(listener.mock.calls).toEqual([[]]);
 });
