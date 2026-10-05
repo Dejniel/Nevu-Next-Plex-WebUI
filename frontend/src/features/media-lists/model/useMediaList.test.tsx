@@ -2,12 +2,9 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useUserSettings } from "features/settings/model";
 import { createMediaListSource } from "../api/mediaLists";
-import {
-  MEDIA_LISTS_CHANGED_EVENT,
-  type MediaListPage,
-  type MediaListQuery,
-} from "./mediaLists";
+import { type MediaListPage, type MediaListQuery } from "./mediaLists";
 import { useMediaList } from "./useMediaList";
+import { invalidateMediaLists } from "./listChanges";
 
 jest.mock("../api/mediaLists", () => ({ createMediaListSource: jest.fn() }));
 const source = createMediaListSource as jest.Mock;
@@ -49,6 +46,7 @@ beforeEach(() => {
 });
 afterEach(async () => {
   await act(async () => root.unmount());
+  jest.useRealTimers();
 });
 
 it("starts the first page itself and deduplicates overlapping grid demand", async () => {
@@ -145,19 +143,16 @@ it("does not issue list requests without a profile and aborts old windows", asyn
 });
 
 it("refreshes a changed list for its profile without refreshing unrelated lists", async () => {
+  jest.useFakeTimers();
   await render();
   const changed = (extra = {}) =>
-    window.dispatchEvent(
-      new CustomEvent(MEDIA_LISTS_CHANGED_EVENT, {
-        detail: {
-          kind: "playlist",
-          id: "20",
-          libraryID: "2",
-          profileKey: "owner:1",
-          ...extra,
-        },
-      }),
-    );
+    invalidateMediaLists({
+      kind: "playlist",
+      id: "20",
+      libraryID: "2",
+      profileKey: "owner:1",
+      ...extra,
+    });
   await act(async () => {
     changed({ id: "21" });
     changed({ profileKey: "owner:2" });
@@ -165,6 +160,88 @@ it("refreshes a changed list for its profile without refreshing unrelated lists"
   });
   expect(source).toHaveBeenCalledTimes(1);
   await act(async () => changed());
+  await act(async () => jest.advanceTimersByTime(500));
   expect(source).toHaveBeenCalledTimes(2);
   expect(page).toHaveBeenCalledTimes(2);
+  jest.useRealTimers();
+});
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((finish) => {
+    resolve = finish;
+  });
+  return { promise, resolve };
+}
+
+it("keeps the grid visible and replaces only the current window atomically after reordering", async () => {
+  await render();
+  await act(async () => state.requestRange({ start: 100, end: 199 }));
+  await act(async () => state.requestRange({ start: 300, end: 399 }));
+  const first = deferred<MediaListPage>();
+  const last = deferred<MediaListPage>();
+  page.mockImplementation((offset: number) =>
+    offset === 0 ? first.promise : last.promise,
+  );
+  const oldItems = [...state.items];
+  await act(async () => {
+    state.refresh();
+    state.refresh();
+  });
+  expect(state.loading).toBe(false);
+  expect([...state.items]).toEqual(oldItems);
+  expect(source).toHaveBeenCalledTimes(2);
+  await act(async () =>
+    first.resolve({ offset: 0, total: 400, items: items(0) }),
+  );
+  expect([...state.items]).toEqual(oldItems);
+  await act(async () =>
+    last.resolve({ offset: 300, total: 400, items: items(300) }),
+  );
+  expect(state.items.size).toBe(200);
+  expect(state.items.has(100)).toBe(false);
+  expect(state.items.get(300)?.kind).toBe("media");
+  expect(state.total).toBe(400);
+});
+
+it("retains cached positions on a failed background refresh and retries the complete window", async () => {
+  await render();
+  await act(async () => state.requestRange({ start: 100, end: 199 }));
+  const before = [...state.items];
+  page.mockImplementation(async (offset: number) => {
+    if (offset === 100) throw new Error("offline");
+    return { offset, total: 500, items: items(offset) };
+  });
+  await act(async () => state.refresh());
+  expect(state.error).toBe("offline");
+  expect(state.loading).toBe(false);
+  expect([...state.items]).toEqual(before);
+  page.mockImplementation(async (offset: number) => ({
+    offset,
+    total: 200,
+    items: items(offset),
+  }));
+  await act(async () => state.retry());
+  expect(state.error).toBeNull();
+  expect(state.total).toBe(200);
+  expect(state.items.size).toBe(200);
+});
+
+it("ignores a pre-refresh page and a replacement completed after switching profiles", async () => {
+  await render();
+  const oldPage = deferred<MediaListPage>();
+  page.mockReturnValueOnce(oldPage.promise);
+  await act(async () => state.requestRange({ start: 100, end: 199 }));
+  const replacement = deferred<MediaListPage>();
+  page.mockReturnValueOnce(replacement.promise);
+  await act(async () => state.refresh());
+  const signal = source.mock.calls[1][1] as AbortSignal;
+  await act(async () => useUserSettings.setState({ profileKey: "owner:2" }));
+  expect(signal.aborted).toBe(true);
+  await act(async () => {
+    oldPage.resolve({ offset: 100, total: 1, items: items(100, 1) });
+    replacement.resolve({ offset: 0, total: 1, items: items(0, 1) });
+  });
+  expect(state.total).toBe(500);
+  expect(state.items.size).toBe(100);
 });

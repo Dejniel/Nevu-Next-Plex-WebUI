@@ -1,7 +1,7 @@
 import { AuthStorage, useServerSession } from "features/session/model";
 import { PlexClient } from "shared/api/PlexClient";
 import { useUserSettings } from "features/settings/model";
-import { MEDIA_LISTS_CHANGED_EVENT } from "../model/mediaLists";
+import { invalidateMediaLists } from "../model/listChanges";
 import {
   assertMediaListItem,
   type MediaListItem,
@@ -290,6 +290,8 @@ export async function saveMediaListItem(
   const client = clientForSession();
   const token = AuthStorage.getServerToken();
   const profileKey = useUserSettings.getState().profileKey;
+  if (!profileKey)
+    throw new Error("The active Plex profile is unavailable. Sign in again.");
   const server = useServerSession.getState().server?.machineIdentifier;
   if (!server)
     throw new Error("The active Plex server is unavailable. Please try again.");
@@ -343,7 +345,7 @@ export async function saveMediaListItem(
     const created = response.MediaContainer?.Metadata?.[0];
     if (!created)
       throw new Error(
-        "Plex did not return the new list. Refresh the lists before trying again.",
+        "Plex did not return the new list. Open the list again before trying again.",
       );
     result = listSummary(created, kind);
     if (kind === "collection") result.libraryID = String(item.librarySectionID);
@@ -352,15 +354,11 @@ export async function saveMediaListItem(
     AuthStorage.getServerToken() === token &&
     useUserSettings.getState().profileKey === profileKey
   )
-    window.dispatchEvent(
-      new CustomEvent(MEDIA_LISTS_CHANGED_EVENT, {
-        detail: {
-          kind,
-          id: result.id,
-          libraryID: String(item.librarySectionID),
-          profileKey,
-        },
-      }),
-    );
+    invalidateMediaLists({
+      kind,
+      id: result.id,
+      libraryID: String(item.librarySectionID),
+      profileKey,
+    });
   return result;
 }

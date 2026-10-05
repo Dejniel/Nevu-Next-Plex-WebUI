@@ -1,6 +1,14 @@
 export type LibraryCacheAction = "invalidate" | "clear";
 
-type LibraryCacheListener = (action: LibraryCacheAction) => void;
+export interface LibraryCacheScope {
+  profileKey?: string;
+  sectionId?: string;
+}
+
+type LibraryCacheListener = (
+  action: LibraryCacheAction,
+  scope?: LibraryCacheScope,
+) => void;
 
 const listeners = new Set<LibraryCacheListener>();
 
@@ -11,8 +19,10 @@ export function subscribeToLibraryCache(listener: LibraryCacheListener) {
   };
 }
 
-export function invalidateLibraryCache() {
-  listeners.forEach((listener) => listener("invalidate"));
+export function invalidateLibraryCache(scope?: LibraryCacheScope) {
+  listeners.forEach((listener) =>
+    scope ? listener("invalidate", scope) : listener("invalidate"),
+  );
 }
 
 export function clearLibraryCache() {

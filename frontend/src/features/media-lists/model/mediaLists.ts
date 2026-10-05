@@ -1,5 +1,4 @@
 export type MediaListKind = "collection" | "playlist";
-export const MEDIA_LISTS_CHANGED_EVENT = "nevu:media-lists-changed";
 
 export interface MediaListSummary {
   kind: MediaListKind;

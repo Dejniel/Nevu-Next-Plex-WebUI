@@ -13,6 +13,7 @@ import {
   libraryQueryKey,
   useLibraryQueryRange,
 } from "./LibraryRangeStore";
+import { invalidateLibraryCache } from "shared/lib/libraryCache";
 import { LibraryPageError } from "../api/libraryPage";
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -276,7 +277,7 @@ it("rechecks an empty cached library when its query is reactivated", async () =>
 
   store.release(key);
   store.ensure(libraryQuery);
-  expect(store.getSnapshot(key).totalSize).toBeNull();
+  expect(store.getSnapshot(key).totalSize).toBe(0);
   store.demand(key, 0, 0);
   await flush();
   expect(requests).toHaveLength(2);
@@ -414,4 +415,94 @@ it("ignores in-flight responses after the store is cleared", async () => {
   await flush();
 
   expect(store.getSnapshot(key).items.size).toBe(0);
+});
+
+it("keeps old positions until a complete visible replacement is ready and drops other cached ranges", async () => {
+  const completions = new Map<number, (value: LibraryPageDto) => void>();
+  let refreshing = false;
+  const store = new LibraryRangeStore((request) => refreshing
+    ? new Promise((resolve) => completions.set(request.offset, resolve))
+    : Promise.resolve(page(request, [card(`old-${request.offset}`)], 192)));
+  const key = store.ensure(query());
+  store.demand(key, 0, 191);
+  await flush();
+  store.demand(key, 64, 127);
+  const before = [...store.getSnapshot(key).items];
+  refreshing = true;
+  const pending = store.revalidateQuery(key);
+  expect(store.revalidateQuery(key)).toBe(pending);
+  await flush();
+  completions.get(0)!({ offset: 0, size: 1, totalSize: 192, hasMore: true, items: [card("new-0")] });
+  await flush();
+  expect([...store.getSnapshot(key).items]).toEqual(before);
+  completions.get(64)!({ offset: 64, size: 1, totalSize: 192, hasMore: true, items: [card("new-64")] });
+  await pending;
+  expect([...store.getSnapshot(key).items.keys()]).toEqual([0, 64]);
+  expect(store.getSnapshot(key).items.get(64)?.ratingKey).toBe("new-64");
+});
+
+it("retains cached library data after a failed refresh and retries atomically", async () => {
+  let fail = false;
+  const store = new LibraryRangeStore(async (request) => {
+    if (fail) throw new Error("offline");
+    return page(request, [card("cached")], 1);
+  });
+  const key = store.ensure(query());
+  store.demand(key, 0, 63);
+  await flush();
+  fail = true;
+  await store.revalidateQuery(key);
+  expect(store.getSnapshot(key).items.get(0)?.ratingKey).toBe("cached");
+  expect(store.getSnapshot(key).errors.get(0)?.message).toBe("offline");
+  fail = false;
+  store.retry(key, 0);
+  await flush();
+  expect(store.getSnapshot(key).errors.size).toBe(0);
+});
+
+it("routes library invalidation to the matching mounted profile and section", async () => {
+  jest.useFakeTimers();
+  libraryRangeStore.clear();
+  const refresh = jest.spyOn(libraryRangeStore, "revalidateQuery").mockResolvedValue(undefined);
+  const root = createRoot(document.createElement("div"));
+  await act(async () => root.render(React.createElement(QueryRetentionHarness, { value: query() })));
+  await act(async () => {
+    invalidateLibraryCache({ profileKey: "other", sectionId: "1" });
+    invalidateLibraryCache({ profileKey: "owner", sectionId: "2" });
+    jest.advanceTimersByTime(500);
+  });
+  expect(refresh).not.toHaveBeenCalled();
+  await act(async () => {
+    invalidateLibraryCache({ profileKey: "owner", sectionId: "1" });
+    jest.advanceTimersByTime(500);
+  });
+  expect(refresh).toHaveBeenCalledTimes(1);
+  await act(async () => root.unmount());
+  refresh.mockRestore();
+  libraryRangeStore.clear();
+  jest.useRealTimers();
+});
+
+it("aborts an inactive replacement and does not let it overwrite a reactivated query", async () => {
+  const requests: Array<{ signal?: AbortSignal; resolve: (page: LibraryPageDto) => void }> = [];
+  let initial = true;
+  const store = new LibraryRangeStore((request, signal) => initial
+    ? Promise.resolve(page(request, [card("cached")], 1))
+    : new Promise((resolve) => requests.push({ signal, resolve })));
+  const key = store.ensure(query());
+  store.demand(key, 0, 0);
+  await flush();
+  initial = false;
+  const old = store.revalidateQuery(key);
+  await flush();
+  store.release(key);
+  expect(requests[0].signal?.aborted).toBe(true);
+  store.ensure(query());
+  const current = store.revalidateQuery(key);
+  await flush();
+  requests[1].resolve({ offset: 0, size: 1, totalSize: 1, hasMore: false, items: [card("current")] });
+  await current;
+  requests[0].resolve({ offset: 0, size: 1, totalSize: 1, hasMore: false, items: [card("old")] });
+  await old;
+  expect(store.getSnapshot(key).items.get(0)?.ratingKey).toBe("current");
 });

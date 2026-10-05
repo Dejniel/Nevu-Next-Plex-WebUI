@@ -105,42 +105,60 @@ function LibraryCollectionGrid({
       : undefined;
 
   return (
-    <VirtualGrid
-      {...gridProps}
-      count={query ? range.totalSize : loading ? null : 0}
-      minimumCount={range.knownSize + (range.hasMore ? 1 : 0)}
-      itemWidth={getLibraryCardWidth(layout, cardSize)}
-      imageAspectRatio={layout === "poster" ? 2 / 3 : 16 / 9}
-      resetKey={queryKey}
-      onRangeChange={query ? demand : undefined}
-      itemKey={(index) => range.items.get(index)?.ratingKey ?? index}
-      renderItem={(index, imageSizes) => {
-        const item = range.items.get(index);
-        const offset =
-          Math.floor(index / LIBRARY_RANGE_SIZE) * LIBRARY_RANGE_SIZE;
-        const error = range.errors.get(offset);
-        return item ? (
-          <ActionableMediaCard
-            item={item}
-            layout={layout}
-            imageSizes={imageSizes}
-            imageLoading="eager"
-            refetchData={refreshAfterMutation}
-          />
-        ) : error && queryKey ? (
-          <RangeErrorCard
-            layout={layout}
-            onRetry={
-              error.retryable
-                ? () => libraryRangeStore.retry(queryKey, offset)
-                : undefined
-            }
-          />
-        ) : (
-          <CardSkeleton layout={layout} />
-        );
-      }}
-    />
+    <>
+      {initialError && range.items.size > 0 && queryKey && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+          action={
+            <Button
+              color="inherit"
+              onClick={() => libraryRangeStore.retry(queryKey, 0)}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {initialError.message}
+        </Alert>
+      )}
+      <VirtualGrid
+        {...gridProps}
+        count={query ? range.totalSize : loading ? null : 0}
+        minimumCount={range.knownSize + (range.hasMore ? 1 : 0)}
+        itemWidth={getLibraryCardWidth(layout, cardSize)}
+        imageAspectRatio={layout === "poster" ? 2 / 3 : 16 / 9}
+        resetKey={queryKey}
+        onRangeChange={query ? demand : undefined}
+        itemKey={(index) => range.items.get(index)?.ratingKey ?? index}
+        renderItem={(index, imageSizes) => {
+          const item = range.items.get(index);
+          const offset =
+            Math.floor(index / LIBRARY_RANGE_SIZE) * LIBRARY_RANGE_SIZE;
+          const error = range.errors.get(offset);
+          return item ? (
+            <ActionableMediaCard
+              item={item}
+              layout={layout}
+              imageSizes={imageSizes}
+              imageLoading="eager"
+              refetchData={refreshAfterMutation}
+            />
+          ) : error && queryKey ? (
+            <RangeErrorCard
+              layout={layout}
+              onRetry={
+                error.retryable
+                  ? () => libraryRangeStore.retry(queryKey, offset)
+                  : undefined
+              }
+            />
+          ) : (
+            <CardSkeleton layout={layout} />
+          );
+        }}
+      />
+    </>
   );
 }
 

@@ -8,10 +8,11 @@ import {
 interface WatchlistState {
   items: Plex.Metadata[];
   status: "idle" | "loading" | "ready" | "error";
+  hasLoaded: boolean;
   error: string | null;
   add: (item: Plex.Metadata) => Promise<void>;
   remove: (guid: string) => Promise<void>;
-  load: () => Promise<void>;
+  load: (maxAge?: number) => Promise<void>;
   has: (guid: string) => boolean;
   reset: () => void;
 }
@@ -21,11 +22,13 @@ let loadGeneration = 0;
 let pendingLoad: Promise<void> | null = null;
 let loadController: AbortController | null = null;
 let loadChanges: Map<string, Plex.Metadata | null> | null = null;
+let lastLoadedAt: number | null = null;
 const pendingGuids = new Map<string, symbol>();
 
 export const useWatchlist = create<WatchlistState>((set, get) => ({
   items: [],
   status: "idle",
+  hasLoaded: false,
   error: null,
 
   add: async (item) => {
@@ -65,8 +68,15 @@ export const useWatchlist = create<WatchlistState>((set, get) => ({
     }
   },
 
-  load: () => {
+  load: (maxAge = 0) => {
     if (pendingLoad) return pendingLoad;
+    if (
+      get().status === "ready" &&
+      lastLoadedAt !== null &&
+      maxAge > 0 &&
+      Date.now() - lastLoadedAt < maxAge
+    )
+      return Promise.resolve();
     const requestProfile = profileGeneration;
     const requestLoad = ++loadGeneration;
     const changes = new Map<string, Plex.Metadata | null>();
@@ -87,9 +97,11 @@ export const useWatchlist = create<WatchlistState>((set, get) => ({
           merged.delete(guid);
           if (item) added.unshift(item);
         });
+        lastLoadedAt = Date.now();
         set({
           items: [...added, ...merged.values()],
           status: "ready",
+          hasLoaded: true,
           error: null,
         });
       })
@@ -124,6 +136,7 @@ export const useWatchlist = create<WatchlistState>((set, get) => ({
     loadController = null;
     pendingLoad = null;
     loadChanges = null;
-    set({ items: [], status: "idle", error: null });
+    lastLoadedAt = null;
+    set({ items: [], status: "idle", hasLoaded: false, error: null });
   },
 }));

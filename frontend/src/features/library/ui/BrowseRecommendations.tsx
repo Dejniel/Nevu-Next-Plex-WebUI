@@ -3,7 +3,7 @@ import { Box, CircularProgress, Typography } from "@mui/material";
 import { motion } from "framer-motion";
 import React, { useEffect } from "react";
 import { useLocation, useParams, useSearchParams } from "react-router-dom";
-import { AuthStorage } from "features/session/model";
+import { plexProfileKey, useAuthSession } from "features/session/model";
 import { useLibraryCardView } from "./LibraryCardViewControls";
 import LibraryCollectionDialog from "./LibraryCollectionDialog";
 import LibraryViewToolbar from "./LibraryViewToolbar";
@@ -69,6 +69,7 @@ async function getDirectories(libraryID: string, directory: string) {
 async function buildRecommendationShelves(
   libraryID: string,
   library: Plex.MediaContainer,
+  profileKey: string,
 ) {
   const sectionId = Number(libraryID);
   const itemType = library.Type
@@ -76,9 +77,8 @@ async function buildRecommendationShelves(
     .find(isLibraryItemType);
   if (!Number.isSafeInteger(sectionId) || sectionId < 1 || !itemType) return [];
 
-  const profile = AuthStorage.getActiveSession()?.profile;
   const common = {
-    profileKey: profile ? String(profile.id) : "owner",
+    profileKey,
     sectionId,
     type: itemType,
   } satisfies Omit<LibraryQuery, "sort">;
@@ -178,11 +178,14 @@ function BrowseRecommendations({
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const cardView = useLibraryCardView();
+  const profileKey = useAuthSession((state) =>
+    plexProfileKey(state.ownerUser, state.activeProfile),
+  );
   const [library, setLibrary] = React.useState<Plex.MediaContainer | null>(null);
   const [shelves, setShelves] = React.useState<RecommendationShelf[] | null>(null);
 
   useEffect(() => {
-    if (!libraryID) return;
+    if (!libraryID || !profileKey) return;
     let cancelled = false;
 
     setLibrary(null);
@@ -191,7 +194,7 @@ function BrowseRecommendations({
       .then(async (nextLibrary) => {
         if (nextLibrary.librarySectionID.toString() !== libraryID) return [];
         if (!cancelled) setLibrary(nextLibrary);
-        return buildRecommendationShelves(libraryID, nextLibrary);
+        return buildRecommendationShelves(libraryID, nextLibrary, profileKey);
       })
       .then((nextShelves) => {
         if (!cancelled) setShelves(nextShelves);
@@ -204,7 +207,7 @@ function BrowseRecommendations({
     return () => {
       cancelled = true;
     };
-  }, [libraryID]);
+  }, [libraryID, profileKey]);
 
   const selectedShelf =
     shelves?.find((shelf) => shelf.id === searchParams.get("shelf")) || null;

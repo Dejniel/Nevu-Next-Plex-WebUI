@@ -24,7 +24,7 @@ import { LibraryFilterSelect } from "./LibraryFilterControls";
 import { useLibraryCardView } from "./LibraryCardViewControls";
 import { WindowLibraryCollectionGrid } from "./LibraryCollectionGrid";
 import LibraryViewToolbar from "./LibraryViewToolbar";
-import { AuthStorage } from "features/session/model";
+import { plexProfileKey, useAuthSession } from "features/session/model";
 import { getLibrary } from "../api/libraryDirectories";
 import { createLibraryFilterExpression } from "../model/libraryFilterExpression";
 import {
@@ -77,6 +77,9 @@ function BrowseLibraryContent({
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchParamsString = searchParams.toString();
+  const profileKey = useAuthSession((state) =>
+    plexProfileKey(state.ownerUser, state.activeProfile),
+  );
   const [library, setLibrary] = React.useState<Plex.MediaContainer | null>(null);
   const [libraryError, setLibraryError] = React.useState<string | null>(null);
   const [libraryAttempt, setLibraryAttempt] = React.useState(0);
@@ -187,16 +190,15 @@ function BrowseLibraryContent({
   }, [filterMode, searchParamsString, setSearchParams]);
 
   const baseQuery = React.useMemo<Omit<LibraryQuery, "sort" | "seed"> | null>(() => {
-    if (!library || !activeItemType) return null;
-    const profile = AuthStorage.getActiveSession()?.profile;
+    if (!library || !activeItemType || !profileKey) return null;
     const filterExpression = createLibraryFilterExpression(filterMode, activeFilters);
     return {
-      profileKey: profile ? String(profile.id) : "owner",
+      profileKey,
       sectionId: Number(libraryID),
       type: activeItemType,
       ...(filterExpression && { filterExpression }),
     };
-  }, [activeFilters, activeItemType, filterMode, library, libraryID]);
+  }, [activeFilters, activeItemType, filterMode, library, libraryID, profileKey]);
 
   const randomSeedContext = baseQuery && isRandomLibrarySort(effectiveSort)
     ? JSON.stringify([baseQuery.profileKey, baseQuery.sectionId])

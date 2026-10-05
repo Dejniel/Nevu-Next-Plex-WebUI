@@ -90,8 +90,13 @@ it("surfaces failures, retries and refreshes after library invalidation", async 
   await act(async () => state.retry());
   expect(state.error).toBeNull();
   expect(state.items.has("one")).toBe(true);
-  await act(async () => invalidateLibraryCache());
+  jest.useFakeTimers();
+  await act(async () => {
+    invalidateLibraryCache();
+    jest.advanceTimersByTime(500);
+  });
   expect(lookup).toHaveBeenCalledTimes(3);
+  jest.useRealTimers();
 });
 
 it("does not request data or keep loading without an active profile", async () => {
@@ -99,4 +104,36 @@ it("does not request data or keep loading without an active profile", async () =
   await render();
   expect(lookup).not.toHaveBeenCalled();
   expect(state.loading).toBe(false);
+});
+
+it("keeps checked availability through background loading and a failed retry", async () => {
+  await render();
+  let reject!: (error: Error) => void;
+  lookup.mockReturnValueOnce(
+    new Promise((_resolve, failure) => {
+      reject = failure;
+    }),
+  );
+  await act(async () => state.retry());
+  expect(state.loading).toBe(false);
+  expect(state.items.get("one")?.localItems).toEqual([movie]);
+  await act(async () => reject(new Error("offline")));
+  expect(state.error).toBeTruthy();
+  expect(state.items.get("one")?.localItems).toEqual([movie]);
+});
+
+it("refreshes unchanged GUIDs on the visible interval and ignores another profile's invalidation", async () => {
+  jest.useFakeTimers();
+  await render();
+  await act(async () => {
+    invalidateLibraryCache({ profileKey: "owner:2" });
+    jest.advanceTimersByTime(500);
+  });
+  expect(lookup).toHaveBeenCalledTimes(1);
+  lookup.mockResolvedValueOnce([]);
+  await act(async () => jest.advanceTimersByTime(60_000));
+  await act(async () => jest.advanceTimersByTime(500));
+  expect(lookup).toHaveBeenCalledTimes(2);
+  expect(state.items.size).toBe(0);
+  jest.useRealTimers();
 });

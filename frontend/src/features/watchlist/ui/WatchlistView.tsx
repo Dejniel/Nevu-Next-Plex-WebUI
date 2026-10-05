@@ -1,11 +1,10 @@
-import { BookmarkBorderRounded, RefreshRounded } from "@mui/icons-material";
+import { BookmarkBorderRounded } from "@mui/icons-material";
 import {
   Alert,
   Box,
   Button,
   CircularProgress,
   FormControlLabel,
-  IconButton,
   MenuItem,
   Select,
   Switch,
@@ -25,6 +24,7 @@ import { useUserSettings } from "features/settings/model";
 import React, { useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import VirtualGrid from "shared/ui/VirtualGrid";
+import { useAutoRefresh } from "shared/lib/useAutoRefresh";
 import {
   selectWatchlistItems,
   type WatchlistSort,
@@ -38,13 +38,14 @@ export default function WatchlistView({
   libraryID?: string;
   pageNavigation?: React.ReactNode;
 }) {
-  const { items, status, error, load } = useWatchlist();
+  const { items, status, hasLoaded, error, load } = useWatchlist();
   const profileKey = useUserSettings((state) => state.profileKey);
   const libraries = useLibraries((state) => state.libraries);
   const availability = useMediaAvailability(
     items.map((item) => item.guid),
     profileKey,
   );
+  useAutoRefresh(profileKey, () => load());
   const cardView = useLibraryCardView();
   const toolbarRef = useRef<HTMLDivElement>(null);
   const [params, setParams] = useSearchParams();
@@ -71,13 +72,15 @@ export default function WatchlistView({
     [availability.items, items, libraryID, libraryOnly, search, sort],
   );
   const waiting =
-    (items.length === 0 && (status === "idle" || status === "loading")) ||
+    (!hasLoaded &&
+      items.length === 0 &&
+      (status === "idle" || status === "loading")) ||
     (libraryOnly && availability.loading);
   const unavailableScope = libraryOnly && Boolean(availability.error);
 
   useEffect(() => {
-    if (status === "idle") void load();
-  }, [load, status]);
+    if (profileKey) void load(30_000);
+  }, [load, profileKey]);
 
   return (
     <LibraryBrowseFrame
@@ -135,24 +138,6 @@ export default function WatchlistView({
                 ? "Checking titles…"
                 : `${selected.length} ${selected.length === 1 ? "title" : "titles"}`}
           </Typography>
-          <Tooltip title="Refresh Watchlist">
-            <span>
-              <IconButton
-                aria-label="Refresh Watchlist"
-                disabled={status === "loading"}
-                onClick={() => {
-                  void load();
-                  availability.retry();
-                }}
-              >
-                {status === "loading" ? (
-                  <CircularProgress size={20} />
-                ) : (
-                  <RefreshRounded />
-                )}
-              </IconButton>
-            </span>
-          </Tooltip>
         </>
       }
     >

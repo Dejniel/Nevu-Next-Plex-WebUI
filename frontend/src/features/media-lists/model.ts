@@ -7,3 +7,4 @@ export {
 export type { PlaylistPlaybackContext } from "./model/mediaLists";
 export { getMediaListCapabilities } from "./model/mediaListEditing";
 export type { MediaListCapabilities } from "./model/mediaListEditing";
+export { invalidateMediaLists } from "./model/listChanges";

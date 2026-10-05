@@ -2,6 +2,7 @@ import { Alert, Box, Button } from "@mui/material";
 import React, { ReactNode, useEffect, useState } from "react";
 import { useUserSettings } from "features/settings/model";
 import { useAuthSession } from "../model/authSession";
+import { plexProfileKey } from "../model/profileIdentity";
 import { LoadingScreen } from "./SessionGate";
 
 export default function ProfileBootstrapGate({
@@ -9,8 +10,9 @@ export default function ProfileBootstrapGate({
 }: {
   children: ReactNode;
 }) {
-  const activeProfile = useAuthSession((state) => state.activeProfile);
-  const ownerUser = useAuthSession((state) => state.ownerUser);
+  const profileKey = useAuthSession((state) =>
+    plexProfileKey(state.ownerUser, state.activeProfile),
+  );
   const revision = useAuthSession((state) => state.revision);
   const status = useUserSettings((state) => state.status);
   const loadedProfileKey = useUserSettings((state) => state.profileKey);
@@ -18,8 +20,6 @@ export default function ProfileBootstrapGate({
   const initialize = useUserSettings((state) => state.initialize);
   const [startedBootstrap, setStartedBootstrap] = useState<string | null>(null);
 
-  const profileKey =
-    ownerUser && activeProfile ? `${ownerUser.id}:${activeProfile.id}` : null;
   const bootstrapKey = profileKey ? `${revision}:${profileKey}` : null;
 
   useEffect(() => {

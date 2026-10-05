@@ -75,6 +75,10 @@ const plexHttpsAgent = process.env.DISABLE_TLS_VERIFY === 'true'
 const plexProxyAgent = plexServerUrl.protocol === 'https:'
     ? plexHttpsAgent
     : plexHttpAgent;
+// Long-lived notification streams must not occupy the HTTP request pool.
+const plexEventAgent = plexServerUrl.protocol === 'https:'
+    ? new https.Agent({ rejectUnauthorized: process.env.DISABLE_TLS_VERIFY !== 'true' })
+    : new http.Agent();
 
 const proxy = httpProxy.createProxyServer({
     ws: true,
@@ -399,7 +403,9 @@ app.use('/dynproxy/*', (req, res) => {
     req.headers.cookie = '';
     req.headers['x-forwarded-for'] = ((req.headers['x-forwarded-for'] || req.socket.remoteAddress || '') as string).replace("::ffff:", "");
 
-    proxy.web(req, res, { target: `${process.env.PLEX_SERVER}${url}` }, (err) => {
+    const agent = url.split('?')[0] === '/:/eventsource/notifications'
+        ? plexEventAgent : plexProxyAgent;
+    proxy.web(req, res, { target: `${process.env.PLEX_SERVER}${url}`, agent }, (err) => {
         console.error('Proxy error:', err);
         res.status(500).send('Proxy error');
     });

@@ -13,6 +13,7 @@ import Startup, { useStartupState } from "./startup/Startup";
 import { useWatchlist } from "features/watchlist/model";
 import { useLibraries } from "entities/library/model";
 import AppRoutes from "./AppRoutes";
+import { useBrowseSynchronization } from "./useBrowseSynchronization";
 
 function AppManager() {
   const { loading } = useStartupState();
@@ -54,6 +55,7 @@ function AppManager() {
 
 function App() {
   const sessionRevision = useAuthSession((state) => state.revision);
+  useBrowseSynchronization(sessionRevision);
 
   useEffect(() => {
     useWatchlist.getState().reset();
@@ -61,12 +63,6 @@ function App() {
     useLibraries.getState().reset();
     void useLibraries.getState().load();
     void useServerSession.getState().refresh();
-
-    const interval = setInterval(() => {
-      void useWatchlist.getState().load();
-    }, 60000);
-
-    return () => clearInterval(interval);
   }, [sessionRevision]);
 
   return (

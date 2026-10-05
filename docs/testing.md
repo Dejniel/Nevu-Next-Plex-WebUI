@@ -58,6 +58,9 @@ include repeated titles, episodes, and another profile when available. For large
 lists, check the last item and retry a failed page or playback queue.
 Check adding from cards and title details to existing and new lists, preserving
 their contents, and action availability for users without management permission.
+Change titles and list contents in Plex while browsing Nevu; check background
+updates, retained scroll/filters, hidden-tab return, connection recovery and Retry
+after a failed refresh. Include a scrolled multi-page list and profile switches.
 
 Stop with `docker compose -f compose.test.yaml down`. Adding `-v` resets the
 test stack's volumes; sample media remains in the host directory.

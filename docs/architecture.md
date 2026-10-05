@@ -90,6 +90,14 @@ conventions. Update those checks alongside intentional architecture changes.
 It also checks runtime import cycles reachable from the browse features.
 Headless entry points help non-UI consumers avoid UI dependencies or cycles.
 
+Browse models retain their caches during background revalidation. `shared/lib`
+owns the visible-tab refresh scheduler and atomic page-window loader; features
+own their queries and invalidation rules. Session supplies a common profile key
+and owns the authenticated Plex SSE connection through the existing HTTP proxy.
+`app` routes its hints through headless model contracts. Events are coalesced;
+focus, reconnect and a visible-view interval also check freshness, including
+cloud Watchlist data.
+
 ## Video playback
 
 `shared/ui/VideoPlayer` owns one native `<video>` element and its lifecycle;

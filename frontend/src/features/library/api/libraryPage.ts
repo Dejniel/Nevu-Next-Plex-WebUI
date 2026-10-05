@@ -20,6 +20,7 @@ export class LibraryPageError extends Error {
 
 export async function getLibraryPage(
   request: LibraryPageRequest,
+  signal?: AbortSignal,
 ): Promise<LibraryPageDto> {
   const token = AuthStorage.getServerToken();
   if (!token)
@@ -39,6 +40,7 @@ export async function getLibraryPage(
           }),
         },
         headers: { "X-Plex-Token": token },
+        ...(signal && { signal }),
       },
     );
     return response.data;

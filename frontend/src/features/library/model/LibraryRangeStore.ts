@@ -9,6 +9,8 @@ import type {
 } from "@nevu/contracts";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { subscribeToLibraryCache } from "shared/lib/libraryCache";
+import { loadPageWindow } from "shared/lib/loadPageWindow";
+import { useAutoRefresh } from "shared/lib/useAutoRefresh";
 import { getLibraryPage, LibraryPageError } from "../api/libraryPage";
 import { libraryFilterExpressionKey } from "./libraryFilterExpression";
 import { isRandomLibrarySort } from "./librarySort";
@@ -66,6 +68,9 @@ interface QueryState {
   requiresCatalogRefresh: boolean;
   catalogRefreshInFlight: boolean;
   snapshot: LibraryRangeSnapshot;
+  replacement?: Promise<void>;
+  replacementError?: boolean;
+  replacementController?: AbortController;
 }
 
 interface QueueTask {
@@ -78,7 +83,10 @@ interface QueueTask {
   refresh?: boolean;
 }
 
-type PageFetcher = (request: LibraryPageRequest) => Promise<LibraryPageDto>;
+type PageFetcher = (
+  request: LibraryPageRequest,
+  signal?: AbortSignal,
+) => Promise<LibraryPageDto>;
 
 interface EntityState {
   item: LibraryCardDto;
@@ -112,6 +120,9 @@ export function libraryQueryKey(query: LibraryQuery) {
 export function useLibraryQueryRange(query: LibraryQuery | null | undefined) {
   const queryKey = useMemo(() => query ? libraryQueryKey(query) : null, [query]);
   const range = useLibraryRange(queryKey);
+  const refresh = useAutoRefresh(queryKey, () =>
+    queryKey ? libraryRangeStore.revalidateQuery(queryKey) : undefined,
+  );
 
   useEffect(() => {
     if (!query) return;
@@ -121,6 +132,16 @@ export function useLibraryQueryRange(query: LibraryQuery | null | undefined) {
     // releases live demand when URL normalization recreates an equivalent query.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryKey]);
+
+  useEffect(
+    () => subscribeToLibraryCache((action, scope) => {
+      if (action !== "invalidate" || !query) return;
+      if (scope?.profileKey && scope.profileKey !== query.profileKey) return;
+      if (scope?.sectionId && scope.sectionId !== String(query.sectionId)) return;
+      refresh.current?.invalidate();
+    }),
+    [query, refresh],
+  );
 
   return { queryKey, range };
 }
@@ -180,7 +201,7 @@ export class LibraryRangeStore {
       const wasInactive = state.consumers === 0;
       state.consumers += 1;
       state.lastUsed = Date.now();
-      if (wasInactive) this.invalidateState(state);
+      if (wasInactive) void this.revalidateQuery(key);
     }
     this.prune();
     return key;
@@ -242,6 +263,7 @@ export class LibraryRangeStore {
   retry(queryKey: string, offset: number) {
     const state = this.queries.get(queryKey);
     if (!state) return;
+    if (state.replacementError) { void this.revalidateQuery(queryKey); return; }
     const start = rangeStart(offset);
     const error = state.errors.get(start);
     const status = state.ranges.get(start);
@@ -254,21 +276,114 @@ export class LibraryRangeStore {
     this.pump();
   }
 
-  invalidateAll() {
-    for (const state of this.queries.values()) this.invalidateState(state);
-    this.pump();
+  invalidateQuery(queryKey: string) {
+    void this.revalidateQuery(queryKey);
   }
 
-  invalidateQuery(queryKey: string) {
+  revalidateQuery(queryKey: string): Promise<void> {
     const state = this.queries.get(queryKey);
-    if (!state) return;
-    this.invalidateState(state);
-    this.pump();
+    if (!state || state.consumers === 0) return Promise.resolve();
+    if (state.replacement) return state.replacement;
+    const sequence = this.sequence++;
+    const epoch = this.epoch;
+    const controller = new AbortController();
+    state.replacementController = controller;
+    state.acceptAfterSequence = sequence;
+    state.errors.clear();
+    for (const task of this.queue.values())
+      if (task.queryKey === queryKey) this.queue.delete(task.id);
+    const current = () =>
+      !controller.signal.aborted &&
+      state.consumers > 0 &&
+      this.epoch === epoch &&
+      this.queries.get(queryKey) === state &&
+      state.acceptAfterSequence === sequence;
+    const replacement = Promise.resolve()
+      .then(() =>
+        loadPageWindow(
+          async (offset) => {
+            if (!current()) throw new Error("The active library changed.");
+            const page = await this.fetchPage(
+              this.pageRequest(
+                state,
+                offset,
+                offset === 0 && isRandomLibrarySort(state.query.sort),
+              ),
+              controller.signal,
+            );
+            return { ...page, total: page.totalSize };
+          },
+          [...state.demand],
+        ),
+      )
+      .then((window) => {
+        if (!current()) return;
+        const seen = new Set<string>();
+        const slots = new Map<number, string>();
+        for (const [index, item] of window.items) {
+          if (seen.has(item.ratingKey))
+            throw new Error(
+              "The library changed while it was loading. Please try again.",
+            );
+          seen.add(item.ratingKey);
+          slots.set(index, `${state.query.profileKey}:${item.ratingKey}`);
+        }
+        window.items.forEach((item, index) => {
+          const entityKey = slots.get(index)!;
+          const previous = this.entities.get(entityKey);
+          if (!previous || previous.requestSequence <= sequence)
+            this.entities.set(entityKey, { item, requestSequence: sequence });
+        });
+        state.slots = slots;
+        state.ranges = new Map(
+          window.offsets.map((offset) => [offset, "loaded"]),
+        );
+        state.totalSize = window.total;
+        state.knownSize = Math.max(
+          0,
+          ...[...slots.keys()].map((index) => index + 1),
+        );
+        state.hasMore = window.total === null || state.knownSize < window.total;
+        state.generationId = window.generationId;
+        state.generationSequence = sequence;
+        state.requiresCatalogRefresh = false;
+        state.replacementError = false;
+      })
+      .catch((error) => {
+        if (!current()) return;
+        state.replacementError = true;
+        state.errors.set(0, {
+          message:
+            error instanceof Error
+              ? error.message
+              : "Could not refresh this library.",
+          retryable: true,
+        });
+      })
+      .finally(() => {
+        if (state.replacement !== replacement) return;
+        state.replacement = undefined;
+        state.replacementController = undefined;
+        if (!this.queries.has(queryKey) || epoch !== this.epoch) return;
+        for (const task of this.queue.values())
+          if (task.queryKey === queryKey) this.queue.delete(task.id);
+        if (!state.replacementError) {
+          let priority = 0;
+          for (const offset of state.demand)
+            this.queueRange(state, offset, priority++);
+        }
+        this.publish(state);
+        this.pruneEntities();
+        this.pump();
+      });
+    state.replacement = replacement;
+    return replacement;
   }
 
   drop(queryKey: string) {
     const state = this.queries.get(queryKey);
     if (!state) return;
+    state.replacementController?.abort();
     this.queries.delete(queryKey);
     for (const task of this.queue.values())
       if (task.queryKey === queryKey) this.queue.delete(task.id);
@@ -281,6 +396,10 @@ export class LibraryRangeStore {
     if (!state) return;
     state.consumers = Math.max(0, state.consumers - 1);
     if (state.consumers > 0) return;
+
+    state.replacementController?.abort();
+    state.replacementController = undefined;
+    state.replacement = undefined;
 
     state.demand.clear();
     for (const task of this.queue.values()) {
@@ -295,6 +414,7 @@ export class LibraryRangeStore {
 
   clear() {
     this.epoch += 1;
+    this.queries.forEach((state) => state.replacementController?.abort());
     this.queries.clear();
     this.entities.clear();
     this.queue.clear();
@@ -322,29 +442,6 @@ export class LibraryRangeStore {
     state.errors.delete(offset);
   }
 
-  private invalidateState(state: QueryState) {
-    state.acceptAfterSequence = this.sequence;
-    state.requiresCatalogRefresh = isRandomLibrarySort(state.query.sort);
-    state.errors.clear();
-    if (state.totalSize === 0) {
-      state.totalSize = null;
-      state.hasMore = true;
-    }
-
-    for (const task of this.queue.values())
-      if (task.queryKey === state.key) this.queue.delete(task.id);
-
-    const offsets = new Set([...state.ranges.keys(), ...state.demand]);
-    const cachedOffsets = new Set([...state.slots.keys()].map(rangeStart));
-    state.ranges.clear();
-    for (const offset of offsets)
-      if (cachedOffsets.has(offset)) state.ranges.set(offset, "stale");
-
-    let priority = 0;
-    for (const offset of state.demand) this.queueRange(state, offset, priority++);
-    this.publish(state);
-  }
-
   private pump() {
     while (this.activeRequests < this.maxConcurrentRequests && this.queue.size > 0) {
       const task = [...this.queue.values()]
@@ -353,6 +450,8 @@ export class LibraryRangeStore {
           const state = this.queries.get(candidate.queryKey);
           return state &&
             state.ranges.get(candidate.offset) === "queued" &&
+            !state.replacement &&
+            !state.replacementError &&
             !state.catalogRefreshInFlight;
         });
       if (!task) return;
@@ -375,17 +474,7 @@ export class LibraryRangeStore {
 
   private async run(task: QueueTask, state: QueryState) {
     try {
-      const page = await this.fetchPage({
-        sectionId: state.query.sectionId,
-        ...(state.query.source && { source: state.query.source }),
-        ...(state.query.type && { type: state.query.type }),
-        sort: state.query.sort,
-        ...(state.query.filterExpression && { filterExpression: state.query.filterExpression }),
-        ...(state.query.seed && { seed: state.query.seed }),
-        ...(task.refresh && { refresh: true }),
-        offset: task.offset,
-        size: LIBRARY_RANGE_SIZE,
-      });
+      const page = await this.fetchPage(this.pageRequest(state, task.offset, task.refresh));
 
       if (!this.isCurrent(task, state) || task.sequence < state.acceptAfterSequence) return;
       if (page.offset !== task.offset)
@@ -460,6 +549,19 @@ export class LibraryRangeStore {
     }
   }
 
+  private pageRequest(state: QueryState, offset: number, refresh?: boolean): LibraryPageRequest {
+    return {
+      sectionId: state.query.sectionId,
+      ...(state.query.source && { source: state.query.source }),
+      ...(state.query.type && { type: state.query.type }),
+      sort: state.query.sort,
+      ...(state.query.filterExpression && { filterExpression: state.query.filterExpression }),
+      ...(state.query.seed && { seed: state.query.seed }),
+      ...(refresh && { refresh: true }),
+      offset, size: LIBRARY_RANGE_SIZE,
+    };
+  }
+
   private resetGeneration(state: QueryState, generationId: string, sequence: number) {
     state.slots.clear();
     state.ranges.clear();
@@ -525,7 +627,6 @@ export const libraryRangeStore = new LibraryRangeStore();
 
 subscribeToLibraryCache((action) => {
   if (action === "clear") libraryRangeStore.clear();
-  else libraryRangeStore.invalidateAll();
 });
 
 export function useLibraryRange(queryKey: string | null) {

@@ -5,6 +5,7 @@ import {
   useMediaAvailability,
 } from "entities/media/model";
 import { useWatchlist as mockWatchlist } from "../model/watchlistStore";
+import { getWatchlist } from "../api/watchlist";
 import WatchlistView from "./WatchlistView";
 
 jest.mock("react-router-dom", () => ({
@@ -13,6 +14,7 @@ jest.mock("react-router-dom", () => ({
 }));
 
 jest.mock("../api/watchlist", () => ({
+  getWatchlist: jest.fn(),
   removeFromWatchlist: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock("entities/media/model", () => ({
@@ -102,6 +104,7 @@ beforeEach(() => {
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
   mockWatchlist.getState().reset();
+  (getWatchlist as jest.Mock).mockResolvedValue(items);
   mockWatchlist.setState({ items, status: "ready" });
   (useMediaAvailability as jest.Mock).mockReturnValue({
     items: indexMediaAvailability(copies),

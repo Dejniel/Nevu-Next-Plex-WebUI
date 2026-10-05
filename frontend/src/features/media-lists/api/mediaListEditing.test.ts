@@ -2,7 +2,7 @@ import { AuthStorage, useServerSession } from "features/session/model";
 import { useUserSettings } from "features/settings/model";
 import { ProxiedRequest } from "shared/api/backend";
 import { getMediaListChoices, saveMediaListItem } from "./mediaLists";
-import { MEDIA_LISTS_CHANGED_EVENT } from "../model/mediaLists";
+import { subscribeToMediaListChanges } from "../model/listChanges";
 import type { MediaListItem } from "../model/mediaListEditing";
 
 jest.mock("shared/api/backend", () => ({ ProxiedRequest: jest.fn() }));
@@ -142,7 +142,7 @@ it.each(["token", "profile"])(
 
 it("publishes changes only after a successful mutation for the active profile", async () => {
   const changed = jest.fn();
-  window.addEventListener(MEDIA_LISTS_CHANGED_EVENT, changed);
+  const unsubscribe = subscribeToMediaListChanges(changed);
   try {
     transport.mockResolvedValue({ status: 403, data: {} });
     await expect(
@@ -151,14 +151,14 @@ it("publishes changes only after a successful mutation for the active profile", 
     expect(changed).not.toHaveBeenCalled();
     transport.mockResolvedValue(response([list("playlist")]));
     await saveMediaListItem("playlist", movie, { title: "Weekend" });
-    expect(changed.mock.calls[0][0].detail).toEqual({
+    expect(changed.mock.calls[0][0]).toEqual({
       kind: "playlist",
       id: "20",
       libraryID: "2",
       profileKey: "owner:1",
     });
   } finally {
-    window.removeEventListener(MEDIA_LISTS_CHANGED_EVENT, changed);
+    unsubscribe();
   }
 });
 

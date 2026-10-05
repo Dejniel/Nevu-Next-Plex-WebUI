@@ -3,7 +3,6 @@ import {
   CollectionsBookmarkRounded,
   PlayArrowRounded,
   PlaylistPlayRounded,
-  RefreshRounded,
 } from "@mui/icons-material";
 import {
   Alert,
@@ -15,7 +14,6 @@ import {
   Select,
   Skeleton,
   TextField,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import {
@@ -172,14 +170,6 @@ export default function MediaListsView({
                 : `${data.items.size}+ items`
               : `${data.total} ${id ? "items" : title.toLowerCase()}`}
           </Typography>
-          <Tooltip title={`Refresh ${title.toLowerCase()}`}>
-            <IconButton
-              aria-label={`Refresh ${title.toLowerCase()}`}
-              onClick={data.refresh}
-            >
-              <RefreshRounded />
-            </IconButton>
-          </Tooltip>
         </>
       }
       description={

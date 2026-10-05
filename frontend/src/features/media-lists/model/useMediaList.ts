@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUserSettings } from "features/settings/model";
+import { loadPageWindow } from "shared/lib/loadPageWindow";
+import { useAutoRefresh } from "shared/lib/useAutoRefresh";
 import { createMediaListSource } from "../api/mediaLists";
-import { MEDIA_LISTS_CHANGED_EVENT } from "./mediaLists";
+import { subscribeToMediaListChanges } from "./listChanges";
 import type {
   MediaListQuery,
   MediaListRecord,
@@ -35,43 +37,28 @@ export function useMediaList(query: MediaListQuery) {
     [kind, libraryID, id, search, sort],
   );
   const key = JSON.stringify([profileKey, stableQuery]);
-  const [revision, setRevision] = useState(0);
   const [snapshot, setSnapshot] = useState(() => empty(key));
   const demand = useRef<(start: number, end: number) => void>(() => undefined);
   const retryRequest = useRef<() => void>(() => undefined);
+  const refreshRequest = useRef<() => Promise<void>>(async () => undefined);
 
   useEffect(() => {
     let alive = true;
+    let generation = 0;
     const state = empty(key);
-    const controller = new AbortController();
-    if (!profileKey) {
-      setSnapshot({ ...state, loading: false });
-      demand.current = () => undefined;
-      retryRequest.current = () => undefined;
-      return;
-    }
+    let controller = new AbortController();
+    let source: ReturnType<typeof createMediaListSource> | null = null;
     const pages = new Set<number>();
     const pending = new Set<number>();
     const failed = new Set<number>();
     const queued = new Set<number>();
+    let visible = [0];
     let summaryFailed = false;
-    let source: ReturnType<typeof createMediaListSource>;
+    let refreshFailed = false;
+    let replacement: Promise<void> | null = null;
     const publish = () => {
       if (alive) setSnapshot({ ...state, items: new Map(state.items) });
     };
-    try {
-      source = createMediaListSource(stableQuery, controller.signal);
-    } catch (error) {
-      setSnapshot({
-        ...state,
-        loading: false,
-        error:
-          error instanceof Error ? error.message : "Could not open this list.",
-      });
-      retryRequest.current = () => setRevision((value) => value + 1);
-      demand.current = () => undefined;
-      return;
-    }
     const fail = (error: unknown) => {
       state.error =
         error instanceof Error
@@ -79,11 +66,13 @@ export function useMediaList(query: MediaListQuery) {
           : "Plex could not load this list.";
     };
     const startPage = (offset: number) => {
+      if (!source) return;
+      const requestGeneration = generation;
       pending.add(offset);
       void source
         .page(offset, PAGE_SIZE)
         .then((page) => {
-          if (!alive) return;
+          if (!alive || requestGeneration !== generation) return;
           pages.add(offset);
           if (page.total !== null) state.total = page.total;
           page.items.forEach((item, index) =>
@@ -91,12 +80,12 @@ export function useMediaList(query: MediaListQuery) {
           );
         })
         .catch((error) => {
-          if (!alive) return;
+          if (!alive || requestGeneration !== generation) return;
           failed.add(offset);
           fail(error);
         })
         .finally(() => {
-          if (!alive) return;
+          if (!alive || requestGeneration !== generation) return;
           pending.delete(offset);
           state.loading = !pages.has(0) && !failed.has(0);
           publish();
@@ -104,7 +93,7 @@ export function useMediaList(query: MediaListQuery) {
         });
     };
     const pump = () => {
-      if (!alive) return;
+      if (!alive || replacement || refreshFailed) return;
       for (const offset of queued) {
         if (pending.size >= 2) break;
         queued.delete(offset);
@@ -113,34 +102,90 @@ export function useMediaList(query: MediaListQuery) {
       }
     };
     const loadSummary = () => {
+      const requestGeneration = generation;
       void source
-        .summary()
+        ?.summary()
         .then((summary) => {
-          if (!alive) return;
+          if (!alive || requestGeneration !== generation) return;
           state.summary = summary;
           summaryFailed = false;
           publish();
         })
         .catch((error) => {
-          if (!alive) return;
+          if (!alive || requestGeneration !== generation) return;
           summaryFailed = true;
           fail(error);
           publish();
         });
     };
+    const revalidate = (): Promise<void> => {
+      if (!alive || !profileKey) return Promise.resolve();
+      if (replacement) return replacement;
+      generation += 1;
+      const requestGeneration = generation;
+      controller.abort();
+      controller = new AbortController();
+      pending.clear();
+      queued.clear();
+      state.error = null;
+      publish();
+      replacement = Promise.resolve()
+        .then(async () => {
+          source = createMediaListSource(stableQuery, controller.signal);
+          const currentSource = source;
+          const [window, summary] = await Promise.all([
+            loadPageWindow(
+              (offset) => currentSource.page(offset, PAGE_SIZE),
+              visible,
+            ),
+            currentSource.summary(),
+          ]);
+          if (!alive || requestGeneration !== generation) return;
+          state.items = window.items;
+          state.total = window.total;
+          state.summary = summary;
+          state.loading = false;
+          refreshFailed = false;
+          summaryFailed = false;
+          pages.clear();
+          window.offsets.forEach((offset) => pages.add(offset));
+          failed.clear();
+        })
+        .catch((error) => {
+          if (!alive || requestGeneration !== generation) return;
+          controller.abort();
+          refreshFailed = true;
+          state.loading = false;
+          fail(error);
+        })
+        .finally(() => {
+          if (!alive || requestGeneration !== generation) return;
+          replacement = null;
+          publish();
+          if (!refreshFailed)
+            demand.current(visible[0], visible[visible.length - 1]);
+        });
+      return replacement;
+    };
+    refreshRequest.current = revalidate;
     demand.current = (start, end) => {
-      if (!alive) return;
+      visible = [];
       for (
         let offset = Math.floor(start / PAGE_SIZE) * PAGE_SIZE;
         offset <= end;
         offset += PAGE_SIZE
       ) {
+        visible.push(offset);
         if (!pages.has(offset) && !pending.has(offset) && !failed.has(offset))
           queued.add(offset);
       }
       pump();
     };
     retryRequest.current = () => {
+      if (refreshFailed || !source) {
+        void revalidate();
+        return;
+      }
       state.error = null;
       failed.forEach((offset) => queued.add(offset));
       failed.clear();
@@ -149,44 +194,58 @@ export function useMediaList(query: MediaListQuery) {
       publish();
       pump();
     };
-    publish();
-    loadSummary();
-    demand.current(0, 0);
+    if (!profileKey) {
+      state.loading = false;
+      publish();
+    } else {
+      try {
+        source = createMediaListSource(stableQuery, controller.signal);
+        publish();
+        loadSummary();
+        demand.current(0, 0);
+      } catch (error) {
+        fail(error);
+        state.loading = false;
+        publish();
+      }
+    }
     return () => {
       alive = false;
       controller.abort();
     };
-  }, [key, profileKey, stableQuery, revision]);
+  }, [key, profileKey, stableQuery]);
 
+  const automatic = useAutoRefresh(profileKey ? key : null, () =>
+    refreshRequest.current(),
+  );
+  useEffect(
+    () =>
+      subscribeToMediaListChanges((change) => {
+        if (
+          change.profileKey !== profileKey ||
+          (change.kind && change.kind !== kind)
+        )
+          return;
+        if (id && change.id && change.id !== id) return;
+        if (
+          kind === "collection" &&
+          change.libraryID &&
+          change.libraryID !== libraryID
+        )
+          return;
+        automatic.current?.invalidate();
+      }),
+    [profileKey, kind, id, libraryID, automatic],
+  );
   const requestRange = useCallback(
     ({ start, end }: { start: number; end: number }) =>
       demand.current(start, end),
     [],
   );
   const retry = useCallback(() => retryRequest.current(), []);
-  const refresh = useCallback(() => setRevision((value) => value + 1), []);
-  useEffect(() => {
-    const changed = (event: Event) => {
-      const detail = (
-        event as CustomEvent<{
-          kind: string;
-          id: string;
-          libraryID: string;
-          profileKey: string;
-        }>
-      ).detail;
-      if (detail?.profileKey !== profileKey || detail.kind !== kind) return;
-      if (
-        id
-          ? detail.id !== id
-          : kind === "collection" && detail.libraryID !== libraryID
-      )
-        return;
-      refresh();
-    };
-    window.addEventListener(MEDIA_LISTS_CHANGED_EVENT, changed);
-    return () => window.removeEventListener(MEDIA_LISTS_CHANGED_EVENT, changed);
-  }, [profileKey, kind, id, libraryID, refresh]);
+  const refresh = useCallback(() => {
+    void automatic.current?.refresh();
+  }, [automatic]);
   return {
     ...(snapshot.key === key ? snapshot : empty(key)),
     requestRange,

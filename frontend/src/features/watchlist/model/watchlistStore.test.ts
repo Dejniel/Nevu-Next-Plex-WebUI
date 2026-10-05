@@ -182,3 +182,30 @@ it("does not remove a title from the next profile after an old removal finishes"
   await removal;
   expect(useWatchlist.getState().items).toEqual([item("same")]);
 });
+
+it("skips a recent successful load on re-entry but permits forced refresh and resets freshness with the profile", async () => {
+  (getWatchlist as jest.Mock).mockResolvedValue([]);
+  await useWatchlist.getState().load();
+  await useWatchlist.getState().load(30_000);
+  expect(getWatchlist).toHaveBeenCalledTimes(1);
+  await useWatchlist.getState().load();
+  expect(getWatchlist).toHaveBeenCalledTimes(2);
+  useWatchlist.getState().reset();
+  await useWatchlist.getState().load(30_000);
+  expect(getWatchlist).toHaveBeenCalledTimes(3);
+});
+
+it("keeps an already loaded empty state during a background refresh", async () => {
+  (getWatchlist as jest.Mock).mockResolvedValueOnce([]);
+  await useWatchlist.getState().load();
+  const request = deferred<Plex.Metadata[]>();
+  (getWatchlist as jest.Mock).mockReturnValueOnce(request.promise);
+  const pending = useWatchlist.getState().load();
+  expect(useWatchlist.getState()).toMatchObject({
+    items: [],
+    hasLoaded: true,
+    status: "loading",
+  });
+  request.resolve([]);
+  await pending;
+});
