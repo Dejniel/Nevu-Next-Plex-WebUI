@@ -1,6 +1,5 @@
 import type { Mock } from "vitest";
 import {
-  authedGet,
   authedGetStrict,
 } from "features/session/model";
 import { invalidateLibraryCache } from "shared/lib/libraryCache";
@@ -12,7 +11,7 @@ import {
 } from "./media";
 
 vi.mock("features/session/model", () => ({
-  authedGet: vi.fn(),
+  getActiveServerScope: () => null,
   authedGetStrict: vi.fn(),
   getXPlexProps: () => ({}),
 }));
@@ -43,10 +42,10 @@ it("only returns a GUID lookup when Plex returned the requested item", async () 
 });
 
 it("updates watched state and invalidates library data", async () => {
-  (authedGet as Mock).mockResolvedValue({});
+  (authedGetStrict as Mock).mockResolvedValue({});
 
   await setMediaPlayedStatus(true, "12");
 
-  expect(authedGet).toHaveBeenCalledWith("/:/scrobble?query");
+  expect(authedGetStrict).toHaveBeenCalledWith("/:/scrobble?query");
   expect(invalidateLibraryCache).toHaveBeenCalled();
 });

@@ -9,10 +9,7 @@ import {
   getLibraryCardWidth,
   LibraryCardLayout,
 } from "./LibraryCardViewControls";
-import {
-  libraryRangeStore,
-  useLibraryQueryRange,
-} from "../model/LibraryRangeStore";
+import { useLibraryPages } from "../model/useLibraryPages";
 import type { LibraryQuery } from "../model/libraryQuery";
 import { libraryBrowseTo } from "shared/lib/navigation";
 
@@ -47,11 +44,13 @@ function MovieItemSlider({
   );
   const [directoryError, setDirectoryError] = React.useState(false);
   const [attempt, setAttempt] = React.useState(0);
-  const { queryKey, range: queryRange } = useLibraryQueryRange(query);
-
-  React.useEffect(() => {
-    if (queryKey) libraryRangeStore.demand(queryKey, 0, QUERY_SHELF_LIMIT - 1);
-  }, [queryKey]);
+  const queryRange = useLibraryPages(query, {
+    start: 0,
+    end: QUERY_SHELF_LIMIT - 1,
+    visibleStart: 0,
+    visibleEnd: QUERY_SHELF_LIMIT - 1,
+  });
+  const { queryKey } = queryRange;
 
   const queryItems = React.useMemo(() => {
     if (!query) return null;
@@ -145,7 +144,7 @@ function MovieItemSlider({
               <Button
                 color="inherit"
                 onClick={() => {
-                  if (query && queryKey) libraryRangeStore.retry(queryKey, 0);
+                  if (query && queryKey) queryRange.retry(0);
                   else setAttempt((current) => current + 1);
                 }}
               >
@@ -306,11 +305,9 @@ function MovieItemSlider({
                   PlexTvSource={plexTvSource}
                   layout={layout}
                   refetchData={
-                    queryKey && query?.source === "onDeck"
-                      ? () => libraryRangeStore.invalidateQuery(queryKey)
-                      : dir && dir.endsWith("onDeck")
-                        ? () => setAttempt((current) => current + 1)
-                        : undefined
+                    !query && dir && dir.endsWith("onDeck")
+                      ? () => setAttempt((current) => current + 1)
+                      : undefined
                   }
                 />
               );

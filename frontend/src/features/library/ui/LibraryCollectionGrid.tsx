@@ -1,16 +1,11 @@
+import { hashKey } from "@tanstack/react-query";
 import { Alert, Box, Button, Skeleton } from "@mui/material";
-import React, { useCallback, useEffect } from "react";
+import React, { useState } from "react";
 import VirtualGrid, { type GridRange } from "shared/ui/VirtualGrid";
 import { ActionableMediaCard } from "features/media-actions/public";
-import {
-  libraryRangeStore,
-  useLibraryQueryRange,
-} from "../model/LibraryRangeStore";
-import { LIBRARY_RANGE_SIZE, type LibraryQuery } from "../model/libraryQuery";
-import {
-  getLibraryCardWidth,
-  LibraryCardLayout,
-} from "./LibraryCardViewControls";
+import { useLibraryPages } from "../model/useLibraryPages";
+import { LIBRARY_RANGE_SIZE, libraryResultQueryKey, type LibraryQuery } from "../model/libraryQuery";
+import { getLibraryCardWidth, LibraryCardLayout } from "./LibraryCardViewControls";
 
 interface LibraryCollectionGridProps {
   query: LibraryQuery | null;
@@ -24,7 +19,12 @@ interface LibraryCollectionGridProps {
 }
 
 export function WindowLibraryCollectionGrid(props: LibraryCollectionGridProps) {
-  return <LibraryCollectionGrid {...props} />;
+  return (
+    <LibraryCollectionGrid
+      key={props.query ? hashKey(libraryResultQueryKey("", props.query)) : "empty"}
+      {...props}
+    />
+  );
 }
 
 export function ContainedLibraryCollectionGrid(
@@ -32,7 +32,12 @@ export function ContainedLibraryCollectionGrid(
     scrollElementRef: React.RefObject<HTMLDivElement | null>;
   },
 ) {
-  return <LibraryCollectionGrid {...props} />;
+  return (
+    <LibraryCollectionGrid
+      key={props.query ? hashKey(libraryResultQueryKey("", props.query)) : "empty"}
+      {...props}
+    />
+  );
 }
 
 function LibraryCollectionGrid({
@@ -44,24 +49,14 @@ function LibraryCollectionGrid({
   emptyAction,
   ...gridProps
 }: LibraryCollectionGridProps) {
-  const { queryKey, range } = useLibraryQueryRange(query);
-  useEffect(() => {
-    // Registering the query precedes its first request; the grid's child effect may run earlier.
-    if (queryKey) libraryRangeStore.demand(queryKey, 0, 0);
-  }, [queryKey]);
-  const demand = useCallback(
-    (visible: GridRange) => {
-      if (queryKey)
-        libraryRangeStore.demand(
-          queryKey,
-          visible.start,
-          visible.end,
-          visible.visibleStart,
-          visible.visibleEnd,
-        );
-    },
-    [queryKey],
-  );
+  const [visible, setVisible] = useState<GridRange>({
+    start: 0,
+    end: 0,
+    visibleStart: 0,
+    visibleEnd: 0,
+  });
+  const range = useLibraryPages(query, visible);
+  const { queryKey } = range;
   const initialError = range.errors.get(0);
   if (initialError && !range.items.size && queryKey)
     return (
@@ -69,10 +64,7 @@ function LibraryCollectionGrid({
         severity="error"
         action={
           initialError.retryable ? (
-            <Button
-              color="inherit"
-              onClick={() => libraryRangeStore.retry(queryKey, 0)}
-            >
+            <Button color="inherit" onClick={() => range.retry(0)}>
               Retry
             </Button>
           ) : undefined
@@ -98,10 +90,6 @@ function LibraryCollectionGrid({
         {emptyAction}
       </Box>
     );
-  const refreshAfterMutation =
-    query?.source === "onDeck" && queryKey
-      ? () => libraryRangeStore.invalidateQuery(queryKey)
-      : undefined;
 
   return (
     <>
@@ -110,10 +98,7 @@ function LibraryCollectionGrid({
           severity="warning"
           sx={{ mb: 2 }}
           action={
-            <Button
-              color="inherit"
-              onClick={() => libraryRangeStore.retry(queryKey, 0)}
-            >
+            <Button color="inherit" onClick={() => range.retry(0)}>
               Retry
             </Button>
           }
@@ -128,12 +113,11 @@ function LibraryCollectionGrid({
         itemWidth={getLibraryCardWidth(layout, cardSize)}
         imageAspectRatio={layout === "poster" ? 2 / 3 : 16 / 9}
         resetKey={queryKey}
-        onRangeChange={query ? demand : undefined}
+        onRangeChange={query ? setVisible : undefined}
         itemKey={(index) => range.items.get(index)?.ratingKey ?? index}
         renderItem={(index, imageSizes) => {
           const item = range.items.get(index);
-          const offset =
-            Math.floor(index / LIBRARY_RANGE_SIZE) * LIBRARY_RANGE_SIZE;
+          const offset = Math.floor(index / LIBRARY_RANGE_SIZE) * LIBRARY_RANGE_SIZE;
           const error = range.errors.get(offset);
           return item ? (
             <ActionableMediaCard
@@ -141,16 +125,11 @@ function LibraryCollectionGrid({
               layout={layout}
               imageSizes={imageSizes}
               imageLoading="eager"
-              refetchData={refreshAfterMutation}
             />
           ) : error && queryKey ? (
             <RangeErrorCard
               layout={layout}
-              onRetry={
-                error.retryable
-                  ? () => libraryRangeStore.retry(queryKey, offset)
-                  : undefined
-              }
+              onRetry={error.retryable ? () => range.retry(offset) : undefined}
             />
           ) : (
             <CardSkeleton layout={layout} />

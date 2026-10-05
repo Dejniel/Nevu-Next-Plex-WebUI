@@ -35,17 +35,10 @@ export interface CollectionSnapshot<T, Info = null> {
 }
 interface Options<T, Info> {
   pageSize: number;
-  page: (
-    offset: number,
-    signal: AbortSignal,
-    refresh: boolean,
-  ) => Promise<CollectionPage<T>>;
+  page: (offset: number, signal: AbortSignal) => Promise<CollectionPage<T>>;
   info?: (signal: AbortSignal) => Promise<Info | null>;
-  identity?: (item: T) => string;
   describeError?: (error: unknown) => RangeError;
-  refreshCatalog?: boolean;
   loadFirst?: boolean;
-  finishInactivePages?: boolean;
   queue?: RequestQueue;
 }
 export const emptyCollection = <T, Info = null>(): CollectionSnapshot<
@@ -84,23 +77,11 @@ export function getPagedCollection<T, Info = null>(
   resources.set(query, resource as PagedCollection<unknown, unknown>);
   return resource;
 }
-export function findPagedCollection<T, Info = null>(
-  key: QueryKey,
-  client: QueryClient,
-) {
-  const query = client.getQueryCache().find({ queryKey: key, exact: true });
-  return query
-    ? (resources.get(query) as PagedCollection<T, Info> | undefined)
-    : undefined;
-}
-
 export class PagedCollection<T, Info = null> {
   private consumers = 0;
   private visible = new Set<number>();
   private observer: QueryObserver<CollectionSnapshot<T, Info>>;
   private unobserve?: () => void;
-  private catalogPending = false;
-  private needsCatalog: boolean;
   private readonly queue: RequestQueue;
   private readonly empty = emptyCollection<T, Info>();
 
@@ -109,7 +90,6 @@ export class PagedCollection<T, Info = null> {
     private options: Options<T, Info>,
     private client: QueryClient,
   ) {
-    this.needsCatalog = Boolean(options.refreshCatalog);
     this.queue = options.queue ?? new RequestQueue();
     this.observer = new QueryObserver(client, {
       queryKey: key,
@@ -165,19 +145,14 @@ export class PagedCollection<T, Info = null> {
     this.unobserve = undefined;
     if (!this.alive()) return;
     void this.client.cancelQueries({ queryKey: this.refreshKey });
-    if (!this.options.finishInactivePages)
-      void this.client.cancelQueries({ queryKey: this.pageKey });
+    void this.client.cancelQueries({ queryKey: this.pageKey });
     void this.client.cancelQueries({ queryKey: [...this.key, "info"] });
     this.queue.remove(this);
     this.visible.clear();
     const state = this.snapshot();
     const ranges = new Map(state.ranges);
     for (const [offset, status] of ranges)
-      if (
-        status === "queued" ||
-        (status === "loading" && !this.options.finishInactivePages)
-      )
-        ranges.delete(offset);
+      if (status === "queued" || status === "loading") ranges.delete(offset);
     this.write({ ...state, ranges });
   }
   dispose() {
@@ -215,13 +190,6 @@ export class PagedCollection<T, Info = null> {
     for (const [offset, status] of ranges)
       if (status === "queued" && !this.visible.has(offset))
         ranges.delete(offset);
-    if (
-      this.needsCatalog &&
-      ![...ranges.values()].some(
-        (status) => status === "queued" || status === "loading",
-      )
-    )
-      this.catalogPending = false;
     this.write({ ...state, ranges });
     const center = (visibleStart + visibleEnd) / 2;
     this.fill(
@@ -256,15 +224,12 @@ export class PagedCollection<T, Info = null> {
   private fill(priority = (_offset: number) => 0) {
     if (
       !this.alive() ||
-      this.catalogPending ||
       this.snapshot().refreshFailed ||
       this.client.isFetching({ queryKey: this.refreshKey })
     )
       return;
     for (const offset of this.visible) {
       if (this.snapshot().ranges.has(offset)) continue;
-      const refresh = this.needsCatalog;
-      if (refresh) this.catalogPending = true;
       const state = this.snapshot();
       this.write({
         ...state,
@@ -274,13 +239,12 @@ export class PagedCollection<T, Info = null> {
         owner: this,
         offset,
         priority: priority(offset),
-        run: () => this.loadPage(offset, refresh),
+        run: () => this.loadPage(offset),
       });
-      if (refresh) return;
     }
   }
 
-  private async loadPage(offset: number, refresh: boolean) {
+  private async loadPage(offset: number) {
     const state = this.snapshot();
     if (!this.alive()) return;
     this.write({
@@ -294,7 +258,7 @@ export class PagedCollection<T, Info = null> {
         gcTime: 0,
         queryFn: async ({ signal }) => {
           const generation = this.snapshot().generationId;
-          const page = await this.options.page(offset, signal, refresh);
+          const page = await this.options.page(offset, signal);
           if (signal.aborted) return null;
           if (page.offset !== offset)
             throw new Error("Plex returned a mismatched list range.");
@@ -332,14 +296,6 @@ export class PagedCollection<T, Info = null> {
           const errors = new Map(current.errors);
           const ranges = new Map(current.ranges).set(offset, "loaded" as const);
           errors.delete(offset);
-          if (refresh) {
-            this.needsCatalog = false;
-            for (const failed of this.visible)
-              if (ranges.get(failed) === "error") {
-                ranges.delete(failed);
-                errors.delete(failed);
-              }
-          }
           this.write({
             ...current,
             items,
@@ -360,14 +316,11 @@ export class PagedCollection<T, Info = null> {
         const current = this.snapshot();
         const errors = new Map(current.errors);
         const ranges = new Map(current.ranges);
-        for (const failed of refresh ? this.visible : [offset]) {
-          ranges.set(failed, "error");
-          errors.set(failed, this.error(error));
-        }
+        ranges.set(offset, "error");
+        errors.set(offset, this.error(error));
         this.write({ ...current, ranges, errors });
       }
     } finally {
-      if (refresh) this.catalogPending = false;
       if (this.consumers) this.fill();
     }
   }
@@ -419,11 +372,7 @@ export class PagedCollection<T, Info = null> {
               loadPageWindow(
                 async (offset) => {
                   signal.throwIfAborted();
-                  return this.options.page(
-                    offset,
-                    signal,
-                    offset === 0 && Boolean(this.options.refreshCatalog),
-                  );
+                  return this.options.page(offset, signal);
                 },
                 [...this.visible],
               ),
@@ -434,18 +383,10 @@ export class PagedCollection<T, Info = null> {
             if (infoResult.status === "rejected") throw infoResult.reason;
             const window = windowResult.value;
             const info = infoResult.value;
-            if (this.options.identity) {
-              const ids = [...window.items.values()].map(this.options.identity);
-              if (new Set(ids).size !== ids.length)
-                throw new Error(
-                  "The list changed while it was loading. Please try again.",
-                );
-            }
             const knownSize = Math.max(
               0,
               ...[...window.items.keys()].map((index) => index + 1),
             );
-            this.needsCatalog = false;
             this.write({
               items: window.items,
               ranges: new Map(

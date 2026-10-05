@@ -35,7 +35,7 @@ It is not a second rewrite and should not drive file movement for its own sake.
 
 ## Recommended next steps
 
-### Browse cache ownership and Plex synchronization — planned
+### Browse cache ownership and Plex synchronization — in progress
 
 The first cleanup introduced one TanStack Query client, but retained too much
 manual request state, adapters, and mirrored data. It is not the final ownership
@@ -43,9 +43,10 @@ model. Rework page queries and selective updates together, preserving arbitrary
 library jumps and atomic window refresh. Decisions, limits, sequencing, and
 completion checks are recorded in the
 [browse cache and Plex synchronization plan](browse-cache-and-plex-sync-plan.md).
-Stage 1 is complete: event evidence, pure decisions, page identity, and baseline
-request costs are in the [stage 1 results](browse-sync-stage1.md). Next is the
-library migration with selective runtime updates; existing broad refresh remains.
+Stages 1 and 2 are complete: contracts/baselines are in the
+[stage 1 results](browse-sync-stage1.md); native library pages, selective runtime
+updates and backend catalog freshness are in the [stage 2 results](browse-sync-stage2.md).
+Next: lists, Watchlist and availability, then removal of their old mechanisms.
 
 ### 1. Lazy media metadata resource — complete
 

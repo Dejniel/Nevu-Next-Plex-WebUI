@@ -1,4 +1,5 @@
-import { AuthStorage } from "features/session/model";
+import { publishMediaChange } from "entities/media/model";
+import { AuthStorage, getActiveServerScope } from "features/session/model";
 import { ProxiedRequest } from "shared/api/backend";
 import { invalidateLibraryCache } from "shared/lib/libraryCache";
 
@@ -50,8 +51,7 @@ export function buildMetadataUpdatePath(
     if (value !== undefined) params.set(`${field}.value`, value);
   });
   Object.entries(lockChanges).forEach(([field, locked]) => {
-    if (locked !== undefined)
-      params.set(`${field}.locked`, locked ? "1" : "0");
+    if (locked !== undefined) params.set(`${field}.locked`, locked ? "1" : "0");
   });
 
   return `/library/metadata/${encodeURIComponent(ratingKey)}?${params.toString()}`;
@@ -63,15 +63,12 @@ export async function updateMetadata(
   lockChanges: MetadataLockUpdate = {},
 ): Promise<void> {
   if (!ratingKey) throw new Error("The metadata item has no Plex ID.");
-  if (
-    Object.keys(changes).length === 0 &&
-    Object.keys(lockChanges).length === 0
-  )
-    return;
+  if (Object.keys(changes).length === 0 && Object.keys(lockChanges).length === 0) return;
 
   const token = AuthStorage.getServerToken();
   if (!token) throw new Error("The Plex session has expired. Sign in again.");
 
+  const scope = getActiveServerScope();
   const response = await ProxiedRequest(
     buildMetadataUpdatePath(ratingKey, changes, lockChanges),
     "PUT",
@@ -84,14 +81,12 @@ export async function updateMetadata(
   );
 
   if (response.status >= 200 && response.status < 300) {
-    invalidateLibraryCache();
+    invalidateLibraryCache(scope ? { profileKey: scope.profileKey } : undefined);
+    if (scope) publishMediaChange({ ...scope, kind: "item", effect: "unknown", id: ratingKey });
     return;
   }
   if (response.status === 400)
-    throw new MetadataUpdateError(
-      "Plex rejected one or more metadata values.",
-      response.status,
-    );
+    throw new MetadataUpdateError("Plex rejected one or more metadata values.", response.status);
   if (response.status === 401 || response.status === 403)
     throw new MetadataUpdateError(
       "Editing metadata requires Plex server administrator access.",
@@ -118,21 +113,17 @@ export function applyMetadataUpdate(
 
   if (changes.title !== undefined) next.title = changes.title;
   if (changes.sortTitle !== undefined) next.titleSort = changes.sortTitle;
-  if (changes.originalTitle !== undefined)
-    next.originalTitle = changes.originalTitle;
+  if (changes.originalTitle !== undefined) next.originalTitle = changes.originalTitle;
   if (changes.summary !== undefined) next.summary = changes.summary;
   if (changes.tagline !== undefined) next.tagline = changes.tagline;
   if (changes.studio !== undefined) next.studio = changes.studio;
-  if (changes.contentRating !== undefined)
-    next.contentRating = changes.contentRating;
+  if (changes.contentRating !== undefined) next.contentRating = changes.contentRating;
   if (changes.originallyAvailableAt !== undefined)
     next.originallyAvailableAt = changes.originallyAvailableAt;
   if (changes.year !== undefined) next.year = Number(changes.year) || 0;
 
   if (Object.keys(lockChanges).length > 0) {
-    const fields = new Map(
-      (metadata.Field ?? []).map((field) => [field.name, field]),
-    );
+    const fields = new Map((metadata.Field ?? []).map((field) => [field.name, field]));
 
     Object.entries(lockChanges).forEach(([name, locked]) => {
       if (locked) fields.set(name, { name, locked: true });
@@ -149,9 +140,7 @@ export function applyMetadataUpdate(
 
 export function getMetadataLocks(metadata: Plex.Metadata): MetadataLocks {
   const lockedFields = new Set(
-    (metadata.Field ?? [])
-      .filter((field) => field.locked)
-      .map((field) => field.name),
+    (metadata.Field ?? []).filter((field) => field.locked).map((field) => field.name),
   );
 
   return Object.fromEntries(

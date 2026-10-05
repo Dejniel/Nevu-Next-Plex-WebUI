@@ -1,14 +1,21 @@
+import { useQuery } from "@tanstack/react-query";
+import { useAuthSession, useServerSession, plexProfileKey } from "features/session/model";
+import { serverQueryClient } from "shared/api/queryClient";
 import {
   getMediaByGuid,
   getMediaChildren,
   getMediaMetadata,
   getTrackChoices,
+  mediaMetadataQueryKey,
+  mediaMetadataQueryOptions,
 } from "entities/media/model";
 import {
   type Dispatch,
   type SetStateAction,
   useCallback,
   useEffect,
+  useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -51,9 +58,33 @@ export function useTitleDetailsData(
   mediaID: string | null,
   plexGuid: string | null,
 ): TitleDetailsData {
-  const [data, setData] = useState<Plex.Metadata>();
-  const [loading, setLoading] = useState(Boolean(mediaID || plexGuid));
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const serverId = useServerSession((state) => state.server?.machineIdentifier) ?? "";
+  const profileKey =
+    useAuthSession((state) => plexProfileKey(state.ownerUser, state.activeProfile)) ?? "";
+  const metadataKey = useMemo(
+    () => mediaMetadataQueryKey({ serverId, profileKey }, mediaID ?? ""),
+    [serverId, profileKey, mediaID],
+  );
+  const metadata = useQuery(
+    {
+      ...mediaMetadataQueryOptions({ serverId, profileKey }, mediaID ?? ""),
+      enabled: Boolean(serverId && profileKey && mediaID),
+    },
+    serverQueryClient,
+  );
+  const data = metadata.data;
+  const setData = useCallback<Dispatch<SetStateAction<Plex.Metadata | undefined>>>(
+    (update) => {
+      serverQueryClient.setQueryData<Plex.Metadata>(metadataKey, update);
+    },
+    [metadataKey],
+  );
+  const [guidLoading, setGuidLoading] = useState(Boolean(!mediaID && plexGuid));
+  const [guidError, setGuidError] = useState<string | null>(null);
+  const loading = mediaID ? metadata.isPending : guidLoading;
+  const loadError =
+    guidError ?? (metadata.error ? "Could not load this title from the Plex server." : null);
+  const initializedSeason = useRef<readonly unknown[] | null>(null);
   const [resolvedRatingKey, setResolvedRatingKey] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState(0);
   const [episodes, setEpisodes] = useState<Plex.Metadata[] | null>(null);
@@ -61,70 +92,76 @@ export function useTitleDetailsData(
   const [languages, setLanguages] = useState<string[] | null>(null);
   const [subtitles, setSubtitles] = useState<string[] | null>(null);
 
+  const selectedSeasonId = data?.Children?.Metadata?.find(
+    (season) => season.index === selectedSeason,
+  )?.ratingKey;
+  const isShow = data?.type === "show";
   useEffect(() => {
     let active = true;
-    setData(undefined);
-    setLoading(Boolean(mediaID || plexGuid));
-    setLoadError(null);
+    setGuidLoading(Boolean(!mediaID && plexGuid));
+    setGuidError(null);
+    initializedSeason.current = null;
     setResolvedRatingKey(null);
     setSelectedSeason(0);
     setEpisodes(null);
     setLanguages(null);
     setSubtitles(null);
 
-    if (!mediaID && !plexGuid) return () => { active = false; };
+    if (!mediaID && !plexGuid)
+      return () => {
+        active = false;
+      };
 
     if (!mediaID && plexGuid) {
       void getMediaByGuid(plexGuid)
         .then((localItem) => {
           if (!active) return;
           if (!localItem) {
-            setLoadError("This title is not available on this Plex server.");
-            setLoading(false);
+            setGuidError("This title is not available on this Plex server.");
+            setGuidLoading(false);
             return;
           }
           setResolvedRatingKey(localItem.ratingKey.toString());
         })
         .catch(() => {
           if (!active) return;
-          setLoadError("Could not resolve this title on the Plex server.");
-          setLoading(false);
+          setGuidError("Could not resolve this title on the Plex server.");
+          setGuidLoading(false);
         });
 
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }
 
-    void getMediaMetadata(mediaID as string)
-      .then((metadata) => {
-        if (!active) return;
-        if (!metadata) throw new Error("Metadata not found");
-        setSelectedSeason(selectInitialSeason(metadata));
-        setData(metadata);
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!active) return;
-        setLoadError("Could not load this title from the Plex server.");
-        setLoading(false);
-      });
+    return () => {
+      active = false;
+    };
+  }, [mediaID, plexGuid, profileKey, serverId]);
 
-    return () => { active = false; };
-  }, [mediaID, plexGuid]);
+  useEffect(() => {
+    if (data && initializedSeason.current !== metadataKey) {
+      initializedSeason.current = metadataKey;
+      setSelectedSeason(selectInitialSeason(data));
+    }
+  }, [data, metadataKey]);
 
   useEffect(() => {
     let active = true;
     setEpisodes(null);
 
-    if (data?.type !== "show") return () => { active = false; };
-    const season = data.Children?.Metadata?.find(
-      (candidate) => candidate.index === selectedSeason,
-    );
-    if (!season?.ratingKey) {
+    if (!isShow)
+      return () => {
+        active = false;
+      };
+    if (!selectedSeasonId) {
       setEpisodes([]);
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }
 
-    void getMediaChildren(season.ratingKey)
+    void getMediaChildren(selectedSeasonId)
       .then((items) => {
         if (active) setEpisodes(items);
       })
@@ -132,28 +169,39 @@ export function useTitleDetailsData(
         if (active) setEpisodes([]);
       });
 
-    return () => { active = false; };
-  }, [data, episodeRevision, selectedSeason]);
+    return () => {
+      active = false;
+    };
+  }, [isShow, episodeRevision, selectedSeasonId]);
 
   useEffect(() => {
     let active = true;
     setLanguages(null);
     setSubtitles(null);
 
-    if (!data) return () => { active = false; };
+    if (!data)
+      return () => {
+        active = false;
+      };
     if (data.type === "movie") {
       setLanguages(trackLanguages(data, 2));
       setSubtitles(trackLanguages(data, 3));
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }
     if (data.type !== "show" || episodes === null)
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
 
     const firstEpisode = episodes[0];
     if (!firstEpisode) {
       setLanguages([]);
       setSubtitles([]);
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }
 
     void getMediaMetadata(firstEpisode.ratingKey)
@@ -168,13 +216,12 @@ export function useTitleDetailsData(
         setSubtitles([]);
       });
 
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [data, episodes]);
 
-  const refetchEpisodes = useCallback(
-    () => setEpisodeRevision((revision) => revision + 1),
-    [],
-  );
+  const refetchEpisodes = useCallback(() => setEpisodeRevision((revision) => revision + 1), []);
 
   return {
     data,

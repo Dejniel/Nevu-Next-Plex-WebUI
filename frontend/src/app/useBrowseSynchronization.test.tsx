@@ -2,6 +2,7 @@ import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
+  mediaChangeFromServer,
   connectPlexServerEvents,
   type PlexServerChange,
 } from "features/session/model";
@@ -20,6 +21,11 @@ vi.mock("features/settings/model", () => ({
 vi.mock("features/session/model", () => ({
   AuthStorage: { getServerToken: () => "test-token" },
   connectPlexServerEvents: vi.fn(),
+  useServerSession: Object.assign(
+    (select: (state: unknown) => unknown) => select({ server: { machineIdentifier: "server" } }),
+    { getState: () => ({ server: { machineIdentifier: "server" } }) },
+  ),
+  mediaChangeFromServer: vi.fn(() => ({ serverId: "server", profileKey: mockProfile, kind: "recovery" })),
 }));
 vi.mock("features/media-lists/model", () => ({
   invalidateMediaLists: vi.fn(),
@@ -27,6 +33,7 @@ vi.mock("features/media-lists/model", () => ({
 vi.mock("shared/lib/libraryCache", () => ({
   invalidateLibraryCache: vi.fn(),
 }));
+vi.mock("features/library/model", () => ({ startLibrarySynchronization: () => ({ enqueue: vi.fn(), dispose: vi.fn() }) }));
 let root: Root;
 const connect = connectPlexServerEvents as Mock;
 const close = vi.fn();
@@ -56,6 +63,7 @@ it("routes section changes to that section's collections and availability, inclu
     change: PlexServerChange,
   ) => void;
   changed({ kind: "library", sectionId: "2" });
+  expect(mediaChangeFromServer).toHaveBeenCalled();
   expect(invalidateLibraryCache).toHaveBeenCalledWith({
     profileKey: "owner:1",
     sectionId: "2",

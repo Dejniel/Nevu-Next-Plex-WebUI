@@ -1,3 +1,4 @@
+import { hashKey } from "@tanstack/react-query";
 import { ShuffleRounded } from "@mui/icons-material";
 import { Box, IconButton, MenuItem, Select, Tooltip } from "@mui/material";
 import React from "react";
@@ -9,10 +10,7 @@ import {
   isRandomLibrarySort,
   librarySortOptions,
 } from "../model/librarySort";
-import {
-  libraryRangeStore,
-} from "../model/LibraryRangeStore";
-import { libraryQueryKey, type LibraryQuery } from "../model/libraryQuery";
+import { libraryResultQueryKey, type LibraryQuery } from "../model/libraryQuery";
 import { AppDialog } from "shared/ui";
 import {
   LibraryCardViewControls,
@@ -42,7 +40,7 @@ export default function LibraryCollectionDialog({
   onClose,
 }: LibraryCollectionDialogProps) {
   const contentRef = React.useRef<HTMLDivElement>(null);
-  const baseQueryKey = baseQuery ? libraryQueryKey(baseQuery) : "closed";
+  const baseQueryKey = baseQuery ? hashKey(libraryResultQueryKey("", baseQuery)) : "closed";
   const [selection, setSelection] = React.useState({
     baseQueryKey,
     sort: baseQuery?.sort || "titleSort",
@@ -119,12 +117,10 @@ export default function LibraryCollectionDialog({
                     size="small"
                     aria-label="Reshuffle collection"
                     onClick={() => {
-                      const previousKey = libraryQueryKey(query);
                       const nextSeed = replaceLibraryRandomSeed(
                         query.profileKey,
                         query.sectionId,
                       );
-                      libraryRangeStore.drop(previousKey);
                       setSelection({ baseQueryKey, sort, randomSeed: nextSeed });
                     }}
                   >

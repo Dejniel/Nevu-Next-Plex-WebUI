@@ -23,3 +23,14 @@ export type SynchronizationDecision = "ignore" | "patch" | "refresh";
 export function matchesMediaScope(scope: MediaScope, change: MediaScope) {
   return scope.serverId === change.serverId && scope.profileKey === change.profileKey;
 }
+
+const listeners = new Set<(change: MediaChange) => void>();
+export function publishMediaChange(change: MediaChange) {
+  listeners.forEach((listener) => listener(change));
+}
+export function subscribeToMediaChanges(listener: (change: MediaChange) => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}

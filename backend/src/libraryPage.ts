@@ -10,6 +10,7 @@ import type {
     LibrarySource,
     LibrarySort,
 } from '@nevu/contracts';
+import { changedLibraryFields, libraryFilterUnaffected, mediaMetadataIncludes } from '@nevu/contracts';
 import axios from 'axios';
 import { createHash } from 'node:crypto';
 import express from 'express';
@@ -49,6 +50,8 @@ const cardFields = [
     'guid',
     'type',
     'title',
+    'titleSort', 'librarySectionID', 'addedAt', 'updatedAt', 'lastViewedAt',
+    'originallyAvailableAt', 'studio', 'contentRating', 'userRating',
     'parentTitle',
     'grandparentTitle',
     'parentRatingKey',
@@ -72,9 +75,6 @@ const excludedFields = [
     'summary',
     'tagline',
     'originalTitle',
-    'studio',
-    'contentRating',
-    'originallyAvailableAt',
     'ratingImage',
     'audienceRatingImage',
 ].join(',');
@@ -84,7 +84,6 @@ const excludedElements = [
     'Director',
     'Writer',
     'Role',
-    'Collection',
     'Label',
     'Producer',
     'Chapter',
@@ -153,9 +152,11 @@ function projectLibraryCards(metadata: unknown): LibraryCardDto[] {
 
         const genres = projectGenres(item.Genre);
         const media = projectMedia(item.Media);
+        const collections = projectGenres(item.Collection);
         return {
             ...pick(item, cardFields),
             ...(genres && { Genre: genres }),
+            ...(collections && { Collection: collections }),
             ...(media && { Media: media }),
         } as LibraryCardDto;
     });
@@ -169,7 +170,12 @@ export function projectLibraryPage(
     const source = container && typeof container === 'object'
         ? container as JsonObject
         : {};
-    const items = projectLibraryCards(source.Metadata);
+    const items = projectLibraryCards(source.Metadata).map(item => ({
+        ...item,
+        ...(item.librarySectionID === undefined && source.librarySectionID !== undefined && {
+            librarySectionID: Number(source.librarySectionID),
+        }),
+    }));
     const offset = Number.isInteger(source.offset) ? Number(source.offset) : requestedOffset;
     const totalSize = Number.isInteger(source.totalSize) ? Number(source.totalSize) : null;
     const reportedSize = Number.isInteger(source.size) ? Number(source.size) : items.length;
@@ -244,10 +250,10 @@ interface ParsedRequest {
     offset: number;
     size: number;
     seed?: string;
-    refresh: boolean;
 }
 
 interface RandomCatalog {
+    request: ParsedRequest;
     items: LibraryCardDto[];
     generationId: string;
     loadedAt: number;
@@ -374,8 +380,6 @@ function parseRequest(query: express.Request['query']): ParsedRequest | null {
     const sourceValue = single(query.source);
     const source = (sourceValue || 'all') as LibrarySource;
     const seed = single(query.seed);
-    const refreshValue = single(query.refresh);
-    const refresh = refreshValue === 'true' || refreshValue === '1';
     const filterExpression = parseFilterExpression(query.filterExpression);
 
     if (
@@ -386,7 +390,6 @@ function parseRequest(query: express.Request['query']): ParsedRequest | null {
         filterExpression === null ||
         !librarySources.has(source) ||
         (type && !itemTypes.has(type)) ||
-        (refreshValue !== undefined && !['true', 'false', '1', '0'].includes(refreshValue)) ||
         (isRandomSort(sort) && (
             source !== 'all' || !seed || !/^[a-zA-Z0-9_-]{1,64}$/.test(seed)
         ))
@@ -398,7 +401,6 @@ function parseRequest(query: express.Request['query']): ParsedRequest | null {
         offset,
         size,
         sort,
-        refresh,
         ...(filterExpression && { filterExpression }),
         ...(type && { type }),
         ...(seed && { seed }),
@@ -560,6 +562,7 @@ export function createLibraryPageRouter({
                 generationHash.update(ratingKey).update('\0');
 
             return {
+                request,
                 items,
                 generationId: generationHash.digest('hex').slice(0, 24),
                 loadedAt: Date.now(),
@@ -580,7 +583,6 @@ export function createLibraryPageRouter({
         const cached = randomCatalogs.get(key);
         if (
             cached &&
-            !request.refresh &&
             Date.now() - cached.loadedAt <= RANDOM_CATALOG_TTL_MS
         ) {
             cached.lastUsed = Date.now();
@@ -592,17 +594,22 @@ export function createLibraryPageRouter({
 
         try {
             const catalog = await loading;
-            for (const orderKey of randomOrders.keys())
-                if (orderKey.startsWith(`${key}:`)) randomOrders.delete(orderKey);
-            randomCatalogs.set(key, catalog);
-            pruneRandomCaches();
+            if (pendingCatalogs.get(key) === loading) {
+                for (const orderKey of randomOrders.keys())
+                    if (orderKey.startsWith(`${key}:`)) randomOrders.delete(orderKey);
+                randomCatalogs.set(key, catalog);
+                pruneRandomCaches();
+            }
             return { key, catalog };
         } finally {
-            pendingCatalogs.delete(key);
+            if (pendingCatalogs.get(key) === loading) pendingCatalogs.delete(key);
         }
     };
 
     const getRandomOrder = (key: string, catalog: RandomCatalog, seed: string) => {
+        // An invalidated in-flight catalog may finish for its old HTTP caller,
+        // but cannot read or overwrite the current order cache.
+        if (randomCatalogs.get(key) !== catalog) return stableRandomOrder(catalog.items, seed);
         const orderKey = `${key}:${catalog.generationId}:${seed}`;
         const cached = randomOrders.get(orderKey);
         if (cached) {
@@ -617,6 +624,80 @@ export function createLibraryPageRouter({
         pruneRandomCaches();
         return items;
     };
+
+    const evictCatalog = (key: string) => {
+        randomCatalogs.delete(key);
+        pendingCatalogs.delete(key); // An older rebuild must not repopulate invalidated data.
+        for (const orderKey of randomOrders.keys())
+            if (orderKey.startsWith(`${key}:`)) randomOrders.delete(orderKey);
+    };
+    const matchingKeys = (token: string, sectionId?: string) =>
+        [...new Set([...randomCatalogs.keys(), ...pendingCatalogs.keys()])]
+            .filter(key => key.startsWith(`${tokenCacheKey(token)}:`) &&
+                (!sectionId || key.split(':')[1] === sectionId));
+
+    router.delete('/catalog', (req, res) => {
+        const token = req.headers['x-plex-token'];
+        const sectionId = single(req.query.sectionId);
+        if (typeof token !== 'string' || !token) return res.status(401).send({ error: 'Missing Plex session' });
+        if (sectionId !== undefined && !/^[1-9]\d*$/.test(sectionId))
+            return res.status(400).send({ error: 'Invalid library section' });
+        matchingKeys(token, sectionId).forEach(evictCatalog);
+        return res.status(204).send();
+    });
+
+    // Read authorized canonical data. Client PUT fields are never trusted as a delta.
+    router.post('/synchronize', async (req, res) => {
+        const token = req.headers['x-plex-token'];
+        const id = single(req.query.id);
+        const includeDetails = req.query.includeDetails === 'true';
+        if (typeof token !== 'string' || !token) return res.status(401).send({ error: 'Missing Plex session' });
+        if (!id || !/^\d+$/.test(id)) return res.status(400).send({ error: 'Invalid media ID' });
+        res.set('Cache-Control', 'private, no-store');
+        try {
+            const response = await limiter.run(() => axios.get(`${plexServer}/library/metadata/${id}`, {
+                ...(includeDetails && { params: mediaMetadataIncludes }),
+                headers: { Accept: 'application/json', 'X-Plex-Token': token }, timeout: 20000,
+                ...(httpAgent && { httpAgent }), ...(httpsAgent && { httpsAgent }),
+            }));
+            const metadata = response.data?.MediaContainer?.Metadata?.[0];
+            if (!metadata || String(metadata.ratingKey) !== id)
+                throw new InvalidLibraryPageError('Missing canonical metadata');
+            const sectionId = metadata.librarySectionID === undefined ? undefined : String(metadata.librarySectionID);
+            const parentIds = [metadata.parentRatingKey, metadata.grandparentRatingKey]
+                .filter((value): value is string => typeof value === 'string' && /^\d+$/.test(value));
+            const item = itemTypes.has(metadata.type) ? projectLibraryCards([metadata])[0] : null;
+            // Section moves invalidate the old section too; absence can mean entry into a filter.
+            for (const key of matchingKeys(token)) {
+                const catalog = randomCatalogs.get(key);
+                const before = catalog?.items.find(card => card.ratingKey === id);
+                if (!before && sectionId && key.split(':')[1] !== sectionId) continue;
+                const fields = before && item ? changedLibraryFields(before, item) : [];
+                const stable = before && item && catalog &&
+                    !fields.some(field => ['type', 'librarySectionID', 'parentRatingKey', 'grandparentRatingKey', 'Collection'].includes(field)) &&
+                    libraryFilterUnaffected(catalog.request.filterExpression, fields) &&
+                    !(parentIds.length && (!catalog.request.type || catalog.request.type === 'show'));
+                if (!stable || pendingCatalogs.has(key)) { evictCatalog(key); continue; }
+                catalog.items = catalog.items.map(card => card.ratingKey === id ? item : card);
+                for (const [orderKey, order] of randomOrders)
+                    if (orderKey.startsWith(`${key}:`))
+                        order.items = order.items.map(card => card.ratingKey === id ? item : card);
+            }
+            // Children can change parent aggregates, including random show catalogs.
+            if (parentIds.length) for (const key of matchingKeys(token, sectionId)) {
+                const catalog = randomCatalogs.get(key);
+                if (!catalog || !catalog.request.type || catalog.request.type === 'show') evictCatalog(key);
+            }
+            return res.send({ item, sectionId, parentIds, ...(includeDetails && { metadata }) });
+        } catch (error) {
+            const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+            if (status === 404) {
+                matchingKeys(token).forEach(evictCatalog);
+                return res.send({ item: null });
+            }
+            return res.status(status && status < 500 ? status : 502).send({ error: 'Unable to synchronize Plex metadata' });
+        }
+    });
 
     router.get('/', async (req, res) => {
         const token = req.headers['x-plex-token'];

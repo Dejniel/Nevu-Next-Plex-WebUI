@@ -13,8 +13,8 @@ export { PlexRequestError };
 
 export const plexClient = new PlexClient(() => AuthStorage.getServerToken());
 
-export function authedGetStrict(url: string) {
-  return plexClient.get(url);
+export function authedGetStrict(url: string, signal?: AbortSignal) {
+  return plexClient.get(url, signal);
 }
 
 export async function authedGet(url: string) {

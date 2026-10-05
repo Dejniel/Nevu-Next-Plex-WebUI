@@ -2,6 +2,16 @@
 
 Status: structural migration completed on 2026-09-29
 
+## Library Query ownership and selective sync — 2026-10-05
+
+Replaced `LibraryRangeStore` with actual Query page responses and a shared
+revision descriptor for atomic visible-window refresh. Canonical item updates
+patch stable results and backend random catalogs; dependency/membership changes
+refresh scoped windows. Full title metadata now shares synchronization reads.
+Removed obsolete library controller branches; lists/Watchlist/availability await
+stage 3. Verification and request comparisons are in the
+[stage 2 results](browse-sync-stage2.md).
+
 ## Plex synchronization contract — 2026-10-05
 
 Stage 1 preserves timeline identity/state and defines scoped item/list/recovery
@@ -20,7 +30,7 @@ the Plex HTTP transport. Inactive range caches expire after five minutes.
 Follow-up review found overlapping manual request state, adapters, and a Watchlist
 mirror. Further simplification and selective synchronization are planned together
 in the [browse cache and Plex synchronization plan](browse-cache-and-plex-sync-plan.md);
-stage 1 is complete, while cache migration remains planned.
+stages 1 and 2 are complete, while list/Watchlist/availability migration remains planned.
 
 ## Plex reviews — 2026-10-05
 

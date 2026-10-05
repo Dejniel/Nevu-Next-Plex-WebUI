@@ -41,7 +41,7 @@ export default function VirtualGrid({
 }: VirtualGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const [geometry, setGeometry] = useState({ width: 0, top: 0 });
-  const previousKey = useRef(resetKey);
+  const previousKey = useRef<string | null | undefined>(undefined);
 
   useLayoutEffect(() => {
     const grid = gridRef.current;
@@ -117,13 +117,13 @@ export default function VirtualGrid({
   useEffect(() => {
     virtualizer.measure();
   }, [columns, rowHeight, virtualizer]);
-  useEffect(() => {
-    if (resetKey && previousKey.current && previousKey.current !== resetKey) {
+  useLayoutEffect(() => {
+    if (resetKey && previousKey.current !== resetKey) {
       if (scrollElementRef?.current) scrollElementRef.current.scrollTop = 0;
       else
         window.scrollTo({
           top: Math.max(0, geometry.top - 80),
-          behavior: "smooth",
+          behavior: "instant",
         });
     }
     previousKey.current = resetKey;

@@ -4,10 +4,7 @@ import type {
   LibrarySort,
   LibrarySource,
 } from "@nevu/contracts";
-import {
-  libraryFilterExpressionKey,
-  normalizeLibraryFilterExpression,
-} from "./libraryFilterExpression";
+import { normalizeLibraryFilterExpression } from "./libraryFilterExpression";
 
 export const LIBRARY_RANGE_SIZE = 64;
 export interface LibraryQuery {
@@ -20,19 +17,7 @@ export interface LibraryQuery {
   seed?: string;
 }
 
-export function libraryQueryKey(query: LibraryQuery) {
-  return JSON.stringify([
-    query.profileKey,
-    query.sectionId,
-    query.source || "all",
-    query.type || "any",
-    query.sort,
-    libraryFilterExpressionKey(query.filterExpression),
-    query.seed || "",
-  ]);
-}
-
-/** Result prefix and page identity for the Query migration; revision is local. */
+/** Canonical result prefix and page identity; revision is local. */
 export function libraryResultQueryKey(serverId: string, query: LibraryQuery) {
   return [
     "library",

@@ -31,7 +31,8 @@ export type {
   TrackPreference,
 } from "./model/mediaVersions";
 export type { MediaItemData } from "./model/media";
-export { matchesMediaScope } from "./model/mediaChanges";
+export { matchesMediaScope, publishMediaChange, subscribeToMediaChanges } from "./model/mediaChanges";
+export { mediaMetadataQueryKey, mediaMetadataQueryOptions } from "./model/mediaMetadataQuery";
 export type { MediaChange, MediaScope, SynchronizationDecision } from "./model/mediaChanges";
 export {
   applyMediaWatchedState,

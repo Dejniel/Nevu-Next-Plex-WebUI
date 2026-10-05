@@ -1,9 +1,10 @@
 # Browse cache and selective Plex synchronization
 
-Status: stage 1 complete; stages 2 and 3 planned. Recorded on 2026-10-05.
+Status: stages 1 and 2 complete; stage 3 planned. Recorded on 2026-10-05.
 
 Contracts, observed events, baseline costs, and verification are recorded in the
-[stage 1 results](browse-sync-stage1.md). Selective runtime updates are not active yet.
+[stage 1 results](browse-sync-stage1.md). Delivered library ownership and selective
+runtime updates are recorded in the [stage 2 results](browse-sync-stage2.md).
 
 This document records the direction, behavior to preserve, implementation plan,
 and remaining questions. Cache ownership and selective synchronization are one
@@ -37,7 +38,8 @@ At the starting commit, these problems remained:
 
 The previous cache cleanup is therefore a starting point, not a completed
 simplification. Preserve its useful behavior while removing the replaced layers.
-Stage 1 preserves notification details; the remaining cache overlaps await migration.
+Stage 2 removes these overlaps for the library; lists, Watchlist and availability
+await stage 3.
 
 ## Technology and ownership
 
@@ -203,7 +205,7 @@ Done when representative/unknown events produce justified scopes, structural
 changes cannot be mistaken for safe patches, and the library migration has a
 concrete query/revision contract. No broad stack migration is required.
 
-### 2. Library cache and selective synchronization together — planned
+### 2. Library cache and selective synchronization together — complete
 
 - Return real page responses from Query; connect visible ranges directly to page
   queries and keep only necessary priority/window coordination.

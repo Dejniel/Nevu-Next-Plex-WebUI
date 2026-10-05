@@ -6,15 +6,7 @@ export type LibrarySource = "all" | "onDeck";
 
 export type LibraryFilterMode = "and" | "or";
 
-export type LibraryFilterOperator =
-  | "="
-  | "!="
-  | "=="
-  | "!=="
-  | "<="
-  | ">="
-  | "<<="
-  | ">>=";
+export type LibraryFilterOperator = "=" | "!=" | "==" | "!==" | "<=" | ">=" | "<<=" | ">>=";
 
 export interface LibraryFilterClause {
   field: string;
@@ -54,6 +46,15 @@ export interface LibraryCardDto {
   guid: string;
   type: LibraryItemType;
   title: string;
+  titleSort?: string;
+  librarySectionID?: number;
+  addedAt?: number;
+  updatedAt?: number;
+  lastViewedAt?: number;
+  originallyAvailableAt?: string;
+  studio?: string;
+  contentRating?: string;
+  userRating?: number;
   parentTitle?: string;
   grandparentTitle?: string;
   parentRatingKey?: string;
@@ -73,8 +74,23 @@ export interface LibraryCardDto {
   viewedLeafCount?: number;
   leafCount?: number;
   Genre?: LibraryGenreDto[];
+  Collection?: LibraryGenreDto[];
   Media?: LibraryMediaDto[];
 }
+
+export function libraryFieldsUnaffected(field: string, changed: readonly string[]): boolean;
+export function libraryFilterUnaffected(
+  filter: LibraryFilterExpression | undefined,
+  changed: readonly string[],
+): boolean;
+export function changedLibraryFields(before: LibraryCardDto, after: LibraryCardDto): string[];
+export interface LibraryItemUpdateDto {
+  item: LibraryCardDto | null;
+  metadata?: unknown;
+  sectionId?: string;
+  parentIds?: string[];
+}
+export const mediaMetadataIncludes: Readonly<Record<string, 1>>;
 
 export interface LibraryPageRequest {
   sectionId: number;
@@ -85,7 +101,6 @@ export interface LibraryPageRequest {
   offset: number;
   size: number;
   seed?: string;
-  refresh?: boolean;
 }
 
 export interface LibraryPageDto {

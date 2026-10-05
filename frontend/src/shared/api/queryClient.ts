@@ -15,5 +15,6 @@ export const createQueryClient = () =>
     },
   });
 
-// Browser refresh cadence belongs to RefreshScheduler; request state belongs here.
+// Library windows and metadata use Query's lifecycle. Lists and availability
+// still supply their refresh cadence until their stage 3 migration.
 export const serverQueryClient = createQueryClient();

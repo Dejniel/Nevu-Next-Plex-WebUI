@@ -1,4 +1,4 @@
-import type { LibraryFilterExpression } from "@nevu/contracts";
+import { libraryFieldsUnaffected, libraryFilterUnaffected } from "@nevu/contracts";
 import {
   matchesMediaScope,
   type MediaChange,
@@ -6,39 +6,11 @@ import {
 } from "entities/media/model";
 import type { LibraryQuery } from "./libraryQuery";
 
-// Field dependencies only: unknown Plex expressions require server revalidation.
-const dependencies: Record<string, readonly string[]> = {
-  random: [],
-  title: ["title", "titleSort"],
-  titleSort: ["title", "titleSort"],
-  year: ["year"],
-  addedAt: ["addedAt"],
-  updated: ["updatedAt"],
-  updatedAt: ["updatedAt"],
-  originallyAvailableAt: ["originallyAvailableAt"],
-  duration: ["duration"],
-  rating: ["rating"],
-  audienceRating: ["audienceRating"],
-  userRating: ["userRating"],
-  viewCount: ["viewCount", "viewedLeafCount"],
-  unwatched: ["viewCount", "viewedLeafCount", "leafCount"],
-  lastViewedAt: ["lastViewedAt"],
-  genre: ["Genre"],
-  studio: ["studio"],
-  contentRating: ["contentRating"],
-};
-function unaffected(field: string, changed: readonly string[]) {
-  const known = Object.hasOwn(dependencies, field) ? dependencies[field] : undefined;
-  return known !== undefined && !known.some((dependency) => changed.includes(dependency));
-}
-function unaffectedFilters(
-  filter: LibraryFilterExpression | undefined,
-  fields: readonly string[],
-): boolean {
-  if (!filter) return true;
-  return filter.kind === "clause"
-    ? unaffected(filter.field, fields)
-    : filter.children.every((child) => unaffectedFilters(child, fields));
+export function libraryDependenciesUnaffected(query: LibraryQuery, fields: readonly string[]) {
+  return (
+    query.sort.split(",").every((term) => libraryFieldsUnaffected(term.split(":")[0], fields)) &&
+    libraryFilterUnaffected(query.filterExpression, fields)
+  );
 }
 
 export function decideLibrarySynchronization(
@@ -75,10 +47,5 @@ export function decideLibrarySynchronization(
     ((!query.type || query.type === "show") && change.parentIds?.length)
   )
     return "refresh";
-  const stableSort = query.sort
-    .split(",")
-    .every((term) => unaffected(term.split(":")[0], change.fields));
-  return stableSort && unaffectedFilters(query.filterExpression, change.fields)
-    ? "patch"
-    : "refresh";
+  return libraryDependenciesUnaffected(query, change.fields) ? "patch" : "refresh";
 }

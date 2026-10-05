@@ -1,19 +1,17 @@
-import {
-  authedGet,
-  authedGetStrict,
-  getXPlexProps,
-} from "features/session/model";
+import { publishMediaChange } from "../model/mediaChanges";
+import { authedGetStrict, getActiveServerScope, getXPlexProps } from "features/session/model";
 import { queryBuilder } from "shared/lib/query";
 import { getIncludeProps } from "../model/mediaIncludes";
 import { invalidateLibraryCache } from "shared/lib/libraryCache";
 
-export async function getMediaMetadata(id: string): Promise<Plex.Metadata> {
+export async function getMediaMetadata(id: string, signal?: AbortSignal): Promise<Plex.Metadata> {
   if (!id) return {} as Plex.Metadata;
   const response = await authedGetStrict(
     `/library/metadata/${id}?${queryBuilder({
       ...getIncludeProps(),
       ...getXPlexProps(),
     })}`,
+    signal,
   );
   return response.MediaContainer.Metadata[0];
 }
@@ -28,9 +26,7 @@ export async function getMediaChildren(id: string): Promise<Plex.Metadata[]> {
   return response.MediaContainer.Metadata ?? [];
 }
 
-export async function getMediaByGuid(
-  guid: string,
-): Promise<Plex.Metadata | null> {
+export async function getMediaByGuid(guid: string): Promise<Plex.Metadata | null> {
   const response = await authedGetStrict(
     `/library/all?${queryBuilder({
       guid,
@@ -44,16 +40,15 @@ export async function getMediaByGuid(
   return metadata?.guid === guid ? metadata : null;
 }
 
-export async function setMediaPlayedStatus(
-  watched: boolean,
-  ratingKey: string,
-): Promise<void> {
-  await authedGet(
+export async function setMediaPlayedStatus(watched: boolean, ratingKey: string): Promise<void> {
+  const scope = getActiveServerScope();
+  await authedGetStrict(
     `/:/${watched ? "scrobble" : "unscrobble"}?${queryBuilder({
       key: ratingKey,
       identifier: "com.plexapp.plugins.library",
       ...getXPlexProps(),
     })}`,
   );
-  invalidateLibraryCache();
+  invalidateLibraryCache(scope ? { profileKey: scope.profileKey } : undefined);
+  if (scope) publishMediaChange({ ...scope, kind: "item", effect: "unknown", id: ratingKey });
 }

@@ -53,7 +53,7 @@ The library module is the reference implementation:
 ```text
 features/library/
   api/       Plex/backend requests and transport error mapping
-  model/     filters, sorting, range cache, and pure transformations
+  model/     filters, sorting, Query pages/window coordination, and transformations
   ui/        routed screen and library-specific components
   public.ts  exports used by the rest of the application
 ```
@@ -90,21 +90,20 @@ conventions. Update those checks alongside intentional architecture changes.
 It also checks runtime import cycles reachable from the browse features.
 Headless entry points help non-UI consumers avoid UI dependencies or cycles.
 
-Browse models retain data during background revalidation. Currently, one
-`serverQueryClient` backs requests/cache lifetime, while `PagedCollection` still
-manages absolute positions, request status, and atomic window replacement.
-`shared/lib` also owns the refresh scheduler and prioritized range queue;
-Watchlist mirrors Query state into Zustand. These overlaps are scheduled for
-removal in the [browse cache and Plex synchronization plan](browse-cache-and-plex-sync-plan.md).
-Features own invalidation rules; session changes clear cached requests and data.
-Session supplies profile identity and authenticated Plex SSE through the HTTP
-proxy. `app` routes coalesced hints through headless model contracts; current
-library hints trigger broad refreshes. The parser now retains item IDs and
-processing states; pure synchronization policies and page-key contracts are ready
-for the migration, as recorded in the [stage 1 results](browse-sync-stage1.md).
-Focus/reconnect/visible-view checks also
-cover recovery and cloud Watchlist freshness. The plan describes target ownership;
-this paragraph describes the implementation currently in use.
+One `serverQueryClient` owns responses, requests and eviction. Library consumers
+observe real page queries and share a window descriptor containing its published
+revision. That window coordinates atomic replacement and native lifecycle refresh;
+a small transport limiter bounds concurrency. Full title metadata also uses Query.
+Session changes clear requests/data; Plex hints and local mutations update scoped
+resources. Safe canonical changes patch cards and backend random catalogs;
+structural/unknown effects stage a new window. See the
+[stage 2 results](browse-sync-stage2.md).
+
+Collections/playlists still use `PagedCollection`; availability and lists retain
+their refresh scheduler/buses, and Watchlist mirrors Query into Zustand. Their
+replacement and selective rules are stage 3 of the
+[browse cache and Plex synchronization plan](browse-cache-and-plex-sync-plan.md).
+Cloud Watchlist freshness remains distinct from local server notifications.
 
 ## Video playback
 

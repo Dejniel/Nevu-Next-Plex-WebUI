@@ -2,13 +2,12 @@ import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { getLibraryPage } from "../api/libraryPage";
-import {
-  libraryRangeStore,
-} from "../model/LibraryRangeStore";
+import { serverQueryClient } from "shared/api/queryClient";
+import { useServerSession } from "features/session/model";
 import type { LibraryQuery } from "../model/libraryQuery";
 import { WindowLibraryCollectionGrid } from "./LibraryCollectionGrid";
 
-vi.mock("../api/libraryPage", () => ({ getLibraryPage: vi.fn() }));
+vi.mock("../api/libraryPage", async (original) => ({ ...await original<typeof import("../api/libraryPage")>(), getLibraryPage: vi.fn() }));
 vi.mock("features/media-actions/public", () => ({
   ActionableMediaCard: ({ item }: { item: Plex.Metadata }) => (
     <div>{item.title}</div>
@@ -40,11 +39,12 @@ vi.mock("shared/ui/VirtualGrid", async () => {
   };
 });
 
-it("starts loading after registering the query even if the child already requested a range", async () => {
+it("loads the grid and replaces its query without retaining the previous section", async () => {
   (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  libraryRangeStore.clear();
+  serverQueryClient.clear();
+  useServerSession.setState({ server: { machineIdentifier: "test-server" } as Plex.ServerPreferences });
   const request = getLibraryPage as Mock;
   request.mockImplementation(async ({ offset, sectionId }) => ({
     offset,
@@ -76,6 +76,7 @@ it("starts loading after registering the query even if the child already request
         />,
       ),
     );
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
     expect(request).toHaveBeenCalledTimes(1);
     expect(element.textContent).toContain("Library 1");
     await act(async () =>
@@ -87,10 +88,11 @@ it("starts loading after registering the query even if the child already request
         />,
       ),
     );
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
     expect(request).toHaveBeenCalledTimes(2);
     expect(element.textContent).toContain("Library 2");
   } finally {
     await act(async () => root.unmount());
-    libraryRangeStore.clear();
+    serverQueryClient.clear();
   }
 });

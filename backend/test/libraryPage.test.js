@@ -18,8 +18,121 @@ function card(id, title = `Movie ${id}`) {
   };
 }
 
-async function callRouter(router, query, token = "secret") {
-  const layer = router.stack.find((candidate) => candidate.route?.path === "/");
+const randomRequest = { sectionId: "1", type: "movie", sort: "random", seed: "stable", offset: "0", size: "64" };
+test("a canonical metadata read updates later random pages without rebuilding or reshuffling 1300 items", async () => {
+  const original = axios.get;
+  const items = Array.from({ length: 1300 }, (_, id) => ({ ...card(id), librarySectionID: 1, updatedAt: 1 }));
+  let pageReads = 0;
+  let itemReads = 0;
+  axios.get = async (url, config) => {
+    if (url.endsWith("/metadata/42")) {
+      itemReads++;
+      return { data: { MediaContainer: { Metadata: [{ ...items[42], thumb: "fresh", updatedAt: 2 }] } } };
+    }
+    pageReads++;
+    const offset = Number(config.params.get("X-Plex-Container-Start"));
+    return { data: { MediaContainer: { offset, totalSize: items.length, Metadata: items.slice(offset, offset + 500) } } };
+  };
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex" });
+    const first = await callRouter(router, randomRequest);
+    assert.equal(pageReads, 3);
+    const changed = await callRouter(router, { id: "42" }, "secret", "/synchronize", "post");
+    assert.equal(changed.body.item.thumb, "fresh");
+    const offset = stableRandomOrder(items, "stable").findIndex(item => item.ratingKey === "42");
+    const later = await callRouter(router, { ...randomRequest, offset: String(offset), size: "1" });
+    assert.equal(later.body.items[0].thumb, "fresh");
+    assert.equal(later.body.generationId, first.body.generationId);
+    const returned = await callRouter(router, randomRequest);
+    assert.deepEqual(returned.body.items.map(item => item.ratingKey), first.body.items.map(item => item.ratingKey));
+    assert.equal(pageReads, 3);
+    assert.equal(itemReads, 1);
+  } finally { axios.get = original; }
+});
+
+test("watched changes rebuild dependent random filters while another token retains its catalog", async () => {
+  const original = axios.get;
+  let watched = false;
+  let reads = 0;
+  const item = { ...card(42), librarySectionID: 1, viewCount: 0 };
+  axios.get = async url => {
+    if (url.endsWith("/metadata/42")) return { data: { MediaContainer: { Metadata: [{ ...item, viewCount: 1 }] } } };
+    reads++;
+    return { data: { MediaContainer: { totalSize: watched ? 0 : 1, Metadata: watched ? [] : [item] } } };
+  };
+  const filtered = { ...randomRequest, filterExpression: JSON.stringify({ kind: "clause", field: "unwatched", operator: "=", value: "1" }) };
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex" });
+    await callRouter(router, filtered); await callRouter(router, filtered, "other-profile-token");
+    watched = true;
+    await callRouter(router, { id: "42" }, "secret", "/synchronize", "post");
+    assert.equal((await callRouter(router, filtered)).body.totalSize, 0);
+    assert.equal((await callRouter(router, filtered, "other-profile-token")).body.totalSize, 1);
+    assert.equal(reads, 3);
+  } finally { axios.get = original; }
+});
+
+test("an item absent from a filtered random catalog can enter it after synchronization", async () => {
+  const original = axios.get;
+  let added = false;
+  let reads = 0;
+  axios.get = async url => {
+    if (url.endsWith("/metadata/42")) return { data: { MediaContainer: { Metadata: [{ ...card(42), librarySectionID: 1 }] } } };
+    reads++;
+    return { data: { MediaContainer: { totalSize: added ? 1 : 0, Metadata: added ? [card(42)] : [] } } };
+  };
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex" });
+    await callRouter(router, randomRequest);
+    added = true;
+    await callRouter(router, { id: "42" }, "secret", "/synchronize", "post");
+    assert.equal((await callRouter(router, randomRequest)).body.totalSize, 1);
+    assert.equal(reads, 2);
+  } finally { axios.get = original; }
+});
+
+test("an invalidated in-flight catalog cannot resurrect stale metadata or order entries", async () => {
+  const original = axios.get;
+  let finish;
+  let reads = 0;
+  axios.get = async () => {
+    reads++;
+    if (reads === 1) return new Promise(resolve => { finish = resolve; });
+    return { data: { MediaContainer: { totalSize: 1, Metadata: [card(42, "fresh")] } } };
+  };
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex" });
+    const old = callRouter(router, randomRequest);
+    await new Promise(resolve => setImmediate(resolve));
+    await callRouter(router, { sectionId: "1" }, "secret", "/catalog", "delete");
+    await callRouter(router, randomRequest);
+    finish({ data: { MediaContainer: { totalSize: 1, Metadata: [card(42, "stale")] } } });
+    await old;
+    const current = await callRouter(router, randomRequest);
+    assert.equal(current.body.items[0].title, "fresh");
+    assert.equal(reads, 2);
+  } finally { axios.get = original; }
+});
+
+test("returns full canonical details only for an existing details-cache consumer", async () => {
+  const original = axios.get;
+  const metadata = { ...card(42), librarySectionID: 1, summary: "Full description", Children: { Metadata: [] } };
+  let upstream;
+  axios.get = async (_url, config) => { upstream = config; return { data: { MediaContainer: { Metadata: [metadata] } } }; };
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex" });
+    const cardOnly = await callRouter(router, { id: "42" }, "secret", "/synchronize", "post");
+    assert.equal(cardOnly.body.metadata, undefined);
+    assert.equal(upstream.params, undefined);
+    const details = await callRouter(router, { id: "42", includeDetails: "true" }, "secret", "/synchronize", "post");
+    assert.deepEqual(details.body.metadata, metadata);
+    assert.equal(upstream.params.includeChildren, 1);
+    assert.equal(upstream.params.includeExtras, 1);
+  } finally { axios.get = original; }
+});
+
+async function callRouter(router, query, token = "secret", path = "/", method = "get") {
+  const layer = router.stack.find((candidate) => candidate.route?.path === path && candidate.route.methods[method]);
   const result = { status: 200, body: null, headers: {} };
   await layer.route.stack[0].handle(
     { headers: { "x-plex-token": token }, query },
@@ -416,7 +529,7 @@ test("accepts Plex-declared sort expressions but rejects injected parameters", a
   }
 });
 
-test("refreshing a random catalog updates cards and versions membership changes", async () => {
+test("invalidating a random catalog updates cards and versions membership changes", async () => {
   const originalGet = axios.get;
   let items = [card(1), card(2), card(3)];
   axios.get = async () => ({
@@ -434,7 +547,8 @@ test("refreshing a random catalog updates cards and versions membership changes"
     };
     const before = await callRouter(router, query);
     items = items.map((item) => item.ratingKey === "2" ? { ...item, title: "Renamed" } : item);
-    const metadataRefresh = await callRouter(router, { ...query, refresh: "true" });
+    assert.equal((await callRouter(router, { sectionId: "1" }, "secret", "/catalog", "delete")).status, 204);
+    const metadataRefresh = await callRouter(router, query);
 
     assert.equal(before.body.generationId, metadataRefresh.body.generationId);
     assert.equal(
@@ -443,7 +557,8 @@ test("refreshing a random catalog updates cards and versions membership changes"
     );
 
     items = [...items, card(4)];
-    const after = await callRouter(router, { ...query, refresh: "true" });
+    await callRouter(router, { sectionId: "1" }, "secret", "/catalog", "delete");
+    const after = await callRouter(router, query);
 
     assert.notEqual(metadataRefresh.body.generationId, after.body.generationId);
     assert.deepEqual(

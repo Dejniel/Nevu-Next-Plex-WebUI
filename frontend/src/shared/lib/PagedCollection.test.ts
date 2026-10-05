@@ -1,6 +1,5 @@
 import { createQueryClient } from "shared/api/queryClient";
 import { getPagedCollection } from "./PagedCollection";
-import { RequestQueue } from "./RequestQueue";
 
 const deferred = <T>() => {
   let resolve!: (value: T) => void;
@@ -96,41 +95,6 @@ it("keeps cached data on re-entry and lets Query collect inactive resources", as
   );
   client.clear();
   vi.useRealTimers();
-});
-
-it("does not strand a random catalog when its queued first range leaves the viewport", async () => {
-  const client = createQueryClient();
-  const queue = new RequestQueue(1);
-  const blocker = deferred<ReturnType<typeof page>>();
-  const first = getPagedCollection(
-    ["busy"],
-    { pageSize: 64, page: () => blocker.promise, queue },
-    client,
-  );
-  first.retain();
-  first.demand(0, 0);
-  const fetch = vi.fn(async (offset: number) => ({
-    offset,
-    total: 500,
-    items: [String(offset)],
-    generationId: "catalog",
-  }));
-  const random = getPagedCollection(
-    ["random"],
-    { pageSize: 64, page: fetch, refreshCatalog: true, queue },
-    client,
-  );
-  random.retain();
-  random.demand(0, 0);
-  random.demand(192, 255);
-  blocker.resolve(page("done"));
-  await flush();
-  expect(fetch).toHaveBeenCalledTimes(1);
-  expect(fetch).toHaveBeenCalledWith(192, expect.any(AbortSignal), true);
-  expect(random.snapshot().items.get(192)).toBe("192");
-  first.release();
-  random.release();
-  client.clear();
 });
 
 it("requeues an old in-flight range under the new catalog generation", async () => {

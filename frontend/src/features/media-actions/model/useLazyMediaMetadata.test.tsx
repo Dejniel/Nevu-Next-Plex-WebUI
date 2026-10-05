@@ -7,7 +7,7 @@ import {
   useLazyMediaMetadata,
 } from "./useLazyMediaMetadata";
 
-vi.mock("entities/media/model", () => ({ getMediaMetadata: vi.fn() }));
+vi.mock("entities/media/model", async (original) => ({ ...await original<typeof import("entities/media/model")>(), getMediaMetadata: vi.fn() }));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

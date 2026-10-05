@@ -9,13 +9,6 @@ export {
   sortMetadata,
 } from "./ui/LibrarySortDropDown";
 export type { LibrarySort } from "@nevu/contracts";
-export {
-  LibraryRangeStore,
-  libraryRangeStore,
-  useLibraryQueryRange,
-  useLibraryRange,
-} from "./model/LibraryRangeStore";
-export type { LibraryRangeSnapshot } from "./model/LibraryRangeStore";
 export type { LibraryQuery } from "./model/libraryQuery";
 export { LibraryPageError } from "./api/libraryPage";
 export { default as LibraryViewToolbar } from "./ui/LibraryViewToolbar";

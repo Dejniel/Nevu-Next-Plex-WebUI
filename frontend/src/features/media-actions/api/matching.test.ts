@@ -10,6 +10,7 @@ import {
 } from "./matching";
 
 vi.mock("features/session/model", () => ({
+  getActiveServerScope: () => null,
   plexClient: { get: vi.fn(), put: vi.fn() },
 }));
 vi.mock("shared/lib/libraryCache", () => ({

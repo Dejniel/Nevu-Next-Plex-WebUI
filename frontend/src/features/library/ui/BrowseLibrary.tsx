@@ -46,11 +46,8 @@ import {
   getLibraryRandomSeed,
   replaceLibraryRandomSeed,
 } from "../model/libraryRandom";
-import {
-  libraryRangeStore,
-  useLibraryRange,
-} from "../model/LibraryRangeStore";
-import { libraryQueryKey, type LibraryQuery } from "../model/libraryQuery";
+import { useLibraryPages } from "../model/useLibraryPages";
+import type { LibraryQuery } from "../model/libraryQuery";
 
 function isLibraryItemType(value: string | null | undefined): value is LibraryItemType {
   return value === "movie" || value === "show" || value === "episode";
@@ -224,8 +221,7 @@ function BrowseLibraryContent({
       sort: effectiveSort,
     };
   }, [baseQuery, effectiveSort, randomSeed, randomSeedContext]);
-  const queryKey = React.useMemo(() => query ? libraryQueryKey(query) : null, [query]);
-  const range = useLibraryRange(queryKey);
+  const range = useLibraryPages(query);
   const itemCount = range.totalSize?.toLocaleString();
   const typeSelector = (
     <Select
@@ -355,7 +351,6 @@ function BrowseLibraryContent({
                     size="small"
                     aria-label="Reshuffle library"
                     onClick={() => {
-                      if (queryKey) libraryRangeStore.drop(queryKey);
                       setRandomSeed({
                         context: randomSeedContext as string,
                         value: replaceLibraryRandomSeed(
