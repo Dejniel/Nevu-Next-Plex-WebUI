@@ -90,18 +90,18 @@ conventions. Update those checks alongside intentional architecture changes.
 It also checks runtime import cycles reachable from the browse features.
 Headless entry points help non-UI consumers avoid UI dependencies or cycles.
 
-Browse models retain their caches during background revalidation. `shared/lib`
-owns the visible-tab refresh scheduler, prioritized range queue, and atomic
-page-window loader. TanStack Query owns request cancellation, sharing, freshness,
-and cache lifetime through one `serverQueryClient`. `PagedCollection` preserves
-absolute positions and replaces a visible window atomically; library and media
-list adapters supply Plex queries and catalog rules. Watchlist and availability
-use the same client. Features own invalidation rules; session changes clear all
-cached requests and data. Session supplies a common profile key
-and owns the authenticated Plex SSE connection through the existing HTTP proxy.
-`app` routes its hints through headless model contracts. Events are coalesced;
-focus, reconnect and a visible-view interval also check freshness, including
-cloud Watchlist data.
+Browse models retain data during background revalidation. Currently, one
+`serverQueryClient` backs requests/cache lifetime, while `PagedCollection` still
+manages absolute positions, request status, and atomic window replacement.
+`shared/lib` also owns the refresh scheduler and prioritized range queue;
+Watchlist mirrors Query state into Zustand. These overlaps are scheduled for
+removal in the [browse cache and Plex synchronization plan](browse-cache-and-plex-sync-plan.md).
+Features own invalidation rules; session changes clear cached requests and data.
+Session supplies profile identity and authenticated Plex SSE through the HTTP
+proxy. `app` routes coalesced hints through headless model contracts; current
+library hints trigger broad refreshes. Focus/reconnect/visible-view checks also
+cover recovery and cloud Watchlist freshness. The plan describes target ownership;
+this paragraph describes the implementation currently in use.
 
 ## Video playback
 

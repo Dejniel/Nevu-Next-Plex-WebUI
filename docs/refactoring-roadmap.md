@@ -10,7 +10,8 @@ It is not a second rewrite and should not drive file movement for its own sake.
 
 ### Current focus
 
-- Make Plex notification updates more selective and reduce browse refresh costs.
+- Simplify browse cache ownership together with selective Plex synchronization;
+  follow the [implementation plan](browse-cache-and-plex-sync-plan.md).
 - Reduce large composition components where it clarifies a workflow or supports
   planned product work.
 
@@ -34,12 +35,14 @@ It is not a second rewrite and should not drive file movement for its own sake.
 
 ## Recommended next steps
 
-### Browse cache ownership — complete
+### Browse cache ownership and Plex synchronization — planned
 
-TanStack Query owns request state and cache lifetime for library, media lists,
-Watchlist, and availability. `PagedCollection` shares range loading and atomic
-window replacement; adapters retain Plex-specific ordering and catalog rules.
-Selective notification updates below remain separate work.
+The first cleanup introduced one TanStack Query client, but retained too much
+manual request state, adapters, and mirrored data. It is not the final ownership
+model. Rework page queries and selective updates together, preserving arbitrary
+library jumps and atomic window refresh. Decisions, limits, sequencing, and
+completion checks are recorded in the
+[browse cache and Plex synchronization plan](browse-cache-and-plex-sync-plan.md).
 
 ### 1. Lazy media metadata resource — complete
 
@@ -84,17 +87,10 @@ response shape; avoid a repository-wide type-only rewrite.
 
 ### 6. Make Plex notification updates more selective
 
-- Preserve item IDs and change kinds; fetch changed metadata and update affected
-  cached items when list membership and order remain unchanged. Revalidate list
-  windows for structural changes or uncertain events.
-- Narrow collection, playlist, and Watchlist availability invalidation to affected
-  resources where their dependencies are known.
-- Limit refresh frequency during sustained library scans, beyond the current
-  500 ms event grouping; retain recovery after missed notifications.
-- Avoid unnecessary full random-sort catalog rebuilds for metadata-only changes
-  and routine freshness checks.
-- Verify request counts during long scans, metadata and membership/order changes,
-  and profile switches while preserving scroll and filters.
+This is part of the browse cache workstream above. Define item/structural/recovery
+decisions first, migrate the library with those decisions, then lists and
+Watchlist/availability. Include backend random-catalog freshness and measured
+request counts; do not implement synchronization twice against old and new caches.
 
 ## Verification
 

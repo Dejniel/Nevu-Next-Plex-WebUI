@@ -10,6 +10,11 @@ generations, playlist positions, explicit retries, and atomic visible-window
 refreshes. Session cleanup cancels all cached requests; cancellation now reaches
 the Plex HTTP transport. Inactive range caches expire after five minutes.
 
+Follow-up review found overlapping manual request state, adapters, and a Watchlist
+mirror. Further simplification and selective synchronization are planned together
+in the [browse cache and Plex synchronization plan](browse-cache-and-plex-sync-plan.md);
+that implementation has not started.
+
 ## Plex reviews — 2026-10-05
 
 Written reviews can be created and edited directly through Plex Community, using
