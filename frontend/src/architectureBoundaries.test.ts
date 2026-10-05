@@ -10,6 +10,7 @@ const HEADLESS_FEATURE_ENTRYPOINTS = new Set([
   "library",
   "library-navigation",
   "search",
+  "home",
   "watch-together",
   "watchlist",
   "media-lists",
@@ -29,19 +30,14 @@ function dependencies(file: string, contents: string, runtimeOnly = false) {
     .map((statement) => statement.moduleRequest.value);
   const exports = parsed.module.staticExports.flatMap((statement) =>
     statement.entries.flatMap((entry) =>
-      entry.moduleRequest && (!runtimeOnly || !entry.isType)
-        ? [entry.moduleRequest.value]
-        : [],
+      entry.moduleRequest && (!runtimeOnly || !entry.isType) ? [entry.moduleRequest.value] : [],
     ),
   );
   const dynamic: string[] = [];
   if (!runtimeOnly) {
     new Visitor({
       ImportExpression(node) {
-        if (
-          node.source.type === "Literal" &&
-          typeof node.source.value === "string"
-        )
+        if (node.source.type === "Literal" && typeof node.source.value === "string")
           dynamic.push(node.source.value);
       },
     }).visit(parsed.program);
@@ -120,21 +116,19 @@ describe("frontend module boundaries", () => {
     const graph = new Map(
       files.map((file) => {
         const imports: string[] = [];
-        dependencies(file, fs.readFileSync(file, "utf8"), true).forEach(
-          (specifier) => {
-            const target = targetPath(file, specifier);
-            if (!target) return;
-            const base = path.join(SOURCE_ROOT, target);
-            const resolved = [
-              base,
-              `${base}.ts`,
-              `${base}.tsx`,
-              path.join(base, "index.ts"),
-              path.join(base, "index.tsx"),
-            ].find((candidate) => known.has(candidate));
-            if (resolved) imports.push(resolved);
-          },
-        );
+        dependencies(file, fs.readFileSync(file, "utf8"), true).forEach((specifier) => {
+          const target = targetPath(file, specifier);
+          if (!target) return;
+          const base = path.join(SOURCE_ROOT, target);
+          const resolved = [
+            base,
+            `${base}.ts`,
+            `${base}.tsx`,
+            path.join(base, "index.ts"),
+            path.join(base, "index.tsx"),
+          ].find((candidate) => known.has(candidate));
+          if (resolved) imports.push(resolved);
+        });
         return [file, imports] as const;
       }),
     );
@@ -154,9 +148,7 @@ describe("frontend module boundaries", () => {
       stack.pop();
     };
     files
-      .filter((file) =>
-        /^features\/(library|watchlist|media-lists)\//.test(sourcePath(file)),
-      )
+      .filter((file) => /^features\/(library|watchlist|media-lists)\//.test(sourcePath(file)))
       .forEach(visit);
     expect(cycles).toEqual([]);
   });
@@ -174,18 +166,12 @@ describe("frontend module boundaries", () => {
         if (!target) continue;
         const targetOwner = moduleOwner(target);
         if (!targetOwner) continue;
-        if (
-          owner?.layer === targetOwner.layer &&
-          owner.name === targetOwner.name
-        )
-          continue;
+        if (owner?.layer === targetOwner.layer && owner.name === targetOwner.name) continue;
 
         const isPublic = targetOwner.entrypoint === "public";
-        const isAppRoute =
-          source.startsWith("app/") && targetOwner.entrypoint === "routes";
+        const isAppRoute = source.startsWith("app/") && targetOwner.entrypoint === "routes";
         const isEntityModel =
-          targetOwner.layer === "entities" &&
-          targetOwner.entrypoint === "model";
+          targetOwner.layer === "entities" && targetOwner.entrypoint === "model";
         const isFeatureModel =
           targetOwner.layer === "features" &&
           targetOwner.entrypoint === "model" &&
@@ -212,14 +198,12 @@ describe("frontend module boundaries", () => {
         if (!target) continue;
         const targetLayer = moduleLayer(target);
 
-        const sharedViolation =
-          sourceLayer === "shared" && targetLayer !== "shared";
+        const sharedViolation = sourceLayer === "shared" && targetLayer !== "shared";
         const entityViolation =
           sourceLayer === "entities" &&
           (targetLayer === "app" || targetLayer === "features") &&
           target !== "features/session/model";
-        const featureViolation =
-          sourceLayer === "features" && targetLayer === "app";
+        const featureViolation = sourceLayer === "features" && targetLayer === "app";
 
         if (sharedViolation || entityViolation || featureViolation)
           violations.push(`${source} -> ${specifier}`);
@@ -230,18 +214,12 @@ describe("frontend module boundaries", () => {
   });
 
   it("keeps runtime modules inside an architectural layer", () => {
-    const allowedRootFiles = new Set([
-      "architectureBoundaries.test.ts",
-      "index.tsx",
-      "types.d.ts",
-    ]);
+    const allowedRootFiles = new Set(["architectureBoundaries.test.ts", "index.tsx", "types.d.ts"]);
     const rootRuntimeFiles = fs
       .readdirSync(SOURCE_ROOT, { withFileTypes: true })
       .filter(
         (entry) =>
-          entry.isFile() &&
-          SOURCE_EXTENSION.test(entry.name) &&
-          !allowedRootFiles.has(entry.name),
+          entry.isFile() && SOURCE_EXTENSION.test(entry.name) && !allowedRootFiles.has(entry.name),
       )
       .map((entry) => entry.name);
 

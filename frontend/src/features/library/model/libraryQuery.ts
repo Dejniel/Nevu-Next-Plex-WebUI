@@ -1,3 +1,4 @@
+import type { QueryKey } from "@tanstack/react-query";
 import type {
   LibraryFilterExpression,
   LibraryItemType,
@@ -42,4 +43,22 @@ export function libraryPageQueryKey(
   size = LIBRARY_RANGE_SIZE,
 ) {
   return [...libraryResultQueryKey(serverId, query), "page", revision, offset, size] as const;
+}
+
+export function libraryResultFromKey(key: QueryKey) {
+  const [kind, serverId, profileKey, parameters] = key as ReturnType<typeof libraryResultQueryKey>;
+  if (
+    kind !== "library" ||
+    !parameters ||
+    typeof serverId !== "string" ||
+    typeof profileKey !== "string"
+  )
+    return null;
+  const query: LibraryQuery = {
+    ...parameters,
+    profileKey,
+    type: parameters.type === "any" ? undefined : parameters.type,
+    filterExpression: parameters.filterExpression ?? undefined,
+  };
+  return { serverId, query, prefix: libraryResultQueryKey(serverId, query) };
 }

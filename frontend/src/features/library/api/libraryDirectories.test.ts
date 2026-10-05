@@ -1,34 +1,21 @@
 import type { Mock } from "vitest";
 import { authedGetStrict } from "features/session/model";
-import {
-  getLibrary,
-  getLibraryDirectory,
-  getLibrarySecondary,
-} from "./libraryDirectories";
+import { getLibraryDirectory } from "./libraryDirectories";
 
 vi.mock("features/session/model", () => ({
   authedGetStrict: vi.fn(),
 }));
-vi.mock("shared/lib/query", () => ({
-  queryBuilder: () => "query",
-}));
 
 beforeEach(() => vi.clearAllMocks());
 
-it("loads section details and arbitrary library directories", async () => {
-  (authedGetStrict as Mock)
-    .mockResolvedValueOnce({ MediaContainer: { title1: "Movies" } })
-    .mockResolvedValueOnce({ MediaContainer: { Metadata: [{ ratingKey: "1" }] } });
+it("loads arbitrary library directories", async () => {
+  (authedGetStrict as Mock).mockResolvedValueOnce({
+    MediaContainer: { Metadata: [{ ratingKey: "1" }] },
+  });
 
-  await expect(getLibrary("1")).resolves.toMatchObject({ title1: "Movies" });
-  await expect(getLibraryDirectory("/library/sections/1/all")).resolves
-    .toMatchObject({ Metadata: [{ ratingKey: "1" }] });
-});
-
-it("normalizes an omitted secondary directory collection", async () => {
-  (authedGetStrict as Mock).mockResolvedValue({ MediaContainer: {} });
-
-  await expect(getLibrarySecondary("1", "genre")).resolves.toEqual([]);
+  await expect(getLibraryDirectory("/library/sections/1/all")).resolves.toMatchObject({
+    Metadata: [{ ratingKey: "1" }],
+  });
 });
 
 it("normalizes an empty media directory without Metadata", async () => {
@@ -46,4 +33,24 @@ it("rejects a missing container instead of treating it as an empty directory", a
   await expect(getLibraryDirectory("/library/onDeck")).rejects.toThrow(
     "Plex returned an invalid library directory",
   );
+});
+
+it("preserves bounded discovery window parameters and forwards cancellation", async () => {
+  vi.mocked(authedGetStrict).mockResolvedValue({ MediaContainer: { size: 8, Metadata: [] } });
+  const signal = new AbortController().signal;
+  await getLibraryDirectory(
+    "/library/sections/4/all",
+    {
+      sort: "titleSort:asc",
+      "X-Plex-Container-Start": 24,
+      "X-Plex-Container-Size": 8,
+    },
+    signal,
+  );
+  const [url, requestSignal] = vi.mocked(authedGetStrict).mock.calls[0];
+  const params = new URL(url, "http://plex").searchParams;
+  expect(params.get("sort")).toBe("titleSort:asc");
+  expect(params.get("X-Plex-Container-Start")).toBe("24");
+  expect(params.get("X-Plex-Container-Size")).toBe("8");
+  expect(requestSignal).toBe(signal);
 });

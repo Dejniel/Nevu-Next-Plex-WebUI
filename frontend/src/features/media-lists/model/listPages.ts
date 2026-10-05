@@ -1,4 +1,4 @@
-import { queryOptions, type QueryClient } from "@tanstack/react-query";
+import { queryOptions, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import type { MediaScope } from "entities/media/model";
 import { pageOffsets, queryWindowKey, queryWindowOptions } from "shared/lib/queryWindow";
 import { runPageRequest } from "shared/lib/requestLimiter";
@@ -88,3 +88,22 @@ export function listWindowOptions(client: QueryClient, scope: MediaScope, query:
 }
 export const listRangeOffsets = (start: number, end: number, total: number | null) =>
   pageOffsets(start, end, total, LIST_PAGE_SIZE);
+
+export function mediaListResultFromKey(key: QueryKey) {
+  const [kind, serverId, profileKey, parameters] = key as ReturnType<typeof mediaListResultKey>;
+  if (
+    kind !== "media-lists" ||
+    !parameters ||
+    typeof serverId !== "string" ||
+    typeof profileKey !== "string"
+  )
+    return null;
+  const query: MediaListQuery = {
+    ...parameters,
+    id: parameters.id ?? undefined,
+    libraryID: parameters.libraryID ?? undefined,
+    sort: parameters.sort || undefined,
+  };
+  const scope = { serverId, profileKey };
+  return { scope, query, prefix: mediaListResultKey(scope, query) };
+}

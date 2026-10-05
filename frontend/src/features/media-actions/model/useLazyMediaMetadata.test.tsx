@@ -1,13 +1,26 @@
+import { notifyManager, useQuery } from "@tanstack/react-query";
+import { serverQueryClient } from "shared/api/queryClient";
 import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { getMediaMetadata, type MediaItemData } from "entities/media/model";
 import {
-  StaleMediaMetadataRequestError,
-  useLazyMediaMetadata,
-} from "./useLazyMediaMetadata";
+  getMediaMetadata,
+  mediaMetadataQueryOptions,
+  type MediaItemData,
+} from "entities/media/model";
+import { StaleMediaMetadataRequestError, useLazyMediaMetadata } from "./useLazyMediaMetadata";
 
-vi.mock("entities/media/model", async (original) => ({ ...await original<typeof import("entities/media/model")>(), getMediaMetadata: vi.fn() }));
+vi.mock("entities/media/api/media", async (original) => ({
+  ...(await original<typeof import("entities/media/api/media")>()),
+  getMediaMetadata: vi.fn(),
+}));
+const scope = { serverId: "server", profileKey: "owner" };
+vi.mock("features/session/model", async (original) => ({
+  ...(await original<typeof import("features/session/model")>()),
+  useActiveServerScope: () => scope,
+}));
+beforeAll(() => notifyManager.setScheduler(queueMicrotask));
+afterAll(() => notifyManager.setScheduler((callback) => setTimeout(callback, 0)));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -19,7 +32,11 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-const movie = { ratingKey: "1", type: "movie", title: "A movie" } as Plex.Metadata;
+const movie = {
+  ratingKey: "1",
+  type: "movie",
+  title: "A movie",
+} as Plex.Metadata;
 const fullMovie = { ...movie, summary: "Full metadata" };
 let item: MediaItemData;
 let state: ReturnType<typeof useLazyMediaMetadata>;
@@ -37,6 +54,7 @@ async function renderCard() {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  serverQueryClient.clear();
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   item = movie;
   element = document.createElement("div");
@@ -48,6 +66,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   element.remove();
+  serverQueryClient.clear();
 });
 
 it("loads lazily and reuses cached metadata even before React rerenders", async () => {
@@ -66,7 +85,7 @@ it("loads lazily and reuses cached metadata even before React rerenders", async 
   await renderCard();
   await expect(state.load()).resolves.toBe(fullMovie);
   expect(getMediaMetadata).toHaveBeenCalledTimes(1);
-  expect(getMediaMetadata).toHaveBeenCalledWith("1");
+  expect(getMediaMetadata).toHaveBeenCalledWith("1", expect.any(AbortSignal));
 });
 
 it("shares one guarded request between concurrent callers", async () => {
@@ -75,13 +94,12 @@ it("shares one guarded request between concurrent callers", async () => {
   await renderCard();
   let first!: Promise<Plex.Metadata>;
   let second!: Promise<Plex.Metadata>;
-  act(() => {
+  await act(async () => {
     first = state.load();
     second = state.load();
   });
 
   expect(state.status).toBe("loading");
-  expect(first).toBe(second);
   expect(getMediaMetadata).toHaveBeenCalledTimes(1);
   await act(async () => request.resolve(fullMovie));
   await expect(first).resolves.toBe(fullMovie);
@@ -95,7 +113,8 @@ it("allows retrying a failed request and shares the retry", async () => {
   await renderCard();
   await act(async () => {
     const first = state.load();
-    expect(state.load()).toBe(first);
+    const second = state.load();
+    await expect(second).rejects.toBe(failure);
     await expect(first).rejects.toBe(failure);
   });
   expect(state.status).toBe("failed");
@@ -103,7 +122,7 @@ it("allows retrying a failed request and shares the retry", async () => {
 
   await act(async () => {
     const retry = state.load();
-    expect(state.load()).toBe(retry);
+    await expect(state.load()).resolves.toEqual(fullMovie);
     await expect(retry).resolves.toBe(fullMovie);
   });
   expect(state.status).toBe("loaded");
@@ -112,17 +131,26 @@ it("allows retrying a failed request and shares the retry", async () => {
 
 it("invalidates loaded metadata and fetches the new match on demand", async () => {
   await renderCard();
-  await act(async () => { await state.load(); });
-  const matched = { ...fullMovie, guid: "plex://movie/new", title: "New match" };
+  await act(async () => {
+    await state.load();
+  });
+  const matched = {
+    ...fullMovie,
+    guid: "plex://movie/new",
+    title: "New match",
+  };
   (getMediaMetadata as Mock).mockResolvedValue(matched);
 
   act(() => state.invalidate());
-  expect(state.data).toBeNull();
-  expect(state.status).toBe("idle");
+  expect(
+    serverQueryClient.getQueryState(mediaMetadataQueryOptions(scope, "1").queryKey)?.isInvalidated,
+  ).toBe(true);
   expect(getMediaMetadata).toHaveBeenCalledTimes(1);
 
-  await act(async () => { await state.load(); });
-  expect(state.data).toBe(matched);
+  await act(async () => {
+    await state.load();
+  });
+  expect(state.data).toEqual(matched);
   expect(getMediaMetadata).toHaveBeenCalledTimes(2);
 });
 
@@ -139,12 +167,14 @@ it("rejects an invalidated response for every caller without replacing fresh dat
   });
   const unmatched = { ...fullMovie, guid: "local://1", title: "Unmatched" };
   (getMediaMetadata as Mock).mockResolvedValue(unmatched);
-  await act(async () => { await state.load(); });
+  await act(async () => {
+    await state.load();
+  });
   await act(async () => oldRequest.resolve(fullMovie));
 
   expect(await firstResult).toBeInstanceOf(StaleMediaMetadataRequestError);
   expect(await secondResult).toBeInstanceOf(StaleMediaMetadataRequestError);
-  expect(state.data).toBe(unmatched);
+  expect(state.data).toEqual(unmatched);
   expect(state.status).toBe("loaded");
 });
 
@@ -166,9 +196,11 @@ it("does not let an old failure clear or fail a newer pending request", async ()
 
   expect(await oldResult).toBeInstanceOf(StaleMediaMetadataRequestError);
   expect(state.status).toBe("loading");
-  expect(state.load()).toBe(newPromise);
+  const sharedNewPromise = state.load();
   expect(getMediaMetadata).toHaveBeenCalledTimes(2);
   await act(async () => newRequest.resolve(fullMovie));
+  await expect(sharedNewPromise).resolves.toEqual(fullMovie);
+  await expect(newPromise).resolves.toEqual(fullMovie);
   expect(state.status).toBe("loaded");
 });
 
@@ -186,27 +218,34 @@ it("rejects all old callers when the card changes while loading", async () => {
   await renderCard();
   expect(state.data).toBeNull();
   expect(state.status).toBe("idle");
-  const nextMetadata = { ...item, summary: "Another movie's metadata" } as Plex.Metadata;
+  const nextMetadata = {
+    ...item,
+    summary: "Another movie's metadata",
+  } as Plex.Metadata;
   (getMediaMetadata as Mock).mockResolvedValue(nextMetadata);
-  await act(async () => { await state.load(); });
+  await act(async () => {
+    await state.load();
+  });
   await act(async () => oldRequest.resolve(fullMovie));
 
   expect(await firstResult).toBeInstanceOf(StaleMediaMetadataRequestError);
   expect(await secondResult).toBeInstanceOf(StaleMediaMetadataRequestError);
   expect(state.data).toBe(nextMetadata);
-  expect(getMediaMetadata).toHaveBeenLastCalledWith("2");
+  expect(getMediaMetadata).toHaveBeenLastCalledWith("2", expect.any(AbortSignal));
 });
 
-it("discards the cache when refreshed props contain the same Plex ID", async () => {
+it("keeps the shared cache when new props refer to the same Plex ID", async () => {
   await renderCard();
-  await act(async () => { await state.load(); });
+  await act(async () => {
+    await state.load();
+  });
   item = { ...movie, title: "Refreshed title" };
   await renderCard();
-
-  expect(state.data).toBeNull();
-  expect(state.status).toBe("idle");
-  await act(async () => { await state.load(); });
-  expect(getMediaMetadata).toHaveBeenCalledTimes(2);
+  await act(async () => {
+    await state.load();
+  });
+  expect(state.data).toEqual(fullMovie);
+  expect(getMediaMetadata).toHaveBeenCalledTimes(1);
 });
 
 it("prevents delayed actions for an old item from touching the new cache", async () => {
@@ -216,7 +255,9 @@ it("prevents delayed actions for an old item from touching the new cache", async
   await renderCard();
   const currentMetadata = { ...fullMovie, ratingKey: "2" };
   (getMediaMetadata as Mock).mockResolvedValue(currentMetadata);
-  await act(async () => { await state.load(); });
+  await act(async () => {
+    await state.load();
+  });
 
   await expect(oldActions.load()).rejects.toBeInstanceOf(StaleMediaMetadataRequestError);
   expect(() => oldActions.invalidate()).toThrow(StaleMediaMetadataRequestError);
@@ -225,20 +266,22 @@ it("prevents delayed actions for an old item from touching the new cache", async
   expect(getMediaMetadata).toHaveBeenCalledTimes(1);
 });
 
-it("keeps a local edit cached and prevents a pending response from undoing it", async () => {
+it("returns confirmed metadata to waiting actions and ignores the old transport response", async () => {
   const request = deferred<Plex.Metadata>();
   (getMediaMetadata as Mock).mockReturnValue(request.promise);
   await renderCard();
   let pendingResult!: Promise<Plex.Metadata | Error>;
-  act(() => { pendingResult = state.load().catch((error) => error); });
+  act(() => {
+    pendingResult = state.load().catch((error) => error);
+  });
   const edited = { ...fullMovie, title: "Edited title" };
   act(() => state.update(edited));
   await act(async () => request.resolve(fullMovie));
 
-  expect(await pendingResult).toBeInstanceOf(StaleMediaMetadataRequestError);
-  expect(state.data).toBe(edited);
+  expect(await pendingResult).toEqual(edited);
+  expect(state.data).toEqual(edited);
   expect(state.status).toBe("loaded");
-  await expect(state.load()).resolves.toBe(edited);
+  await expect(state.load()).resolves.toEqual(edited);
   expect(getMediaMetadata).toHaveBeenCalledTimes(1);
 });
 
@@ -247,9 +290,62 @@ it("rejects a pending result after unmounting", async () => {
   (getMediaMetadata as Mock).mockReturnValue(request.promise);
   await renderCard();
   let result!: Promise<Plex.Metadata | Error>;
-  act(() => { result = state.load().catch((error) => error); });
+  act(() => {
+    result = state.load().catch((error) => error);
+  });
   await act(async () => root.render(null));
   await act(async () => request.resolve(fullMovie));
 
   expect(await result).toBeInstanceOf(StaleMediaMetadataRequestError);
+});
+
+it("shares metadata and confirmed edits with a second card and the title details query", async () => {
+  let peer!: ReturnType<typeof useLazyMediaMetadata>;
+  let details!: Plex.Metadata | undefined;
+  function Peer() {
+    peer = useLazyMediaMetadata(movie);
+    return null;
+  }
+  function Details() {
+    details = useQuery(mediaMetadataQueryOptions(scope, "1"), serverQueryClient).data;
+    return null;
+  }
+  await act(async () =>
+    root.render(
+      <>
+        <Harness />
+        <Peer />
+        <Details />
+      </>,
+    ),
+  );
+  await act(async () => {
+    await Promise.all([state.load(), peer.load()]);
+  });
+  expect(getMediaMetadata).toHaveBeenCalledTimes(1);
+  expect(details).toEqual(fullMovie);
+  const edited = { ...fullMovie, title: "Edited" };
+  await act(async () => state.update(edited));
+  expect(peer.data).toEqual(edited);
+  expect(details).toEqual(edited);
+});
+
+it("rejects an invalidated warm read instead of exposing its reverted stale metadata", async () => {
+  await renderCard();
+  await act(async () => {
+    await state.load();
+    state.invalidate();
+  });
+  const request = deferred<Plex.Metadata>();
+  vi.mocked(getMediaMetadata).mockReturnValueOnce(request.promise);
+  let result!: Promise<Plex.Metadata | Error>;
+  await act(async () => {
+    result = state.load().catch((error) => error);
+    state.invalidate();
+  });
+  await act(async () => request.resolve(fullMovie));
+  expect(await result).toBeInstanceOf(StaleMediaMetadataRequestError);
+  expect(
+    serverQueryClient.getQueryState(mediaMetadataQueryOptions(scope, "1").queryKey)?.isInvalidated,
+  ).toBe(true);
 });

@@ -25,7 +25,6 @@ import {
 import React, { JSX, useEffect, useState } from "react";
 import {
   applyMediaWatchedState,
-  getMediaMetadata,
   getResponsiveTranscodeImageProps,
   getTranscodeImageURL,
   DETAIL_POSTER_IMAGE_WIDTHS,
@@ -126,6 +125,7 @@ function TitleDetailsScreen() {
     loadError,
     loading,
     refetchEpisodes,
+    refetchMetadata,
     resolvedRatingKey,
     selectedSeason,
     setData,
@@ -209,9 +209,7 @@ function TitleDetailsScreen() {
     setNotice("Metadata saved");
 
     if (mid)
-      void getMediaMetadata(mid)
-        .then((metadata) => setData(metadata))
-        .catch(() => undefined);
+      void refetchMetadata();
   };
 
   if (!mid && !plexGuid) return <></>;
@@ -243,10 +241,6 @@ function TitleDetailsScreen() {
         <Alert severity="error">{loadError}</Alert>
       </AppDialog>
     );
-
-  // const selectedSeasonData = data?.Children?.Metadata.find(
-  //   (season) => season.index === selectedSeason
-  // );
 
   return (
     <AppDialog
@@ -830,11 +824,7 @@ function TitleDetailsScreen() {
                   : current,
               );
               setNotice("Match applied. Plex is refreshing metadata.");
-              try {
-                setData(await getMediaMetadata(data.ratingKey));
-              } catch {
-                // The library cache is invalidated; a later load will fetch it again.
-              }
+              await refetchMetadata();
             }}
           />
         )}

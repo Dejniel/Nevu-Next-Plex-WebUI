@@ -1,14 +1,12 @@
 import type { Mocked } from "vitest";
 import axios from "axios";
 import { AuthStorage } from "features/session/model";
-import { resolveDiscoverExtra } from "./mediaExtras";
+import { resolveDiscoverExtra, fetchDiscoverExtras } from "./mediaExtras";
 import type { TitleExtra } from "../model/mediaExtras";
 
 vi.mock("axios");
 vi.mock("shared/api/backend", async () => ({
-  ...(await vi.importActual<typeof import("shared/api/backend")>(
-    "shared/api/backend",
-  )),
+  ...(await vi.importActual<typeof import("shared/api/backend")>("shared/api/backend")),
   getBackendURL: () => "http://backend",
 }));
 
@@ -67,9 +65,9 @@ it("reports the HTTP status without exposing upstream URLs or tokens", async () 
 });
 
 it("rejects extras without a playable part before making a request", async () => {
-  await expect(
-    resolveDiscoverExtra({ ...extra, metadata: {} as Plex.Metadata }),
-  ).rejects.toThrow("This extra does not have a playable stream.");
+  await expect(resolveDiscoverExtra({ ...extra, metadata: {} as Plex.Metadata })).rejects.toThrow(
+    "This extra does not have a playable stream.",
+  );
   expect(mockedAxios.post).not.toHaveBeenCalled();
 });
 
@@ -79,4 +77,11 @@ it("rejects an empty stream response", async () => {
   await expect(resolveDiscoverExtra(extra)).rejects.toThrow(
     "Plex Discover did not return a stream.",
   );
+});
+
+it("passes cancellation to the Discover extras request", async () => {
+  mockedAxios.post.mockResolvedValue({ data: { MediaContainer: { Metadata: [] } } });
+  const signal = new AbortController().signal;
+  await fetchDiscoverExtras({ guid: "plex://movie/5d776824f617c900201df022" }, signal);
+  expect(mockedAxios.post.mock.calls[0][2]?.signal).toBe(signal);
 });

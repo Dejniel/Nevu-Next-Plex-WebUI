@@ -3,7 +3,7 @@ export { useAuthSession } from "./model/authSession";
 export { plexProfileKey } from "./model/profileIdentity";
 export type { ActivePlexSession, HomeProfile } from "./model/authStorage";
 export { useServerSession } from "./model/serverSession";
-export { getActiveServerScope } from "./model/activeServerScope";
+export { getActiveServerScope, useActiveServerScope } from "./model/activeServerScope";
 export { PLEX_SESSION_INVALID_EVENT } from "./model/sessionEvents";
 export { connectPlexServerEvents } from "./api/serverEvents";
 export type { PlexServerChange } from "./model/serverChanges";

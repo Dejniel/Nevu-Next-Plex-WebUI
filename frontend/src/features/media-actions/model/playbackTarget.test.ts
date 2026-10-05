@@ -1,18 +1,24 @@
+import { serverQueryClient } from "shared/api/queryClient";
 import type { Mock } from "vitest";
-import {
-  getMediaByGuid,
-  getMediaChildren,
-  getMediaMetadata,
-} from "entities/media/model";
+import { getMediaByGuid, getMediaChildren, getMediaMetadata } from "entities/media/model";
 import { resolvePlaybackTarget } from "./playbackTarget";
 
-vi.mock("entities/media/model", () => ({
+vi.mock("entities/media/api/media", async (original) => ({
+  ...(await original<typeof import("entities/media/api/media")>()),
   getMediaByGuid: vi.fn(),
   getMediaChildren: vi.fn(),
   getMediaMetadata: vi.fn(),
 }));
-
-beforeEach(() => vi.clearAllMocks());
+const scope = { serverId: "server", profileKey: "owner" };
+vi.mock("features/session/model", async (original) => ({
+  ...(await original<typeof import("features/session/model")>()),
+  getActiveServerScope: () => scope,
+}));
+beforeEach(() => {
+  vi.clearAllMocks();
+  serverQueryClient.clear();
+});
+afterEach(() => serverQueryClient.clear());
 
 it("uses the item directly for a local movie", async () => {
   await expect(
@@ -40,7 +46,10 @@ it("resolves a Discover item to its local server item", async () => {
       },
       true,
     ),
-  ).resolves.toMatchObject({ path: null, message: expect.stringContaining("not available") });
+  ).resolves.toMatchObject({
+    path: null,
+    message: expect.stringContaining("not available"),
+  });
 });
 
 it("selects On Deck or the first episode for a show", async () => {
@@ -51,9 +60,7 @@ it("selects On Deck or the first episode for a show", async () => {
     .mockResolvedValueOnce({
       Children: { Metadata: [{ ratingKey: "season-1" }] },
     });
-  (getMediaChildren as Mock).mockResolvedValue([
-    { ratingKey: "episode-1", type: "episode" },
-  ]);
+  (getMediaChildren as Mock).mockResolvedValue([{ ratingKey: "episode-1", type: "episode" }]);
   const show = {
     ratingKey: "show-1",
     guid: "plex://show/1",

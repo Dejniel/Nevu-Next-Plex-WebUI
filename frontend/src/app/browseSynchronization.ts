@@ -1,7 +1,10 @@
 import { focusManager } from "@tanstack/react-query";
 import {
   applyAvailabilityChanges,
+  applyMediaDetailsChanges,
+  readMediaQueryKey,
   hasCachedAvailableMedia,
+  hasCachedChildMedia,
   mediaMetadataQueryKey,
   type MediaChange,
   type MediaScope,
@@ -9,10 +12,12 @@ import {
 } from "entities/media/model";
 import {
   applyLibraryChanges,
+  applyLibraryDirectoryChanges,
   invalidateRandomCatalogs,
   synchronizeLibraryItem,
 } from "features/library/model";
 import { applyMediaListChanges, hasCachedListMedia } from "features/media-lists/model";
+import { applyHomeChanges } from "features/home/model";
 import { serverQueryClient } from "shared/api/queryClient";
 
 /** Event batching only. Query owns data, errors, requests and result lifetimes.
@@ -56,12 +61,20 @@ export function startBrowseSynchronization(
             const includeDetails =
               cached ||
               hasCachedListMedia(client, scope, change.id) ||
+              hasCachedChildMedia(client, scope, change.id) ||
               hasCachedAvailableMedia(client, scope, change.id);
             update = await synchronizeLibraryItem(change.id, abort.signal, includeDetails);
             if (isCurrent() && !abort.signal.aborted && cached) {
-              await client.cancelQueries({ queryKey: metadataKey, exact: true });
+              await client.cancelQueries({
+                queryKey: metadataKey,
+                exact: true,
+              });
               if (update.metadata) client.setQueryData(metadataKey, update.metadata);
-              else await client.invalidateQueries({ queryKey: metadataKey, exact: true });
+              else
+                await client.invalidateQueries({
+                  queryKey: metadataKey,
+                  exact: true,
+                });
             }
           } catch (error) {
             if (abort.signal.aborted) throw error;
@@ -87,19 +100,24 @@ export function startBrowseSynchronization(
       if (isCurrent() && !abort.signal.aborted) {
         await client.invalidateQueries({
           queryKey: ["media", scope.serverId, scope.profileKey],
-          predicate: (query) =>
-            parentIds.has(String(query.queryKey[3])) ||
-            changes.some(({ change, update }) => {
-              if (update?.metadata) return false;
-              if (change.kind === "list") return false;
-              if (change.kind === "item" && change.id) return query.queryKey[3] === change.id;
-              const metadata = query.state.data as Plex.Metadata | undefined;
-              return (
-                !change.sectionId ||
-                !metadata ||
-                String(metadata.librarySectionID) === change.sectionId
-              );
-            }),
+          predicate: (query) => {
+            const key = readMediaQueryKey(query.queryKey);
+            if (!key) return false;
+            return (
+              parentIds.has(key.id) ||
+              changes.some(({ change, update }) => {
+                if (update?.metadata) return false;
+                if (change.kind === "list") return false;
+                if (change.kind === "item" && change.id) return key.id === change.id;
+                const metadata = query.state.data as Plex.Metadata | undefined;
+                return (
+                  !change.sectionId ||
+                  !metadata ||
+                  String(metadata.librarySectionID) === change.sectionId
+                );
+              })
+            );
+          },
         });
       }
       if (isCurrent() && !abort.signal.aborted)
@@ -107,6 +125,9 @@ export function startBrowseSynchronization(
           applyLibraryChanges(client, changes),
           applyMediaListChanges(client, changes),
           applyAvailabilityChanges(client, changes),
+          applyMediaDetailsChanges(client, changes),
+          applyLibraryDirectoryChanges(client, changes),
+          applyHomeChanges(client, changes),
         ]);
     } catch {
       if (isCurrent() && !abort.signal.aborted) {

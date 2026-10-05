@@ -20,8 +20,10 @@ import {
 } from "@mui/material";
 import React, { useEffect } from "react";
 import { useState } from "react";
-import { getTranscodeImageURL } from "entities/media/model";
-import { getLibraryDirectory } from "features/library/model";
+import { getTranscodeImageURL, mediaChildrenQueryOptions } from "entities/media/model";
+import { useQuery } from "@tanstack/react-query";
+import { useActiveServerScope } from "features/session/model";
+import { serverQueryClient } from "shared/api/queryClient";
 import { durationInMinutes } from "shared/lib/duration";
 import { Link } from "react-router-dom";
 import { mediaWatchTo } from "shared/lib/navigation";
@@ -31,49 +33,36 @@ function EpisodeBrowser({
   controlElementsVisibleState,
 }: {
   item: Plex.Metadata;
-  controlElementsVisibleState: [
-    boolean,
-    React.Dispatch<React.SetStateAction<boolean>>,
-  ];
+  controlElementsVisibleState: [boolean, React.Dispatch<React.SetStateAction<boolean>>];
 }) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-  const [seasons, setSeasons] = useState<Plex.Metadata[] | null>(null);
-  const [episodes, setEpisodes] = useState<Plex.Metadata[] | null>(null);
+  const scope = useActiveServerScope();
   const [selectedSeason, setSelectedSeason] = useState(item.parentIndex ?? 1);
+  const showID = item.grandparentRatingKey ?? "";
+  const seasonsResult = useQuery(
+    {
+      ...mediaChildrenQueryOptions(scope, showID),
+      enabled: Boolean(anchorEl && showID && scope.serverId && scope.profileKey),
+    },
+    serverQueryClient,
+  );
+  const seasons = seasonsResult.data;
+  const seasonID = seasons?.find((season) => season.index === selectedSeason)?.ratingKey ?? "";
+  const episodesResult = useQuery(
+    {
+      ...mediaChildrenQueryOptions(scope, seasonID),
+      enabled: Boolean(anchorEl && seasonID && scope.serverId && scope.profileKey),
+    },
+    serverQueryClient,
+  );
+  const episodes = episodesResult.data;
   const theme = useTheme();
 
   const [, setControlElementsVisible] = controlElementsVisibleState;
 
   useEffect(() => {
-    setSeasons(null);
-    setEpisodes(null);
-
-    (async () => {
-      const getSeasons = new Promise<Plex.Metadata[]>((resolve) => {
-        getLibraryDirectory(
-          `/library/metadata/${item.grandparentRatingKey}/children`,
-        ).then((data) => {
-          if (!data?.Metadata) return;
-          resolve(data?.Metadata);
-        });
-      });
-
-      const getEpisodes = new Promise<Plex.Metadata[]>((resolve) => {
-        getLibraryDirectory(
-          `/library/metadata/${item.grandparentRatingKey}/allLeaves`,
-        ).then((data) => {
-          if (!data?.Metadata) return;
-          resolve(data?.Metadata);
-        });
-      });
-
-      const [seasons, episodes] = await Promise.all([getSeasons, getEpisodes]);
-
-      setSeasons(seasons);
-      setEpisodes(episodes);
-      setSelectedSeason(item.parentIndex ?? 1);
-    })();
-  }, [item]);
+    setSelectedSeason(item.parentIndex ?? 1);
+  }, [item.ratingKey, item.parentIndex]);
 
   useEffect(() => {
     setControlElementsVisible(Boolean(anchorEl));
@@ -234,25 +223,18 @@ function EpisodeBrowser({
                         }}
                       >
                         {episodes
-                          ?.filter(
-                            (episode) => episode.parentIndex === selectedSeason,
-                          )
+                          ?.filter((episode) => episode.parentIndex === selectedSeason)
                           .map((episode) => (
                             <Box
                               key={episode.ratingKey}
-                              component={
-                                episode.ratingKey !== item.ratingKey
-                                  ? Link
-                                  : "div"
-                              }
+                              component={episode.ratingKey !== item.ratingKey ? Link : "div"}
                               to={
                                 episode.ratingKey !== item.ratingKey
                                   ? mediaWatchTo(episode)
                                   : undefined
                               }
                               onClick={() => {
-                                if (episode.ratingKey !== item.ratingKey)
-                                  setAnchorEl(null);
+                                if (episode.ratingKey !== item.ratingKey) setAnchorEl(null);
                               }}
                               sx={{
                                 display: "flex",
@@ -264,10 +246,7 @@ function EpisodeBrowser({
                                 ...(episode.ratingKey !== item.ratingKey && {
                                   cursor: "pointer",
                                   "&:hover": {
-                                    bgcolor: alpha(
-                                      theme.palette.action.hover,
-                                      0.1,
-                                    ),
+                                    bgcolor: alpha(theme.palette.action.hover, 0.1),
                                     "& .playIcon": {
                                       opacity: 1,
                                     },
@@ -320,14 +299,11 @@ function EpisodeBrowser({
                                 />
 
                                 {(episode.viewOffset ||
-                                  (episode.viewCount &&
-                                    episode.viewCount >= 1)) && (
+                                  (episode.viewCount && episode.viewCount >= 1)) && (
                                   <LinearProgress
                                     value={
                                       episode.viewOffset
-                                        ? (episode.viewOffset /
-                                            episode.duration) *
-                                          100
+                                        ? (episode.viewOffset / episode.duration) * 100
                                         : 100
                                     }
                                     variant="determinate"

@@ -1,8 +1,4 @@
-import type {
-  LibraryFilterClause,
-  LibraryItemType,
-  LibrarySort,
-} from "@nevu/contracts";
+import type { LibraryFilterClause, LibraryItemType, LibrarySort } from "@nevu/contracts";
 import { ShuffleRounded } from "@mui/icons-material";
 import {
   Alert,
@@ -24,8 +20,10 @@ import { LibraryFilterSelect } from "./LibraryFilterControls";
 import { useLibraryCardView } from "./LibraryCardViewControls";
 import { WindowLibraryCollectionGrid } from "./LibraryCollectionGrid";
 import LibraryViewToolbar from "./LibraryViewToolbar";
-import { plexProfileKey, useAuthSession } from "features/session/model";
-import { getLibrary } from "../api/libraryDirectories";
+import { useActiveServerScope } from "features/session/model";
+import { useQuery } from "@tanstack/react-query";
+import { serverQueryClient } from "shared/api/queryClient";
+import { librarySectionQueryOptions } from "../model/libraryDirectories";
 import { createLibraryFilterExpression } from "../model/libraryFilterExpression";
 import {
   LIBRARY_FILTER_MODE_PARAM,
@@ -42,10 +40,7 @@ import {
   isValidLibrarySort,
   librarySortOptions,
 } from "../model/librarySort";
-import {
-  getLibraryRandomSeed,
-  replaceLibraryRandomSeed,
-} from "../model/libraryRandom";
+import { getLibraryRandomSeed, replaceLibraryRandomSeed } from "../model/libraryRandom";
 import { useLibraryPages } from "../model/useLibraryPages";
 import type { LibraryQuery } from "../model/libraryQuery";
 
@@ -53,11 +48,7 @@ function isLibraryItemType(value: string | null | undefined): value is LibraryIt
   return value === "movie" || value === "show" || value === "episode";
 }
 
-export default function BrowseLibrary({
-  pageNavigation,
-}: {
-  pageNavigation: React.ReactNode;
-}) {
+export default function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) {
   const { libraryID } = useParams<{ libraryID: string }>();
   return libraryID ? (
     <BrowseLibraryContent key={libraryID} libraryID={libraryID} pageNavigation={pageNavigation} />
@@ -73,12 +64,11 @@ function BrowseLibraryContent({
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchParamsString = searchParams.toString();
-  const profileKey = useAuthSession((state) =>
-    plexProfileKey(state.ownerUser, state.activeProfile),
-  );
-  const [library, setLibrary] = React.useState<Plex.MediaContainer | null>(null);
-  const [libraryError, setLibraryError] = React.useState<string | null>(null);
-  const [libraryAttempt, setLibraryAttempt] = React.useState(0);
+  const scope = useActiveServerScope();
+  const profileKey = scope.profileKey;
+  const section = useQuery(librarySectionQueryOptions(scope, libraryID), serverQueryClient);
+  const library = section.data;
+  const libraryError = section.error?.message;
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = React.useState(false);
   const [randomSeed, setRandomSeed] = React.useState<{
     context: string;
@@ -88,21 +78,6 @@ function BrowseLibraryContent({
   const compactBrowse = useMediaQuery(useTheme().breakpoints.down("sm"));
   const toolbarRef = React.useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    let current = true;
-    setLibrary(null);
-    setLibraryError(null);
-    getLibrary(libraryID)
-      .then((data) => {
-        if (current) setLibrary(data);
-      })
-      .catch((error) => {
-        if (current)
-          setLibraryError(error instanceof Error ? error.message : "Unable to load the library");
-      });
-    return () => { current = false; };
-  }, [libraryAttempt, libraryID]);
-
   const supportedTypes = React.useMemo(
     () => library?.Type?.filter((entry) => isLibraryItemType(entry.type)) || [],
     [library],
@@ -110,14 +85,15 @@ function BrowseLibraryContent({
   const requestedType = searchParams.get("type");
   const requestedSort = searchParams.get("sort");
   const storedType = localStorage.getItem(`typeFilter:${libraryID}`);
-  const activeType = supportedTypes.find((entry) => entry.type === requestedType) ||
+  const activeType =
+    supportedTypes.find((entry) => entry.type === requestedType) ||
     supportedTypes.find((entry) => entry.type === storedType) ||
     supportedTypes.find((entry) => entry.active) ||
     supportedTypes[0];
   const activeItemType = isLibraryItemType(activeType?.type) ? activeType.type : undefined;
   const unsupportedLibrary = Boolean(library && supportedTypes.length === 0);
   const filterTypes = React.useMemo(
-    () => activeType?.Field?.length ? [activeType] : [],
+    () => (activeType?.Field?.length ? [activeType] : []),
     [activeType],
   );
   const fields = React.useMemo(() => libraryFilterFields(filterTypes), [filterTypes]);
@@ -134,10 +110,7 @@ function BrowseLibraryContent({
     () => readLibraryFilterMode(new URLSearchParams(searchParamsString)),
     [searchParamsString],
   );
-  const sortOptions = React.useMemo(
-    () => librarySortOptions(activeType?.Sort),
-    [activeType],
-  );
+  const sortOptions = React.useMemo(() => librarySortOptions(activeType?.Sort), [activeType]);
   const sortStorageKey = `librarySort:${libraryID}:${activeItemType || "default"}`;
   const effectiveSort = React.useMemo(() => {
     const candidates = [
@@ -145,10 +118,12 @@ function BrowseLibraryContent({
       localStorage.getItem(sortStorageKey),
       localStorage.getItem("sortBy"),
     ];
-    return candidates
-      .filter(isValidLibrarySort)
-      .find((candidate) => sortOptions.some((option) => option.value === candidate)) ||
-      defaultLibrarySort(activeType?.Sort);
+    return (
+      candidates
+        .filter(isValidLibrarySort)
+        .find((candidate) => sortOptions.some((option) => option.value === candidate)) ||
+      defaultLibrarySort(activeType?.Sort)
+    );
   }, [activeType, requestedSort, sortOptions, sortStorageKey]);
 
   useEffect(() => {
@@ -161,8 +136,7 @@ function BrowseLibraryContent({
     writeLibraryFilters(next, activeFilters);
     localStorage.setItem(`typeFilter:${libraryID}`, activeItemType);
     localStorage.setItem(sortStorageKey, effectiveSort);
-    if (next.toString() !== searchParamsString)
-      setSearchParams(next, { replace: true });
+    if (next.toString() !== searchParamsString) setSearchParams(next, { replace: true });
   }, [
     activeFilters,
     activeItemType,
@@ -174,16 +148,16 @@ function BrowseLibraryContent({
     sortStorageKey,
   ]);
 
-  const updateFilters = React.useCallback((
-    filters: readonly LibraryFilterClause[],
-    mode: "and" | "or" = filterMode,
-  ) => {
-    const next = new URLSearchParams(searchParamsString);
-    if (filters.length > 0) writeLibraryFilterMode(next, mode);
-    else next.delete(LIBRARY_FILTER_MODE_PARAM);
-    writeLibraryFilters(next, filters);
-    setSearchParams(next);
-  }, [filterMode, searchParamsString, setSearchParams]);
+  const updateFilters = React.useCallback(
+    (filters: readonly LibraryFilterClause[], mode: "and" | "or" = filterMode) => {
+      const next = new URLSearchParams(searchParamsString);
+      if (filters.length > 0) writeLibraryFilterMode(next, mode);
+      else next.delete(LIBRARY_FILTER_MODE_PARAM);
+      writeLibraryFilters(next, filters);
+      setSearchParams(next);
+    },
+    [filterMode, searchParamsString, setSearchParams],
+  );
 
   const baseQuery = React.useMemo<Omit<LibraryQuery, "sort" | "seed"> | null>(() => {
     if (!library || !activeItemType || !profileKey) return null;
@@ -196,18 +170,21 @@ function BrowseLibraryContent({
     };
   }, [activeFilters, activeItemType, filterMode, library, libraryID, profileKey]);
 
-  const randomSeedContext = baseQuery && isRandomLibrarySort(effectiveSort)
-    ? JSON.stringify([baseQuery.profileKey, baseQuery.sectionId])
-    : null;
+  const randomSeedContext =
+    baseQuery && isRandomLibrarySort(effectiveSort)
+      ? JSON.stringify([baseQuery.profileKey, baseQuery.sectionId])
+      : null;
 
   useEffect(() => {
     if (!randomSeedContext || !baseQuery) return;
-    setRandomSeed((current) => current?.context === randomSeedContext
-      ? current
-      : {
-        context: randomSeedContext,
-        value: getLibraryRandomSeed(baseQuery.profileKey, baseQuery.sectionId),
-      });
+    setRandomSeed((current) =>
+      current?.context === randomSeedContext
+        ? current
+        : {
+            context: randomSeedContext,
+            value: getLibraryRandomSeed(baseQuery.profileKey, baseQuery.sectionId),
+          },
+    );
   }, [baseQuery, randomSeedContext]);
 
   const query = React.useMemo<LibraryQuery | null>(() => {
@@ -239,7 +216,9 @@ function BrowseLibraryContent({
       sx={compactBrowse ? { width: "100%" } : undefined}
     >
       {supportedTypes.map((type) => (
-        <MenuItem key={type.key} value={type.type}>{type.title}</MenuItem>
+        <MenuItem key={type.key} value={type.type}>
+          {type.title}
+        </MenuItem>
       ))}
     </Select>
   );
@@ -266,120 +245,124 @@ function BrowseLibraryContent({
           showLeadingOnMobile
           compactTypeNavigation={compactBrowse ? typeSelector : undefined}
           leading={
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-start",
-              flexWrap: { xs: "nowrap", sm: "wrap", lg: "nowrap" },
-              gap: 1,
-              width: "100%",
-              "& .MuiSelect-root": {
-                height: 40,
-                backgroundColor: "rgba(255,255,255,0.025)",
-                transition: "background-color 0.15s ease, border-color 0.15s ease",
-                "& .MuiSelect-select": {
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-start",
+                flexWrap: { xs: "nowrap", sm: "wrap", lg: "nowrap" },
+                gap: 1,
+                width: "100%",
+                "& .MuiSelect-root": {
+                  height: 40,
+                  backgroundColor: "rgba(255,255,255,0.025)",
+                  transition: "background-color 0.15s ease, border-color 0.15s ease",
+                  "& .MuiSelect-select": {
+                    display: "flex",
+                    alignItems: "center",
+                    height: "100%",
+                    minHeight: "0 !important",
+                    boxSizing: "border-box",
+                    py: "0 !important",
+                  },
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(255,255,255,0.22)",
+                    borderWidth: "1px !important",
+                  },
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(255,255,255,0.42)",
+                  },
+                  "&.Mui-focused": {
+                    backgroundColor: "rgba(255,255,255,0.06)",
+                  },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(255,255,255,0.5)",
+                    borderWidth: "1px !important",
+                  },
+                },
+                "& > .MuiSelect-root": {
+                  flex: { xs: "1 1 0", sm: "1 1 105px", lg: "0 0 auto" },
+                  minWidth: 0,
+                },
+              }}
+            >
+              <LibraryFilterSelect
+                filters={activeFilters}
+                mode={filterMode}
+                fields={fields}
+                types={filterTypes}
+                fieldTypes={fieldTypes}
+                disabled={!activeItemType}
+                onChange={(filter) => updateFilters(filter ? [filter] : [], "and")}
+                onAdvanced={() => setAdvancedFiltersOpen(true)}
+              />
+
+              {!compactBrowse && typeSelector}
+
+              <Box
+                sx={{
                   display: "flex",
                   alignItems: "center",
-                  height: "100%",
-                  minHeight: "0 !important",
-                  boxSizing: "border-box",
-                  py: "0 !important",
-                },
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "rgba(255,255,255,0.22)",
-                  borderWidth: "1px !important",
-                },
-                "&:hover .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "rgba(255,255,255,0.42)",
-                },
-                "&.Mui-focused": {
-                  backgroundColor: "rgba(255,255,255,0.06)",
-                },
-                "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "rgba(255,255,255,0.5)",
-                  borderWidth: "1px !important",
-                },
-              },
-              "& > .MuiSelect-root": {
-                flex: { xs: "1 1 0", sm: "1 1 105px", lg: "0 0 auto" },
-                minWidth: 0,
-              },
-            }}
-          >
-            <LibraryFilterSelect
-              filters={activeFilters}
-              mode={filterMode}
-              fields={fields}
-              types={filterTypes}
-              fieldTypes={fieldTypes}
-              disabled={!activeItemType}
-              onChange={(filter) => updateFilters(filter ? [filter] : [], "and")}
-              onAdvanced={() => setAdvancedFiltersOpen(true)}
-            />
-
-            {!compactBrowse && typeSelector}
-
-            <Box sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1.5,
-              minWidth: 0,
-              flex: { xs: "2 1 0", sm: "0 1 auto" },
-            }}>
-              <Select
-                value={effectiveSort}
-                onChange={(event) => {
-                  const value = event.target.value as LibrarySort;
-                  const next = new URLSearchParams(searchParamsString);
-                  next.set("sort", value);
-                  localStorage.setItem(sortStorageKey, value);
-                  setSearchParams(next);
-                }}
-                size="small"
-                disabled={unsupportedLibrary}
-                inputProps={{ "aria-label": "Sort library" }}
-                sx={{ minWidth: 0, flex: { xs: "1 1 0", sm: "0 1 auto" } }}
-              >
-                {sortOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-                ))}
-              </Select>
-              {isRandomLibrarySort(effectiveSort) && baseQuery && (
-                <Tooltip title="Reshuffle">
-                  <IconButton
-                    size="small"
-                    aria-label="Reshuffle library"
-                    onClick={() => {
-                      setRandomSeed({
-                        context: randomSeedContext as string,
-                        value: replaceLibraryRandomSeed(
-                          baseQuery.profileKey,
-                          baseQuery.sectionId,
-                        ),
-                      });
-                    }}
-                  >
-                    <ShuffleRounded fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
-              <Box
-                component="span"
-                aria-label="Library item count"
-                sx={{
-                  minWidth: 36,
-                  color: "text.secondary",
-                  fontSize: "0.875rem",
-                  fontWeight: 600,
-                  whiteSpace: "nowrap",
-                  flexShrink: 0,
+                  gap: 1.5,
+                  minWidth: 0,
+                  flex: { xs: "2 1 0", sm: "0 1 auto" },
                 }}
               >
-                {!unsupportedLibrary && (itemCount ?? <Skeleton width={32} />)}
+                <Select
+                  value={effectiveSort}
+                  onChange={(event) => {
+                    const value = event.target.value as LibrarySort;
+                    const next = new URLSearchParams(searchParamsString);
+                    next.set("sort", value);
+                    localStorage.setItem(sortStorageKey, value);
+                    setSearchParams(next);
+                  }}
+                  size="small"
+                  disabled={unsupportedLibrary}
+                  inputProps={{ "aria-label": "Sort library" }}
+                  sx={{ minWidth: 0, flex: { xs: "1 1 0", sm: "0 1 auto" } }}
+                >
+                  {sortOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {isRandomLibrarySort(effectiveSort) && baseQuery && (
+                  <Tooltip title="Reshuffle">
+                    <IconButton
+                      size="small"
+                      aria-label="Reshuffle library"
+                      onClick={() => {
+                        setRandomSeed({
+                          context: randomSeedContext as string,
+                          value: replaceLibraryRandomSeed(
+                            baseQuery.profileKey,
+                            baseQuery.sectionId,
+                          ),
+                        });
+                      }}
+                    >
+                      <ShuffleRounded fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                <Box
+                  component="span"
+                  aria-label="Library item count"
+                  sx={{
+                    minWidth: 36,
+                    color: "text.secondary",
+                    fontSize: "0.875rem",
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
+                  }}
+                >
+                  {!unsupportedLibrary && (itemCount ?? <Skeleton width={32} />)}
+                </Box>
               </Box>
             </Box>
-          </Box>
           }
           pageNavigation={pageNavigation}
         />
@@ -390,7 +373,16 @@ function BrowseLibraryContent({
           {libraryError ? (
             <Alert
               severity="error"
-              action={<Button color="inherit" onClick={() => setLibraryAttempt((value) => value + 1)}>Retry</Button>}
+              action={
+                <Button
+                  color="inherit"
+                  onClick={() => {
+                    void section.refetch();
+                  }}
+                >
+                  Retry
+                </Button>
+              }
             >
               {libraryError}
             </Alert>
@@ -403,12 +395,16 @@ function BrowseLibraryContent({
               cardSize={cardView.size}
               loading={!library}
               observeRef={toolbarRef}
-              emptyMessage={activeFilters.length
-                ? "No items match these filters."
-                : "This library is empty."}
-              emptyAction={activeFilters.length ? (
-                <Button size="small" onClick={() => updateFilters([])}>Clear filters</Button>
-              ) : undefined}
+              emptyMessage={
+                activeFilters.length ? "No items match these filters." : "This library is empty."
+              }
+              emptyAction={
+                activeFilters.length ? (
+                  <Button size="small" onClick={() => updateFilters([])}>
+                    Clear filters
+                  </Button>
+                ) : undefined
+              }
             />
           )}
         </Box>
@@ -427,7 +423,6 @@ function BrowseLibraryContent({
           setAdvancedFiltersOpen(false);
         }}
       />
-
     </Box>
   );
 }

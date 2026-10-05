@@ -43,7 +43,7 @@ export default function WatchlistView({
   const items = watchlist.data ?? empty;
   const error = watchlist.isError ? "Could not refresh your Plex Watchlist. Please try again." : null;
   const profileKey = useUserSettings((state) => state.profileKey);
-  const libraries = useLibraries((state) => state.libraries);
+  const { data: libraries } = useLibraries();
   const availability = useMediaAvailability(
     items.map((item) => item.guid),
     profileKey,

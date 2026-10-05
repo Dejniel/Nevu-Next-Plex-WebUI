@@ -46,11 +46,12 @@ are in the [stage 3 results](browse-sync-stage3.md).
 
 ### 1. Lazy media metadata resource — complete
 
-`features/media-actions/model/useLazyMediaMetadata` owns the card-local cache,
-request status, concurrent request sharing, and stale-response protection.
-The card uses `data`, `status`, `load`, `invalidate`, and `update`; Match and
-Unmatch invalidate the resource, while editing updates it locally. Focused tests
-cover request reuse, retry, invalidation, item changes, and local edits.
+`features/media-actions/model/useLazyMediaMetadata` uses the canonical Query
+resource shared by cards, previews, Home and details. It retains mounted-action
+and session guards, while Query owns cache/status/request sharing/cancellation.
+Match/Unmatch invalidate it; confirmed edits update the shared response.
+The [follow-up](browse-cache-followup.md) also migrates sections, directories,
+recommendation context, episodes, GUID resolution and Discover extras.
 
 ### 2. Media action capabilities and watched state — complete
 

@@ -2,6 +2,14 @@
 
 Status: structural migration completed on 2026-09-29
 
+## Shared metadata and remaining browse queries — 2026-10-05
+
+Removed card-local metadata ownership, the sections store/DOM event and duplicate
+raw-read APIs. Cards, previews, Home, details, recommendations and episode browsing
+share native Query resources. Typed keys and scoped reconciliation cover the new
+consumers. Application code decreases by 115 lines; tests increase by 582.
+See the [follow-up results](browse-cache-followup.md).
+
 ## Lists, Watchlist and final cache cleanup — 2026-10-05
 
 Completed stage 3: actual Query list pages and summaries, native Watchlist

@@ -8,7 +8,11 @@ import {
 } from "features/library/model";
 import { listPageOptions, mediaListWindowKey } from "features/media-lists/model";
 import { startBrowseSynchronization } from "./browseSynchronization";
-import { availabilityQueryOptions, mediaMetadataQueryKey } from "entities/media/model";
+import {
+  availabilityQueryOptions,
+  mediaMetadataQueryKey,
+  mediaChildrenQueryOptions,
+} from "entities/media/model";
 import type { LibraryCardDto } from "@nevu/contracts";
 
 vi.mock("features/library/model", async (importOriginal) => ({
@@ -253,4 +257,37 @@ it("bounds pending scan evidence and never weakens an observed membership change
   await vi.advanceTimersByTimeAsync(5000);
   expect(synchronizeLibraryItem).not.toHaveBeenCalled();
   expect(refresh).toHaveBeenCalledTimes(2);
+});
+
+it("requests full canonical metadata for a cached episode and patches the season without another read", async () => {
+  const episode = {
+    ratingKey: "episode",
+    guid: "plex://episode/one",
+    title: "Episode",
+    type: "episode" as const,
+    index: 1,
+    parentRatingKey: "season",
+    librarySectionID: 1,
+  };
+  const options = mediaChildrenQueryOptions(scope, "season");
+  client.setQueryData(options.queryKey, [episode] as Plex.Metadata[]);
+  const read = vi.fn(async () => [episode] as Plex.Metadata[]);
+  const leave = new QueryObserver(client, {
+    ...options,
+    queryFn: read,
+    staleTime: Infinity,
+  }).subscribe(() => {});
+  const updated = { ...episode, viewCount: 1 };
+  vi.mocked(synchronizeLibraryItem).mockResolvedValue({
+    sectionId: "1",
+    parentIds: ["season", "show"],
+    item: updated,
+    metadata: updated,
+  });
+  sync.enqueue({ ...scope, kind: "item", effect: "unknown", id: "episode", sectionId: "1" });
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(synchronizeLibraryItem).toHaveBeenCalledWith("episode", expect.any(AbortSignal), true);
+  expect(client.getQueryData<Plex.Metadata[]>(options.queryKey)?.[0].viewCount).toBe(1);
+  expect(read).not.toHaveBeenCalled();
+  leave();
 });

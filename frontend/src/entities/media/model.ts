@@ -32,7 +32,15 @@ export {
   publishMediaChange,
   subscribeToMediaChanges,
 } from "./model/mediaChanges";
-export { mediaMetadataQueryKey, mediaMetadataQueryOptions } from "./model/mediaMetadataQuery";
+export {
+  mediaMetadataQueryKey,
+  mediaMetadataQueryOptions,
+  mediaChildrenQueryKey,
+  mediaChildrenQueryOptions,
+  mediaGuidQueryOptions,
+  readMediaQueryKey,
+} from "./model/mediaMetadataQuery";
+export { applyMediaDetailsChanges, hasCachedChildMedia } from "./model/mediaDetailsSync";
 export type {
   MediaChange,
   MediaScope,
@@ -61,3 +69,5 @@ export type { MediaAvailability } from "./model/mediaAvailability";
 export { useMediaAvailability } from "./model/useMediaAvailability";
 export { applyAvailabilityChanges, hasCachedAvailableMedia } from "./model/availabilitySync";
 export { availabilityQueryOptions } from "./model/availabilityQuery";
+
+export { mediaExtrasQueryOptions } from "./model/mediaExtrasQuery";

@@ -1,14 +1,14 @@
 import { Alert, Box, Button, Skeleton, Typography } from "@mui/material";
 import React from "react";
-import { getLibraryDirectory } from "../api/libraryDirectories";
+import { useQuery } from "@tanstack/react-query";
+import { useActiveServerScope } from "features/session/model";
+import { serverQueryClient } from "shared/api/queryClient";
+import { libraryDirectoryQueryOptions } from "../model/libraryDirectories";
 import { ArrowForwardIosRounded } from "@mui/icons-material";
 import { Link, To, useLocation } from "react-router-dom";
 import { shuffleArray } from "shared/lib/arrays";
 import { ActionableMediaCard } from "features/media-actions/public";
-import {
-  getLibraryCardWidth,
-  LibraryCardLayout,
-} from "./LibraryCardViewControls";
+import { getLibraryCardWidth, LibraryCardLayout } from "./LibraryCardViewControls";
 import { useLibraryPages } from "../model/useLibraryPages";
 import type { LibraryQuery } from "../model/libraryQuery";
 import { libraryBrowseTo } from "shared/lib/navigation";
@@ -39,11 +39,21 @@ function MovieItemSlider({
   browseTo?: To;
 }) {
   const location = useLocation();
-  const [items, setItems] = React.useState<Plex.Metadata[] | null>(
-    data ?? null,
+  const scope = useActiveServerScope();
+  const directory = useQuery(
+    {
+      ...libraryDirectoryQueryOptions(scope, dir ?? ""),
+      enabled: Boolean(scope.serverId && scope.profileKey && dir && !query && data === undefined),
+    },
+    serverQueryClient,
   );
-  const [directoryError, setDirectoryError] = React.useState(false);
-  const [attempt, setAttempt] = React.useState(0);
+  const items = React.useMemo(() => {
+    if (data !== undefined) return data;
+    if (!dir) return [];
+    if (!directory.data) return null;
+    const metadata = directory.data.Metadata ?? [];
+    return shuffle ? shuffleArray(metadata) : metadata;
+  }, [data, dir, directory.data, shuffle]);
   const queryRange = useLibraryPages(query, {
     start: 0,
     end: QUERY_SHELF_LIMIT - 1,
@@ -54,19 +64,14 @@ function MovieItemSlider({
 
   const queryItems = React.useMemo(() => {
     if (!query) return null;
-    if (queryRange.totalSize === null && queryRange.items.size === 0)
-      return null;
-    const count = Math.min(
-      QUERY_SHELF_LIMIT,
-      queryRange.totalSize ?? queryRange.knownSize,
+    if (queryRange.totalSize === null && queryRange.items.size === 0) return null;
+    const count = Math.min(QUERY_SHELF_LIMIT, queryRange.totalSize ?? queryRange.knownSize);
+    return Array.from({ length: count }, (_, index) => queryRange.items.get(index)).filter(
+      (item): item is NonNullable<typeof item> => Boolean(item),
     );
-    return Array.from({ length: count }, (_, index) =>
-      queryRange.items.get(index),
-    ).filter((item): item is NonNullable<typeof item> => Boolean(item));
   }, [query, queryRange]);
   const displayedItems = query ? queryItems : items;
-  const browseTarget =
-    browseTo || (link ? libraryBrowseTo(location, link) : null);
+  const browseTarget = browseTo || (link ? libraryBrowseTo(location, link) : null);
 
   const [currPage, setCurrPage] = React.useState(0);
   const touchStartX = React.useRef<number | null>(null);
@@ -76,10 +81,7 @@ function MovieItemSlider({
       if (cardSize !== undefined) {
         const availableWidth = width * 0.95;
         const targetWidth = getLibraryCardWidth(layout, cardSize);
-        return Math.min(
-          10,
-          Math.max(1, Math.floor((availableWidth + 10) / (targetWidth + 10))),
-        );
+        return Math.min(10, Math.max(1, Math.floor((availableWidth + 10) / (targetWidth + 10))));
       }
 
       if (width < 600) return 1;
@@ -94,9 +96,7 @@ function MovieItemSlider({
     [cardSize, layout],
   );
 
-  const [itemsPerPage, setItemsPerPage] = React.useState(
-    calculateItemsPerPage(window.innerWidth),
-  );
+  const [itemsPerPage, setItemsPerPage] = React.useState(calculateItemsPerPage(window.innerWidth));
 
   React.useEffect(() => {
     const handleResize = () => {
@@ -108,33 +108,11 @@ function MovieItemSlider({
   }, [calculateItemsPerPage]);
 
   React.useEffect(() => {
-    let active = true;
-    setDirectoryError(false);
-    if (data !== undefined) return setItems(data);
-    if (query) return;
-    if (!dir) return setItems([]);
-
-    setItems(null);
-    void getLibraryDirectory(dir)
-      .then((res) => {
-        if (!active) return;
-        const metadata = res.Metadata ?? [];
-        setItems(shuffle ? shuffleArray(metadata) : metadata);
-      })
-      .catch(() => {
-        if (active) setDirectoryError(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, [attempt, data, dir, query, shuffle]);
-
-  React.useEffect(() => {
     setCurrPage(0);
   }, [data, dir, itemsPerPage, layout]);
 
   const queryError = queryRange.errors.get(0);
-  if (!displayedItems && (query ? queryError : directoryError))
+  if (!displayedItems && (query ? queryError : directory.isError))
     return (
       <Box sx={{ width: "100%", px: "2.5vw" }}>
         <Alert
@@ -145,7 +123,7 @@ function MovieItemSlider({
                 color="inherit"
                 onClick={() => {
                   if (query && queryKey) queryRange.retry(0);
-                  else setAttempt((current) => current + 1);
+                  else void directory.refetch();
                 }}
               >
                 Retry
@@ -159,22 +137,14 @@ function MovieItemSlider({
     );
 
   if (!displayedItems)
-    return (
-      <MovieItemSliderSkeleton
-        title={title}
-        itemsPerPage={itemsPerPage}
-        layout={layout}
-      />
-    );
+    return <MovieItemSliderSkeleton title={title} itemsPerPage={itemsPerPage} layout={layout} />;
 
-  if (query ? queryRange.totalSize === 0 : displayedItems.length === 0)
-    return null;
+  if (query ? queryRange.totalSize === 0 : displayedItems.length === 0) return null;
 
   const itemCount = displayedItems.slice(0, itemsPerPage * 5).length;
   const pageCount = Math.ceil(itemCount / itemsPerPage);
   const changePage = (step: number) => {
-    if (pageCount > 1)
-      setCurrPage((page) => (page + step + pageCount) % pageCount);
+    if (pageCount > 1) setCurrPage((page) => (page + step + pageCount) % pageCount);
   };
   const handleTouchEnd = (event: React.TouchEvent) => {
     if (touchStartX.current === null) return;
@@ -274,11 +244,7 @@ function MovieItemSlider({
         }}
         onTouchEnd={handleTouchEnd}
       >
-        <SliderArrow
-          side="left"
-          visible={pageCount > 1}
-          onClick={() => changePage(-1)}
-        />
+        <SliderArrow side="left" visible={pageCount > 1} onClick={() => changePage(-1)} />
         <Box
           sx={{
             display: "flex",
@@ -304,11 +270,6 @@ function MovieItemSlider({
                   index={i}
                   PlexTvSource={plexTvSource}
                   layout={layout}
-                  refetchData={
-                    !query && dir && dir.endsWith("onDeck")
-                      ? () => setAttempt((current) => current + 1)
-                      : undefined
-                  }
                 />
               );
             } else {
@@ -333,11 +294,7 @@ function MovieItemSlider({
             }
           })}
         </Box>
-        <SliderArrow
-          side="right"
-          visible={pageCount > 1}
-          onClick={() => changePage(1)}
-        />
+        <SliderArrow side="right" visible={pageCount > 1} onClick={() => changePage(1)} />
       </Box>
     </Box>
   );
@@ -362,13 +319,7 @@ const shelfHeadingSx = {
   userSelect: "none",
 } as const;
 
-function ShelfHeading({
-  title,
-  browsable,
-}: {
-  title: string;
-  browsable: boolean;
-}) {
+function ShelfHeading({ title, browsable }: { title: string; browsable: boolean }) {
   return (
     <>
       <Typography
@@ -462,9 +413,7 @@ function MovieItemSliderSkeleton({
       >
         {title}
       </Typography>
-      <Box
-        sx={{ display: "flex", gap: "10px", px: "2.5vw", overflow: "hidden" }}
-      >
+      <Box sx={{ display: "flex", gap: "10px", px: "2.5vw", overflow: "hidden" }}>
         {Array.from({ length: itemsPerPage }, (_, index) => (
           <Box
             key={index}

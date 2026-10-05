@@ -11,10 +11,8 @@ it("loads the available Plex library sections", async () => {
     MediaContainer: { Directory: [{ key: "1", title: "Movies" }] },
   });
 
-  await expect(getLibraries()).resolves.toEqual([
-    { key: "1", title: "Movies" },
-  ]);
-  expect(plexClient.get).toHaveBeenCalledWith("/library/sections");
+  await expect(getLibraries()).resolves.toEqual([{ key: "1", title: "Movies" }]);
+  expect(plexClient.get).toHaveBeenCalledWith("/library/sections", undefined);
 });
 
 it("returns an empty list when Plex omits the directory collection", async () => {

@@ -9,8 +9,8 @@ import {
   decideLibrarySynchronization,
   libraryDependenciesUnaffected,
 } from "./librarySynchronization";
-import type { LibraryQuery } from "./libraryQuery";
-import type { libraryResultQueryKey } from "./libraryQuery";
+import { libraryResultFromKey } from "./libraryQuery";
+import { isQueryWindowKey, queryPageLocation, type QueryWindow } from "shared/lib/queryWindow";
 
 export async function applyLibraryChanges(
   client: QueryClient,
@@ -21,21 +21,16 @@ export async function applyLibraryChanges(
   const windows = client
     .getQueryCache()
     .findAll({ queryKey: ["library", scope.serverId, scope.profileKey] })
-    .filter((query) => query.queryKey[4] === "window");
+    .filter((query) => isQueryWindowKey(query.queryKey));
   const refreshes: Promise<void>[] = [];
   for (const window of windows) {
-    const parameters = window.queryKey[3] as ReturnType<typeof libraryResultQueryKey>[3];
-    const query: LibraryQuery = {
-      ...parameters,
-      profileKey: scope.profileKey,
-      type: parameters.type === "any" ? undefined : parameters.type,
-      filterExpression: parameters.filterExpression ?? undefined,
-    };
-    const prefix = window.queryKey.slice(0, 4);
+    const result = libraryResultFromKey(window.queryKey);
+    if (!result) continue;
+    const { query, prefix } = result;
     const pages = client.getQueryCache().findAll({ queryKey: [...prefix, "page"] });
-    const published = (window.state.data as { revision: number }).revision;
+    const published = (window.state.data as QueryWindow).revision;
     const beforeItems = pages
-      .filter((page) => page.queryKey[5] === published)
+      .filter((page) => queryPageLocation(page.queryKey)?.revision === published)
       .flatMap((page) => (page.state.data as LibraryPageDto | undefined)?.items ?? []);
     const patches = new Map<string, NonNullable<LibraryItemUpdateDto["item"]>>();
     let refresh = false;

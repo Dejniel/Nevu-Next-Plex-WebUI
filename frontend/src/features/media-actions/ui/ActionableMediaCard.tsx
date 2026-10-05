@@ -43,7 +43,6 @@ export type ActionableMediaCardProps = Omit<
   MediaCardProps,
   "item" | "overlayActions" | "onContextMenu"
 > & Pick<MediaCardProps, "item"> & {
-  refetchData?: () => void;
   canPlay?: boolean;
   playbackTo?: string;
 };
@@ -51,7 +50,6 @@ export type ActionableMediaCardProps = Omit<
 export default function ActionableMediaCard({
   item,
   PlexTvSource = false,
-  refetchData,
   canPlay = true,
   playbackTo,
   ...cardProps
@@ -90,9 +88,7 @@ export default function ActionableMediaCard({
   const openMenu = (nextAnchor: MediaMenuAnchor) => {
     setAnchor(nextAnchor);
     if (
-      (!capabilities.canEditMetadata && !capabilities.canDownload) ||
-      metadataStatus === "loading" ||
-      metadataStatus === "loaded"
+      !capabilities.canEditMetadata && !capabilities.canDownload
     ) return;
     void loadFullMetadata().catch(() => undefined);
   };
@@ -136,7 +132,6 @@ export default function ActionableMediaCard({
           if (fullMetadata) updateMetadata(applyMediaWatchedState(fullMetadata, watched));
           else invalidateMetadata();
           setDisplayItem((current) => applyMediaWatchedState(current, watched));
-          refetchData?.();
         } catch (error) {
           if (error instanceof StaleMediaMetadataRequestError) return;
           useBigReader.getState().setBigReader("Plex could not update this item's watched state.");
@@ -182,7 +177,6 @@ export default function ActionableMediaCard({
           invalidateMetadata();
           const metadata = await loadFullMetadata();
           setDisplayItem(metadata);
-          refetchData?.();
         } catch (error) {
           if (error instanceof StaleMediaMetadataRequestError) return;
           useBigReader.getState().setBigReader(
@@ -286,7 +280,6 @@ export default function ActionableMediaCard({
             );
             updateMetadata(updated);
             setDisplayItem(updated);
-            refetchData?.();
           }}
         />
       )}
@@ -304,7 +297,6 @@ export default function ActionableMediaCard({
               title: candidate.name,
               ...(candidate.year !== undefined ? { year: candidate.year } : {}),
             }));
-            refetchData?.();
           }}
         />
       )}

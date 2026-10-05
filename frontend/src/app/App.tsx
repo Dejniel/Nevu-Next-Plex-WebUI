@@ -10,7 +10,6 @@ import {
   useServerSession,
 } from "features/session/public";
 import Startup, { useStartupState } from "./startup/Startup";
-import { useLibraries } from "entities/library/model";
 import AppRoutes from "./AppRoutes";
 import { useBrowseSynchronization } from "./useBrowseSynchronization";
 
@@ -57,8 +56,6 @@ function App() {
   useBrowseSynchronization(sessionRevision);
 
   useEffect(() => {
-    useLibraries.getState().reset();
-    void useLibraries.getState().load();
     void useServerSession.getState().refresh();
   }, [sessionRevision]);
 

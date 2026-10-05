@@ -6,7 +6,8 @@ Contracts, observed events, baseline costs, and verification are recorded in the
 [stage 1 results](browse-sync-stage1.md). Delivered library ownership and selective
 runtime updates are recorded in the [stage 2 results](browse-sync-stage2.md).
 List/Watchlist migration, removed mechanisms and final costs are recorded in the
-[stage 3 results](browse-sync-stage3.md).
+[stage 3 results](browse-sync-stage3.md). Remaining metadata/directory reads were
+completed in the [follow-up](browse-cache-followup.md).
 
 This document records the direction, behavior to preserve, implementation plan,
 and remaining questions. Cache ownership and selective synchronization are one

@@ -13,6 +13,7 @@ function discoverHeaders() {
 
 export async function fetchDiscoverExtras(
   item: Partial<Pick<Plex.Metadata, "guid" | "Guid">>,
+  signal?: AbortSignal,
 ): Promise<Plex.Metadata[]> {
   const discoverID = getDiscoverID(item);
   if (!discoverID || !AuthStorage.getProfileAccountToken()) return [];
@@ -21,25 +22,19 @@ export async function fetchDiscoverExtras(
   const response = await axios.post(
     `${getBackendURL()}/discover/extras`,
     { path },
-    { headers: discoverHeaders() },
+    { headers: discoverHeaders(), signal },
   );
   return response.data?.MediaContainer?.Metadata ?? [];
 }
 
 function getPlayablePart(extra: Plex.Metadata): Plex.Part | null {
   const parts = extra.Media?.flatMap((media) => media.Part || []) ?? [];
-  return (
-    parts.find((part) => part.key?.split("?")[0].endsWith("/parts/hls.m3u8")) ??
-    null
-  );
+  return parts.find((part) => part.key?.split("?")[0].endsWith("/parts/hls.m3u8")) ?? null;
 }
 
-export async function resolveDiscoverExtra(
-  extra: TitleExtra,
-): Promise<VideoSource> {
+export async function resolveDiscoverExtra(extra: TitleExtra): Promise<VideoSource> {
   const part = getPlayablePart(extra.metadata);
-  if (!part?.key)
-    throw new Error("This extra does not have a playable stream.");
+  if (!part?.key) throw new Error("This extra does not have a playable stream.");
 
   const response = await axios
     .post(
@@ -48,14 +43,11 @@ export async function resolveDiscoverExtra(
       { headers: discoverHeaders() },
     )
     .catch((reason: unknown) => {
-      const status = axios.isAxiosError(reason)
-        ? reason.response?.status
-        : null;
+      const status = axios.isAxiosError(reason) ? reason.response?.status : null;
       throw new Error(
         `Plex Discover could not prepare this extra${status ? ` (HTTP ${status})` : ""}. Please try again.`,
       );
     });
-  if (!response.data?.url)
-    throw new Error("Plex Discover did not return a stream.");
+  if (!response.data?.url) throw new Error("Plex Discover did not return a stream.");
   return { id: part.key, url: response.data.url, type: "hls" };
 }

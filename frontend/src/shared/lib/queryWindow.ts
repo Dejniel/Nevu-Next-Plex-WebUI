@@ -43,7 +43,10 @@ export function queryWindowOptions<T extends { offset: number }, TKey extends Qu
             .getQueryCache()
             .findAll({ queryKey: [...prefix, "page", published.revision] })
             .filter((page) => page.getObserversCount() > 0)
-            .map((page) => Number(page.queryKey[prefix.length + 2]))
+            .flatMap((page) => {
+              const location = queryPageLocation(page.queryKey);
+              return location ? [location.offset] : [];
+            })
             .filter((offset) => !pages.has(offset) && (total === null || offset < total));
           if (!offsets.length) break;
           await Promise.all(
@@ -72,3 +75,14 @@ export function pageOffsets(start: number, end: number, total: number | null, si
     offsets.push(offset);
   return offsets;
 }
+
+export function queryPageLocation(key: QueryKey) {
+  const [kind, revision, offset, size] = key.slice(-4);
+  return kind === "page" &&
+    typeof revision === "number" &&
+    typeof offset === "number" &&
+    typeof size === "number"
+    ? { revision, offset, size }
+    : null;
+}
+export const isQueryWindowKey = (key: QueryKey) => key.at(-1) === "window";

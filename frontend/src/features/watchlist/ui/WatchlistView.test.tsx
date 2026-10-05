@@ -31,10 +31,10 @@ vi.mock("entities/media/model", async () => ({
   useMediaAvailability: vi.fn(),
 }));
 vi.mock("entities/library/model", () => ({
-  useLibraries: () => [
+  useLibraries: () => ({ data: [
     { key: "1", title: "Movies" },
     { key: "2", title: "Other movies" },
-  ],
+  ] }),
 }));
 vi.mock("features/settings/model", () => ({
   useUserSettings: Object.assign((select: (state: unknown) => unknown) =>

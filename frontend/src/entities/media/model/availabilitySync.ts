@@ -1,4 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
+import type { availabilityQueryOptions } from "./availabilityQuery";
 import type { MediaScope, ReconciledMediaChange } from "./mediaChanges";
 
 export function hasCachedAvailableMedia(client: QueryClient, scope: MediaScope, id: string) {
@@ -16,10 +17,12 @@ export async function applyAvailabilityChanges(
   if (!changes.length) return;
   const scope = changes[0].change;
   const reads: Promise<void>[] = [];
-  for (const query of client
-    .getQueryCache()
-    .findAll({ queryKey: ["availability", scope.serverId, scope.profileKey] })) {
-    const requested = query.queryKey[3] as readonly string[];
+  for (const query of client.getQueryCache().findAll({
+    queryKey: ["availability", scope.serverId, scope.profileKey],
+  })) {
+    const [, , , requested] = query.queryKey as ReturnType<
+      typeof availabilityQueryOptions
+    >["queryKey"];
     const previous = query.state.data as Plex.Metadata[] | undefined;
     let items = previous;
     let refresh = false;

@@ -10,9 +10,9 @@ import {
   Popper,
   Typography,
 } from "@mui/material";
-import { useLibraries, LIBRARIES_CHANGED_EVENT } from "entities/library/model";
+import { useLibraries } from "entities/library/model";
 import { useUserSettings } from "features/settings/model";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { StretchedLink } from "shared/ui";
 import {
@@ -43,15 +43,9 @@ export default function LibraryNavigation({
 }) {
   const location = useLocation();
   const settings = useUserSettings((state) => state.settings);
-  const { libraries, load } = useLibraries();
+  const { data: libraries } = useLibraries();
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [menuLibrary, setMenuLibrary] = useState<NavigationLibrary | null>(null);
-
-  useEffect(() => {
-    const reload = () => void load();
-    window.addEventListener(LIBRARIES_CHANGED_EVENT, reload);
-    return () => window.removeEventListener(LIBRARIES_CHANGED_EVENT, reload);
-  }, [load]);
 
   const navigation = normalizeLibraryNavigation(
     (libraries || []).filter((library) => ["movie", "show"].includes(library.type)),

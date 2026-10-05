@@ -4,20 +4,16 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { ActionableMediaCard } from "features/media-actions/public";
 import { useInView } from "react-intersection-observer";
 import type { LibrarySort } from "@nevu/contracts";
-import LibrarySortDropDown, {
-  normalizeLibrarySort,
-  sortMetadata,
-} from "./LibrarySortDropDown";
+import LibrarySortDropDown, { normalizeLibrarySort, sortMetadata } from "./LibrarySortDropDown";
 import { AppDialog } from "shared/ui";
-import { getLibraryDirectory } from "../api/libraryDirectories";
+import { useQuery } from "@tanstack/react-query";
+import { useActiveServerScope } from "features/session/model";
+import { serverQueryClient } from "shared/api/queryClient";
+import { libraryDirectoryQueryOptions } from "../model/libraryDirectories";
 
 function LibraryScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [library, setLibrary] = useState<Plex.MediaContainer | null>(null);
 
   const [sortBy, setSortBy] = useState<LibrarySort>(
     normalizeLibrarySort(localStorage.getItem("sortBy")),
@@ -27,10 +23,19 @@ function LibraryScreen() {
     ? decodeURIComponent(searchParams.get("bkey") as string)
     : null;
   const browsePropsValue = searchParams.get("bprops");
-  const browseProps = useMemo(
-    () => parseBrowseProps(browsePropsValue),
-    [browsePropsValue],
+  const browseProps = useMemo(() => parseBrowseProps(browsePropsValue), [browsePropsValue]);
+
+  const scope = useActiveServerScope();
+  const directory = useQuery(
+    {
+      ...libraryDirectoryQueryOptions(scope, bkey ?? "", browseProps),
+      enabled: Boolean(scope.serverId && scope.profileKey && bkey && bkey !== "/plextv/watchlist"),
+    },
+    serverQueryClient,
   );
+  const library = directory.data;
+  const loading = directory.isPending;
+  const error = directory.error?.message;
 
   const close = () => {
     const next = new URLSearchParams(searchParams);
@@ -50,33 +55,9 @@ function LibraryScreen() {
   }, [searchParams, setSearchParams]);
 
   useEffect(() => {
-    if (!bkey) return;
-    if (bkey === "/plextv/watchlist") {
-      navigate("/watchlist", { replace: true });
-      return;
-    }
-    let active = true;
-
-    setLoading(true);
-    setError(null);
-    setLibrary(null);
+    if (bkey === "/plextv/watchlist") navigate("/watchlist", { replace: true });
     setSortBy(normalizeLibrarySort(localStorage.getItem("sortBy")));
-
-    getLibraryDirectory(bkey, browseProps)
-      .then((data) => {
-        if (!active) return;
-        setLibrary(data);
-        setLoading(false);
-      })
-      .catch((e) => {
-        if (!active) return;
-        setError(e.message);
-        setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [bkey, browseProps, navigate]);
+  }, [bkey, navigate]);
 
   if (bkey && bkey !== "/plextv/watchlist")
     return (
@@ -136,15 +117,8 @@ function LibraryScreen() {
             <Grid container spacing={2} sx={{ width: "100%" }}>
               {library?.Metadata &&
                 sortMetadata(library.Metadata, sortBy).map((item, index) => (
-                  <Grid
-                    size={{ xs: 12, sm: 6, md: 4, lg: 4, xl: 3 }}
-                    key={item.ratingKey}
-                  >
-                    <Element
-                      item={item}
-                      key={`${index}`}
-                      plexTv={bkey.startsWith("/plextv")}
-                    />
+                  <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4, xl: 3 }} key={item.ratingKey}>
+                    <Element item={item} key={`${index}`} plexTv={bkey.startsWith("/plextv")} />
                   </Grid>
                 ))}
             </Grid>
@@ -178,13 +152,7 @@ function Element({ item, plexTv }: { item: Plex.Metadata; plexTv?: boolean }) {
 
   return (
     <div ref={ref}>
-      {inView && (
-        <ActionableMediaCard
-          item={item}
-          PlexTvSource={plexTv}
-          imageLoading="eager"
-        />
-      )}
+      {inView && <ActionableMediaCard item={item} PlexTvSource={plexTv} imageLoading="eager" />}
       {!inView && (
         <Box style={{ width: "100%" }}>
           <Box sx={{ width: "100%", height: "auto", aspectRatio: "16/9" }} />

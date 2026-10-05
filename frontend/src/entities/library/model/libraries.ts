@@ -1,43 +1,26 @@
-import { create } from "zustand";
-import { getActiveServerScope } from "features/session/model";
-import { publishMediaChange } from "entities/media/model";
+import { queryOptions, useQuery } from "@tanstack/react-query";
+import { getActiveServerScope, useActiveServerScope } from "features/session/model";
+import { publishMediaChange, type MediaScope } from "entities/media/model";
+import { serverQueryClient } from "shared/api/queryClient";
 import { getLibraries } from "../api/libraries";
 
-interface LibrariesState {
-  libraries: Plex.LibarySection[] | null;
-  loading: boolean;
-  error: string | null;
-  load: () => Promise<void>;
-  reset: () => void;
+export const librariesQueryOptions = (scope: MediaScope) =>
+  queryOptions({
+    queryKey: ["libraries", scope.serverId, scope.profileKey] as const,
+    queryFn: ({ signal }) => getLibraries(signal),
+    enabled: Boolean(scope.serverId && scope.profileKey),
+    refetchInterval: 60_000,
+  });
+
+export function useLibraries() {
+  return useQuery(librariesQueryOptions(useActiveServerScope()), serverQueryClient);
 }
-
-export const LIBRARIES_CHANGED_EVENT = "nevu:libraries-changed";
-
-let loadGeneration = 0;
-
-export const useLibraries = create<LibrariesState>((set) => ({
-  libraries: null,
-  loading: false,
-  error: null,
-  load: async () => {
-    const generation = ++loadGeneration;
-    set({ loading: true, error: null });
-    try {
-      const libraries = await getLibraries();
-      if (generation === loadGeneration) set({ libraries, loading: false });
-    } catch {
-      if (generation === loadGeneration)
-        set({ error: "Could not load Plex libraries.", loading: false });
-    }
-  },
-  reset: () => {
-    loadGeneration += 1;
-    set({ libraries: null, loading: false, error: null });
-  },
-}));
 
 export function notifyLibrariesChanged() {
   const scope = getActiveServerScope();
-  if (scope) publishMediaChange({ ...scope, kind: "recovery" });
-  window.dispatchEvent(new Event(LIBRARIES_CHANGED_EVENT));
+  if (!scope) return;
+  void serverQueryClient.invalidateQueries({
+    queryKey: librariesQueryOptions(scope).queryKey,
+  });
+  publishMediaChange({ ...scope, kind: "recovery" });
 }

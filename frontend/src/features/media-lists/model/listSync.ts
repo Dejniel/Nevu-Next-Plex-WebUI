@@ -1,9 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { changedMediaFields } from "@nevu/contracts";
 import type { MediaChange, MediaScope, ReconciledMediaChange } from "entities/media/model";
-import type { QueryWindow } from "shared/lib/queryWindow";
-import type { ListPage, mediaListResultKey } from "./listPages";
-import type { MediaListQuery } from "./mediaLists";
+import { isQueryWindowKey, queryPageLocation, type QueryWindow } from "shared/lib/queryWindow";
+import { mediaListResultFromKey, type ListPage } from "./listPages";
 import { decideMediaListSynchronization } from "./listSynchronization";
 
 export function hasCachedListMedia(client: QueryClient, scope: MediaScope, id: string) {
@@ -12,7 +11,7 @@ export function hasCachedListMedia(client: QueryClient, scope: MediaScope, id: s
     .findAll({ queryKey: ["media-lists", scope.serverId, scope.profileKey] })
     .some(
       (query) =>
-        query.queryKey[4] === "page" &&
+        queryPageLocation(query.queryKey) !== null &&
         (query.state.data as ListPage | undefined)?.items.some(
           (record) => record.kind === "media" && record.supported && record.item.ratingKey === id,
         ),
@@ -28,25 +27,23 @@ export async function applyMediaListChanges(
   const windows = client
     .getQueryCache()
     .findAll({ queryKey: ["media-lists", scope.serverId, scope.profileKey] })
-    .filter((query) => query.queryKey[4] === "window");
+    .filter((query) => isQueryWindowKey(query.queryKey));
   const refreshes: Promise<void>[] = [];
   for (const window of windows) {
-    const parameters = window.queryKey[3] as ReturnType<typeof mediaListResultKey>[3];
-    const query: MediaListQuery = {
-      ...parameters,
-      id: parameters.id ?? undefined,
-      libraryID: parameters.libraryID ?? undefined,
-      sort: parameters.sort || undefined,
-    };
-    const prefix = window.queryKey.slice(0, 4);
+    const result = mediaListResultFromKey(window.queryKey);
+    if (!result) continue;
+    const { query, prefix } = result;
     const pages = client.getQueryCache().findAll({ queryKey: [...prefix, "page"] });
     const revision = (window.state.data as QueryWindow).revision;
-    const published = pages.filter((page) => page.queryKey[5] === revision);
+    const published = pages.filter(
+      (page) => queryPageLocation(page.queryKey)?.revision === revision,
+    );
     const records = published.flatMap(
       (page) => (page.state.data as ListPage | undefined)?.items ?? [],
     );
     const summary = (
-      published.find((page) => page.queryKey[6] === 0)?.state.data as ListPage | undefined
+      published.find((page) => queryPageLocation(page.queryKey)?.offset === 0)?.state.data as
+        ListPage | undefined
     )?.summary;
     const patches = new Map<string, Plex.Metadata>();
     let refresh = false;

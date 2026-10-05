@@ -95,7 +95,10 @@ collection and playlist consumers observe actual page queries and share a window
 descriptor containing only the published revision. `shared/lib/queryWindow`
 prepares and validates replacement pages before publication; a small transport
 limiter bounds page work. Summaries publish with list pages, and repeated playlist
-entries retain their positions and IDs. Full title metadata also uses Query.
+entries retain their positions and IDs. Canonical metadata is shared by cards,
+previews, Home, details and playback selection. Sections, directories, recommendation
+context, child lists, GUID resolution and Discover extras also use native queries.
+Local state retains UI choices and action-lifetime guards, without server-data mirrors.
 
 `app/browseSynchronization` batches scoped Plex hints and confirmed local changes.
 Feature rules patch compatible occurrences or refresh affected windows; one
@@ -108,7 +111,7 @@ availability caches plain metadata arrays, with GUID indexes derived by consumer
 Native stale mount/focus/reconnect and visible intervals replace the scheduler.
 Cloud Watchlist freshness remains distinct from local server notifications.
 The old paged controller, refresh buses and Zustand Watchlist mirror are removed.
-See the [stage 3 results](browse-sync-stage3.md) and the
+See the [stage 3 results](browse-sync-stage3.md), [follow-up](browse-cache-followup.md) and the
 [completed implementation plan](browse-cache-and-plex-sync-plan.md).
 
 ## Video playback
