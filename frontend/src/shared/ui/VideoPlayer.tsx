@@ -3,18 +3,24 @@ import React, {
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
 } from "react";
 import type Shaka from "shaka-player";
-import { nativeVideoError, shakaVideoError } from "shared/lib/video/errors";
+import {
+  inspectNativeVideoError,
+  shakaVideoError,
+} from "shared/lib/video/errors";
 import {
   createStreamingPlayer,
   streamingMimeType,
 } from "shared/lib/video/shaka";
 import type {
   VideoPlaybackError,
+  VideoPlaybackFailure,
   VideoPlayerHandle,
   VideoProgress,
   VideoSource,
+  VideoTextTrack,
 } from "shared/lib/video/types";
 
 export interface VideoPlayerProps {
@@ -27,14 +33,14 @@ export interface VideoPlayerProps {
   poster?: string;
   startTime?: number | null;
   objectFit?: React.CSSProperties["objectFit"];
-  onReady?: () => void;
+  onReady?: (sourceId: string) => void;
   onPlay?: () => void;
   onPause?: () => void;
   onPlaying?: () => void;
   onEnded?: () => void;
   onBuffering?: (buffering: boolean) => void;
   onProgress?: (progress: VideoProgress) => void;
-  onError?: (error: VideoPlaybackError) => void;
+  onError?: (error: VideoPlaybackFailure) => void;
   onPlayRejected?: () => void;
   onClick?: React.MouseEventHandler<HTMLVideoElement>;
 }
@@ -45,7 +51,12 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     const callbacks = useRef(props);
     callbacks.current = props;
     const ready = useRef(false);
+    const lastPosition = useRef<number | undefined>(undefined);
     const disposing = useRef<Promise<unknown>>(Promise.resolve());
+    const [loadedTracks, setLoadedTracks] = useState<{
+      source: VideoSource;
+      tracks: VideoTextTrack[];
+    } | null>(null);
 
     useImperativeHandle(
       ref,
@@ -86,14 +97,27 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       let failed = false;
       let loaded = false;
       let initialized = false;
+      const controller = new AbortController();
       ready.current = false;
+      lastPosition.current = undefined;
 
-      const fail = (error: VideoPlaybackError | null) => {
+      const position = () =>
+        ready.current && Number.isFinite(video.duration) && video.duration > 0
+          ? video.currentTime
+          : lastPosition.current;
+      const fail = (
+        error: VideoPlaybackError | null,
+        resumeAt = position(),
+      ) => {
         if (cancelled || failed || !error) return;
         failed = true;
         console.warn("Video playback failed:", error.kind, error.code);
         callbacks.current.onBuffering?.(false);
-        callbacks.current.onError?.(error);
+        callbacks.current.onError?.({
+          ...error,
+          sourceId: source.id,
+          position: resumeAt,
+        });
       };
       const markReady = () => {
         if (
@@ -111,11 +135,34 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           Number.isFinite(startTime)
         )
           video.currentTime = Math.max(0, startTime);
-        callbacks.current.onReady?.();
+        callbacks.current.onReady?.(source.id);
+        lastPosition.current = video.currentTime;
         playIfRequested();
+        if (source.loadTextTracks)
+          void source
+            .loadTextTracks(controller.signal)
+            .then((result) => {
+              if (cancelled || failed) return;
+              if ("error" in result) fail(result.error);
+              else setLoadedTracks({ source, tracks: result.tracks });
+            })
+            .catch(() =>
+              fail({
+                kind: "subtitle",
+                message: "The selected subtitles could not be loaded.",
+              }),
+            );
       };
-      const nativeError = () =>
-        initialized && video.error && fail(nativeVideoError(video.error));
+      const nativeError = () => {
+        if (initialized && video.error) {
+          const resumeAt = position();
+          void inspectNativeVideoError(
+            video.error,
+            source.url,
+            controller.signal,
+          ).then((error) => fail(error, resumeAt));
+        }
+      };
       const streamError = (event: Event) =>
         fail(shakaVideoError((event as CustomEvent).detail));
       video.addEventListener("loadedmetadata", markReady);
@@ -160,6 +207,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
 
       return () => {
         cancelled = true;
+        controller.abort();
         ready.current = false;
         video.removeEventListener("loadedmetadata", markReady);
         video.removeEventListener("error", nativeError);
@@ -190,6 +238,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     const progress = () => {
       const video = videoRef.current;
       if (!video || !ready.current) return;
+      lastPosition.current = video.currentTime;
       let loadedSeconds = video.currentTime;
       for (let index = 0; index < video.buffered.length; index++) {
         if (video.buffered.start(index) <= video.currentTime + 0.1)
@@ -237,7 +286,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           background: "#000",
         }}
       >
-        {props.source?.textTracks?.map((track) => (
+        {(loadedTracks?.source === props.source
+          ? loadedTracks.tracks
+          : props.source?.textTracks
+        )?.map((track) => (
           <track
             key={track.url}
             src={track.url}
@@ -245,12 +297,18 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
             srcLang={track.language}
             label={track.label}
             default
-            onError={() =>
-              callbacks.current.onError?.({
-                kind: "subtitle",
-                message: "The selected subtitles could not be loaded.",
-              })
-            }
+            ref={(element) => {
+              if (!element) return;
+              const onError = () =>
+                callbacks.current.onError?.({
+                  sourceId: props.source!.id,
+                  kind: "subtitle",
+                  message: "The selected subtitles could not be loaded.",
+                  position: lastPosition.current,
+                });
+              element.addEventListener("error", onError);
+              return () => element.removeEventListener("error", onError);
+            }}
           />
         ))}
       </video>

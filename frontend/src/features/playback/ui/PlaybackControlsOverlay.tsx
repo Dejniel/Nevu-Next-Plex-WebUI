@@ -87,6 +87,7 @@ export default function PlaybackControlsOverlay({
 
     const surface = getSurface();
     surface?.addEventListener("pointermove", handleMouseMove);
+    handleMouseMove();
     return () => {
       window.clearTimeout(timeout);
       surface?.removeEventListener("pointermove", handleMouseMove);

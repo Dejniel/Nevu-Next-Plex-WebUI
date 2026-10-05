@@ -15,23 +15,23 @@ vi.mock("../model/useMediaPlaybackSource", () => ({
   useMediaPlaybackSource: () => ({
     source: { id: "source", url: "/file", type: "file" },
     error: null,
-    recover: mockRecover,
+    reportError: mockRecover,
+    reportReady: () => true,
   }),
 }));
 vi.mock("../api/mediaExtras", () => ({ resolveDiscoverExtra: vi.fn() }));
 vi.mock("shared/ui/VideoPlayer", async () => {
   const React = await import("react");
-  return { default: React.forwardRef(function MockVideo(
-    props: VideoPlayerProps,
-    ref: React.Ref<unknown>,
-  ) {
-    mockVideoProps = props;
-    React.useImperativeHandle(ref, () => ({
-      getCurrentTime: () => mockCurrentTime,
-      getDuration: () => mockDuration,
-    }));
-    return null;
-  }) };
+  return {
+    default: React.forwardRef(function MockVideo(props: VideoPlayerProps, ref: React.Ref<unknown>) {
+      mockVideoProps = props;
+      React.useImperativeHandle(ref, () => ({
+        getCurrentTime: () => mockCurrentTime,
+        getDuration: () => mockDuration,
+      }));
+      return null;
+    }),
+  };
 });
 
 const extra = {
@@ -45,9 +45,7 @@ const render = () =>
     root.render(<MediaExtraPlayback extra={extra} startTime={12} />);
   });
 beforeEach(() => {
-  (
-    globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
-  ).IS_REACT_ACT_ENVIRONMENT = true;
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   container = document.createElement("div");
   root = createRoot(container);
   vi.clearAllMocks();
@@ -62,7 +60,7 @@ afterEach(async () => {
 it("keeps the requested start position when loading fails before playback", async () => {
   await render();
   await act(async () => {
-    mockVideoProps.onError!({ kind: "media", message: "decode" });
+    mockVideoProps.onError!({ sourceId: "source", kind: "media", message: "decode" });
   });
   await render();
   expect(mockVideoProps.startTime).toBe(12);
@@ -73,10 +71,28 @@ it("retains an explicitly restarted zero position instead of reapplying startTim
   mockDuration = 100;
   mockCurrentTime = 0;
   await act(async () => {
-    mockVideoProps.onError!({ kind: "media", message: "decode" });
+    mockVideoProps.onError!({ sourceId: "source", kind: "media", message: "decode" });
   });
   await render();
   expect(mockVideoProps.startTime).toBe(0);
+});
+
+it("retains native-control play and pause when a local extra changes source", async () => {
+  await render();
+  await act(async () => mockVideoProps.onPlay!());
+  mockCurrentTime = 24;
+  await act(async () =>
+    mockVideoProps.onError!({ sourceId: "source", kind: "media", message: "decode", position: 24 }),
+  );
+  await render();
+  expect(mockVideoProps.playing).toBe(true);
+  expect(mockVideoProps.startTime).toBe(24);
+  await act(async () => mockVideoProps.onPause!());
+  await act(async () =>
+    mockVideoProps.onError!({ sourceId: "source", kind: "media", message: "decode", position: 24 }),
+  );
+  await render();
+  expect(mockVideoProps.playing).toBe(false);
 });
 
 const discoverExtra: TitleExtra = { ...extra, source: "discover" };
@@ -116,6 +132,7 @@ it("preserves the playback position on retry and resets it for a different extra
   mockCurrentTime = 42;
   await act(async () => {
     mockVideoProps.onError!({
+      sourceId: "trailer",
       kind: "network",
       message: "Stream unavailable.",
     });

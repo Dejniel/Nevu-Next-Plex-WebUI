@@ -118,11 +118,21 @@ See the [stage 3 results](browse-sync-stage3.md), [follow-up](browse-cache-follo
 
 `shared/ui/VideoPlayer` owns one native `<video>` element and its lifecycle;
 direct files use the browser and HLS/DASH use the lazily loaded npm Shaka Player.
-`entities/media` probes browser codecs, builds Plex client profiles, negotiates
-Direct Play/remux/audio or video conversion, and releases owned sessions.
-Text subtitles use Plex WebVTT extraction; image/styled subtitles use burn-in.
+`entities/media/model/useMediaPlaybackSource` owns a finite fallback process:
+try the original file, then a Plex stream planned from browser capabilities.
+Only after that stream fails, query `/decision` for a compatible conversion
+and try it once if its configuration differs. Explicit bitrate limits, alternate
+audio and styled/image subtitles can require starting with the Plex stream.
+Access denial, missing files and offline errors stop without conversion.
+Identified source events prevent old attempts from affecting a new item/profile;
+each attempt releases its sessions and retains playback position and pause.
+The media API builds URLs and executes diagnosis/cleanup, without fallback policy.
+Text subtitles load after video readiness; Plex requires separate read
+authorization for WebVTT extraction, which never gates the video's initial source.
+Image/styled subtitles use burn-in.
 Local extras, Discover trailers, card previews, and full playback share this
-engine. Plex supplies conversions; Nevu has no separate transcoder.
+engine. Local extras use the same fallback controller; Discover has its own source
+resolver. Plex supplies conversions; Nevu has no separate transcoder.
 
 ## API and state conventions
 

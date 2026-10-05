@@ -34,15 +34,13 @@ beforeEach(() => {
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
-  vi
-    .spyOn(HTMLMediaElement.prototype, "pause")
-    .mockImplementation(() => undefined);
-  vi
-    .spyOn(HTMLMediaElement.prototype, "load")
-    .mockImplementation(() => undefined);
-  vi
-    .spyOn(HTMLMediaElement.prototype, "readyState", "get")
-    .mockReturnValue(1);
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(
+    () => undefined,
+  );
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(
+    () => undefined,
+  );
+  vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(1);
   element = document.createElement("div");
   root = createRoot(element);
   handle = React.createRef();
@@ -91,6 +89,123 @@ it("does not load Shaka for a direct-play file", async () => {
   expect(createStreamingPlayer).not.toHaveBeenCalled();
   expect(element.querySelector("video")?.getAttribute("src")).toBe(
     "/movie.mp4",
+  );
+});
+
+it("loads text tracks after video readiness without restarting the video", async () => {
+  const loadTextTracks = vi
+    .fn()
+    .mockResolvedValue({
+      tracks: [{ url: "/subs.vtt", language: "eng", label: "English" }],
+    });
+  props.source = {
+    id: "file",
+    url: "/movie.mp4",
+    type: "file",
+    loadTextTracks,
+  };
+  await render();
+  expect(loadTextTracks).not.toHaveBeenCalled();
+  await act(async () =>
+    element.querySelector("video")!.dispatchEvent(new Event("loadedmetadata")),
+  );
+  expect(loadTextTracks).toHaveBeenCalledTimes(1);
+  expect(element.querySelector("track")?.getAttribute("src")).toBe("/subs.vtt");
+  expect(HTMLMediaElement.prototype.load).toHaveBeenCalledTimes(1);
+  expect(createStreamingPlayer).not.toHaveBeenCalled();
+});
+
+it("cancels late text-track loading when the source changes", async () => {
+  let finish!: (value: { tracks: [] }) => void;
+  let signal!: AbortSignal;
+  props.source = {
+    id: "file",
+    url: "/movie.mp4",
+    type: "file",
+    loadTextTracks: (requestSignal) => {
+      signal = requestSignal;
+      return new Promise((resolve) => {
+        finish = resolve;
+      });
+    },
+  };
+  await render();
+  await act(async () =>
+    element.querySelector("video")!.dispatchEvent(new Event("loadedmetadata")),
+  );
+  props.source = { id: "second", url: "/second.mp4", type: "file" };
+  await render();
+  expect(signal.aborted).toBe(true);
+  await act(async () => finish({ tracks: [] }));
+  expect(element.querySelector("track")).toBeNull();
+});
+
+it("reports native track failures with source identity and position, then detaches the listener", async () => {
+  const onError = vi.fn();
+  props.source = {
+    id: "file",
+    url: "/movie.mp4",
+    type: "file",
+    textTracks: [{ url: "/subs.vtt", language: "eng", label: "English" }],
+  };
+  props.onError = onError;
+  await render();
+  const video = element.querySelector("video")!;
+  Object.defineProperty(video, "duration", { value: 60 });
+  video.currentTime = 24;
+  await act(async () => {
+    video.dispatchEvent(new Event("loadedmetadata"));
+    video.dispatchEvent(new Event("timeupdate"));
+  });
+  const track = element.querySelector("track")!;
+  track.dispatchEvent(new Event("error"));
+  expect(onError).toHaveBeenCalledWith(
+    expect.objectContaining({
+      sourceId: "file",
+      kind: "subtitle",
+      position: 24,
+    }),
+  );
+  props.source = { id: "second", url: "/second.mp4", type: "file" };
+  await render();
+  track.dispatchEvent(new Event("error"));
+  expect(onError).toHaveBeenCalledTimes(1);
+});
+
+it("retains the playhead when lazy subtitle preparation fails", async () => {
+  let finish!: (value: {
+    error: { kind: "network"; message: string; httpStatus: number };
+  }) => void;
+  props.source = {
+    id: "file",
+    url: "/movie.mp4",
+    type: "file",
+    loadTextTracks: () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  };
+  props.onError = vi.fn();
+  await render();
+  const video = element.querySelector("video")!;
+  Object.defineProperty(video, "duration", { value: 60 });
+  await act(async () => video.dispatchEvent(new Event("loadedmetadata")));
+  video.currentTime = 24;
+  await act(async () =>
+    finish({
+      error: {
+        kind: "network",
+        message: "Subtitles unavailable",
+        httpStatus: 403,
+      },
+    }),
+  );
+  expect(props.onError).toHaveBeenCalledWith(
+    expect.objectContaining({
+      sourceId: "file",
+      position: 24,
+      httpStatus: 403,
+    }),
   );
 });
 
@@ -147,9 +262,7 @@ it("exposes duration only after the streaming source finishes loading", async ()
     }),
   );
   (createStreamingPlayer as Mock).mockResolvedValue(player);
-  vi
-    .spyOn(HTMLMediaElement.prototype, "duration", "get")
-    .mockReturnValue(100);
+  vi.spyOn(HTMLMediaElement.prototype, "duration", "get").mockReturnValue(100);
   await render();
   expect(handle.current!.getDuration()).toBe(0);
   await act(async () => complete());
@@ -181,4 +294,77 @@ it("waits for native metadata before resuming a paused streaming source", async 
   });
   expect(props.onReady).toHaveBeenCalledTimes(1);
   expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+});
+
+it("reports the source identity and last position after native metadata is lost", async () => {
+  props.source = { id: "file", url: "/movie.mp4", type: "file" };
+  props.onError = vi.fn();
+  const duration = vi
+    .spyOn(HTMLMediaElement.prototype, "duration", "get")
+    .mockReturnValue(100);
+  await render();
+  const video = element.querySelector("video")!;
+  Object.defineProperty(video, "error", {
+    configurable: true,
+    value: { code: 3 },
+  });
+  await act(async () => video.dispatchEvent(new Event("loadedmetadata")));
+  video.currentTime = 7.25;
+  await act(async () => video.dispatchEvent(new Event("timeupdate")));
+  duration.mockReturnValue(NaN);
+  video.currentTime = 0;
+  await act(async () => video.dispatchEvent(new Event("error")));
+  expect(props.onError).toHaveBeenCalledWith(
+    expect.objectContaining({
+      sourceId: "file",
+      kind: "media",
+      position: 7.25,
+    }),
+  );
+});
+
+it("ignores an old Shaka error after the next source starts", async () => {
+  const first = engine();
+  (createStreamingPlayer as Mock)
+    .mockResolvedValueOnce(first)
+    .mockResolvedValueOnce(engine());
+  props.onError = vi.fn();
+  await render();
+  const oldError = first.addEventListener.mock.calls[0][1];
+  props = { ...props, source: { ...props.source!, id: "second" } };
+  await render();
+  await act(async () =>
+    oldError({ detail: { category: 3, code: 3016, severity: 2 } }),
+  );
+  expect(props.onError).not.toHaveBeenCalled();
+});
+
+it("cancels a native HTTP check and ignores its response after switching sources", async () => {
+  let complete!: (response: { ok: boolean; status: number }) => void;
+  const request = vi.fn().mockReturnValue(
+    new Promise((resolve) => {
+      complete = resolve;
+    }),
+  );
+  vi.stubGlobal("fetch", request);
+  props.source = { id: "file", url: "/movie.mp4", type: "file" };
+  props.onError = vi.fn();
+  await render();
+  Object.defineProperty(element.querySelector("video")!, "error", {
+    configurable: true,
+    value: { code: 4 },
+  });
+  await act(async () =>
+    element.querySelector("video")!.dispatchEvent(new Event("error")),
+  );
+  const signal = request.mock.calls[0][1].signal;
+  props = {
+    ...props,
+    source: { id: "second", url: "/second.mp4", type: "file" },
+  };
+  await render();
+  expect(signal.aborted).toBe(true);
+  await act(async () => complete({ ok: false, status: 403 }));
+  expect(props.onError).not.toHaveBeenCalled();
+  vi.unstubAllGlobals();
 });

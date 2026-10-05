@@ -31,7 +31,7 @@ function PlaybackSession({
     getPlayer: () => player.current,
     itemID,
   });
-  const { playing, buffering, volume } = playbackRuntime;
+  const { playing, buffering, volume, setPlaying } = playbackRuntime;
   const playbackMedia = usePlaybackMedia({
     itemID,
     playlistContext,
@@ -81,7 +81,7 @@ function PlaybackSession({
     getDuration: playbackRuntime.getDuration,
     onTermination: (message) => {
       setShowError(message);
-      playbackRuntime.setPlaying(false);
+      setPlaying(false);
       pauseTogether();
     },
     source: metadata?.ratingKey === itemID ? source : null,
@@ -104,6 +104,13 @@ function PlaybackSession({
     getSurface: () => surface.current,
     enabled: !showError,
   });
+
+  useEffect(() => {
+    if (showError) {
+      setPlaying(false);
+      pauseTogether();
+    }
+  }, [showError, setPlaying, pauseTogether]);
 
   useEffect(() => {
     surface.current?.focus({ preventScroll: true });
@@ -242,8 +249,9 @@ function PlaybackSession({
                 event.preventDefault();
                 playbackCommands.handleSurfaceClick(event.detail);
               }}
-              onReady={() => {
-                playbackRuntime.handleReady(itemID, initialResumeSeconds);
+              onReady={(sourceId) => {
+                if (playbackMedia.reportSourceReady(sourceId))
+                  playbackRuntime.handleReady(itemID, initialResumeSeconds);
               }}
               onProgress={playbackRuntime.handleProgress}
               onPause={() => playbackRuntime.setPlaying(false)}
@@ -251,16 +259,15 @@ function PlaybackSession({
               onBuffering={playbackRuntime.setBuffering}
               onPlayRejected={() => playbackRuntime.setPlaying(false)}
               onError={(error) => {
-                if (playbackMedia.recoverSource(error)) {
-                  if (playbackRuntime.getDuration() > 0)
+                if (playbackMedia.reportSourceError(error)) {
+                  if (
+                    error.position !== undefined ||
+                    playbackRuntime.getDuration() > 0
+                  )
                     playbackRuntime.requestResumeAt(
-                      playbackRuntime.getCurrentTime(),
+                      error.position ?? playbackRuntime.getCurrentTime(),
                     );
-                  return;
                 }
-                playbackRuntime.setPlaying(false);
-                pauseTogether();
-                setShowError(error.message);
               }}
               onEnded={playbackCommands.handleEnded}
             />

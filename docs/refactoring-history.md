@@ -2,6 +2,17 @@
 
 Status: structural migration completed on 2026-09-29
 
+## Original-first playback fallback — 2026-10-05
+
+Removed mandatory Plex decision preflight and the compatibility toggle. A finite
+media-owned process now tries the original, a Plex stream and, after failure, one
+different diagnosed configuration. HTTP failures, source identity and session
+ownership prevent inappropriate conversion and stale responses. Position, pause,
+track selection and local extras share this behavior; Discover keeps its resolver.
+Subtitle extraction authorizes its read after video readiness. Verification:
+525 frontend tests, typecheck/lint, production image and 13 Chromium scenarios
+on standalone Plex without Plex Pass; device-specific codec/HDR checks remain separate.
+
 ## Shared metadata and remaining browse queries — 2026-10-05
 
 Removed card-local metadata ownership, the sections store/DOM event and duplicate

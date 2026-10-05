@@ -1,12 +1,13 @@
-import { planMediaPlayback, playbackDecisionMode } from "./mediaPlayback";
+import {
+  initialPlaybackPlan,
+  planMediaPlayback,
+  playbackDecisionPlan,
+  playbackPlanKey,
+} from "./mediaPlayback";
 import type { MediaVersion } from "./mediaVersions";
 import type { VideoCapabilityProbe } from "shared/lib/video/capabilities";
 
-function version(
-  container = "mp4",
-  videoCodec = "h264",
-  audioCodec = "aac",
-): MediaVersion {
+function version(container = "mp4", videoCodec = "h264", audioCodec = "aac"): MediaVersion {
   return {
     mediaIndex: 2,
     partIndex: 1,
@@ -53,15 +54,47 @@ const probe: VideoCapabilityProbe = {
     !type.includes("ac-3") && !type.includes("dts") && !type.includes("truehd"),
 };
 
-it("keeps Original compatible with remuxing instead of forcing a raw MKV", async () => {
-  const plan = await planMediaPlayback(
-    version("mkv"),
-    { bitrate: -1 },
-    false,
-    probe,
-  );
-  expect(plan).toMatchObject({
-    directPlay: false,
+it("tries originals even when their codec or container is unknown", () => {
+  expect(initialPlaybackPlan(version("mkv", "unknown", "dca"), {})).toMatchObject({
+    kind: "original",
+  });
+});
+
+it("honors a lower bitrate, including files without bitrate metadata", () => {
+  expect(initialPlaybackPlan(version(), { bitrate: 8000 })).toBeNull();
+  expect(initialPlaybackPlan(version(), { bitrate: -1 })).toMatchObject({ kind: "original" });
+  const sample = version();
+  sample.media.bitrate = 0;
+  expect(initialPlaybackPlan(sample, { bitrate: 8000 })).toBeNull();
+});
+
+it("preserves the selected alternate audio instead of opening the first track", () => {
+  const sample = version();
+  sample.part.Stream[1].selected = false;
+  sample.part.Stream.push({ id: 3, streamType: 2, codec: "aac", selected: true } as Plex.Stream);
+  expect(initialPlaybackPlan(sample, {})).toBeNull();
+});
+
+it.each(["pgs", "ass"])("starts with Plex for %s burn-in subtitles", async (codec) => {
+  const sample = version();
+  sample.part.Stream.push({ id: 3, streamType: 3, codec, selected: true } as Plex.Stream);
+  expect(initialPlaybackPlan(sample, {})).toBeNull();
+  expect(await planMediaPlayback(sample, {}, "stream", probe)).toMatchObject({
+    subtitles: "burn",
+    copyVideo: false,
+  });
+});
+
+it("keeps text subtitles alongside an original file", () => {
+  const sample = version();
+  const subtitle = { id: 3, streamType: 3, codec: "srt", selected: true } as Plex.Stream;
+  sample.part.Stream.push(subtitle);
+  expect(initialPlaybackPlan(sample, {})).toEqual({ kind: "original", subtitle });
+});
+
+it("remuxes compatible streams after the original fails", async () => {
+  expect(await planMediaPlayback(version("mkv"), {}, "stream", probe)).toMatchObject({
+    kind: "plex",
     copyVideo: true,
     copyAudio: true,
     protocol: "dash",
@@ -69,198 +102,136 @@ it("keeps Original compatible with remuxing instead of forcing a raw MKV", async
   });
 });
 
-it("direct plays a supported file with the default audio track", async () => {
-  expect(await planMediaPlayback(version(), {}, false, probe)).toMatchObject({
-    directPlay: true,
+it.each(["truehd", "dca", "ac3"])(
+  "converts unsupported %s audio without converting the picture",
+  async (codec) => {
+    expect(
+      await planMediaPlayback(version("mkv", "h264", codec), {}, "stream", probe),
+    ).toMatchObject({
+      copyVideo: true,
+      copyAudio: false,
+      audioCodec: "aac",
+    });
+  },
+);
+
+it("copies supported VP9 while converting the audio", async () => {
+  expect(
+    await planMediaPlayback(version("mkv", "vp9", "truehd"), {}, "stream", probe),
+  ).toMatchObject({
     copyVideo: true,
+    videoCodec: "vp9",
+    copyAudio: false,
+  });
+});
+
+it("probes the actual HEVC profile for copying in a Plex stream", async () => {
+  const sample = version("mkv", "hevc");
+  Object.assign(sample.part.Stream[0], { profile: "main 10", bitDepth: 10, level: 153 });
+  const decodingInfo = vi.fn().mockResolvedValue({ supported: true });
+  expect(await planMediaPlayback(sample, {}, "stream", { ...probe, decodingInfo })).toMatchObject({
+    copyVideo: true,
+    videoCodec: "hevc",
+  });
+  expect(decodingInfo.mock.calls[0][0].video.contentType).toContain("hvc1.2.4.L153");
+});
+
+it("uses H264 when MediaCapabilities rejects the source profile", async () => {
+  expect(
+    await planMediaPlayback(version("mp4", "hevc"), {}, "stream", {
+      ...probe,
+      decodingInfo: async () => ({ supported: false, smooth: false, powerEfficient: false }),
+    }),
+  ).toMatchObject({ copyVideo: false, videoCodec: "h264" });
+});
+
+it("selects HLS when MSE is unavailable", async () => {
+  expect(
+    await planMediaPlayback(version(), {}, "stream", {
+      ...probe,
+      mediaSourceSupported: () => false,
+    }),
+  ).toMatchObject({ protocol: "hls" });
+});
+
+it("can still try an original on a browser without streaming APIs", async () => {
+  const nativeOnly = { canPlayType: () => false, mediaSourceSupported: () => false };
+  expect(initialPlaybackPlan(version(), {})).toMatchObject({ kind: "original" });
+  await expect(planMediaPlayback(version(), {}, "stream", nativeOnly)).rejects.toThrow(
+    "streaming playback",
+  );
+});
+
+it("converts the picture at a lower bitrate while retaining sidecar subtitles", async () => {
+  const sample = version();
+  sample.part.Stream.push({ id: 3, streamType: 3, codec: "srt", selected: true } as Plex.Stream);
+  expect(await planMediaPlayback(sample, { bitrate: 8000 }, "stream", probe)).toMatchObject({
+    subtitles: "sidecar",
+    copyVideo: false,
+  });
+  expect(await planMediaPlayback(sample, {}, "burn-subtitles", probe)).toMatchObject({
+    subtitles: "burn",
+    copyVideo: false,
     copyAudio: true,
   });
 });
 
-it("copies the picture when only audio is unsupported", async () => {
+it("offers one explicit H264/AAC conversion alternative", async () => {
   expect(
-    await planMediaPlayback(version("mkv", "h264", "truehd"), {}, false, probe),
-  ).toMatchObject({ copyVideo: true, copyAudio: false, audioCodec: "aac" });
-});
-
-it("does not direct play an MP4 with an unknown audio codec", async () => {
-  expect(
-    await planMediaPlayback(version("mp4", "h264", "dca"), {}, false, probe),
-  ).toMatchObject({ directPlay: false, copyVideo: true, copyAudio: false });
-});
-
-it("keeps VP9 in MP4 while converting unsupported audio", async () => {
-  expect(
-    await planMediaPlayback(version("mkv", "vp9", "truehd"), {}, false, probe),
-  ).toMatchObject({ copyVideo: true, copyAudio: false, audioCodec: "aac" });
-});
-
-it("keeps HEVC when this device can decode its profile", async () => {
-  const sample = version("mkv", "hevc");
-  sample.part.Stream[0] = {
-    ...sample.part.Stream[0],
-    profile: "main 10",
-    bitDepth: 10,
-    level: 153,
-  };
-  const decodingInfo = vi.fn().mockResolvedValue({ supported: true });
-  const plan = await planMediaPlayback(sample, {}, false, {
-    ...probe,
-    decodingInfo,
-  });
-  expect(plan.copyVideo).toBe(true);
-  expect(plan.videoCodec).toBe("hevc");
-  expect(decodingInfo.mock.calls[0][0].video.contentType).toContain(
-    "hvc1.2.4.L153",
-  );
-});
-
-it("respects a negative MediaCapabilities result", async () => {
-  const plan = await planMediaPlayback(version("mp4", "hevc"), {}, false, {
-    ...probe,
-    decodingInfo: async () => ({
-      supported: false,
-      smooth: false,
-      powerEfficient: false,
-    }),
-  });
-  expect(plan).toMatchObject({
-    copyVideo: false,
-    videoCodec: "h264",
-    directPlay: false,
-  });
-});
-
-it("selects native HLS when MSE is unavailable", async () => {
-  const plan = await planMediaPlayback(version(), {}, false, {
-    ...probe,
-    mediaSourceSupported: () => false,
-  });
-  expect(plan.protocol).toBe("hls");
-});
-
-it("allows a native file even when streaming APIs are unavailable", async () => {
-  expect(
-    await planMediaPlayback(version(), {}, false, {
-      canPlayType: (type) =>
-        type.startsWith("video/mp4") || type.startsWith("audio/mp4"),
-      mediaSourceSupported: () => false,
-    }),
-  ).toMatchObject({ directPlay: true });
-});
-
-it("rejects conversion when neither MSE nor native HLS is available", async () => {
-  await expect(
-    planMediaPlayback(version("mkv"), {}, false, {
-      canPlayType: (type) =>
-        type.startsWith("video/mp4") || type.startsWith("audio/mp4"),
-      mediaSourceSupported: () => false,
-    }),
-  ).rejects.toThrow("streaming playback");
-});
-
-it("can direct play native HEVC while using H264 for an HLS fallback", async () => {
-  const plan = await planMediaPlayback(version("mp4", "hevc"), {}, false, {
-    ...probe,
-    mediaSourceSupported: () => false,
-  });
-  expect(plan).toMatchObject({
-    protocol: "hls",
-    directPlay: true,
-    copyVideo: false,
-    videoCodec: "h264",
-  });
-});
-
-it("remuxes the selected alternate audio track instead of playing the first track", async () => {
-  const sample = version();
-  sample.part.Stream.push({
-    id: 3,
-    streamType: 2,
-    codec: "aac",
-    selected: true,
-  } as Plex.Stream);
-  sample.part.Stream[1].selected = false;
-  expect((await planMediaPlayback(sample, {}, false, probe)).directPlay).toBe(
-    false,
-  );
-});
-
-it("renders text subtitles independently of the selected bitrate", async () => {
-  const sample = version();
-  sample.part.Stream.push({
-    id: 3,
-    streamType: 3,
-    codec: "srt",
-    selected: true,
-  } as Plex.Stream);
-  const plan = await planMediaPlayback(sample, { bitrate: 8000 }, false, probe);
-  expect(plan).toMatchObject({ subtitles: "sidecar", copyVideo: false });
-});
-
-it("uses Plex burn-in for image subtitles", async () => {
-  const sample = version();
-  sample.part.Stream.push({
-    id: 3,
-    streamType: 3,
-    codec: "pgs",
-    selected: true,
-  } as Plex.Stream);
-  expect(await planMediaPlayback(sample, {}, false, probe)).toMatchObject({
-    subtitles: "burn",
-    copyVideo: false,
-    directPlay: false,
-  });
-});
-
-it("requests a compatible H264/AAC source after a decoder failure", async () => {
-  expect(
-    await planMediaPlayback(version("mp4", "hevc", "eac3"), {}, true, probe),
+    await planMediaPlayback(version("mkv", "hevc", "eac3"), {}, "convert", probe),
   ).toMatchObject({
     videoCodec: "h264",
     audioCodec: "aac",
     copyVideo: false,
     copyAudio: false,
-    directPlay: false,
   });
 });
 
-it("uses Plex's actual stream decisions to report the playback mode", async () => {
-  const plan = await planMediaPlayback(version("mkv"), {}, false, probe);
+it("accepts a failed Direct Play decision when the overall result allows conversion", async () => {
+  const plan = await planMediaPlayback(version(), {}, "stream", probe);
   expect(
-    playbackDecisionMode(
-      {
-        MediaContainer: {
-          generalDecisionCode: 1001,
-          Metadata: [
-            {
-              Media: [
-                {
-                  Part: [
-                    { Stream: [{ streamType: 2, decision: "transcode" }] },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      },
+    playbackDecisionPlan(
+      { MediaContainer: { generalDecisionCode: 1001, directPlayDecisionCode: 3000 } },
       plan,
     ),
-  ).toBe("audio-transcode");
+  ).toEqual(plan);
 });
 
-it("fails with the Plex decision reason when conversion is unavailable", async () => {
-  const plan = await planMediaPlayback(version("mkv"), {}, false, probe);
+it("uses the actual codecs and copy decisions returned by Plex", async () => {
+  const plan = await planMediaPlayback(version(), {}, "stream", probe);
+  const result = playbackDecisionPlan(
+    {
+      MediaContainer: {
+        generalDecisionCode: 1001,
+        Metadata: [
+          {
+            Media: [
+              { Part: [{ Stream: [{ streamType: 2, decision: "transcode", codec: "aac" }] }] },
+            ],
+          },
+        ],
+      },
+    },
+    plan,
+  );
+  expect(result).toMatchObject({ copyVideo: true, copyAudio: false, audioCodec: "aac" });
+  expect(playbackPlanKey(result)).not.toBe(playbackPlanKey(plan));
+});
+
+it("retains the detailed reason when neither playback method is available", async () => {
+  const plan = await planMediaPlayback(version(), {}, "stream", probe);
   expect(() =>
-    playbackDecisionMode(
+    playbackDecisionPlan(
       {
         MediaContainer: {
           generalDecisionCode: 2000,
-          generalDecisionText: "Conversion is disabled.",
+          generalDecisionText: "Playback unavailable.",
+          transcodeDecisionCode: 4000,
+          transcodeDecisionText: "Conversion is disabled.",
         },
       },
       plan,
     ),
-  ).toThrow("Conversion is disabled.");
+  ).toThrow("Playback unavailable. Conversion is disabled.");
+  expect(() => playbackDecisionPlan({ MediaContainer: {} }, plan)).toThrow("did not return");
 });

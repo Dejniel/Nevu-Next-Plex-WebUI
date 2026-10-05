@@ -47,8 +47,13 @@ bash tools/generate-playback-samples.sh "$PLEX_TEST_MEDIA_PATH/PlaybackSamples"
 Add `/data/PlaybackSamples` as a movie library. Samples cover MP4, MKV with two
 audio tracks and SRT, AC3, styled ASS, VP9 (libvpx), and HEVC Main 10 (libx265).
 Check Original, lower bitrate, track changes while paused, subtitles, seeking,
-resume, trailers, and Watch Together. Inspect Plex's playback decision to
-distinguish copying streams from conversion. Browser/device codec support,
+resume, trailers, and Watch Together. Original and the first Plex stream must
+start without a video `/decision`; after stream failure, allow one diagnosed
+alternative without repeating the same configuration. Check retained pause/position, stale
+events after an item/profile change and terminal HTTP 401/403/404 errors.
+Inspect stream parameters and Plex's active session to distinguish copying from
+conversion; a decision alone does not prove playback. Text subtitle extraction
+authorizes its own read after video readiness. Browser/device codec support,
 native Safari HLS, HDR, and hardware transcoding require suitable environments.
 
 On title pages, resize through desktop/mobile layouts and change text size.

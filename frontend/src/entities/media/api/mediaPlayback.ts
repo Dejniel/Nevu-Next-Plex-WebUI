@@ -1,18 +1,15 @@
-import { getXPlexProps, plexClient } from "features/session/model";
+import { getXPlexProps, plexClient, PlexRequestError } from "features/session/model";
 import { getBackendURL } from "shared/api/backend";
 import { queryBuilder } from "shared/lib/query";
 import { uuidV4 } from "shared/lib/identifiers";
-import { getMediaVersions } from "../model/mediaVersions";
 import type { MediaVersion } from "../model/mediaVersions";
-import {
-  planMediaPlayback,
-  playbackDecisionMode,
-} from "../model/mediaPlayback";
+import { playbackProfile } from "../model/mediaPlayback";
 import type {
   MediaPlaybackQuality,
   PlexPlaybackDecision,
   PlexPlaybackPlan,
   PlexPlaybackSource,
+  PlexStreamPlan,
 } from "../model/mediaPlayback";
 
 function playbackRequestParams(
@@ -21,155 +18,186 @@ function playbackRequestParams(
   plan: PlexPlaybackPlan,
   quality: MediaPlaybackQuality,
   sessionID: string,
-  requestContext = getXPlexProps(),
+  requestContext: Record<string, unknown> = getXPlexProps(),
 ) {
   return {
     ...requestContext,
     "X-Plex-Client-Profile-Name": "Generic",
-    "X-Plex-Client-Profile-Extra": plan.profile,
+    "X-Plex-Client-Profile-Extra":
+      plan.kind === "plex"
+        ? playbackProfile(plan)
+        : "add-transcode-target(type=subtitleProfile&context=all&protocol=http&container=webvtt&subtitleCodec=webvtt&replace=true)",
     "X-Plex-Session-Identifier": sessionID,
     "X-Plex-Incomplete-Segments": 1,
     session: sessionID,
     path: `/library/metadata/${metadata.ratingKey}`,
     mediaIndex: version.mediaIndex,
     partIndex: version.partIndex,
-    protocol: plan.protocol,
-    directPlay: plan.directPlay ? 1 : 0,
-    directStream: plan.copyVideo ? 1 : 0,
-    directStreamAudio: plan.copyAudio ? 1 : 0,
-    hasMDE: 0,
+    audioStreamID: version.part.Stream?.find((stream) => stream.streamType === 2 && stream.selected)
+      ?.id,
+    subtitleStreamID: plan.subtitle?.id ?? 0,
+    protocol: plan.kind === "original" ? "http" : plan.protocol,
+    directPlay: plan.kind === "original" ? 1 : 0,
+    directStream: plan.kind === "original" || plan.copyVideo ? 1 : 0,
+    directStreamAudio: plan.kind === "original" || plan.copyAudio ? 1 : 0,
+    hasMDE: plan.kind === "original" ? 1 : 0,
     fastSeek: 1,
     audioBoost: 100,
     subtitleSize: 100,
-    subtitles: plan.subtitles,
+    subtitles: plan.kind === "original" ? (plan.subtitle ? "sidecar" : "none") : plan.subtitles,
     autoAdjustQuality: 0,
-    ...(quality.bitrate && quality.bitrate > 0
-      ? { maxVideoBitrate: quality.bitrate }
-      : {}),
+    ...(quality.bitrate && quality.bitrate > 0 ? { maxVideoBitrate: quality.bitrate } : {}),
   };
 }
 
-function proxyMediaURL(path: string, params: Record<string, unknown> = {}) {
+function proxyMediaURL(path: string, params: Record<string, unknown>) {
   const parsed = new URL(path, "http://plex.local");
-  return `${getBackendURL()}/dynproxy${parsed.pathname}?${queryBuilder({ ...getXPlexProps(), ...Object.fromEntries(parsed.searchParams), ...params })}`;
+  return `${getBackendURL()}/dynproxy${parsed.pathname}?${queryBuilder({ ...Object.fromEntries(parsed.searchParams), ...params })}`;
 }
 
-export async function resolveMediaPlayback(
+export function createMediaPlaybackSource(
   metadata: Plex.Metadata,
-  quality: MediaPlaybackQuality = {},
-  version = getMediaVersions(metadata)[0],
-  compatibility = false,
-): Promise<PlexPlaybackSource> {
-  if (!version?.part.key)
-    throw new Error("No playable media file is available.");
-  const plan = await planMediaPlayback(version, quality, compatibility);
+  version: MediaVersion,
+  quality: MediaPlaybackQuality,
+  plan: PlexPlaybackPlan,
+  requestContext: Record<string, unknown> = getXPlexProps(),
+): PlexPlaybackSource {
+  if (!version?.part.key) throw new Error("No playable media file is available.");
   const sessionID = uuidV4();
-  const requestContext = getXPlexProps();
-  const params = playbackRequestParams(
-    metadata,
-    version,
-    plan,
-    quality,
-    sessionID,
-    requestContext,
-  );
-  const decision = await plexClient.get<PlexPlaybackDecision>(
-    `/video/:/transcode/universal/decision?${queryBuilder(params)}`,
-  );
-  const mode = playbackDecisionMode(decision, plan);
-  const extension = plan.protocol === "hls" ? "m3u8" : "mpd";
+  const params = playbackRequestParams(metadata, version, plan, quality, sessionID, requestContext);
   const source: PlexPlaybackSource = {
     id: sessionID,
     requestContext,
-    mode,
-    type: mode === "directplay" ? "file" : plan.protocol,
+    type: plan.kind === "original" ? "file" : plan.protocol,
     url:
-      mode === "directplay"
+      plan.kind === "original"
         ? proxyMediaURL(version.part.key, {
             ...requestContext,
             "X-Plex-Session-Identifier": sessionID,
             session: sessionID,
           })
         : proxyMediaURL(
-            `/video/:/transcode/universal/start.${extension}`,
+            `/video/:/transcode/universal/start.${plan.protocol === "hls" ? "m3u8" : "mpd"}`,
             params,
           ),
-    sessionID: mode === "directplay" ? undefined : sessionID,
+    sessionID: plan.kind === "original" ? undefined : sessionID,
   };
-  if (plan.subtitles === "sidecar" && plan.subtitle) {
-    const subtitleSessionID = uuidV4();
-    const subtitleParams = {
-      ...playbackRequestParams(
-        metadata,
-        version,
-        plan,
-        {},
-        subtitleSessionID,
-        requestContext,
-      ),
-      directPlay: 1,
-      hasMDE: 1,
-    };
-    // This decision authorizes reading the original for subtitle extraction;
-    // browser video capabilities and bitrate limits do not apply to that read.
-    await plexClient.get(
-      `/video/:/transcode/universal/decision?${queryBuilder(subtitleParams)}`,
-    );
-    source.subtitleSessionID = subtitleSessionID;
-    source.textTracks = [
-      {
-        url: proxyMediaURL("/subtitles/:/transcode/universal/start", {
-          ...subtitleParams,
-          protocol: "http",
-          directPlay: 0,
-          directStream: 1,
-          subtitleStreamID: plan.subtitle.id,
-          format: "webvtt",
-          subtitleCodec: "webvtt",
-        }),
-        language: plan.subtitle.languageCode || "und",
-        label:
-          plan.subtitle.displayTitle || plan.subtitle.language || "Subtitles",
-      },
-    ];
+  if (plan.subtitle && (plan.kind === "original" || plan.subtitles === "sidecar")) {
+    source.subtitleSessionID = uuidV4();
+    source.loadTextTracks = (signal) => loadSubtitleTracks(metadata, version, plan, source, signal);
   }
   return source;
 }
 
-function sessionURL(
+async function loadSubtitleTracks(
+  metadata: Plex.Metadata,
+  version: MediaVersion,
+  plan: PlexPlaybackPlan,
   source: PlexPlaybackSource,
+  signal: AbortSignal,
+): ReturnType<NonNullable<PlexPlaybackSource["loadTextTracks"]>> {
+  if (!source.subtitleSessionID || !plan.subtitle) return { tracks: [] };
+  const params = playbackRequestParams(
+    metadata,
+    version,
+    { kind: "original", subtitle: plan.subtitle },
+    {},
+    source.subtitleSessionID,
+    source.requestContext,
+  );
+  // PMS requires read authorization for subtitle extraction. This runs after
+  // video readiness, independently of the video's fallback decision.
+  try {
+    await plexClient.get(
+      `/subtitles/:/transcode/universal/decision?${queryBuilder(params)}`,
+      signal,
+    );
+  } catch (reason) {
+    return {
+      error: {
+        kind: reason instanceof PlexRequestError ? "network" : "subtitle",
+        httpStatus: reason instanceof PlexRequestError ? reason.status : undefined,
+        message: "The selected subtitles could not be loaded.",
+      },
+    };
+  }
+  return {
+    tracks: [
+      {
+        url: proxyMediaURL("/subtitles/:/transcode/universal/start", {
+          ...params,
+          directPlay: 0,
+          format: "webvtt",
+          subtitleCodec: "webvtt",
+        }),
+        language: plan.subtitle.languageCode || "und",
+        label: plan.subtitle.displayTitle || plan.subtitle.language || "Subtitles",
+      },
+    ],
+  };
+}
+
+export async function getMediaPlaybackDecision(
+  metadata: Plex.Metadata,
+  version: MediaVersion,
+  quality: MediaPlaybackQuality,
+  plan: PlexStreamPlan,
+  requestContext: Record<string, unknown>,
+  signal: AbortSignal,
+) {
+  const sessionID = uuidV4();
+  try {
+    return await plexClient.get<PlexPlaybackDecision>(
+      `/video/:/transcode/universal/decision?${queryBuilder(
+        playbackRequestParams(metadata, version, plan, quality, sessionID, requestContext),
+      )}`,
+      signal,
+    );
+  } finally {
+    void stopSessions(requestContext, [sessionID]);
+  }
+}
+
+function sessionURL(
+  requestContext: Record<string, unknown>,
   sessionID: string,
   action: "stop" | "ping",
 ) {
   return proxyMediaURL(`/video/:/transcode/universal/${action}`, {
-    ...(source.requestContext ?? getXPlexProps()),
+    ...requestContext,
     "X-Plex-Session-Identifier": sessionID,
     session: sessionID,
   });
 }
 
-export async function releaseMediaPlayback(
-  source: PlexPlaybackSource | null,
+export async function releaseMediaPlayback(source: PlexPlaybackSource | null, keepalive = false) {
+  if (!source) return;
+  await stopSessions(
+    source.requestContext,
+    [source.sessionID, source.subtitleSessionID].filter((id): id is string => Boolean(id)),
+    keepalive,
+  );
+}
+
+async function stopSessions(
+  requestContext: Record<string, unknown>,
+  sessions: string[],
   keepalive = false,
 ) {
-  if (!source) return;
   await Promise.all(
-    [source.sessionID, source.subtitleSessionID]
-      .filter(Boolean)
-      .map(async (sessionID) => {
-        try {
-          await fetch(sessionURL(source, sessionID!, "stop"), { keepalive });
-        } catch {
-          // Plex also expires sessions when a disconnected client cannot send stop.
-        }
-      }),
+    sessions.map(async (sessionID) => {
+      try {
+        await fetch(sessionURL(requestContext, sessionID, "stop"), { keepalive });
+      } catch {
+        // Plex also expires sessions when a disconnected client cannot send stop.
+      }
+    }),
   );
 }
 
 export async function pingMediaPlayback(source: PlexPlaybackSource) {
   if (source.sessionID) {
-    const response = await fetch(sessionURL(source, source.sessionID, "ping"));
-    if (!response.ok)
-      throw new Error("Plex could not keep the playback session alive.");
+    const response = await fetch(sessionURL(source.requestContext, source.sessionID, "ping"));
+    if (!response.ok) throw new Error("Plex could not keep the playback session alive.");
   }
 }

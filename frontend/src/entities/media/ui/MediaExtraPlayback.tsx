@@ -7,8 +7,7 @@ import { resolveDiscoverExtra } from "../api/mediaExtras";
 import type { TitleExtra } from "../model/mediaExtras";
 import { useMediaPlaybackSource } from "../model/useMediaPlaybackSource";
 
-export interface MediaExtraPlaybackProps
-  extends Omit<VideoPlayerProps, "source" | "onError"> {
+export interface MediaExtraPlaybackProps extends Omit<VideoPlayerProps, "source" | "onError"> {
   extra: TitleExtra;
   showErrors?: boolean;
   onPlaybackError?: (message: string) => void;
@@ -21,12 +20,11 @@ export default function MediaExtraPlayback({
   controls = true,
   ...videoProps
 }: MediaExtraPlaybackProps) {
-  const local = useMediaPlaybackSource(
-    extra.source === "local" ? extra.metadata : null,
-  );
+  const local = useMediaPlaybackSource(extra.source === "local" ? extra.metadata : null);
   const [discover, setDiscover] = useState<VideoSource | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [playing, setPlaying] = useState(videoProps.autoPlay ?? false);
   const player = useRef<VideoPlayerHandle>(null);
   const resume = useRef<number | null>(null);
   const errorCallback = useRef(onPlaybackError);
@@ -35,6 +33,10 @@ export default function MediaExtraPlayback({
   useEffect(() => {
     resume.current = null;
   }, [extra]);
+
+  useEffect(() => {
+    setPlaying(videoProps.autoPlay ?? false);
+  }, [extra, videoProps.autoPlay]);
 
   useEffect(() => {
     let active = true;
@@ -81,10 +83,7 @@ export default function MediaExtraPlayback({
           severity="error"
           action={
             extra.source === "discover" ? (
-              <Button
-                color="inherit"
-                onClick={() => setAttempt((value) => value + 1)}
-              >
+              <Button color="inherit" onClick={() => setAttempt((value) => value + 1)}>
                 Try again
               </Button>
             ) : undefined
@@ -96,15 +95,36 @@ export default function MediaExtraPlayback({
       {source && !failure && (
         <VideoPlayer
           {...videoProps}
+          playing={videoProps.playing ?? playing}
+          onPlay={() => {
+            setPlaying(true);
+            videoProps.onPlay?.();
+          }}
+          onPause={() => {
+            setPlaying(false);
+            videoProps.onPause?.();
+          }}
+          onPlayRejected={() => {
+            setPlaying(false);
+            videoProps.onPlayRejected?.();
+          }}
           controls={controls}
           ref={player}
           source={source}
           startTime={resume.current ?? videoProps.startTime}
+          onReady={(sourceId) => {
+            if (extra.source === "local" && !local.reportReady(sourceId)) return;
+            videoProps.onReady?.(sourceId);
+          }}
           onError={(reason) => {
-            if (player.current && player.current.getDuration() > 0)
-              resume.current = player.current.getCurrentTime();
-            if (extra.source === "local" && local.recover(reason)) return;
-            setError(reason.message);
+            if (reason.sourceId !== source.id) return;
+            if (extra.source === "local" && !local.reportError(reason)) return;
+            if (
+              reason.position !== undefined ||
+              (player.current && player.current.getDuration() > 0)
+            )
+              resume.current = reason.position ?? player.current!.getCurrentTime();
+            if (extra.source === "discover") setError(reason.message);
           }}
         />
       )}

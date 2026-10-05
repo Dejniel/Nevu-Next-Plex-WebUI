@@ -9,6 +9,9 @@ export interface VideoSource {
   url: string;
   type: "file" | "hls" | "dash";
   textTracks?: VideoTextTrack[];
+  loadTextTracks?: (
+    signal: AbortSignal,
+  ) => Promise<{ tracks: VideoTextTrack[] } | { error: VideoPlaybackError }>;
 }
 
 export interface VideoPlayerHandle {
@@ -21,6 +24,12 @@ export interface VideoPlaybackError {
   kind: "network" | "media" | "unsupported" | "subtitle" | "unknown";
   message: string;
   code?: number;
+  httpStatus?: number;
+}
+
+export interface VideoPlaybackFailure extends VideoPlaybackError {
+  sourceId: string;
+  position?: number;
 }
 
 export interface VideoProgress {

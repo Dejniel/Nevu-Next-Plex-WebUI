@@ -60,7 +60,7 @@ it("does not report an unloaded video and pings only the owned source", async ()
     id: "source",
     url: "/stream",
     type: "dash",
-    mode: "remux",
+    requestContext: {},
     sessionID: "owned",
   };
   await render();
@@ -77,7 +77,7 @@ it("does not report an unloaded video and pings only the owned source", async ()
   expect(pingMediaPlayback).toHaveBeenCalledWith(source);
 });
 it("reports the last position once when explicit exit is followed by unmount", async () => {
-  source = { id: "source", url: "/file", type: "file", mode: "directplay" };
+  source = { id: "source", url: "/file", type: "file", requestContext: {} };
   await render();
   await act(async () => {
     await controller.reportStopped();
@@ -93,7 +93,7 @@ it("reports the last position once when explicit exit is followed by unmount", a
   );
 });
 it("stops the old item with its own position when navigation changes the item", async () => {
-  source = { id: "source", url: "/file", type: "file", mode: "directplay" };
+  source = { id: "source", url: "/file", type: "file", requestContext: {} };
   await render();
   itemID = "43";
   source = null;
@@ -110,13 +110,13 @@ it("stops the old item with its own position when navigation changes the item", 
 });
 
 it("reports a changed stream using its new source session", async () => {
-  source = { id: "original", url: "/file", type: "file", mode: "directplay" };
+  source = { id: "original", url: "/file", type: "file", requestContext: {} };
   await render();
   source = {
     id: "replacement",
     url: "/stream",
     type: "dash",
-    mode: "video-transcode",
+    requestContext: {},
     sessionID: "replacement",
   };
   time = 12;

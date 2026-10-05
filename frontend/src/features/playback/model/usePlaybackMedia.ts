@@ -354,7 +354,8 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     reloadQueue,
     source: playbackSource.source,
     sourceLoading: playbackSource.loading,
-    recoverSource: playbackSource.recover,
+    reportSourceError: playbackSource.reportError,
+    reportSourceReady: playbackSource.reportReady,
     reloadSource: () =>
       metadata
         ? playbackSource.reload()

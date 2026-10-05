@@ -1,9 +1,6 @@
 import type { MediaVersion } from "./mediaVersions";
 import type { VideoSource } from "shared/lib/video/types";
-import {
-  browserVideoCapabilities,
-  canDecodeVideo,
-} from "shared/lib/video/capabilities";
+import { browserVideoCapabilities, canDecodeVideo } from "shared/lib/video/capabilities";
 import type {
   VideoCapabilityProbe,
   VideoDecodeConfiguration,
@@ -14,23 +11,23 @@ export interface MediaPlaybackQuality {
   bitrate?: number;
 }
 
-export interface PlexPlaybackPlan {
+export interface PlexStreamPlan {
+  kind: "plex";
   protocol: "hls" | "dash";
-  directPlay: boolean;
   copyVideo: boolean;
   copyAudio: boolean;
   videoCodec: string;
   audioCodec: string;
   subtitles: "none" | "sidecar" | "burn";
   subtitle?: Plex.Stream;
-  profile: string;
 }
 
+export type PlexPlaybackPlan = { kind: "original"; subtitle?: Plex.Stream } | PlexStreamPlan;
+
 export interface PlexPlaybackSource extends VideoSource {
-  mode: "directplay" | "remux" | "audio-transcode" | "video-transcode";
   sessionID?: string;
   subtitleSessionID?: string;
-  requestContext?: Record<string, unknown>;
+  requestContext: Record<string, unknown>;
 }
 
 export interface PlexPlaybackDecision {
@@ -41,6 +38,8 @@ export interface PlexPlaybackDecision {
     directPlayDecisionText?: string;
     transcodeDecisionCode?: number;
     transcodeDecisionText?: string;
+    mdeDecisionCode?: number;
+    mdeDecisionText?: string;
     Metadata?: Array<{
       Media?: Array<{
         Part?: Array<{
@@ -73,8 +72,7 @@ function videoCodecString(stream: Plex.Stream | undefined, codec: string) {
       .toString(16)
       .padStart(2, "0")}`;
   }
-  if (codec === "hevc")
-    return `hvc1.${depth > 8 ? 2 : 1}.4.L${level ?? 153}.B0`;
+  if (codec === "hevc") return `hvc1.${depth > 8 ? 2 : 1}.4.L${level ?? 153}.B0`;
   if (codec === "av1") return `av01.0.08M.${String(depth).padStart(2, "0")}`;
   if (codec === "vp9")
     return `vp09.${depth > 8 ? "02" : "00"}.41.${String(depth).padStart(2, "0")}`;
@@ -83,8 +81,7 @@ function videoCodecString(stream: Plex.Stream | undefined, codec: string) {
 }
 
 function audioCodecString(codec: string, stream?: Plex.Stream) {
-  if (codec === "aac")
-    return /he-aac/i.test(stream?.profile ?? "") ? "mp4a.40.5" : "mp4a.40.2";
+  if (codec === "aac") return /he-aac/i.test(stream?.profile ?? "") ? "mp4a.40.5" : "mp4a.40.2";
   if (codec === "ac3") return "ac-3";
   if (codec === "eac3") return "ec-3";
   if (codec === "mp3") return "mp4a.69";
@@ -93,51 +90,86 @@ function audioCodecString(codec: string, stream?: Plex.Stream) {
   return null;
 }
 
-export function mediaContainerMime(container: string) {
-  if (["mp4", "m4v", "mov"].includes(container)) return "video/mp4";
-  if (container === "webm") return "video/webm";
-  if (container === "mkv") return "video/x-matroska";
-  if (container === "mpegts") return "video/mp2t";
-  return null;
+function selectedSubtitle(version: MediaVersion) {
+  return version.part.Stream?.find((stream) => stream.streamType === 3 && stream.selected);
+}
+
+function isTextSubtitle(subtitle: Plex.Stream) {
+  return ["srt", "subrip", "vtt", "webvtt", "mov_text", "text"].includes(subtitle.codec);
+}
+
+function isBitrateLimited(version: MediaVersion, quality: MediaPlaybackQuality) {
+  return Boolean(
+    quality.bitrate &&
+    quality.bitrate > 0 &&
+    (!version.media.bitrate || version.media.bitrate > quality.bitrate),
+  );
+}
+
+export function initialPlaybackPlan(version: MediaVersion, quality: MediaPlaybackQuality) {
+  const audios = version.part.Stream?.filter((stream) => stream.streamType === 2) ?? [];
+  const audio = audios.find((stream) => stream.selected) ?? audios[0];
+  const subtitle = selectedSubtitle(version);
+  if (
+    isBitrateLimited(version, quality) ||
+    audio !== audios[0] ||
+    (subtitle && !isTextSubtitle(subtitle))
+  )
+    return null;
+  return { kind: "original", subtitle } satisfies PlexPlaybackPlan;
+}
+
+export function playbackPlanKey(plan: PlexPlaybackPlan) {
+  return plan.kind === "original"
+    ? `original:${plan.subtitle?.id ?? ""}`
+    : JSON.stringify([
+        plan.protocol,
+        plan.copyVideo,
+        plan.copyAudio,
+        plan.videoCodec,
+        plan.audioCodec,
+        plan.subtitles,
+        plan.subtitle?.id,
+      ]);
+}
+
+export function playbackProfile(plan: PlexStreamPlan) {
+  const container = plan.protocol === "dash" ? "mp4" : "mpegts";
+  return [
+    `add-transcode-target(type=videoProfile&context=streaming&protocol=${plan.protocol}&container=${container}&videoCodec=${plan.videoCodec}&audioCodec=${plan.audioCodec}&replace=true)`,
+    "add-transcode-target(type=subtitleProfile&context=all&protocol=http&container=webvtt&subtitleCodec=webvtt&replace=true)",
+    "add-settings(DirectPlayStreamSelection=false)",
+  ].join("+");
 }
 
 export async function planMediaPlayback(
   version: MediaVersion,
   quality: MediaPlaybackQuality = {},
-  compatibility = false,
+  intent: "stream" | "convert" | "burn-subtitles" = "stream",
   probe: VideoCapabilityProbe = browserVideoCapabilities(),
-): Promise<PlexPlaybackPlan> {
+): Promise<PlexStreamPlan> {
   const { media, part } = version;
   const streams = part.Stream ?? [];
   const video = streams.find((stream) => stream.streamType === 1);
   const audios = streams.filter((stream) => stream.streamType === 2);
   const audio = audios.find((stream) => stream.selected) ?? audios[0];
-  const subtitle = streams.find(
-    (stream) => stream.streamType === 3 && stream.selected,
-  );
+  const subtitle = streams.find((stream) => stream.streamType === 3 && stream.selected);
   const videoCodec = video?.codec ?? media.videoCodec ?? "";
   const audioCodec = audio?.codec ?? media.audioCodec ?? "";
   const videoString = videoCodecString(video, videoCodec);
   const audioString = audioCodecString(audioCodec, audio);
   const streamContainer = "video/mp4";
-  const videoConfig = (
-    container: string,
-  ): VideoDecodeConfiguration | undefined =>
+  const videoConfig = (container: string): VideoDecodeConfiguration | undefined =>
     videoString
       ? {
           contentType: `${container}; codecs="${videoString}"`,
           width: video?.width ?? media.width ?? 1920,
           height: video?.height ?? media.height ?? 1080,
-          bitrate: Math.max(
-            1,
-            (video?.bitrate ?? media.bitrate ?? 12000) * 1000,
-          ),
+          bitrate: Math.max(1, (video?.bitrate ?? media.bitrate ?? 12000) * 1000),
           framerate: Number.parseFloat(video?.frameRate ?? "24") || 24,
         }
       : undefined;
-  const audioConfig = (
-    container: string,
-  ): AudioDecodeConfiguration | undefined =>
+  const audioConfig = (container: string): AudioDecodeConfiguration | undefined =>
     audioString
       ? {
           contentType: `${container.replace("video/", "audio/")}; codecs="${audioString}"`,
@@ -148,23 +180,15 @@ export async function planMediaPlayback(
       : undefined;
   const hasMSE = probe.mediaSourceSupported('video/mp4; codecs="avc1.640028"');
   const protocol = hasMSE ? "dash" : "hls";
-  const textSubtitle =
-    subtitle &&
-    ["srt", "subrip", "vtt", "webvtt", "mov_text", "text"].includes(
-      subtitle.codec,
-    );
   const subtitles = !subtitle
     ? "none"
-    : textSubtitle && !compatibility
+    : isTextSubtitle(subtitle) && intent === "stream"
       ? "sidecar"
       : "burn";
-  const bitrateLimited = Boolean(
-    quality.bitrate && quality.bitrate > 0 && media.bitrate > quality.bitrate,
-  );
   const dynamicRange = media.videoDynamicRange?.toLowerCase() ?? "sdr";
   const preservePicture =
-    !compatibility &&
-    !bitrateLimited &&
+    intent !== "convert" &&
+    !isBitrateLimited(version, quality) &&
     subtitles !== "burn" &&
     !dynamicRange.includes("dolby") &&
     dynamicRange !== "dv" &&
@@ -173,16 +197,10 @@ export async function planMediaPlayback(
   const canCopyVideo =
     preservePicture &&
     (hasMSE || videoCodec === "h264") &&
-    (await canDecodeVideo(
-      probe,
-      hasMSE ? "media-source" : "file",
-      videoConfig(streamContainer),
-    ));
+    (await canDecodeVideo(probe, hasMSE ? "media-source" : "file", videoConfig(streamContainer)));
   const canCopyAudio =
-    !compatibility &&
-    (hasMSE ||
-      !audioCodec ||
-      ["aac", "mp3", "ac3", "eac3"].includes(audioCodec)) &&
+    intent !== "convert" &&
+    (hasMSE || !audioCodec || ["aac", "mp3", "ac3", "eac3"].includes(audioCodec)) &&
     (!audioCodec ||
       (Boolean(audioString) &&
         (await canDecodeVideo(
@@ -191,83 +209,47 @@ export async function planMediaPlayback(
           undefined,
           audioConfig(streamContainer),
         ))));
-  const container = part.container ?? media.container ?? "";
-  const mime = mediaContainerMime(container);
-  const directPlay =
-    preservePicture &&
-    !compatibility &&
-    (!audioCodec || Boolean(audioString)) &&
-    Boolean(mime) &&
-    (!audio || audio === audios[0]) &&
-    (await canDecodeVideo(
-      probe,
-      "file",
-      videoConfig(mime!),
-      audioCodec ? audioConfig(mime!) : undefined,
-    ));
   const targetVideoCodec = canCopyVideo ? videoCodec : "h264";
-  if (
-    !directPlay &&
-    !hasMSE &&
-    !probe.canPlayType("application/vnd.apple.mpegurl")
-  )
+  if (!hasMSE && !probe.canPlayType("application/vnd.apple.mpegurl"))
     throw new Error("This browser does not support Plex streaming playback.");
   const targetAudioCodec = canCopyAudio && audioCodec ? audioCodec : "aac";
-  const targetContainer = hasMSE ? "mp4" : "mpegts";
-  const directives = [
-    `add-transcode-target(type=videoProfile&context=streaming&protocol=${protocol}&container=${targetContainer}&videoCodec=${targetVideoCodec}&audioCodec=${targetAudioCodec}&replace=true)`,
-    "add-transcode-target(type=subtitleProfile&context=all&protocol=http&container=webvtt&subtitleCodec=webvtt&replace=true)",
-    "add-settings(DirectPlayStreamSelection=false)",
-  ];
-  if (directPlay)
-    directives.push(
-      `add-direct-play-profile(type=videoProfile&container=${container}&videoCodec=${videoCodec}&audioCodec=${audioCodec || "*"}&subtitleCodec=*)`,
-    );
   return {
+    kind: "plex",
     protocol,
-    directPlay,
     copyVideo: canCopyVideo,
     copyAudio: canCopyAudio,
     videoCodec: targetVideoCodec,
     audioCodec: targetAudioCodec,
     subtitles,
     subtitle,
-    profile: directives.join("+"),
   };
 }
 
-export function playbackDecisionMode(
-  decision: PlexPlaybackDecision,
-  plan: PlexPlaybackPlan,
-) {
+export function playbackDecisionPlan(decision: PlexPlaybackDecision, plan: PlexStreamPlan) {
   const container = decision?.MediaContainer;
   if (!container) throw new Error("Plex did not return a playback decision.");
-  if (container.generalDecisionCode && container.generalDecisionCode >= 2000)
+  const code = container.generalDecisionCode ?? container.mdeDecisionCode;
+  if (!code) throw new Error("Plex did not return a playback decision.");
+  if (code >= 2000)
     throw new Error(
-      container.generalDecisionText ||
-        "Plex could not prepare this media for playback.",
+      [
+        container.generalDecisionText ?? container.mdeDecisionText,
+        container.transcodeDecisionCode && container.transcodeDecisionCode >= 2000
+          ? container.transcodeDecisionText
+          : undefined,
+      ]
+        .filter((text, index, values) => text && values.indexOf(text) === index)
+        .join(" ") || "Plex could not prepare this media for playback.",
     );
   const part = container.Metadata?.[0]?.Media?.[0]?.Part?.[0];
-  if (
-    plan.directPlay &&
-    (container.directPlayDecisionCode === 1000 ||
-      part?.decision === "directplay")
-  )
-    return "directplay" as const;
   const streams = part?.Stream ?? [];
-  if (
-    !plan.copyVideo ||
-    streams.some(
-      (stream) => stream.streamType === 1 && stream.decision === "transcode",
-    )
-  )
-    return "video-transcode" as const;
-  if (
-    !plan.copyAudio ||
-    streams.some(
-      (stream) => stream.streamType === 2 && stream.decision === "transcode",
-    )
-  )
-    return "audio-transcode" as const;
-  return "remux" as const;
+  const video = streams.find((stream) => stream.streamType === 1);
+  const audio = streams.find((stream) => stream.streamType === 2);
+  return {
+    ...plan,
+    copyVideo: video?.decision ? video.decision === "copy" : plan.copyVideo,
+    copyAudio: audio?.decision ? audio.decision === "copy" : plan.copyAudio,
+    videoCodec: video?.codec ?? plan.videoCodec,
+    audioCodec: audio?.codec ?? plan.audioCodec,
+  };
 }
