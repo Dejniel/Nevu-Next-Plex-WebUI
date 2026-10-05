@@ -1,4 +1,4 @@
-import axios, { AxiosRequestConfig } from 'axios';
+import axios from 'axios';
 import express from 'express';
 import fs from 'fs';
 import http from 'http';
@@ -7,9 +7,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { PerPlexed } from './types';
 import { randomBytes } from 'crypto';
 import { PrismaClient } from '@prisma/client';
-import { CheckPlexUser } from './common/plex';
 import { Discovery } from 'udp-discovery';
-import httpProxy from 'http-proxy';
 import { createPlexSharingRouter } from './plexSharing';
 import { createPlexLibrariesRouter } from './plexLibraries';
 import { APP_VERSION } from './appVersion';
@@ -17,6 +15,9 @@ import { createReviewsRouter } from './reviews';
 import { createLibraryPageRouter } from './libraryPage';
 import { safeRequestUrl, shouldLogRequest } from './requestLogging';
 import { parsePlexServerUrl } from './plexServerUrl';
+import { createPlexProxyRouter } from './plexProxy';
+import { createUserOptionsRouter } from './userOptions';
+import { httpErrorHandler } from './httpErrors';
 
 /* 
  * ENVIRONMENT VARIABLES
@@ -72,29 +73,10 @@ const noVerifyHttpsAgent = new https.Agent({
 const plexHttpsAgent = process.env.DISABLE_TLS_VERIFY === 'true'
     ? noVerifyHttpsAgent
     : verifiedHttpsAgent;
-const plexProxyAgent = plexServerUrl.protocol === 'https:'
-    ? plexHttpsAgent
-    : plexHttpAgent;
 // Long-lived notification streams must not occupy the HTTP request pool.
 const plexEventAgent = plexServerUrl.protocol === 'https:'
     ? new https.Agent({ rejectUnauthorized: process.env.DISABLE_TLS_VERIFY !== 'true' })
     : new http.Agent();
-
-const proxy = httpProxy.createProxyServer({
-    ws: true,
-    autoRewrite: false,
-    cookieDomainRewrite: plexServerUrl.hostname,
-    changeOrigin: true,
-    secure: process.env.DISABLE_TLS_VERIFY !== 'true',
-    followRedirects: true,
-    agent: plexProxyAgent,
-});
-
-proxy.on('error', (err, req, res) => {
-    console.error('Proxy error:', err);
-});
-
-app.use(express.json());
 
 const PLEX_DISCOVER_URL = 'https://discover.provider.plex.tv';
 const discoverExtrasPath = /^\/library\/metadata\/[a-f0-9]+\/extras$/i;
@@ -171,46 +153,6 @@ function getDiscoverHeaders(req: express.Request) {
     }
 
 
-    // if(!status.error) {
-    //     let checkAllows = false;
-    //     const fetchStatus = async () => {
-    //         try {
-    //             const res = await axios.get(`${process.env.PLEX_SERVER}/`, {
-    //                 timeout: 2500,
-    //             });
-
-    //             const m = res.data.MediaContainer;
-
-    //             if(
-    //                 !m.transcoderAudio ||
-    //                 !m.transcoderSubtitles ||
-    //                 !m.transcoderVideo
-    //             ) {
-    //                 status.error = true;
-    //                 status.message = `PLEX_SERVER ${m.friendlyName} does not allow transcoding`;
-    //                 console.error(`PLEX_SERVER ${m.friendlyName} does not allow transcoding`);
-    //                 return;
-    //             }
-
-    //             checkAllows = true;
-    //             status.error = false;
-
-    //         } catch (error: any) {
-    //             status.error = true;
-    //             status.message = 'Server cannot reach PLEX_SERVER' + error.message;
-    //             console.error('Server cannot reach PLEX_SERVER ' + error.message);
-    //         }
-    //     }
-
-    //     await new Promise<void>((resolve) => {
-    //         setTimeout(() => {
-    //             if(checkAllows) return resolve();
-    //             fetchStatus();
-    //         }, 5000);
-    //     })
-    // }
-
-
     if (status.error) return;
     status.ready = true;
     status.message = 'OK';
@@ -226,10 +168,22 @@ app.use((req, res, next) => {
         );
     }
     res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
-    res.header('Access-Control-Allow-Headers', '*'); // Add this line
+    res.header('Access-Control-Allow-Methods', 'GET, HEAD, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', '*');
     next();
 });
+
+app.options('/{*path}', (_req, res) => {
+    res.sendStatus(204);
+});
+
+app.use(createPlexProxyRouter({
+    plexServer: plexServerUrl.origin,
+    httpAgent: plexHttpAgent,
+    httpsAgent: plexHttpsAgent,
+    eventAgent: plexEventAgent,
+}));
+app.use(express.json());
 
 app.get('/status', (req, res) => {
     res.send(status);
@@ -316,194 +270,7 @@ app.post('/discover/stream', async (req, res) => {
     }
 });
 
-app.get('/user/options', async (req, res) => {
-    if (!req.headers['x-plex-token']) return res.status(401).send('Unauthorized');
-
-    const user = await CheckPlexUser(req.headers['x-plex-token'] as string);
-    if (!user) return res.status(401).send('Unauthorized user');
-
-    const options = await prisma.userOption.findMany({
-        where: {
-            userUid: user.uuid,
-        }
-    }).catch((err) => {
-        res.status(500).send('Internal server error');
-        console.log(err);
-        return null;
-    });
-    if (!options) return;
-
-    res.send(options);
-});
-
-app.get('/user/options/:key', async (req, res) => {
-    if (!req.headers['x-plex-token']) return res.status(401).send('Unauthorized');
-
-    const user = await CheckPlexUser(req.headers['x-plex-token'] as string);
-    if (!user) return res.status(401).send('Unauthorized user');
-
-    const { key } = req.params;
-    if (!key) return res.status(400).send('Bad request');
-
-    const option = await prisma.userOption.findFirst({
-        where: {
-            userUid: user.uuid,
-            key,
-        }
-    }).catch((err) => {
-        res.status(500).send('Internal server error');
-        console.log(err);
-        return null;
-    });
-    if (!option) return res.status(404).send('Option not found');
-    res.send(option);
-});
-
-
-app.post('/user/options', async (req, res) => {
-    if (!req.headers['x-plex-token']) return res.status(401).send('Unauthorized');
-
-    const user = await CheckPlexUser(req.headers['x-plex-token'] as string);
-    if (!user) return res.status(401).send('Unauthorized user');
-
-    const { key, value } = req.body;
-
-    if (!key || !value) return res.status(400).send('Bad request');
-
-    const option = await prisma.userOption.upsert({
-        where: {
-            userUid_key: {
-                userUid: user.uuid,
-                key,
-            }
-        },
-        update: {
-            value,
-        },
-        create: {
-            userUid: user.uuid,
-            key,
-            value,
-        }
-    }).catch((err) => {
-        res.status(500).send('Internal server error');
-        console.log(err);
-        return null;
-    });
-    if (!option) return;
-
-    res.send(option);
-});
-
-app.use('/dynproxy/*', (req, res) => {
-    const url = req.originalUrl.split('/dynproxy')[1];
-    if (!url) return res.status(400).send('Bad request');
-
-    // strip cookies from the request
-    req.headers.cookie = '';
-    req.headers['x-forwarded-for'] = ((req.headers['x-forwarded-for'] || req.socket.remoteAddress || '') as string).replace("::ffff:", "");
-
-    const agent = url.split('?')[0] === '/:/eventsource/notifications'
-        ? plexEventAgent : plexProxyAgent;
-    proxy.web(req, res, { target: `${process.env.PLEX_SERVER}${url}`, agent }, (err) => {
-        console.error('Proxy error:', err);
-        res.status(500).send('Proxy error');
-    });
-});
-
-app.post('/proxy', (req, res) => {
-    const { url, method, headers, data } = req.body;
-    const ip = ((req.headers['x-forwarded-for'] || req.socket.remoteAddress || '') as string).replace("::ffff:", "");
-
-    // the url must start with a / to prevent the server from making requests to external servers
-    if (!url || !url.startsWith('/')) return res.status(400).send('Invalid URL');
-
-    // check that the url doesn't include any harmful characters that could be used for directory traversal
-    if (url.match(/\.\./)) return res.status(400).send('Invalid URL');
-
-    // the method must be one of the allowed methods [GET, POST, PUT]
-    if (!method || !['GET', 'POST', 'PUT'].includes(method)) return res.status(400).send('Invalid method');
-
-    if (process.env.DISABLE_REQUEST_LOGGING != "true") {
-        console.log(
-            `[${new Date().toISOString()}] [PROXY] [${method}] ${safeRequestUrl(url)} from ${ip}`
-        );
-    }
-
-    const config: AxiosRequestConfig = {
-        url: `${process.env.PLEX_SERVER}${url}`,
-        method,
-        headers: {
-            ...headers,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0',
-            'X-Forwarded-For': ip,
-        },
-        data,
-        httpAgent: plexHttpAgent,
-        httpsAgent: plexHttpsAgent,
-    };
-
-    axios(config)
-        .then((response) => {
-            res.set('Content-Type', response.headers['content-type'] as string);
-            res.set('Content-Length', response.headers['content-length'] as string);
-            // res.set('Cache-Control', 'public, max-age=31536000');
-            res.status(response.status).send(response.data);
-        })
-        .catch((error) => {
-            res.status(error.response?.status || 500).send(error.response?.data || 'Proxy error');
-        });
-});
-
-app.get('/proxy', async (req, res) => {
-    const { url, method, ...params } = req.query;
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-
-    // the url must start with a / to prevent the server from making requests to external servers
-    if (!url || typeof url !== "string" || !url.startsWith('/')) return res.status(400).send('Invalid URL');
-
-    // check that the url doesn't include any harmful characters that could be used for directory traversal
-    if (url.match(/\.\./)) return res.status(400).send('Invalid URL');
-
-    // the method must be one of the allowed methods [GET, POST, PUT]
-    if (!method || typeof method !== "string" || !['GET', 'POST', 'PUT'].includes(method)) return res.status(400).send('Invalid method');
-
-    // remove url and method from params
-    const { url: _, method: __, ...queryParams } = req.query;
-
-    const config: AxiosRequestConfig = {
-        url: `${process.env.PLEX_SERVER}${url}`,
-        method,
-        headers: {
-            ...req.headers,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0',
-            'X-Fowarded-For': ip,
-        },
-        params: queryParams,
-        httpAgent: plexHttpAgent,
-        httpsAgent: plexHttpsAgent,
-        responseType: 'stream'
-    };
-
-    axios(config).then((response) => {
-        res.set('Content-Type', response.headers['content-type'] as string);
-        res.set('Content-Length', response.headers['content-length'] as string);
-        // res.set('Cache-Control', 'public, max-age=31536000');
-        response.data.pipe(res);
-    }).catch((error) => {
-        res.status(error.response?.status || 500).send(error.response?.data || 'Proxy error');
-    });
-});
-
-app.options('*', (req, res) => {
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
-    res.header('Access-Control-Allow-Headers', '*');
-    res.send();
-});
+app.use('/user/options', createUserOptionsRouter({ prisma }));
 
 app.use(express.static('www'));
 
@@ -551,12 +318,12 @@ let remoteIo = new SocketIOServer(server, {
 });
 
 
-app.use((req, res, next) => {
-    if (req.url.startsWith('/socket.io')) return next();
+app.get('/{*path}', (_req, res) => {
     res.sendFile('index.html', { root: 'www' });
 });
+app.use(httpErrorHandler);
 
 export { app, server, io, remoteIo, deploymentID, prisma };
 
 import './common/sync';
-import './common/remote'; import { error } from 'console';
+import './common/remote';

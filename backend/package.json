@@ -7,15 +7,13 @@
     "@nevu/contracts": "file:../contracts",
     "@prisma/client": "^6.2.1",
     "axios": "^1.20.0",
-    "express": "^4.18.2",
-    "http-proxy": "^1.18.1",
+    "express": "^5.2.1",
     "socket.io": "^4.8.4",
     "udp-discovery": "^2.0.2",
     "prisma": "^6.2.1"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21",
-    "@types/http-proxy": "^1.17.16",
+    "@types/express": "^5.0.6",
     "@types/node": "^26.6.4",
     "@types/udp-discovery": "^2.0.4",
     "typescript": "7.0.2"
