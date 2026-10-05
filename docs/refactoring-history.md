@@ -2,6 +2,13 @@
 
 Status: structural migration completed on 2026-09-29
 
+## Plex reviews — 2026-10-05
+
+Written reviews can be created and edited directly through Plex Community, using
+the active profile and its privacy settings. The editor preserves the existing
+rating and handles spoilers, account errors, and profile changes without local
+review storage.
+
 ## Dependency modernization and cleanup — 2026-10-05
 
 - Updated runtime, build tools, TypeScript, frontend packages, and Express.
@@ -9,7 +16,7 @@ Status: structural migration completed on 2026-09-29
 - Removed local/global Nevu reviews and unused UDP discovery, font packages,
   Moment, and legacy token/library preference migrations.
 - Added backend lint to CI and weekly dependency checks. Written Plex reviews
-  remain a separate product task; ratings and review display stay supported.
+  were implemented separately from dependency cleanup.
 - Old token storage requires signing in again; old library visibility settings
   fall back to the default pins. Current sessions and navigation are retained.
 

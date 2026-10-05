@@ -19,6 +19,7 @@ import {
   type PlexReview,
   type PlexReviews,
 } from "../api/plexCommunity";
+import PlexReviewDialog from "./PlexReviewDialog";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
@@ -134,16 +135,19 @@ export default function TitleReviews({
   data: Plex.Metadata | undefined;
 }) {
   const sessionRevision = useAuthSession((state) => state.revision);
+  const confirmed = useAuthSession((state) => state.activeUser?.confirmed);
   const metadataID = data?.guid.match(
     /^plex:\/\/(?:movie|show|season|episode)\/([^/]+)$/,
   )?.[1];
   const [reviews, setReviews] = useState<PlexReviews | null>(null);
   const [loading, setLoading] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     setReviews(null);
     setWarning(null);
+    setEditing(false);
     if (!metadataID) {
       setLoading(false);
       return;
@@ -181,22 +185,54 @@ export default function TitleReviews({
       exit={{ opacity: 0 }}
       sx={{ display: "flex", flexDirection: "column", gap: 4, width: "100%" }}
     >
-      <Alert
-        severity="info"
-        action={
-          <Button
-            color="inherit"
-            href="https://app.plex.tv/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Open Plex
-          </Button>
-        }
-      >
-        Writing reviews in Nevu is not available yet. You can add or edit your
-        review in Plex.
-      </Alert>
+      {metadataID && (
+        <Button
+          variant="outlined"
+          sx={{ alignSelf: "flex-start" }}
+          disabled={loading || !reviews || confirmed === false}
+          onClick={() => setEditing(true)}
+        >
+          {reviews?.userReview?.message ? "Edit your review" : "Write a review"}
+        </Button>
+      )}
+      {confirmed === false && (
+        <Alert severity="info">
+          Writing reviews requires a verified Plex account.
+        </Alert>
+      )}
+      {editing && metadataID && reviews && (
+        <PlexReviewDialog
+          key={`${metadataID}:${sessionRevision}`}
+          metadataID={metadataID}
+          review={reviews.userReview}
+          onClose={() => setEditing(false)}
+          onSaved={(saved) => {
+            setReviews(
+              (current) =>
+                current && {
+                  ...current,
+                  userReview: saved,
+                  topReviews: {
+                    nodes: current.topReviews.nodes.map((review) =>
+                      review.id === saved.id ? saved : review,
+                    ),
+                  },
+                  recentReviews: {
+                    nodes: current.recentReviews.nodes.map((review) =>
+                      review.id === saved.id ? saved : review,
+                    ),
+                  },
+                  friendReviews: {
+                    nodes: current.friendReviews.nodes.map((review) =>
+                      review.id === saved.id ? saved : review,
+                    ),
+                  },
+                },
+            );
+            setEditing(false);
+          }}
+        />
+      )}
       {warning && <Alert severity="warning">{warning}</Alert>}
       {critics.length > 0 && (
         <Box>
@@ -248,6 +284,11 @@ export default function TitleReviews({
               </Typography>
             )}
           <ReviewsSection title="Your review" reviews={own} />
+          {reviews?.userReview?.status === "PENDING" && (
+            <Typography color="text.secondary">
+              Your review is awaiting moderation.
+            </Typography>
+          )}
           <ReviewsSection title="Recent reviews" reviews={recent} />
           <ReviewsSection title="Top reviews" reviews={top} />
           <ReviewsSection title="Friend reviews" reviews={friends} />

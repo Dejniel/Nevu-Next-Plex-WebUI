@@ -14,13 +14,6 @@ the README and release notes; implementation-only cleanup belongs in the
 - Show Plex critic, audience, friend, and active-user ratings without
   duplicating a provider or inventing an unsupported aggregate score.
 
-### Write Plex reviews
-
-- Add, edit, and delete written reviews through Plex, respecting account
-  eligibility, privacy, and spoiler settings; Nevu currently links to Plex.
-- Verify the Plex Community API before replacing the placeholder. Keep reviews
-  owned by Plex, without a separate Nevu store or community service.
-
 ### Complete metadata workflows
 
 - Add the remaining editable fields exposed by Plex for each media type.
@@ -63,6 +56,7 @@ Browse Plex photo libraries, albums, and individual photos.
 
 ### Experience improvements
 
+- Add removal of a written Plex review while preserving ratings and watch history.
 - Revisit Home separately for desktop and mobile.
 - Consider an alternative title-details layout that is less dependent on a
   large backdrop while preserving the current cinematic view.

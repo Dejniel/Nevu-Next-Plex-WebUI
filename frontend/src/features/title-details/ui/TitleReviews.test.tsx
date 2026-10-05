@@ -52,7 +52,7 @@ it("keeps critic reviews visible when the Plex community is unavailable", async 
   expect(host.textContent).toContain(
     "Plex community reviews are temporarily unavailable.",
   );
-  expect(host.querySelector("a")?.href).toBe("https://app.plex.tv/");
+  expect(host.querySelector<HTMLButtonElement>("button")?.disabled).toBe(true);
 });
 
 it("cancels old title requests and ignores their late responses", async () => {
