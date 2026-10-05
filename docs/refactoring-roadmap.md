@@ -21,6 +21,7 @@ It is not a second rewrite and should not drive file movement for its own sake.
   namespace.
 - Revisit match state management when matching gains more criteria, providers,
   or support for additional media types.
+- Make Plex notification updates more selective and reduce browse refresh costs.
 
 ## Working approach
 
@@ -75,6 +76,20 @@ offers little benefit.
 Replace global `Plex` types with imported request and view models one endpoint
 family at a time. Start where a product change already requires understanding a
 response shape; avoid a repository-wide type-only rewrite.
+
+### 6. Make Plex notification updates more selective
+
+- Preserve item IDs and change kinds; fetch changed metadata and update affected
+  cached items when list membership and order remain unchanged. Revalidate list
+  windows for structural changes or uncertain events.
+- Narrow collection, playlist, and Watchlist availability invalidation to affected
+  resources where their dependencies are known.
+- Limit refresh frequency during sustained library scans, beyond the current
+  500 ms event grouping; retain recovery after missed notifications.
+- Avoid unnecessary full random-sort catalog rebuilds for metadata-only changes
+  and routine freshness checks.
+- Verify request counts during long scans, metadata and membership/order changes,
+  and profile switches while preserving scroll and filters.
 
 ## Verification
 
