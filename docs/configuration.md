@@ -29,6 +29,7 @@ Boolean options are enabled only when their value is the string `"true"`.
 | `PLEX_SERVER` | Required | Plex Media Server URL, including `http://` or `https://` and without a trailing slash. For example, `http://plex:32400` or `http://192.168.1.10:32400`. |
 | `PORT` | `3000` | TCP port advertised through LAN discovery. Set it to the host-facing port when that differs from the container port. |
 | `LISTEN_PORT` | `3000` | Internal TCP port on which Nevu listens. The container-side port mapping and healthcheck use this value. |
+| `DATABASE_URL` | `file:./data/perplexed.db` | Local SQLite file. Relative paths resolve from the backend directory (`/app` in Docker); keep custom paths on persistent storage. |
 | `DISABLE_TLS_VERIFY` | `false` | Accept an untrusted HTTPS certificate presented by `PLEX_SERVER`. This affects the Nevu-to-Plex connection, not Nevu's own certificate. |
 | `DISABLE_NEVU_SYNC` | `false` | Disable Nevu Sync and its Watch Together interface. |
 | `DISABLE_REQUEST_LOGGING` | `false` | Stop logging HTTP requests to the container log. Dynamic image requests are always omitted and sensitive query tokens are redacted. Startup and error messages remain enabled. |
@@ -41,6 +42,8 @@ Boolean options are enabled only when their value is the string `"true"`.
 | `TLS_KEY_PASSPHRASE` | None | Passphrase for an encrypted private key mounted through `TLS_KEY_PATH`. |
 
 `PROXY_PLEX_SERVER` and `DISABLE_PROXY` are obsolete and prevent startup. Remove them from older deployments.
+
+Local development also loads `backend/.env`; existing environment variables take precedence.
 
 ## Connecting to Plex
 

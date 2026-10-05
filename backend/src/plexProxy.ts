@@ -1,10 +1,10 @@
 import axios from 'axios';
 import type { AxiosRequestConfig } from 'axios';
 import express from 'express';
-import type http from 'http';
-import type https from 'https';
-import { pipeline } from 'stream/promises';
-import { safeRequestUrl } from './requestLogging';
+import type http from 'node:http';
+import type https from 'node:https';
+import { pipeline } from 'node:stream/promises';
+import { safeRequestUrl } from './requestLogging.js';
 
 interface PlexProxyOptions {
     plexServer: string;

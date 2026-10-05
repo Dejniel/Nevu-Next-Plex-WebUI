@@ -12,6 +12,10 @@ Commands are listed in [Development](../README.md#development). Record which
 checks passed and which scenarios remain unverified when an environment or
 account capability is unavailable.
 
+Backend tests include real SQLite: schema synchronization, upgrade from the
+Prisma 6 schema, retained dates and relations, transaction rollback, profile
+isolation, and persistence after reconnecting. Each test uses a temporary database.
+
 ## Standalone Plex + Nevu
 
 `compose.test.yaml` builds Nevu from the checkout and starts a separate Plex with

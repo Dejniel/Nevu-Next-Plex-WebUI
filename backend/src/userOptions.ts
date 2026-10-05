@@ -1,6 +1,6 @@
 import express from 'express';
-import type { PrismaClient } from '@prisma/client';
-import { CheckPlexUser } from './common/plex';
+import type { PrismaClient } from './generated/prisma/client.js';
+import { CheckPlexUser } from './common/plex.js';
 
 interface UserOptionsRouterOptions {
     prisma: Pick<PrismaClient, 'userOption'>;

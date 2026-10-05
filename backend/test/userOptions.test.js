@@ -1,9 +1,9 @@
-const assert = require('node:assert/strict');
-const test = require('node:test');
-const http = require('node:http');
-const express = require('express');
-const { createUserOptionsRouter } = require('../dist/userOptions');
-const { httpErrorHandler } = require('../dist/httpErrors');
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import http from 'node:http';
+import express from 'express';
+import { createUserOptionsRouter } from '../dist/userOptions.js';
+import { httpErrorHandler } from '../dist/httpErrors.js';
 
 async function setup(t, userOption, checkPlexUser = async () => ({ uuid: 'profile' })) {
   const app = express();

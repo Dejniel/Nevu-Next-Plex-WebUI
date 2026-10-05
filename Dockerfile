@@ -1,10 +1,10 @@
 ARG NODE_IMAGE=node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2
 ARG APP_VERSION=dev
 
-FROM ${NODE_IMAGE} AS node-base
+FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS build-base
 RUN npm install --global npm@12.2.0 && npm cache clean --force
 
-FROM node-base AS frontend-build
+FROM build-base AS frontend-build
 ARG APP_VERSION
 WORKDIR /build
 COPY contracts/ ./contracts/
@@ -17,12 +17,16 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run typecheck && npm run build
 
-FROM node-base AS backend-base
+FROM ${NODE_IMAGE} AS backend-base
+RUN npm install --global npm@12.2.0 && npm cache clean --force
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl openssl tini \
     && rm -rf /var/lib/apt/lists/*
 
-FROM backend-base AS backend-build
+FROM build-base AS backend-build
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 COPY contracts/ ./contracts/
 WORKDIR /build/backend
@@ -32,6 +36,16 @@ COPY backend/prisma/ ./prisma/
 RUN npm ci
 COPY backend/ ./
 RUN npm run db:generate && npm run build
+
+FROM backend-base AS backend-dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /build
+COPY contracts/ ./contracts/
+WORKDIR /build/backend
+COPY backend/package.json backend/package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 
 FROM backend-base AS runtime
 ARG APP_VERSION
@@ -47,11 +61,10 @@ LABEL org.opencontainers.image.source="https://github.com/Dejniel/Nevu-Next-Plex
 
 COPY backend/package.json backend/package-lock.json ./
 COPY backend/prisma/ ./prisma/
-RUN npm ci --omit=dev \
-    && npm run db:generate \
-    && npm cache clean --force
-
+COPY --from=backend-dependencies /build/backend/node_modules/ ./node_modules/
 COPY --from=backend-build /build/backend/dist/ ./dist/
+COPY backend/prisma7.config.ts ./
+COPY --from=backend-build /build/backend/src/databaseConfig.ts ./src/databaseConfig.ts
 COPY --from=frontend-build /build/frontend/build/ ./www/
 COPY backend/run.sh ./run.sh
 RUN chmod +x ./run.sh

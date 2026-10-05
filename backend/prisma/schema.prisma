@@ -1,49 +1,41 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-  provider = "prisma-client-js"
-  engineType = "library"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
 }
 
 datasource db {
   provider = "sqlite"
-  url      = "file:../data/perplexed.db"
 }
 
 model UserOption {
   userUid String
-  key String
-  value String
+  key     String
+  value   String
 
   @@id([userUid, key])
-  @@unique([userUid, key])
 }
 
 model NevuReviewsLocal {
-  itemID String
-  userID String
+  itemID     String
+  userID     String
   created_at DateTime @default(now())
 
-  rating Int
-  message String @default("")
+  rating   Int
+  message  String  @default("")
   spoilers Boolean @default(false)
 
   user NevuReviewsLocalUsers @relation(fields: [userID], references: [id])
 
   @@id([itemID, userID])
-  @@unique([itemID, userID])
 }
 
 model NevuReviewsLocalUsers {
-  id String @default(cuid())
+  id         String   @id @default(cuid())
   created_at DateTime @default(now())
 
   username String
-  avatar String
-
-  @@id([id])
-  @@unique([id])
+  avatar   String
 
   reviews NevuReviewsLocal[]
 }

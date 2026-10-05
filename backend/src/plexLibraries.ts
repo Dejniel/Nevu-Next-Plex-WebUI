@@ -1,6 +1,6 @@
-import axios, { AxiosRequestConfig } from 'axios';
+import axios, { type AxiosRequestConfig } from 'axios';
 import express from 'express';
-import https from 'https';
+import https from 'node:https';
 import {
     LIBRARY_PRESETS,
     libraryKind,
@@ -8,8 +8,8 @@ import {
     libraryLocations,
     libraryName,
     sectionId,
-} from './common/libraryRules';
-import { canManagePlexServer, CheckPlexUser, isPlexServerOwner } from './common/plex';
+} from './common/libraryRules.js';
+import { canManagePlexServer, CheckPlexUser, isPlexServerOwner } from './common/plex.js';
 
 interface LibrariesRouterOptions {
     plexServer: string;

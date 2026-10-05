@@ -1,4 +1,4 @@
-# Frontend architecture
+# Architecture
 
 The frontend currently uses vertical feature modules. The conventions below
 aim to make ownership clear and limit coupling; they can evolve when a change
@@ -128,3 +128,12 @@ useful. Prefer abstractions with concrete consumers over speculative layers.
 
 See [testing.md](testing.md) for verification appropriate to the change and
 available environment.
+
+## Backend persistence
+
+`backend/src/database.ts` creates the Prisma client with the SQLite adapter.
+The CLI and runtime share `databaseConfig.ts`; the existing database path and
+Unix-millisecond timestamps are preserved. Startup synchronizes the schema
+before serving requests, and shutdown disconnects the database. Docker builds
+JavaScript on the builder's architecture and installs native SQLite separately
+for the target image. Socket handlers receive their server explicitly.

@@ -11,10 +11,10 @@ import type {
     LibrarySort,
 } from '@nevu/contracts';
 import axios from 'axios';
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import express from 'express';
-import http from 'http';
-import https from 'https';
+import http from 'node:http';
+import https from 'node:https';
 
 interface LibraryPageRouterOptions {
     plexServer: string;

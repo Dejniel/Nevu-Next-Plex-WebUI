@@ -1,9 +1,9 @@
-const assert = require("node:assert/strict");
-const test = require("node:test");
-const { createReviewsRouter } = require("../dist/reviews");
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createReviewsRouter } from "../dist/reviews.js";
 
 function database(overrides = {}) {
-  return {
+  const models = {
     nevuReviewsLocal: {
       findMany: async () => [],
       upsert: async () => ({}),
@@ -15,6 +15,7 @@ function database(overrides = {}) {
       ...overrides.nevuReviewsLocalUsers,
     },
   };
+  return { ...models, $transaction: async callback => callback(models) };
 }
 
 async function request(options, method, requestData) {

@@ -1,8 +1,8 @@
-import axios, { AxiosRequestConfig } from 'axios';
+import axios, { type AxiosRequestConfig } from 'axios';
 import express from 'express';
-import https from 'https';
-import { canManagePlexServer, CheckPlexUser, isPlexServerOwner } from './common/plex';
-import { APP_VERSION } from './appVersion';
+import https from 'node:https';
+import { canManagePlexServer, CheckPlexUser, isPlexServerOwner } from './common/plex.js';
+import { APP_VERSION } from './appVersion.js';
 
 const PLEX_TV_URL = 'https://plex.tv/api/v2';
 

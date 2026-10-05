@@ -1,27 +1,29 @@
 import axios from 'axios';
 import express from 'express';
-import fs from 'fs';
-import http from 'http';
-import https from 'https';
+import fs from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
 import { Server as SocketIOServer } from 'socket.io';
-import { PerPlexed } from './types';
-import { randomBytes } from 'crypto';
-import { PrismaClient } from '@prisma/client';
+import type { PerPlexed } from './types.js';
+import { randomBytes } from 'node:crypto';
+import { createDatabase } from './database.js';
+import { registerSync } from './common/sync.js';
+import { registerRemote } from './common/remote.js';
 import { Discovery } from 'udp-discovery';
-import { createPlexSharingRouter } from './plexSharing';
-import { createPlexLibrariesRouter } from './plexLibraries';
-import { APP_VERSION } from './appVersion';
-import { createReviewsRouter } from './reviews';
-import { createLibraryPageRouter } from './libraryPage';
-import { safeRequestUrl, shouldLogRequest } from './requestLogging';
-import { parsePlexServerUrl } from './plexServerUrl';
-import { createPlexProxyRouter } from './plexProxy';
-import { createUserOptionsRouter } from './userOptions';
-import { httpErrorHandler } from './httpErrors';
+import { createPlexSharingRouter } from './plexSharing.js';
+import { createPlexLibrariesRouter } from './plexLibraries.js';
+import { APP_VERSION } from './appVersion.js';
+import { createReviewsRouter } from './reviews.js';
+import { createLibraryPageRouter } from './libraryPage.js';
+import { safeRequestUrl, shouldLogRequest } from './requestLogging.js';
+import { parsePlexServerUrl } from './plexServerUrl.js';
+import { createPlexProxyRouter } from './plexProxy.js';
+import { createUserOptionsRouter } from './userOptions.js';
+import { httpErrorHandler } from './httpErrors.js';
 
-/* 
+/*
  * ENVIRONMENT VARIABLES
-    * 
+    *
     * PORT: The port you published the docker container to, defaults to 3000 (For discovery)
     * LISTEN_PORT: The port the server will listen on, defaults to 3000
     * PLEX_SERVER: The URL of the Plex server that the frontend will connect to
@@ -40,7 +42,8 @@ const status: PerPlexed.Status = {
 }
 
 const app = express();
-const prisma = new PrismaClient();
+const prisma = createDatabase();
+await prisma.$connect();
 const discovery = new Discovery();
 
 console.log(`Deployment ID: ${deploymentID}`);
@@ -129,27 +132,25 @@ function getDiscoverHeaders(req: express.Request) {
         }
 
         // check whether the PLEX_SERVER is reachable
-        await new Promise<void>(async (resolve) => {
-            while (true) {
-                const r = await axios.get(`${process.env.PLEX_SERVER ?? "http://localhost:32400"}/identity`, {
-                    timeout: 5000,
-                    httpAgent: plexHttpAgent,
-                    httpsAgent: plexHttpsAgent,
-                }).catch((e) => {
-                    console.error('Error reaching PLEX_SERVER:', e.message);
-                    return null;
-                });
-                if (r && r.status === 200) {
-                    status.error = false;
-                    return resolve();
-                } else {
-                    status.error = true;
-                    status.message = 'Proxy cannot reach PLEX_SERVER';
-                    console.error('Proxy cannot reach PLEX_SERVER');
-                    await new Promise(r => setTimeout(r, 3000));
-                }
+        while (true) {
+            const r = await axios.get(`${process.env.PLEX_SERVER ?? "http://localhost:32400"}/identity`, {
+                timeout: 5000,
+                httpAgent: plexHttpAgent,
+                httpsAgent: plexHttpsAgent,
+            }).catch((e) => {
+                console.error('Error reaching PLEX_SERVER:', e.message);
+                return null;
+            });
+            if (r && r.status === 200) {
+                status.error = false;
+                break;
+            } else {
+                status.error = true;
+                status.message = 'Proxy cannot reach PLEX_SERVER';
+                console.error('Proxy cannot reach PLEX_SERVER');
+                await new Promise(r => setTimeout(r, 3000));
             }
-        })
+        }
     }
 
 
@@ -297,7 +298,7 @@ server.listen(listenPort, () => {
     console.log(`Server started on ${usesTls ? 'https' : 'http'}://localhost:${listenPort}`);
 });
 
-let io = (process.env.DISABLE_NEVU_SYNC === 'true') ? null : new SocketIOServer(server, {
+const io = (process.env.DISABLE_NEVU_SYNC === 'true') ? null : new SocketIOServer(server, {
     cors: {
         origin: '*',
     },
@@ -306,7 +307,7 @@ let io = (process.env.DISABLE_NEVU_SYNC === 'true') ? null : new SocketIOServer(
     }
 });
 
-let remoteIo = new SocketIOServer(server, {
+const remoteIo = new SocketIOServer(server, {
     cors: {
         origin: '*',
     },
@@ -323,7 +324,34 @@ app.get('/{*path}', (_req, res) => {
 });
 app.use(httpErrorHandler);
 
-export { app, server, io, remoteIo, deploymentID, prisma };
+registerSync(io);
+registerRemote(remoteIo);
 
-import './common/sync';
-import './common/remote';
+let shuttingDown = false;
+async function shutdown() {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    status.ready = false;
+    setTimeout(() => process.exit(1), 10000).unref();
+    const closed = new Promise<void>(resolve => server.close(() => resolve()));
+    // SSE and media streams can outlive the shutdown grace period.
+    const drainTimeout = setTimeout(() => server.closeAllConnections(), 5000).unref();
+    io?.close();
+    remoteIo.close();
+    await closed;
+    clearTimeout(drainTimeout);
+    plexHttpAgent.destroy();
+    verifiedHttpsAgent.destroy();
+    noVerifyHttpsAgent.destroy();
+    plexEventAgent.destroy();
+    await prisma.$disconnect();
+    process.exit(0);
+}
+for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+    process.once(signal, () => {
+        shutdown().catch(() => {
+            console.error('Could not shut down the server cleanly');
+            process.exit(1);
+        });
+    });
+}

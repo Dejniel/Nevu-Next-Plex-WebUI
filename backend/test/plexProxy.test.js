@@ -1,11 +1,11 @@
-const assert = require('node:assert/strict');
-const test = require('node:test');
-const http = require('node:http');
-const https = require('node:https');
-const zlib = require('node:zlib');
-const express = require('express');
-const { createPlexProxyRouter } = require('../dist/plexProxy');
-const { httpErrorHandler } = require('../dist/httpErrors');
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import http from 'node:http';
+import https from 'node:https';
+import zlib from 'node:zlib';
+import express from 'express';
+import { createPlexProxyRouter } from '../dist/plexProxy.js';
+import { httpErrorHandler } from '../dist/httpErrors.js';
 
 async function listen(t, handler) {
   const server = http.createServer(handler);

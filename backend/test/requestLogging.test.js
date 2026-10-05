@@ -1,6 +1,6 @@
-const assert = require("node:assert/strict");
-const test = require("node:test");
-const { safeRequestUrl, shouldLogRequest } = require("../dist/requestLogging");
+import assert from "node:assert/strict";
+import test from "node:test";
+import { safeRequestUrl, shouldLogRequest } from "../dist/requestLogging.js";
 
 test("redacts Plex tokens without hiding ordinary query parameters", () => {
   const result = safeRequestUrl("/image?width=640&X-Plex-Token=secret");

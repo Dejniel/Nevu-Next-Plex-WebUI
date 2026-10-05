@@ -1,5 +1,5 @@
 import type { ErrorRequestHandler } from 'express';
-import { safeRequestUrl } from './requestLogging';
+import { safeRequestUrl } from './requestLogging.js';
 
 export const httpErrorHandler: ErrorRequestHandler = (error, req, res, next) => {
     if (res.headersSent || res.destroyed) return next(error);

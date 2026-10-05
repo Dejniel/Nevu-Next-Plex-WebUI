@@ -1,13 +1,13 @@
-const assert = require("node:assert/strict");
-const test = require("node:test");
-const axios = require("axios");
-const {
+import assert from "node:assert/strict";
+import test from "node:test";
+import axios from "axios";
+import {
   createLibraryPageRouter,
   InvalidLibraryPageError,
   projectLibraryPage,
   RequestLimiter,
   stableRandomOrder,
-} = require("../dist/libraryPage");
+} from "../dist/libraryPage.js";
 
 function card(id, title = `Movie ${id}`) {
   return {

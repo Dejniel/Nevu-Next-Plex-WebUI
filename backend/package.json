@@ -5,12 +5,13 @@
   "main": "dist/index.js",
   "dependencies": {
     "@nevu/contracts": "file:../contracts",
-    "@prisma/client": "^6.2.1",
+    "@prisma/client": "7.10.0",
     "axios": "^1.20.0",
     "express": "^5.2.1",
     "socket.io": "^4.8.4",
     "udp-discovery": "^2.0.2",
-    "prisma": "^6.2.1"
+    "prisma": "7.10.0",
+    "@prisma/adapter-better-sqlite3": "7.10.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
@@ -22,9 +23,9 @@
     "start": "./run.sh",
     "build": "tsc",
     "test": "npm run build && node --test test/*.test.js",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push --skip-generate",
-    "dev": "npm run build && node ."
+    "db:generate": "prisma generate --config prisma7.config.ts",
+    "db:push": "prisma db push --config prisma7.config.ts",
+    "dev": "npm run build && node dist/index.js"
   },
   "author": "Ipmake",
   "license": "ISC",
@@ -34,8 +35,9 @@
   },
   "packageManager": "npm@12.2.0",
   "allowScripts": {
-    "@prisma/client@6.2.1": true,
-    "@prisma/engines@6.2.1": true,
-    "prisma@6.2.1": true
-  }
+    "@prisma/engines@7.10.0": true,
+    "prisma@7.10.0": true,
+    "better-sqlite3@12.11.1": true
+  },
+  "type": "module"
 }

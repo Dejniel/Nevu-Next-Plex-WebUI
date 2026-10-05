@@ -1,13 +1,13 @@
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from './generated/prisma/client.js';
 import axios from 'axios';
 import express from 'express';
-import { CheckPlexUser } from './common/plex';
+import { CheckPlexUser } from './common/plex.js';
 
 const DEFAULT_NEVU_HUB_URL = 'https://gnuqknwmixeunfmeseep.supabase.co/functions/v1/';
 
 type ReviewsDatabase = Pick<
     PrismaClient,
-    'nevuReviewsLocal' | 'nevuReviewsLocalUsers'
+    'nevuReviewsLocal' | '$transaction'
 >;
 
 type ReviewVisibility = 'GLOBAL' | 'LOCAL';
@@ -166,22 +166,24 @@ export function createReviewsRouter({
                 const error = responseError(response?.data);
                 if (error) return res.status(502).send({ error });
             } else {
-                await prisma.nevuReviewsLocalUsers.upsert({
-                    where: { id: session.user.uuid },
-                    create: {
-                        id: session.user.uuid,
-                        username: session.user.friendlyName || session.user.username,
-                        avatar: session.user.thumb || '',
-                    },
-                    update: {
-                        username: session.user.friendlyName || session.user.username,
-                        avatar: session.user.thumb || '',
-                    },
-                });
-                await prisma.nevuReviewsLocal.upsert({
-                    where: { itemID_userID: { itemID, userID: session.user.uuid } },
-                    create: { itemID, userID: session.user.uuid, message, rating, spoilers },
-                    update: { message, rating, spoilers },
+                await prisma.$transaction(async (database) => {
+                    await database.nevuReviewsLocalUsers.upsert({
+                        where: { id: session.user.uuid },
+                        create: {
+                            id: session.user.uuid,
+                            username: session.user.friendlyName || session.user.username,
+                            avatar: session.user.thumb || '',
+                        },
+                        update: {
+                            username: session.user.friendlyName || session.user.username,
+                            avatar: session.user.thumb || '',
+                        },
+                    });
+                    await database.nevuReviewsLocal.upsert({
+                        where: { itemID_userID: { itemID, userID: session.user.uuid } },
+                        create: { itemID, userID: session.user.uuid, message, rating, spoilers },
+                        update: { message, rating, spoilers },
+                    });
                 });
             }
             res.setHeader('Cache-Control', 'no-store');

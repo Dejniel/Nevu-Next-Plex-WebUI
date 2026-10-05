@@ -6,4 +6,5 @@
 **/coverage
 **/*.log
 backend/data
+backend/src/generated
 TODO.md

@@ -1,18 +1,18 @@
-const assert = require("node:assert/strict");
-const test = require("node:test");
+import assert from "node:assert/strict";
+import test from "node:test";
 
-const {
+import {
   canManagePlexServer,
   hasPlexFeature,
   isPlexServerOwner,
-} = require("../dist/common/plex");
-const {
+} from "../dist/common/plex.js";
+import {
   libraryKind,
   libraryLanguage,
   libraryLocations,
   libraryName,
   sectionId,
-} = require("../dist/common/libraryRules");
+} from "../dist/common/libraryRules.js";
 
 test("finds Plex capabilities in nested provider responses", () => {
   const providers = { MediaContainer: { MediaProvider: [{ Feature: [{ type: "manage" }] }] } };

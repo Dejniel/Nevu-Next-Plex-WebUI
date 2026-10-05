@@ -1,5 +1,5 @@
 import axios from "axios";
-import { PerPlexed } from "../types";
+import type { PerPlexed } from "../types.js";
 
 export async function CheckPlexUser(token: string): Promise<PerPlexed.PlexTV.User | null> {
     const data = await axios.get("https://plex.tv/api/v2/user", {
