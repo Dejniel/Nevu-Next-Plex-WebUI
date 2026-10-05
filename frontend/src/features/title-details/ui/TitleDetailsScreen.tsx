@@ -556,12 +556,6 @@ function TitleDetailsScreen() {
               <Box
                 sx={{
                   width: "100%",
-                  display: "flex",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: { xs: "center", sm: "flex-start" },
-                  flexWrap: "wrap",
-                  gap: { xs: 1, sm: 2 },
                   mt: 2,
                 }}
               >

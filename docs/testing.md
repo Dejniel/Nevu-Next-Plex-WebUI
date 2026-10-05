@@ -48,6 +48,9 @@ resume, trailers, and Watch Together. Inspect Plex's playback decision to
 distinguish copying streams from conversion. Browser/device codec support,
 native Safari HLS, HDR, and hardware transcoding require suitable environments.
 
+On title pages, resize through desktop/mobile layouts and change text size.
+Check action overflow, keyboard focus, and original-file selection from the menu.
+
 For list browsing, create a collection and a video playlist in test Plex using
 the samples. Check their library views, search, empty states, and back links.
 Verify playlist order with Next, playback completion, and returning to the list;

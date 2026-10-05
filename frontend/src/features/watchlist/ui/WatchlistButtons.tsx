@@ -120,15 +120,19 @@ export function HeroWatchlistButton({ item }: { item: Plex.Metadata }) {
 export function WatchlistMenuItem({
   item,
   onDone,
+  ...menuItemProps
 }: {
   item: MediaItemData;
   onDone?: () => void;
+  autoFocus?: boolean;
+  tabIndex?: number;
 }) {
   const { loading, selected, toggle, available } = useWatchlistToggle(item);
   if (!available) return null;
 
   return (
     <MenuItem
+      {...menuItemProps}
       disabled={loading}
       onClick={async (event) => {
         await toggle(event);

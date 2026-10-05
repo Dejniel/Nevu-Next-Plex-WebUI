@@ -5,12 +5,19 @@ import {
   EditRounded,
   PlayArrowRounded,
   MoreVertRounded,
+  DownloadRounded,
+  StarOutlineRounded,
 } from "@mui/icons-material";
 import {
   Button,
+  Box,
   CircularProgress,
+  Divider,
   IconButton,
+  ListItemIcon,
+  ListItemText,
   Menu,
+  MenuItem,
   Tooltip,
 } from "@mui/material";
 import {
@@ -20,6 +27,7 @@ import {
 } from "entities/media/model";
 import {
   matchActionLabel,
+  getOriginalDownloads,
   OriginalDownloadButton,
   resolvePlaybackTarget,
   type MediaActionCapabilities,
@@ -32,10 +40,12 @@ import {
   openMediaListDialog,
   renderMediaListMenuItems,
 } from "features/media-lists/public";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBigReader, useConfirmModal } from "shared/ui";
 import TitleRatingButton from "./TitleRatingButton";
+import { useTitleActionOverflow } from "../model/useTitleActionOverflow";
+import type { TitleActionID } from "../model/titleActionOverflow";
 
 const iconButtonStyle = {
   width: 38,
@@ -44,6 +54,40 @@ const iconButtonStyle = {
   bgcolor: "rgba(18, 25, 39, 0.8)",
   border: "1px solid rgba(255,255,255,0.2)",
 };
+
+function ActionSlot({
+  id,
+  hidden = false,
+  children,
+}: {
+  id: TitleActionID | "play" | "more";
+  hidden?: boolean;
+  children: React.ReactNode;
+}) {
+  // Hidden controls stay mounted so resizing preserves their state and natural width.
+  return (
+    <Box
+      component="span"
+      data-title-action={id}
+      aria-hidden={hidden || undefined}
+      inert={hidden || undefined}
+      sx={{
+        display: "inline-flex",
+        flexShrink: 0,
+        width: "max-content",
+        "&:empty": { display: "none" },
+        ...(id === "play" && { maxWidth: "calc(100% - 54px)", minWidth: 0 }),
+        ...(hidden && {
+          position: "absolute",
+          visibility: "hidden",
+          pointerEvents: "none",
+        }),
+      }}
+    >
+      {children}
+    </Box>
+  );
+}
 
 export default function TitlePrimaryActions({
   capabilities,
@@ -63,6 +107,13 @@ export default function TitlePrimaryActions({
   const navigate = useNavigate();
   const [playLoading, setPlayLoading] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const downloadMenuRef = useRef<{ open: (anchor: HTMLElement) => void }>(null);
+  const ratingMenuRef = useRef<{ open: (anchor: HTMLElement) => void }>(null);
+  const hasMenuActions =
+    capabilities.canAddToPlaylist || capabilities.canAddToCollection;
+  const { toolbarRef, overflow } = useTitleActionOverflow(hasMenuActions);
+  const hidden = (id: TitleActionID) => overflow.includes(id);
+  const downloads = getOriginalDownloads(data, capabilities.canDownload);
   useEffect(() => {
     setMenuAnchor(null);
   }, [data.ratingKey]);
@@ -98,38 +149,123 @@ export default function TitlePrimaryActions({
   };
 
   return (
-    <>
-      <Button
-        variant="contained"
-        disabled={playLoading}
-        onClick={() => void play()}
-        startIcon={
-          playLoading ? (
-            <CircularProgress size={17} color="inherit" />
-          ) : (
-            <PlayArrowRounded fontSize="medium" />
-          )
-        }
-        sx={{ height: 38, fontWeight: 700 }}
-      >
-        Play
-        {data.type === "show" &&
-          data.OnDeck?.Metadata &&
-          ` ${
-            data.Children?.size && data.Children.size > 1
-              ? `S${data.OnDeck.Metadata.parentIndex}`
-              : ""
-          }E${data.OnDeck.Metadata.index}`}
-      </Button>
+    <Box
+      ref={toolbarRef}
+      role="group"
+      aria-label={`Actions for ${data.title}`}
+      sx={{
+        position: "relative",
+        display: "flex",
+        width: "100%",
+        minWidth: 0,
+        alignItems: "center",
+        justifyContent: { xs: "center", sm: "flex-start" },
+        flexWrap: "nowrap",
+        gap: { xs: 1, sm: 2 },
+      }}
+    >
+      <ActionSlot id="play">
+        <Button
+          variant="contained"
+          disabled={playLoading}
+          onClick={() => void play()}
+          startIcon={
+            playLoading ? (
+              <CircularProgress size={17} color="inherit" />
+            ) : (
+              <PlayArrowRounded fontSize="medium" />
+            )
+          }
+          sx={{
+            height: 38,
+            fontWeight: 700,
+            whiteSpace: "nowrap",
+            maxWidth: "100%",
+            overflow: "hidden",
+          }}
+        >
+          Play
+          {data.type === "show" &&
+            data.OnDeck?.Metadata &&
+            ` ${
+              data.Children?.size && data.Children.size > 1
+                ? `S${data.OnDeck.Metadata.parentIndex}`
+                : ""
+            }E${data.OnDeck.Metadata.index}`}
+        </Button>
+      </ActionSlot>
 
-      <OriginalDownloadButton
-        data={data}
-        canDownload={capabilities.canDownload}
-      />
+      <ActionSlot id="download" hidden={hidden("download")}>
+        <OriginalDownloadButton
+          data={data}
+          canDownload={capabilities.canDownload}
+          menuRef={downloadMenuRef}
+        />
+      </ActionSlot>
 
-      <HeroWatchlistButton item={data} />
+      <ActionSlot id="watchlist" hidden={hidden("watchlist")}>
+        <HeroWatchlistButton item={data} />
+      </ActionSlot>
 
-      {(capabilities.canAddToPlaylist || capabilities.canAddToCollection) && (
+      <ActionSlot id="edit" hidden={hidden("edit")}>
+        {capabilities.canEditMetadata && (
+          <Tooltip placement="top" arrow title="Edit metadata">
+            <IconButton
+              aria-label="Edit metadata"
+              onClick={onEditMetadata}
+              sx={iconButtonStyle}
+            >
+              <EditRounded fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+      </ActionSlot>
+
+      <ActionSlot id="match" hidden={hidden("match")}>
+        {capabilities.canMatch && (
+          <Tooltip placement="top" arrow title={matchActionLabel(data)}>
+            <IconButton
+              aria-label={matchActionLabel(data)}
+              onClick={onMatch}
+              sx={iconButtonStyle}
+            >
+              <AutoFixHighRounded fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+      </ActionSlot>
+
+      <ActionSlot id="rating" hidden={hidden("rating")}>
+        <TitleRatingButton
+          item={data}
+          onReviewChanged={onReviewChanged}
+          menuRef={ratingMenuRef}
+        />
+      </ActionSlot>
+
+      <ActionSlot id="watched" hidden={hidden("watched")}>
+        {capabilities.canSetWatched && (
+          <Tooltip
+            placement="top"
+            arrow
+            title={`Mark as ${watched ? "unwatched" : "watched"}`}
+          >
+            <IconButton
+              aria-label={`Mark as ${watched ? "unwatched" : "watched"}`}
+              onClick={toggleWatched}
+              sx={iconButtonStyle}
+            >
+              {watched ? (
+                <CheckCircleRounded fontSize="small" />
+              ) : (
+                <CheckCircleOutlineRounded fontSize="small" />
+              )}
+            </IconButton>
+          </Tooltip>
+        )}
+      </ActionSlot>
+
+      <ActionSlot id="more" hidden={!hasMenuActions && overflow.length === 0}>
         <Tooltip title="More actions">
           <IconButton
             aria-label={`More actions for ${data.title}`}
@@ -141,12 +277,95 @@ export default function TitlePrimaryActions({
             <MoreVertRounded fontSize="small" />
           </IconButton>
         </Tooltip>
-      )}
+      </ActionSlot>
       <Menu
         anchorEl={menuAnchor}
         open={Boolean(menuAnchor)}
         onClose={() => setMenuAnchor(null)}
       >
+        {hidden("watchlist") && (
+          <WatchlistMenuItem item={data} onDone={() => setMenuAnchor(null)} />
+        )}
+        {hidden("watched") && (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              toggleWatched();
+            }}
+          >
+            <ListItemIcon>
+              {watched ? <CheckCircleRounded /> : <CheckCircleOutlineRounded />}
+            </ListItemIcon>
+            <ListItemText>
+              Mark as {watched ? "unwatched" : "watched"}
+            </ListItemText>
+          </MenuItem>
+        )}
+        {hidden("rating") && (
+          <MenuItem
+            onClick={() => {
+              if (menuAnchor) ratingMenuRef.current?.open(menuAnchor);
+              setMenuAnchor(null);
+            }}
+          >
+            <ListItemIcon>
+              <StarOutlineRounded />
+            </ListItemIcon>
+            <ListItemText>Rate / review</ListItemText>
+          </MenuItem>
+        )}
+        {hidden("download") && (
+          <MenuItem
+            {...(downloads.length === 1
+              ? {
+                  component: "a",
+                  href: downloads[0].href,
+                  download: downloads[0].filename,
+                }
+              : {})}
+            onClick={() => {
+              if (downloads.length > 1 && menuAnchor)
+                downloadMenuRef.current?.open(menuAnchor);
+              setMenuAnchor(null);
+            }}
+          >
+            <ListItemIcon>
+              <DownloadRounded />
+            </ListItemIcon>
+            <ListItemText>
+              {downloads.length > 1
+                ? "Choose original file…"
+                : "Download original file"}
+            </ListItemText>
+          </MenuItem>
+        )}
+        {hidden("edit") && (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              onEditMetadata();
+            }}
+          >
+            <ListItemIcon>
+              <EditRounded />
+            </ListItemIcon>
+            <ListItemText>Edit metadata</ListItemText>
+          </MenuItem>
+        )}
+        {hidden("match") && (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              onMatch();
+            }}
+          >
+            <ListItemIcon>
+              <AutoFixHighRounded />
+            </ListItemIcon>
+            <ListItemText>{matchActionLabel(data)}</ListItemText>
+          </MenuItem>
+        )}
+        {overflow.length > 0 && hasMenuActions && <Divider />}
         {renderMediaListMenuItems({
           capabilities,
           onSelect: (kind) => {
@@ -154,54 +373,7 @@ export default function TitlePrimaryActions({
             openMediaListDialog(kind, data);
           },
         })}
-        <WatchlistMenuItem item={data} onDone={() => setMenuAnchor(null)} />
       </Menu>
-
-      {capabilities.canEditMetadata && (
-        <Tooltip placement="top" arrow title="Edit metadata">
-          <IconButton
-            aria-label="Edit metadata"
-            onClick={onEditMetadata}
-            sx={iconButtonStyle}
-          >
-            <EditRounded fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      )}
-
-      {capabilities.canMatch && (
-        <Tooltip placement="top" arrow title={matchActionLabel(data)}>
-          <IconButton
-            aria-label={matchActionLabel(data)}
-            onClick={onMatch}
-            sx={iconButtonStyle}
-          >
-            <AutoFixHighRounded fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      )}
-
-      <TitleRatingButton item={data} onReviewChanged={onReviewChanged} />
-
-      {capabilities.canSetWatched && (
-        <Tooltip
-          placement="top"
-          arrow
-          title={`Mark as ${watched ? "unwatched" : "watched"}`}
-        >
-          <IconButton
-            aria-label={`Mark as ${watched ? "unwatched" : "watched"}`}
-            onClick={toggleWatched}
-            sx={iconButtonStyle}
-          >
-            {watched ? (
-              <CheckCircleRounded fontSize="small" />
-            ) : (
-              <CheckCircleOutlineRounded fontSize="small" />
-            )}
-          </IconButton>
-        </Tooltip>
-      )}
-    </>
+    </Box>
   );
 }

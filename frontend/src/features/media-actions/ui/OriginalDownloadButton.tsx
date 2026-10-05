@@ -1,7 +1,17 @@
 import { DownloadRounded } from "@mui/icons-material";
-import { Box, IconButton, Menu, MenuItem, Tooltip, Typography } from "@mui/material";
-import React, { useState } from "react";
-import { formatDownloadDetails, getOriginalDownloads } from "../model/downloads";
+import {
+  Box,
+  IconButton,
+  Menu,
+  MenuItem,
+  Tooltip,
+  Typography,
+} from "@mui/material";
+import React, { useImperativeHandle, useState } from "react";
+import {
+  formatDownloadDetails,
+  getOriginalDownloads,
+} from "../model/downloads";
 
 const buttonStyle = {
   width: 38,
@@ -14,12 +24,15 @@ const buttonStyle = {
 export default function OriginalDownloadButton({
   data,
   canDownload,
+  menuRef,
 }: {
   data: Plex.Metadata;
   canDownload: boolean;
+  menuRef?: React.Ref<{ open: (anchor: HTMLElement) => void }>;
 }) {
   const downloads = getOriginalDownloads(data, canDownload);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  useImperativeHandle(menuRef, () => ({ open: setAnchor }), []);
 
   if (downloads.length === 0) return null;
 
@@ -53,7 +66,11 @@ export default function OriginalDownloadButton({
           <DownloadRounded fontSize="small" />
         </IconButton>
       </Tooltip>
-      <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
+      <Menu
+        anchorEl={anchor}
+        open={Boolean(anchor)}
+        onClose={() => setAnchor(null)}
+      >
         {downloads.map((download) => (
           <MenuItem
             key={`${download.media.id}:${download.part.id}`}

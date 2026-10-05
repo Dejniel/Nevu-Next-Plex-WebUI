@@ -1,21 +1,24 @@
 import { StarOutlineRounded, StarRounded } from "@mui/icons-material";
 import { Button, Popover, Rating } from "@mui/material";
-import React, { useState } from "react";
+import React, { useImperativeHandle, useState } from "react";
 import { setMediaRating } from "../api/rating";
 import AddReviewDialog from "./AddReviewDialog";
 
 export default function TitleRatingButton({
   item,
   onReviewChanged,
+  menuRef,
 }: {
   item: Plex.Metadata;
   onReviewChanged?: () => void;
+  menuRef?: React.Ref<{ open: (anchor: HTMLElement) => void }>;
 }) {
   const [rating, setRating] = useState<number | null>(
     (item.userRating && item.userRating / 2) ?? null,
   );
   const [reviewOpen, setReviewOpen] = useState(false);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  useImperativeHandle(menuRef, () => ({ open: setAnchor }), []);
 
   const clearRating = () => {
     setRating(null);
@@ -91,7 +94,11 @@ export default function TitleRatingButton({
           clearRating();
         }}
       >
-        {rating ? <StarRounded fontSize="small" /> : <StarOutlineRounded fontSize="small" />}
+        {rating ? (
+          <StarRounded fontSize="small" />
+        ) : (
+          <StarOutlineRounded fontSize="small" />
+        )}
       </Button>
     </>
   );
