@@ -32,15 +32,23 @@ async function setup(t, handler) {
   return { upstream, url: frontend.url };
 }
 
-const post = (url, body) => fetch(url + '/proxy', {
+const plexFetch = (url, options = {}) => fetch(url, {
+  ...options,
+  headers: { 'X-Plex-Token': 'fixture', ...options.headers },
+});
+
+const post = (url, body) => plexFetch(url + '/proxy', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(body),
+  body: JSON.stringify(body && { ...body, headers: body.headers ?? { 'X-Plex-Token': 'fixture' } }),
 });
 
 function rawRequest(url, options = {}) {
   return new Promise((resolve, reject) => {
-    const request = http.request(url, options, response => {
+    const request = http.request(url, {
+      ...options,
+      headers: { 'X-Plex-Token': 'fixture', ...options.headers },
+    }, response => {
       const chunks = [];
       response.on('data', chunk => chunks.push(chunk));
       response.on('error', reject);
@@ -73,6 +81,67 @@ test('dynamic proxy preserves encoded paths, embedded prefixes and repeated quer
   assert.equal(received.headers['x-hop'], undefined);
 });
 
+test('all proxy routes omit browser ingress addresses while retaining Plex authentication and media headers', async t => {
+  let received;
+  const { url, upstream } = await setup(t, (req, res) => {
+    received = req.headers;
+    res.end('ok');
+  });
+  const headers = {
+    Forwarded: 'for=203.0.113.25;proto=https;host=nevu.example',
+    'X-Forwarded-For': '203.0.113.25',
+    'X-Forwarded-Host': 'nevu.example',
+    'X-Forwarded-Proto': 'https',
+    'X-Forwarded-Port': '443',
+    'X-Real-IP': '203.0.113.25',
+    Cookie: 'private=fixture',
+    'X-Plex-Token': 'fixture',
+    'X-Plex-Client-Identifier': 'nevu-fixture',
+    'X-Plex-Session-Identifier': 'playback-fixture',
+    Range: 'bytes=0-1023',
+    'If-Range': 'media-fixture',
+    'User-Agent': 'Nevu fixture',
+  };
+  for (const route of ['dynamic', 'flat', 'metadata']) {
+    const response = route === 'metadata'
+      ? await plexFetch(url + '/proxy', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: '/library/metadata/3', method: 'GET', headers }),
+      })
+      : await plexFetch(url + (route === 'dynamic' ? '/dynproxy/file.mkv' : '/proxy?url=%2Ffile.mkv&method=GET'), { headers });
+    assert.equal(await response.text(), 'ok');
+    assert.equal(received.host, new URL(upstream.url).host);
+    for (const name of Object.keys(headers)) {
+      const normalized = name.toLowerCase();
+      const omitted = ['forwarded', 'x-real-ip', 'cookie'].includes(normalized) || normalized.startsWith('x-forwarded-');
+      assert.equal(received[normalized], omitted ? undefined : headers[name], `${route}: ${name}`);
+    }
+  }
+});
+
+test('all proxy routes require a Plex token before contacting a possibly trusted LAN server', async t => {
+  let requests = 0;
+  const { url } = await setup(t, (_req, res) => { requests++; res.end('ok'); });
+  for (const token of [undefined, '', '   ']) {
+    const headers = token === undefined ? {} : { 'X-Plex-Token': token };
+    for (const path of ['/dynproxy/file.mkv', '/proxy?url=%2Ffile.mkv&method=GET']) {
+      assert.equal((await fetch(url + path, { headers })).status, 401);
+    }
+    const response = await fetch(url + '/proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: '/library/metadata/3', method: 'GET', headers }),
+    });
+    assert.equal(response.status, 401);
+  }
+  assert.equal(requests, 0);
+  for (const path of ['/dynproxy/file.mkv?X-Plex-Token=fixture', '/proxy?url=%2Ffile.mkv&method=GET&X-Plex-Token=fixture']) {
+    assert.equal((await fetch(url + path)).status, 200);
+  }
+  assert.equal(requests, 2);
+});
+
 test('dynamic proxy streams JSON request bodies without consuming them in a parser', async t => {
   let received;
   const { url } = await setup(t, async (req, res) => {
@@ -82,7 +151,7 @@ test('dynamic proxy streams JSON request bodies without consuming them in a pars
     res.end('saved');
   });
   const body = '{"title":"sample", "preserve":"spacing"}';
-  const response = await fetch(url + '/dynproxy/library/metadata/3', {
+  const response = await plexFetch(url + '/dynproxy/library/metadata/3', {
     method: 'PUT', headers: { 'Content-Type': 'application/json' }, body,
   });
   assert.equal(await response.text(), 'saved');
@@ -100,7 +169,7 @@ test('both streaming routes preserve Range status, download headers and exact by
     res.end('4567');
   });
   for (const path of ['/dynproxy/file.mp4', '/proxy?url=%2Ffile.mp4&method=GET']) {
-    const response = await fetch(url + path, { headers: { Range: 'bytes=4-7' } });
+    const response = await plexFetch(url + path, { headers: { Range: 'bytes=4-7' } });
     assert.equal(response.status, 206);
     assert.equal(response.headers.get('content-range'), 'bytes 4-7/16');
     assert.equal(response.headers.get('content-length'), '4');
@@ -116,7 +185,7 @@ test('dynamic HEAD returns media headers without a response body', async t => {
     res.writeHead(200, { 'Content-Length': 16, 'Content-Type': 'video/mp4' });
     res.end();
   });
-  const response = await fetch(url + '/dynproxy/file.mp4', { method: 'HEAD' });
+  const response = await plexFetch(url + '/dynproxy/file.mp4', { method: 'HEAD' });
   assert.equal(response.headers.get('content-length'), '16');
   assert.equal((await response.arrayBuffer()).byteLength, 0);
 });
@@ -132,7 +201,7 @@ test('stream redirects preserve Range headers and return the final media respons
     res.writeHead(206, { 'Content-Range': 'bytes 0-3/4', 'Content-Length': 4 });
     res.end('file');
   });
-  const response = await fetch(url + '/dynproxy/redirect', { headers: { Range: 'bytes=0-3' } });
+  const response = await plexFetch(url + '/dynproxy/redirect', { headers: { Range: 'bytes=0-3' } });
   assert.equal(response.status, 206);
   assert.equal(await response.text(), 'file');
 });
@@ -144,7 +213,7 @@ test('flat GET proxy queries retain duplicate values and the URL existing query'
   query.append('genre', '1');
   query.append('genre', '2');
   query.append('tag[key]', 'quoted ? value');
-  const response = await fetch(url + '/proxy?' + query);
+  const response = await plexFetch(url + '/proxy?' + query);
   assert.equal(await response.text(), 'ok');
   const target = new URL(received, 'http://localhost');
   assert.deepEqual(target.searchParams.getAll('genre'), ['1', '2']);
@@ -178,8 +247,8 @@ test('proxy responses retain upstream failures instead of changing them to 200 o
   });
   for (const response of [
     await post(url, { url: '/metadata', method: 'GET' }),
-    await fetch(url + '/proxy?url=%2Fmetadata&method=GET'),
-    await fetch(url + '/dynproxy/metadata'),
+    await plexFetch(url + '/proxy?url=%2Fmetadata&method=GET'),
+    await plexFetch(url + '/dynproxy/metadata'),
   ]) {
     assert.equal(response.status, 403);
     assert.deepEqual(await response.json(), { error: 'Forbidden' });
@@ -206,9 +275,9 @@ test('invalid POST bodies and ambiguous GET parameters fail before contacting Pl
   for (const body of [undefined, {}, { url: 7, method: 'GET' }, { url: '/metadata', method: 7 }, { url: '/metadata', method: 'GET', headers: 'bad' }]) {
     assert.equal((await post(url, body)).status, 400);
   }
-  const response = await fetch(url + '/proxy?url=/one&url=/two&method=GET');
+  const response = await plexFetch(url + '/proxy?url=/one&url=/two&method=GET');
   assert.equal(response.status, 400);
-  const malformed = await fetch(url + '/proxy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"token":"fixture"' });
+  const malformed = await plexFetch(url + '/proxy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"token":"fixture"' });
   assert.equal(malformed.status, 400);
   assert.deepEqual(await malformed.json(), { error: 'Invalid request' });
   assert.equal(requests, 0);
@@ -219,7 +288,7 @@ test('connection errors produce a bounded gateway failure on both transports', a
   await new Promise(resolve => upstream.server.close(resolve));
   for (const response of [
     await post(url, { url: '/metadata', method: 'GET' }),
-    await fetch(url + '/dynproxy/file.mp4'),
+    await plexFetch(url + '/dynproxy/file.mp4'),
   ]) {
     assert.equal(response.status, 502);
     assert.equal(await response.text(), 'Plex proxy request failed');
@@ -236,7 +305,7 @@ test('SSE uses a separate connection pool and cancels its upstream on disconnect
     res.on('close', closed);
   });
   const controller = new AbortController();
-  const response = await fetch(url + '/dynproxy/:/eventsource/notifications', { signal: controller.signal });
+  const response = await plexFetch(url + '/dynproxy/:/eventsource/notifications', { signal: controller.signal });
   const reader = response.body.getReader();
   assert.match(new TextDecoder().decode((await reader.read()).value), /event: message/);
   const metadata = await post(url, { url: '/metadata', method: 'GET' });
@@ -251,7 +320,7 @@ test('truncated upstream streams close the response rather than appending an err
     res.write('part');
     setTimeout(() => res.destroy(), 20);
   });
-  const response = await fetch(url + '/dynproxy/file.mp4');
+  const response = await plexFetch(url + '/dynproxy/file.mp4');
   assert.equal(response.status, 200);
   await assert.rejects(response.text());
 });

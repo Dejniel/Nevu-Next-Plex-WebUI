@@ -34,6 +34,16 @@ function forwardedHeaders(headers: Record<string, unknown>) {
     return result;
 }
 
+function plexRequestHeaders(headers: Record<string, unknown>) {
+    const result = forwardedHeaders(headers);
+    // Nevu is the Plex client on this hop. Keep browser ingress routing
+    // separate from the Plex connection's network identity.
+    for (const name of Object.keys(result))
+        if (['host', 'cookie', 'forwarded', 'x-real-ip'].includes(name) || name.startsWith('x-forwarded-'))
+            delete result[name];
+    return result;
+}
+
 function clientAddress(req: express.Request) {
     const forwarded = req.headers['x-forwarded-for'];
     return (typeof forwarded === 'string' ? forwarded : req.socket.remoteAddress || '')
@@ -56,9 +66,16 @@ export function createPlexProxyRouter({
     async function forward(
         req: express.Request,
         res: express.Response,
-        config: AxiosRequestConfig,
+        config: AxiosRequestConfig & { url: string },
         streaming: boolean,
     ) {
+        const token = Object.entries(config.headers ?? {})
+            .find(([name]) => name.toLowerCase() === 'x-plex-token')?.[1]
+            ?? new URL(config.url).searchParams.get('X-Plex-Token');
+        if (typeof token !== 'string' || !token.trim()) {
+            res.status(401).send('Plex token required');
+            return;
+        }
         const controller = new AbortController();
         const abort = () => controller.abort();
         req.once('aborted', abort);
@@ -97,10 +114,7 @@ export function createPlexProxyRouter({
     // Mounting removes only the prefix and preserves the raw Plex path/query.
     // Keep JSON parsing off this route so request bodies remain streamable.
     router.use('/dynproxy', async (req, res) => {
-        const headers = forwardedHeaders(req.headers);
-        delete headers.host;
-        delete headers.cookie;
-        headers['x-forwarded-for'] = clientAddress(req);
+        const headers = plexRequestHeaders(req.headers);
         const events = req.path === '/:/eventsource/notifications';
         await forward(req, res, {
             url: `${plexServer}${req.url}`,
@@ -122,9 +136,7 @@ export function createPlexProxyRouter({
         if (process.env.DISABLE_REQUEST_LOGGING !== 'true')
             console.log(`[${new Date().toISOString()}] [PROXY] [${method}] ${safeRequestUrl(url)} from ${ip}`);
 
-        const outgoing = forwardedHeaders(headers ?? {});
-        delete outgoing.host;
-        delete outgoing.cookie;
+        const outgoing = plexRequestHeaders(headers ?? {});
         delete outgoing['content-length'];
         await forward(req, res, {
             url: `${plexServer}${url}`,
@@ -133,7 +145,6 @@ export function createPlexProxyRouter({
                 ...outgoing,
                 Accept: 'application/json',
                 'Content-Type': 'application/json',
-                'X-Forwarded-For': ip,
             },
             data,
         }, false);
@@ -149,11 +160,8 @@ export function createPlexProxyRouter({
         query.delete('method');
         const target = new URL(`${plexServer}${url}`);
         for (const [name, value] of query) target.searchParams.append(name, value);
-        const headers = forwardedHeaders(req.headers);
-        delete headers.host;
-        delete headers.cookie;
+        const headers = plexRequestHeaders(req.headers);
         delete headers['content-length'];
-        headers['x-forwarded-for'] = clientAddress(req);
         await forward(req, res, { url: target.href, method, headers }, true);
     });
 

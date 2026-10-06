@@ -70,6 +70,12 @@ environment:
 
 Do not add a trailing slash to `PLEX_SERVER`.
 
+Proxy requests require the user's Plex token. Nevu preserves Plex authentication,
+session and media headers, but does not pass browser ingress headers
+(`Forwarded`, `X-Forwarded-*`, `X-Real-IP`) to Plex. Plex determines LAN/WAN
+classification from its connection to Nevu, so the address in `PLEX_SERVER`
+controls that connection independently of the address used in the browser.
+
 ## Published port
 
 The left side of a Compose port mapping is the port opened on the host:
