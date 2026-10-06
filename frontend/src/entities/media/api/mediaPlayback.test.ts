@@ -3,6 +3,7 @@ import { ProxiedRequest } from "shared/api/backend";
 import { PlexRequestError } from "shared/api/PlexClient";
 import { prepareMediaPlayback, releaseMediaPlayback, pingMediaPlayback } from "./mediaPlayback";
 import type { MediaVersion } from "../model/mediaVersions";
+import { planMediaPlayback } from "../model/mediaPlayback";
 import type { PlexPlaybackPlan } from "../model/mediaPlayback";
 import { uuidV4 } from "shared/lib/identifiers";
 
@@ -33,14 +34,27 @@ const context = { "X-Plex-Token": "owning-profile" };
 const prepare = (options = request, quality = {}, signal = new AbortController().signal) =>
   prepareMediaPlayback(metadata, version, quality, options, context, signal);
 const decisionRequest = () => new URL((ProxiedRequest as Mock).mock.calls[0][0], "http://plex");
+
+function decision(video = "copy", audio = "copy", protocol = "dash", videoCodec = "h264") {
+  return {
+    status: 200,
+    data: {
+      MediaContainer: {
+        generalDecisionCode: 1001,
+        Metadata: [{ Media: [{ protocol, Part: [{ Stream: [
+          { streamType: 1, codec: videoCodec, decision: video },
+          { streamType: 2, codec: "aac", decision: audio, selected: true },
+        ] }] }] }],
+      },
+    },
+  };
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   (uuidV4 as Mock).mockReturnValue("session-42");
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
-  (ProxiedRequest as Mock).mockResolvedValue({
-    status: 200,
-    data: { MediaContainer: { generalDecisionCode: 1001 } },
-  });
+  (ProxiedRequest as Mock).mockResolvedValue(decision());
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -92,6 +106,7 @@ it("rejects an unexpected Direct Play decision without exposing the original URL
   );
 });
 it("keeps quality and HLS conversion choices in preparation and start", async () => {
+  (ProxiedRequest as Mock).mockResolvedValue(decision("transcode", "transcode", "hls"));
   const { source } = await prepare(
     {
       ...request,
@@ -108,6 +123,38 @@ it("keeps quality and HLS conversion choices in preparation and start", async ()
   expect(start.searchParams.get("directStreamAudio")).toBe("0");
   expect(start.searchParams.has("secondsPerSegment")).toBe(false);
   expect(source.stripSegmentInitialization).toBe(false);
+});
+it("requests H264 conversion for a quality preset above the HEVC source bitrate", async () => {
+  const sample = {
+    ...version,
+    media: { ...version.media, videoCodec: "hevc", bitrate: 6499 },
+  };
+  const quality = { bitrate: 12000 };
+  const requestedPlan = await planMediaPlayback(sample, quality, "initial", {
+    canPlayType: () => true,
+    mediaSourceSupported: () => true,
+  });
+  (ProxiedRequest as Mock).mockResolvedValue(decision("transcode"));
+  const { source, plan } = await prepareMediaPlayback(
+    metadata, sample, quality, requestedPlan, context, new AbortController().signal,
+  );
+  const params = decisionRequest().searchParams;
+  expect(params.get("directStream")).toBe("0");
+  expect(params.get("maxVideoBitrate")).toBe("12000");
+  expect(params.get("X-Plex-Client-Profile-Extra")).toContain("videoCodec=h264");
+  expect([...new URL(source.url).searchParams]).toEqual([...params]);
+  expect(plan).toMatchObject({ videoCodec: "h264", copyVideo: false, copyAudio: true });
+  expect(source.seekPreRoll).toBeUndefined();
+});
+it("releases a successful audio-only decision without publishing a playable source", async () => {
+  (ProxiedRequest as Mock).mockResolvedValue(decision("ignore", "copy", "dash", "hevc"));
+  await expect(prepare({ ...request, videoCodec: "hevc" })).rejects.toThrow(
+    "did not prepare a video track",
+  );
+  expect(fetch).toHaveBeenCalledTimes(1);
+  const stop = new URL((fetch as Mock).mock.calls[0][0]);
+  expect(stop.pathname).toBe("/dynproxy/video/:/transcode/universal/stop");
+  expect(stop.searchParams.get("session")).toBe("session-42");
 });
 it("reserves independent lazy subtitle extraction after video preparation", async () => {
   (uuidV4 as Mock).mockReturnValueOnce("video-session").mockReturnValueOnce("subtitle-session");

@@ -130,11 +130,14 @@ direct files use the browser and HLS/DASH use the lazily loaded npm Shaka Player
 `entities/media/model/mediaPlayback` describes segmented playback capabilities,
 track and quality constraints, and interprets Plex's playback decision.
 Plex media always negotiates HLS/DASH through `/decision`; preparation and start
-share one session and identical parameters. Supported video/audio are copied
-into segments; only incompatible tracks, quality limits or subtitle burn-in
-require conversion. Original quality removes the bitrate limit while retaining
-segmented delivery. The Plex source type excludes original files; its ID owns
-the streaming session. Discover extras retain their independent resolver.
+share one session and identical parameters. At Original quality, supported tracks
+are copied into segments; incompatible tracks and subtitle burn-in require
+conversion. Quality presets request H264 conversion regardless of the source's
+average bitrate; audio copying remains independent. Decisions must include an
+active video track; conversion success codes alone are insufficient. Original
+quality removes the bitrate limit while retaining segmented delivery. The Plex source type excludes
+original files; its ID owns the streaming session. Discover extras retain their
+independent resolver.
 `useMediaPlaybackSource` owns cancellation, publication and session cleanup.
 After a decoder/format failure it permits one different H264/AAC conversion,
 also negotiated through `/decision`. Network retries belong to Shaka;

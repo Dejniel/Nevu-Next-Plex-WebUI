@@ -95,14 +95,6 @@ function isTextSubtitle(subtitle: Plex.Stream) {
   return ["srt", "subrip", "vtt", "webvtt", "mov_text", "text"].includes(subtitle.codec);
 }
 
-function isBitrateLimited(version: MediaVersion, quality: MediaPlaybackQuality) {
-  return Boolean(
-    quality.bitrate &&
-    quality.bitrate > 0 &&
-    (!version.media.bitrate || version.media.bitrate > quality.bitrate),
-  );
-}
-
 export function playbackPlanKey(plan: PlexPlaybackPlan) {
   return JSON.stringify([
     plan.protocol,
@@ -167,7 +159,7 @@ export async function planMediaPlayback(
   const dynamicRange = media.videoDynamicRange?.toLowerCase() ?? "sdr";
   const preservePicture =
     intent === "initial" &&
-    !isBitrateLimited(version, quality) &&
+    (quality.bitrate ?? 0) <= 0 &&
     subtitles !== "burn" &&
     !dynamicRange.includes("dolby") &&
     dynamicRange !== "dv" &&
@@ -236,6 +228,8 @@ export function playbackDecisionPlan(
   const subtitle =
     streams.find((stream) => stream.streamType === 3 && stream.selected) ??
     streams.find((stream) => stream.streamType === 3 && stream.decision);
+  if (!video || (video.decision !== "copy" && video.decision !== "transcode"))
+    throw new Error("Plex did not prepare a video track for playback.");
   if (
     (media?.protocol && media.protocol !== plan.protocol) ||
     (video?.codec && video.codec !== plan.videoCodec) ||
@@ -244,9 +238,9 @@ export function playbackDecisionPlan(
     throw new Error("Plex selected an unsupported streaming format.");
   return {
     ...plan,
-    copyVideo: video?.decision ? video.decision === "copy" : plan.copyVideo,
+    copyVideo: video.decision === "copy",
     copyAudio: audio?.decision ? audio.decision === "copy" : plan.copyAudio,
-    videoCodec: video?.codec ?? plan.videoCodec,
+    videoCodec: video.codec ?? plan.videoCodec,
     audioCodec: audio?.codec ?? plan.audioCodec,
     subtitles: subtitle?.decision === "burn" ? "burn" : plan.subtitles,
   };

@@ -89,16 +89,23 @@ it("declares fixed DASH segmentation for copied streams without altering native 
   expect(hls).toContain("protocol=hls");
   expect(hls).not.toContain("BreakNonKeyframes");
 });
-it("honors a lower bitrate, including missing bitrate metadata", async () => {
-  expect(await plan(version(), { bitrate: 8000 })).toMatchObject({
-    copyVideo: false,
-  });
+it.each([0, 6499, 12000, 40000])(
+  "converts HEVC for an explicit quality even with source bitrate %i",
+  async (bitrate) => {
+    const sample = version("mkv", "hevc");
+    sample.media.bitrate = bitrate;
+    expect(await plan(sample, { bitrate: 12000 })).toMatchObject({
+      videoCodec: "h264", copyVideo: false, copyAudio: true,
+    });
+  },
+);
+it("copies supported video at Original quality without a bitrate comparison", async () => {
   expect(await plan(version(), { bitrate: -1 })).toMatchObject({
     protocol: "dash", copyVideo: true, copyAudio: true,
   });
-  const sample = version();
-  sample.media.bitrate = 0;
-  expect((await plan(sample, { bitrate: 8000 })).copyVideo).toBe(false);
+  expect(await plan(version("mkv", "hevc"))).toMatchObject({
+    videoCodec: "hevc", copyVideo: true,
+  });
 });
 it("preserves the selected alternate audio in a copied stream", async () => {
   const sample = version();
@@ -211,6 +218,9 @@ it("does not treat a Direct Play refusal as refusal of allowed conversion", asyn
         MediaContainer: {
           generalDecisionCode: 1001,
           directPlayDecisionCode: 3000,
+          Metadata: [{ Media: [{ Part: [{ Stream: [
+            { streamType: 1, codec: "h264", decision: "copy" },
+          ] }] }] }],
         },
       },
       request,
@@ -259,7 +269,10 @@ it("rejects a streaming codec that was never offered", async () => {
           generalDecisionCode: 1001,
           Metadata: [
             {
-              Media: [{ Part: [{ Stream: [{ streamType: 2, codec: "dca" }] }] }],
+              Media: [{ Part: [{ Stream: [
+                { streamType: 1, codec: "h264", decision: "copy" },
+                { streamType: 2, codec: "dca" },
+              ] }] }],
             },
           ],
         },
@@ -300,6 +313,7 @@ it("interprets the selected audio and burn-in without extracting a duplicate sub
                   Part: [
                     {
                       Stream: [
+                        { streamType: 1, codec: "h264", decision: "copy" },
                         { streamType: 2, codec: "dca", selected: false },
                         { streamType: 2, codec: "aac", decision: "transcode", selected: true },
                         { streamType: 3, decision: "burn", selected: true },
@@ -315,4 +329,24 @@ it("interprets the selected audio and burn-in without extracting a duplicate sub
       request,
     ),
   ).toMatchObject({ copyAudio: false, subtitles: "burn" });
+});
+
+it.each([
+  { name: "missing video", video: [] },
+  { name: "ignored video", video: [{ streamType: 1, codec: "hevc", decision: "ignore" }] },
+  { name: "missing video decision", video: [{ streamType: 1, codec: "hevc" }] },
+])("rejects a successful decision with $name", async ({ video }) => {
+  const request = await plan(version("mkv", "hevc"));
+  expect(() => playbackDecisionPlan({
+    MediaContainer: {
+      generalDecisionCode: 1001,
+      transcodeDecisionCode: 1001,
+      generalDecisionText: "Direct play not available; Conversion OK.",
+      Metadata: [{ Media: [{ selected: true, protocol: "dash", Part: [{
+        selected: true,
+        decision: "transcode",
+        Stream: [...video, { streamType: 2, codec: "aac", decision: "copy", selected: true }],
+      }] }] }],
+    },
+  }, request)).toThrow("did not prepare a video track");
 });
