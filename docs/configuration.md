@@ -70,8 +70,9 @@ environment:
 
 Do not add a trailing slash to `PLEX_SERVER`.
 
-Proxy requests require the user's Plex token. Nevu preserves Plex authentication,
-session and media headers, but does not pass browser ingress headers
+Plex API and original-file requests require the user's Plex token. Generated
+transcode segments use their Plex session URL, which Plex validates. Nevu preserves
+authentication, session and media headers, but does not pass browser ingress headers
 (`Forwarded`, `X-Forwarded-*`, `X-Real-IP`) to Plex. Plex determines LAN/WAN
 classification from its connection to Nevu, so the address in `PLEX_SERVER`
 controls that connection independently of the address used in the browser.

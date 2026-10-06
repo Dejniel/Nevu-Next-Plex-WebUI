@@ -142,6 +142,42 @@ test('all proxy routes require a Plex token before contacting a possibly trusted
   assert.equal(requests, 2);
 });
 
+test('Plex session media uses its session URL credential and retains Range and upstream rejection', async t => {
+  const sessionPath = '/video/:/transcode/universal/session/12345678-1234-1234-1234-123456789abc';
+  let requests = 0;
+  const { url } = await setup(t, (req, res) => {
+    requests++;
+    assert.equal(req.headers['x-plex-token'], undefined);
+    assert.equal(req.headers['x-forwarded-for'], undefined);
+    if (req.url.endsWith('/expired.m4s')) {
+      res.writeHead(404);
+      return res.end('Expired Plex session');
+    }
+    assert.equal(req.headers.range, 'bytes=0-3');
+    res.writeHead(206, { 'Content-Length': 4, 'Content-Range': 'bytes 0-3/16' });
+    res.end(req.method === 'HEAD' ? undefined : 'init');
+  });
+  const headers = { Range: 'bytes=0-3', 'X-Forwarded-For': '203.0.113.25' };
+  for (const method of ['GET', 'HEAD']) {
+    const paths = ['/dynproxy' + sessionPath + '/0/init.m4s'];
+    if (method === 'GET') paths.push('/proxy?' + new URLSearchParams({ url: sessionPath + '/0/init.m4s', method }));
+    for (const path of paths) {
+      const response = await fetch(url + path, { method: path.startsWith('/dynproxy') ? method : 'GET', headers });
+      assert.equal(response.status, 206);
+      assert.equal(response.headers.get('content-range'), 'bytes 0-3/16');
+      assert.equal(await response.text(), method === 'HEAD' ? '' : 'init');
+    }
+  }
+  const expired = await fetch(url + '/dynproxy' + sessionPath + '/expired.m4s');
+  assert.equal(expired.status, 404);
+  assert.equal(await expired.text(), 'Expired Plex session');
+  const forwarded = requests;
+  for (const path of ['/dynproxy/video/:/transcode/universal/start.mpd', '/dynproxy/video/:/transcode/universal/session/invalid/init.m4s', '/dynproxy' + sessionPath + '/../start.mpd'])
+    assert.equal((await fetch(url + path)).status, 401);
+  assert.equal((await fetch(url + '/dynproxy' + sessionPath + '/init.m4s', { method: 'PUT' })).status, 401);
+  assert.equal(requests, forwarded);
+});
+
 test('dynamic proxy streams JSON request bodies without consuming them in a parser', async t => {
   let received;
   const { url } = await setup(t, async (req, res) => {

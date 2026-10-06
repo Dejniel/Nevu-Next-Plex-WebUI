@@ -69,10 +69,15 @@ export function createPlexProxyRouter({
         config: AxiosRequestConfig & { url: string },
         streaming: boolean,
     ) {
+        const target = new URL(config.url);
         const token = Object.entries(config.headers ?? {})
             .find(([name]) => name.toLowerCase() === 'x-plex-token')?.[1]
-            ?? new URL(config.url).searchParams.get('X-Plex-Token');
-        if (typeof token !== 'string' || !token.trim()) {
+            ?? target.searchParams.get('X-Plex-Token');
+        // Plex authenticates generated segment URLs through the playback
+        // session in their path; native HLS also fetches them without a token.
+        const sessionMedia = ['GET', 'HEAD'].includes(String(config.method ?? 'GET').toUpperCase())
+            && /^\/video\/:\/transcode\/universal\/session\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\//i.test(target.pathname);
+        if ((typeof token !== 'string' || !token.trim()) && !sessionMedia) {
             res.status(401).send('Plex token required');
             return;
         }
