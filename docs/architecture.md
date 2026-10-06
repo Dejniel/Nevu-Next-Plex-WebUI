@@ -118,17 +118,26 @@ See the [stage 3 results](browse-sync-stage3.md), [follow-up](browse-cache-follo
 
 `shared/ui/VideoPlayer` owns one native `<video>` element and its lifecycle;
 direct files use the browser and HLS/DASH use the lazily loaded npm Shaka Player.
-`entities/media/model/useMediaPlaybackSource` owns a finite fallback process:
-try the original file, then a Plex stream planned from browser capabilities.
-Only after that stream fails, query `/decision` for a compatible conversion
-and try it once if its configuration differs. Explicit bitrate limits, alternate
-audio and styled/image subtitles can require starting with the Plex stream.
-Access denial, missing files and offline errors stop without conversion.
+`entities/media/model/mediaPlayback` describes verified file/stream capabilities,
+track and quality constraints, and interprets Plex's playback decision.
+The media API prepares every source through `/decision`, including originals;
+stream decision and start share one session and identical request parameters.
+`useMediaPlaybackSource` owns cancellation, publication and session cleanup.
+After a decoder/format failure it permits one different H264/AAC conversion,
+also negotiated through `/decision`. Network retries belong to Shaka;
+access denial, missing files and network failures never trigger conversion.
+DASH targets use eight-second segments and `BreakNonKeyframes`, matching PMS's
+fixed index. The API supplies source traits for separate initialization and seek
+pre-roll. Shaka's response filter removes repeated MP4 initialization from media
+fragments using its own parser; copied video reads preceding fragments when seeking.
+Browsers without MSE negotiate HLS; Shaka chooses MSE or native playback.
 Identified source events prevent old attempts from affecting a new item/profile;
 each attempt releases its sessions and retains playback position and pause.
-The media API builds URLs and executes diagnosis/cleanup, without fallback policy.
 Text subtitles load after video readiness; Plex requires separate read
 authorization for WebVTT extraction, which never gates the video's initial source.
+Complete WebVTT is attached through owned blob URLs; pending native tracks cannot
+block video readiness. Source cleanup aborts downloads and releases these URLs.
+Subtitle failures show a separate warning and keep the video running.
 Image/styled subtitles use burn-in.
 Local extras, Discover trailers, card previews, and full playback share this
 engine. Local extras use the same fallback controller; Discover has its own source

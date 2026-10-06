@@ -41,6 +41,7 @@ export interface VideoPlayerProps {
   onBuffering?: (buffering: boolean) => void;
   onProgress?: (progress: VideoProgress) => void;
   onError?: (error: VideoPlaybackFailure) => void;
+  onSubtitleError?: (error: VideoPlaybackFailure) => void;
   onPlayRejected?: () => void;
   onClick?: React.MouseEventHandler<HTMLVideoElement>;
 }
@@ -98,6 +99,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       let loaded = false;
       let initialized = false;
       const controller = new AbortController();
+      const subtitleURLs: string[] = [];
       ready.current = false;
       lastPosition.current = undefined;
 
@@ -110,6 +112,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
         resumeAt = position(),
       ) => {
         if (cancelled || failed || !error) return;
+        if (error.kind === "subtitle") {
+          subtitleError(error);
+          return;
+        }
         failed = true;
         console.warn("Video playback failed:", error.kind, error.code);
         callbacks.current.onBuffering?.(false);
@@ -118,6 +124,47 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           sourceId: source.id,
           position: resumeAt,
         });
+      };
+      const subtitleError = (error: VideoPlaybackError) => {
+        if (cancelled || failed) return;
+        callbacks.current.onSubtitleError?.({
+          ...error,
+          kind: "subtitle",
+          sourceId: source.id,
+          position: position(),
+        });
+      };
+      const loadSubtitles = async () => {
+        try {
+          const result = source.loadTextTracks
+            ? await source.loadTextTracks(controller.signal)
+            : { tracks: source.textTracks ?? [] };
+          if (cancelled || failed) return;
+          if ("error" in result) return subtitleError(result.error);
+          const tracks: VideoTextTrack[] = [];
+          for (const track of result.tracks) {
+            const response = await fetch(track.url, { signal: controller.signal });
+            if (!response.ok)
+              return subtitleError({
+                kind: "subtitle",
+                httpStatus: response.status,
+                message: "The selected subtitles could not be loaded.",
+              });
+            const text = await response.text();
+            if (cancelled || failed) return;
+            // A pending native <track> can gate video readiness. Publish only
+            // complete WebVTT, so slow subtitle extraction cannot stop playback.
+            const url = URL.createObjectURL(new Blob([text], { type: "text/vtt" }));
+            subtitleURLs.push(url);
+            tracks.push({ ...track, url });
+          }
+          setLoadedTracks({ source, tracks });
+        } catch {
+          subtitleError({
+            kind: "subtitle",
+            message: "The selected subtitles could not be loaded.",
+          });
+        }
       };
       const markReady = () => {
         if (
@@ -138,20 +185,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
         callbacks.current.onReady?.(source.id);
         lastPosition.current = video.currentTime;
         playIfRequested();
-        if (source.loadTextTracks)
-          void source
-            .loadTextTracks(controller.signal)
-            .then((result) => {
-              if (cancelled || failed) return;
-              if ("error" in result) fail(result.error);
-              else setLoadedTracks({ source, tracks: result.tracks });
-            })
-            .catch(() =>
-              fail({
-                kind: "subtitle",
-                message: "The selected subtitles could not be loaded.",
-              }),
-            );
+        if (source.loadTextTracks || source.textTracks?.length) void loadSubtitles();
       };
       const nativeError = () => {
         if (initialized && video.error) {
@@ -178,7 +212,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
             video.src = source.url;
             video.load();
           } else {
-            const engine = await createStreamingPlayer(video);
+            const engine = await createStreamingPlayer(source);
             if (cancelled) {
               await engine.destroy();
               return;
@@ -208,6 +242,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       return () => {
         cancelled = true;
         controller.abort();
+        subtitleURLs.forEach((url) => URL.revokeObjectURL(url));
         ready.current = false;
         video.removeEventListener("loadedmetadata", markReady);
         video.removeEventListener("error", nativeError);
@@ -288,8 +323,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       >
         {(loadedTracks?.source === props.source
           ? loadedTracks.tracks
-          : props.source?.textTracks
-        )?.map((track) => (
+          : []
+        ).map((track) => (
           <track
             key={track.url}
             src={track.url}
@@ -300,7 +335,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
             ref={(element) => {
               if (!element) return;
               const onError = () =>
-                callbacks.current.onError?.({
+                callbacks.current.onSubtitleError?.({
                   sourceId: props.source!.id,
                   kind: "subtitle",
                   message: "The selected subtitles could not be loaded.",

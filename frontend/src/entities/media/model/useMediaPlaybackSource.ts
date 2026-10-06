@@ -6,23 +6,14 @@ import {
   useActiveServerScope,
   useAuthSession,
 } from "features/session/model";
-import {
-  createMediaPlaybackSource,
-  getMediaPlaybackDecision,
-  releaseMediaPlayback,
-} from "../api/mediaPlayback";
-import {
-  initialPlaybackPlan,
-  planMediaPlayback,
-  playbackDecisionPlan,
-  playbackPlanKey,
-} from "./mediaPlayback";
+import { prepareMediaPlayback, releaseMediaPlayback } from "../api/mediaPlayback";
+import { planMediaPlayback, playbackPlanKey } from "./mediaPlayback";
 import type { MediaPlaybackQuality, PlexPlaybackSource } from "./mediaPlayback";
 import { getMediaVersions } from "./mediaVersions";
 import type { MediaVersion } from "./mediaVersions";
 import type { VideoPlaybackFailure } from "shared/lib/video/types";
-import { idlePlayback, playbackReducer } from "./playbackFallback";
-import type { PlaybackOwner, PlaybackState, PlaybackStep } from "./playbackFallback";
+import { idlePlayback, playbackReducer } from "./playbackState";
+import type { PlaybackOwner, PlaybackState, PlaybackAttempt } from "./playbackState";
 
 const ORIGINAL: MediaPlaybackQuality = {};
 
@@ -35,6 +26,10 @@ function ownsSession(run: PlaybackOwner) {
   );
 }
 
+function ownedPlayback(state: PlaybackState, sourceId: string) {
+  return "source" in state && state.source.id === sourceId && ownsSession(state.run) ? state : null;
+}
+
 export function useMediaPlaybackSource(
   metadata: Plex.Metadata | null,
   version?: MediaVersion,
@@ -43,21 +38,19 @@ export function useMediaPlaybackSource(
   const scope = useActiveServerScope();
   const authRevision = useAuthSession((state) => state.revision);
   const [revision, setRevision] = useState(0);
+  const [subtitleFailure, setSubtitleFailure] = useState<VideoPlaybackFailure | null>(null);
+  const releasing = useRef<Promise<unknown>>(Promise.resolve());
   const selectedVersion = version ?? (metadata ? getMediaVersions(metadata)[0] : undefined);
   const run = useMemo(() => {
     if (!metadata) return null;
-    const selected = selectedVersion;
-    const plan = selected ? initialPlaybackPlan(selected, quality) : null;
     return {
       metadata,
-      version: selected,
+      version: selectedVersion,
       quality: { bitrate: quality.bitrate },
       requestContext: getXPlexProps(),
       scope,
       authRevision,
-      initialStep: plan
-        ? ({ kind: "original", plan } satisfies PlaybackStep)
-        : ({ kind: "plex" } satisfies PlaybackStep),
+      initialAttempt: { kind: "initial" } satisfies PlaybackAttempt,
     };
     // Metadata owns the file/track snapshot; indexes identify reconstructed selections.
     // oxlint-disable-next-line react/exhaustive-deps
@@ -75,70 +68,68 @@ export function useMediaPlaybackSource(
     stored.run === run
       ? stored
       : run
-        ? { status: "preparing", run, step: run.initialStep }
+        ? { status: "preparing", run, attempt: run.initialAttempt }
         : idlePlayback;
   const current = useRef(state);
   current.current = state;
-  const step = state.status === "failed" ? null : state.step;
+  const attempt = state.status === "failed" ? null : state.attempt;
 
   useEffect(() => {
     if (!run) {
-      dispatch({ type: "begin", run: null, step: null });
+      dispatch({ type: "begin", run: null, attempt: null });
       return;
     }
-    if (!step) return;
-    dispatch({ type: "begin", run, step });
+    if (!attempt) return;
+    dispatch({ type: "begin", run, attempt });
     const controller = new AbortController();
     let ownedSource: PlexPlaybackSource | null = null;
+    const isCurrent = () =>
+      !controller.signal.aborted && current.current.run === run && ownsSession(run);
     const onPageHide = (event: PageTransitionEvent) => {
-      if (!event.persisted) void releaseMediaPlayback(ownedSource, true);
+      if (!event.persisted) {
+        controller.abort();
+        void releaseMediaPlayback(ownedSource, true);
+      }
     };
     window.addEventListener("pagehide", onPageHide);
     void (async () => {
       try {
         if (!run.version?.part.key) throw new Error("No playable media file is available.");
-        let plan =
-          step.kind === "original"
-            ? step.plan
-            : await planMediaPlayback(
-                run.version,
-                run.quality,
-                step.kind === "diagnose"
-                  ? "convert"
-                  : step.burnSubtitles
-                    ? "burn-subtitles"
-                    : "stream",
-              );
-        if (controller.signal.aborted || current.current.run !== run || !ownsSession(run)) return;
-        if (step.kind === "diagnose") {
-          if (plan.kind !== "plex") return;
-          const decision = await getMediaPlaybackDecision(
-            run.metadata,
-            run.version,
-            run.quality,
-            plan,
-            run.requestContext,
-            controller.signal,
-          );
-          if (controller.signal.aborted || current.current.run !== run || !ownsSession(run)) return;
-          plan = playbackDecisionPlan(decision, plan);
-          if (playbackPlanKey(plan) === playbackPlanKey(step.failedPlan))
-            throw new Error(step.failure.message);
-        }
-        ownedSource = createMediaPlaybackSource(
+        await releasing.current;
+        if (!isCurrent()) return;
+        const request = await planMediaPlayback(run.version, run.quality, attempt.kind);
+        if (!isCurrent()) return;
+        if (
+          attempt.kind === "compatible" &&
+          (!request.stream ||
+            playbackPlanKey(request.stream) === playbackPlanKey(attempt.failedPlan))
+        )
+          throw new Error(attempt.failure.message);
+        const { source, plan } = await prepareMediaPlayback(
           run.metadata,
           run.version,
           run.quality,
-          plan,
+          request,
           run.requestContext,
+          controller.signal,
         );
-        dispatch({ type: "source", run, step, plan, source: ownedSource });
+        ownedSource = source;
+        if (!isCurrent()) {
+          void releaseMediaPlayback(source);
+          return;
+        }
+        if (
+          attempt.kind === "compatible" &&
+          playbackPlanKey(plan) === playbackPlanKey(attempt.failedPlan)
+        )
+          throw new Error(attempt.failure.message);
+        dispatch({ type: "source", run, attempt, plan, source });
       } catch (reason) {
-        if (controller.signal.aborted || current.current.run !== run || !ownsSession(run)) return;
+        if (!isCurrent()) return;
         dispatch({
           type: "failure",
           run,
-          step,
+          attempt,
           failure: {
             kind: reason instanceof PlexRequestError ? "network" : "unknown",
             httpStatus: reason instanceof PlexRequestError ? reason.status : undefined,
@@ -150,24 +141,30 @@ export function useMediaPlaybackSource(
     return () => {
       controller.abort();
       window.removeEventListener("pagehide", onPageHide);
-      void releaseMediaPlayback(ownedSource);
+      releasing.current = releaseMediaPlayback(ownedSource);
     };
-  }, [run, step]);
+  }, [run, attempt]);
+
+  const reportSubtitleError = useCallback((failure: VideoPlaybackFailure) => {
+    if (!ownedPlayback(current.current, failure.sourceId)) return false;
+    setSubtitleFailure(failure);
+    return true;
+  }, []);
 
   const reportError = useCallback((failure: VideoPlaybackFailure) => {
-    const active = current.current;
-    if (!("source" in active) || active.source.id !== failure.sourceId || !ownsSession(active.run))
-      return false;
-    dispatch({ type: "failure", run: active.run, step: active.step, failure });
+    if (failure.kind === "subtitle") return false;
+    const active = ownedPlayback(current.current, failure.sourceId);
+    if (!active) return false;
+    dispatch({
+      type: "failure",
+      run: active.run,
+      attempt: active.attempt,
+      failure,
+    });
     return true;
   }, []);
   const reportReady = useCallback((sourceId: string) => {
-    if (
-      !("source" in current.current) ||
-      current.current.source.id !== sourceId ||
-      !ownsSession(current.current.run)
-    )
-      return false;
+    if (!ownedPlayback(current.current, sourceId)) return false;
     dispatch({ type: "ready", sourceId });
     return true;
   }, []);
@@ -175,9 +172,14 @@ export function useMediaPlaybackSource(
   return {
     source: "source" in state ? state.source : null,
     error: state.status === "failed" ? state.error : null,
+    subtitleError:
+      "source" in state && subtitleFailure?.sourceId === state.source.id
+        ? subtitleFailure.message
+        : null,
     loading: state.status === "preparing" || state.status === "loading",
     reportError,
     reportReady,
+    reportSubtitleError,
     reload,
   };
 }

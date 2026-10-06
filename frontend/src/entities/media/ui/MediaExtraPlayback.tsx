@@ -75,6 +75,7 @@ export default function MediaExtraPlayback({
         alignItems: "center",
         justifyContent: "center",
         bgcolor: "#000",
+        position: "relative",
       }}
     >
       {!source && !failure && <CircularProgress />}
@@ -90,6 +91,14 @@ export default function MediaExtraPlayback({
           }
         >
           {failure}
+        </Alert>
+      )}
+      {local.subtitleError && showErrors && (
+        <Alert
+          severity="warning"
+          sx={{ position: "absolute", top: 16, left: 16, right: 16, zIndex: 1 }}
+        >
+          {local.subtitleError}
         </Alert>
       )}
       {source && !failure && (
@@ -125,6 +134,11 @@ export default function MediaExtraPlayback({
             )
               resume.current = reason.position ?? player.current!.getCurrentTime();
             if (extra.source === "discover") setError(reason.message);
+          }}
+          onSubtitleError={(reason) => {
+            if (reason.sourceId !== source.id) return;
+            if (extra.source === "local") local.reportSubtitleError(reason);
+            videoProps.onSubtitleError?.(reason);
           }}
         />
       )}

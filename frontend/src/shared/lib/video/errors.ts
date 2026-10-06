@@ -56,6 +56,10 @@ export function shakaVideoError(error: unknown): VideoPlaybackError | null {
     data?: unknown[];
   };
   if (detail.code === 7000 || detail.severity === 1) return null;
+  if (detail.code === 3016 && typeof detail.data?.[0] === "number") {
+    const failure = nativeVideoError({ code: detail.data[0] } as MediaError);
+    return failure ? { ...failure, code: detail.code } : null;
+  }
   if (detail.code === 1001 && typeof detail.data?.[1] === "number")
     return { ...httpPlaybackError(detail.data[1]), code: detail.code };
   const kind =
@@ -65,7 +69,7 @@ export function shakaVideoError(error: unknown): VideoPlaybackError | null {
         ? "subtitle"
         : detail.category === 3
           ? "media"
-          : detail.category === 4
+          : detail.category === 4 && [4006, 4032].includes(detail.code ?? 0)
             ? "unsupported"
             : "unknown";
   return {

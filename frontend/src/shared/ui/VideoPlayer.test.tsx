@@ -41,6 +41,14 @@ beforeEach(() => {
     () => undefined,
   );
   vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(1);
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+    ok: true,
+    text: async () => "WEBVTT\n",
+  }));
+  vi.stubGlobal("URL", class extends URL {
+    static createObjectURL = vi.fn().mockReturnValue("blob:subtitle");
+    static revokeObjectURL = vi.fn();
+  });
   element = document.createElement("div");
   root = createRoot(element);
   handle = React.createRef();
@@ -57,6 +65,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 it("passes an absolute Plex manifest URL to Shaka", async () => {
@@ -93,11 +102,9 @@ it("does not load Shaka for a direct-play file", async () => {
 });
 
 it("loads text tracks after video readiness without restarting the video", async () => {
-  const loadTextTracks = vi
-    .fn()
-    .mockResolvedValue({
-      tracks: [{ url: "/subs.vtt", language: "eng", label: "English" }],
-    });
+  const loadTextTracks = vi.fn().mockResolvedValue({
+    tracks: [{ url: "/subs.vtt", language: "eng", label: "English" }],
+  });
   props.source = {
     id: "file",
     url: "/movie.mp4",
@@ -110,7 +117,11 @@ it("loads text tracks after video readiness without restarting the video", async
     element.querySelector("video")!.dispatchEvent(new Event("loadedmetadata")),
   );
   expect(loadTextTracks).toHaveBeenCalledTimes(1);
-  expect(element.querySelector("track")?.getAttribute("src")).toBe("/subs.vtt");
+  expect(fetch).toHaveBeenCalledWith(
+    "/subs.vtt",
+    expect.objectContaining({ signal: expect.any(AbortSignal) }),
+  );
+  expect(element.querySelector("track")?.getAttribute("src")).toBe("blob:subtitle");
   expect(HTMLMediaElement.prototype.load).toHaveBeenCalledTimes(1);
   expect(createStreamingPlayer).not.toHaveBeenCalled();
 });
@@ -140,15 +151,16 @@ it("cancels late text-track loading when the source changes", async () => {
   expect(element.querySelector("track")).toBeNull();
 });
 
-it("reports native track failures with source identity and position, then detaches the listener", async () => {
-  const onError = vi.fn();
+it("reports native track warnings separately and detaches the listener", async () => {
+  const onSubtitleError = vi.fn();
   props.source = {
     id: "file",
     url: "/movie.mp4",
     type: "file",
     textTracks: [{ url: "/subs.vtt", language: "eng", label: "English" }],
   };
-  props.onError = onError;
+  props.onSubtitleError = onSubtitleError;
+  props.onError = vi.fn();
   await render();
   const video = element.querySelector("video")!;
   Object.defineProperty(video, "duration", { value: 60 });
@@ -159,7 +171,7 @@ it("reports native track failures with source identity and position, then detach
   });
   const track = element.querySelector("track")!;
   track.dispatchEvent(new Event("error"));
-  expect(onError).toHaveBeenCalledWith(
+  expect(onSubtitleError).toHaveBeenCalledWith(
     expect.objectContaining({
       sourceId: "file",
       kind: "subtitle",
@@ -169,7 +181,58 @@ it("reports native track failures with source identity and position, then detach
   props.source = { id: "second", url: "/second.mp4", type: "file" };
   await render();
   track.dispatchEvent(new Event("error"));
-  expect(onError).toHaveBeenCalledTimes(1);
+  expect(onSubtitleError).toHaveBeenCalledTimes(1);
+  expect(props.onError).not.toHaveBeenCalled();
+  expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:subtitle");
+});
+
+it("keeps video ready while subtitle data is pending and cancels stale downloads", async () => {
+  let finish!: (text: string) => void;
+  (fetch as Mock).mockResolvedValue({
+    ok: true,
+    text: () => new Promise<string>((resolve) => {
+      finish = resolve;
+    }),
+  });
+  props.source = {
+    id: "file",
+    url: "/movie.mp4",
+    type: "file",
+    textTracks: [{ url: "/subs.vtt", language: "eng", label: "English" }],
+  };
+  props.onSubtitleError = vi.fn();
+  props.onReady = vi.fn();
+  await render();
+  await act(async () =>
+    element.querySelector("video")!.dispatchEvent(new Event("loadedmetadata")),
+  );
+  expect(props.onReady).toHaveBeenCalledWith("file");
+  expect(element.querySelector("track")).toBeNull();
+  expect(HTMLMediaElement.prototype.play).toHaveBeenCalled();
+  const signal = (fetch as Mock).mock.calls[0][1].signal;
+  props.source = { id: "second", url: "/second.mp4", type: "file" };
+  await render();
+  expect(signal.aborted).toBe(true);
+  await act(async () => finish("WEBVTT\n"));
+  expect(URL.createObjectURL).not.toHaveBeenCalled();
+  expect(props.onSubtitleError).not.toHaveBeenCalled();
+});
+
+it("reports subtitle download denial without failing or restarting video", async () => {
+  (fetch as Mock).mockResolvedValue({ ok: false, status: 403 });
+  props.source = {
+    ...props.source!,
+    textTracks: [{ url: "/subs.vtt", language: "eng", label: "English" }],
+  };
+  props.onSubtitleError = vi.fn();
+  props.onError = vi.fn();
+  await render();
+  expect(props.onSubtitleError).toHaveBeenCalledWith(
+    expect.objectContaining({ httpStatus: 403, sourceId: "one" }),
+  );
+  expect(props.onError).not.toHaveBeenCalled();
+  expect(element.querySelector("track")).toBeNull();
+  expect(createStreamingPlayer).toHaveBeenCalledTimes(1);
 });
 
 it("retains the playhead when lazy subtitle preparation fails", async () => {
@@ -186,6 +249,7 @@ it("retains the playhead when lazy subtitle preparation fails", async () => {
       }),
   };
   props.onError = vi.fn();
+  props.onSubtitleError = vi.fn();
   await render();
   const video = element.querySelector("video")!;
   Object.defineProperty(video, "duration", { value: 60 });
@@ -200,13 +264,17 @@ it("retains the playhead when lazy subtitle preparation fails", async () => {
       },
     }),
   );
-  expect(props.onError).toHaveBeenCalledWith(
+  expect(props.onSubtitleError).toHaveBeenCalledWith(
     expect.objectContaining({
       sourceId: "file",
       position: 24,
       httpStatus: 403,
+      kind: "subtitle",
     }),
   );
+  expect(props.onError).not.toHaveBeenCalled();
+  expect(handle.current!.getDuration()).toBe(60);
+  expect(HTMLMediaElement.prototype.load).toHaveBeenCalledTimes(1);
 });
 
 it("waits for engine destruction before attaching the next source", async () => {

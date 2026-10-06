@@ -355,6 +355,8 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     source: playbackSource.source,
     sourceLoading: playbackSource.loading,
     reportSourceError: playbackSource.reportError,
+    reportSubtitleError: playbackSource.reportSubtitleError,
+    subtitleError: playbackSource.subtitleError,
     reportSourceReady: playbackSource.reportReady,
     reloadSource: () =>
       metadata

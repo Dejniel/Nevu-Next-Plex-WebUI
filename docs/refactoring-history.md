@@ -2,6 +2,19 @@
 
 Status: structural migration completed on 2026-09-29
 
+## Decision-first playback — 2026-10-06
+
+Replaced the original/stream/diagnosis workaround with capability-driven
+`/decision` preparation, including originals. Preparation/start share the owning
+profile credentials, session and parameters. The controller permits one different
+H264/AAC conversion after a real format failure; Shaka owns network retries and
+subtitle warnings leave video running. DASH targets declare fixed segmentation
+for copied video, matching PMS's index; Shaka separates repeated initialization
+and buffers seek pre-roll. Subtitle downloads finish before native tracks attach.
+Verification: 542 frontend tests,
+typecheck/lint/build, standalone Plex playback scenarios and read-only checks
+of H264/DTS with SRT. Device-specific codec/HDR verification remains separate.
+
 ## Original-first playback fallback — 2026-10-05
 
 Removed mandatory Plex decision preflight and the compatibility toggle. A finite

@@ -1,13 +1,10 @@
 import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import {
-  createMediaPlaybackSource,
-  getMediaPlaybackDecision,
-  releaseMediaPlayback,
-} from "../api/mediaPlayback";
+import { prepareMediaPlayback, releaseMediaPlayback } from "../api/mediaPlayback";
 import { planMediaPlayback } from "./mediaPlayback";
 import type {
+  MediaPlaybackRequest,
   PlexPlaybackPlan,
   PlexStreamPlan,
   PlexPlaybackSource,
@@ -32,8 +29,7 @@ vi.mock("features/session/model", async () => ({
   ),
 }));
 vi.mock("../api/mediaPlayback", () => ({
-  createMediaPlaybackSource: vi.fn(),
-  getMediaPlaybackDecision: vi.fn(),
+  prepareMediaPlayback: vi.fn(),
   releaseMediaPlayback: vi.fn(),
 }));
 vi.mock("./mediaPlayback", async () => ({
@@ -49,7 +45,15 @@ const stream: PlexStreamPlan = {
   audioCodec: "aac",
   subtitles: "none",
 };
-const converted: PlexStreamPlan = { ...stream, copyVideo: false, copyAudio: false };
+const converted: PlexStreamPlan = {
+  ...stream,
+  copyVideo: false,
+  copyAudio: false,
+};
+const request: MediaPlaybackRequest = {
+  original: { container: "mp4", videoCodec: "h264", audioCodec: "aac" },
+  stream,
+};
 function movie(id = "1"): Plex.Metadata {
   return {
     ratingKey: id,
@@ -68,11 +72,8 @@ function movie(id = "1"): Plex.Metadata {
     ],
   } as Plex.Metadata;
 }
-let root: Root;
-let metadata: Plex.Metadata | null;
-let quality: MediaPlaybackQuality;
-let state: ReturnType<typeof useMediaPlaybackSource>;
-let sequence: number;
+let root: Root, metadata: Plex.Metadata | null, quality: MediaPlaybackQuality;
+let state: ReturnType<typeof useMediaPlaybackSource>, sequence: number;
 function Harness() {
   state = useMediaPlaybackSource(metadata, undefined, quality);
   return null;
@@ -85,7 +86,18 @@ const fail = (failure: VideoPlaybackError = { kind: "media", message: "Decode fa
   act(async () => {
     state.reportError({ ...failure, sourceId: state.source!.id });
   });
-
+function prepared(plan: PlexPlaybackPlan, context = { "X-Plex-Token": "owner" }) {
+  return {
+    plan,
+    source: {
+      id: `source-${++sequence}`,
+      type: plan.kind === "original" ? "file" : plan.protocol,
+      url: "/media",
+      requestContext: context,
+      sessionID: plan.kind === "original" ? undefined : `source-${sequence}`,
+    } satisfies PlexPlaybackSource,
+  };
+}
 beforeEach(() => {
   vi.resetAllMocks();
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -96,232 +108,232 @@ beforeEach(() => {
   metadata = movie();
   quality = {};
   sequence = 0;
+  (releaseMediaPlayback as Mock).mockResolvedValue(undefined);
   (planMediaPlayback as Mock).mockImplementation(async (_version, _quality, intent) =>
-    intent === "convert" ? converted : stream,
+    intent === "compatible" ? { stream: converted } : request,
   );
-  (createMediaPlaybackSource as Mock).mockImplementation(
-    (_metadata, _version, _quality, plan: PlexPlaybackPlan, requestContext) =>
-      ({
-        id: `source-${++sequence}`,
-        type: plan.kind === "original" ? "file" : plan.protocol,
-        url: "/media",
-        requestContext,
-        sessionID: plan.kind === "original" ? undefined : `session-${sequence}`,
-      }) satisfies PlexPlaybackSource,
+  (prepareMediaPlayback as Mock).mockImplementation(
+    async (_metadata, _version, _quality, options: MediaPlaybackRequest, context) =>
+      prepared(options.original ? { kind: "original" } : options.stream!, context),
   );
-  (getMediaPlaybackDecision as Mock).mockResolvedValue({
-    MediaContainer: { generalDecisionCode: 1001 },
-  });
 });
 afterEach(async () => {
   await act(async () => root.unmount());
 });
 
-it("tries an original before any capability probe or Plex decision", async () => {
+it("negotiates before publishing an original, then accepts only its readiness event", async () => {
   await render();
+  expect(planMediaPlayback).toHaveBeenCalledWith(expect.anything(), {}, "initial");
+  expect(prepareMediaPlayback).toHaveBeenCalledTimes(1);
   expect(state.source?.type).toBe("file");
-  expect(planMediaPlayback).not.toHaveBeenCalled();
-  expect(getMediaPlaybackDecision).not.toHaveBeenCalled();
+  expect(state.loading).toBe(true);
   expect(state.reportReady("stale")).toBe(false);
   await act(async () => {
     expect(state.reportReady(state.source!.id)).toBe(true);
   });
   expect(state.loading).toBe(false);
 });
-
-it("tries a Plex stream only after an actual original failure", async () => {
+it("starts the negotiated Plex stream immediately when the original is unavailable", async () => {
+  (planMediaPlayback as Mock).mockResolvedValue({ stream });
   await render();
-  const original = state.source;
+  expect(state.source?.type).toBe("dash");
+  expect(prepareMediaPlayback).toHaveBeenCalledTimes(1);
+});
+it("renegotiates one compatible fallback after an actual decoder failure", async () => {
+  await render();
+  const first = state.source;
   await fail();
   expect(state.source?.type).toBe("dash");
-  expect(planMediaPlayback).toHaveBeenCalledTimes(1);
-  expect(getMediaPlaybackDecision).not.toHaveBeenCalled();
-  expect(releaseMediaPlayback).toHaveBeenCalledWith(original);
-});
-
-it("diagnoses after the stream fails and allows one different configuration", async () => {
-  await render();
-  await fail();
-  await fail();
-  expect(getMediaPlaybackDecision).toHaveBeenCalledTimes(1);
-  expect((createMediaPlaybackSource as Mock).mock.lastCall?.[3]).toEqual(converted);
+  expect(planMediaPlayback).toHaveBeenLastCalledWith(expect.anything(), {}, "compatible");
+  expect(prepareMediaPlayback).toHaveBeenCalledTimes(2);
+  expect(releaseMediaPlayback).toHaveBeenCalledWith(first);
   await fail({ kind: "media", message: "Final decode failure" });
   expect(state.error).toBe("Final decode failure");
   expect(state.source).toBeNull();
-  expect(createMediaPlaybackSource).toHaveBeenCalledTimes(3);
-  expect(getMediaPlaybackDecision).toHaveBeenCalledTimes(1);
+  expect(prepareMediaPlayback).toHaveBeenCalledTimes(2);
 });
-
-it("does not let a hypothetical Plex Pass refusal block the successful original", async () => {
-  (getMediaPlaybackDecision as Mock).mockResolvedValue({
-    MediaContainer: {
-      generalDecisionCode: 2000,
-      generalDecisionText: "A Plex Pass is required.",
-    },
-  });
+it("does not bypass a failed decision by opening the file", async () => {
+  (prepareMediaPlayback as Mock).mockRejectedValue(new Error("A Plex Pass is required."));
   await render();
-  expect(state.error).toBeNull();
-  expect(getMediaPlaybackDecision).not.toHaveBeenCalled();
-  await fail();
-  await fail();
   expect(state.error).toBe("A Plex Pass is required.");
-  expect(createMediaPlaybackSource).toHaveBeenCalledTimes(2);
+  expect(state.source).toBeNull();
+  expect(prepareMediaPlayback).toHaveBeenCalledTimes(1);
 });
-
-it("never repeats an identical stream even if Plex says Conversion OK", async () => {
-  (planMediaPlayback as Mock).mockResolvedValue(converted);
+it("does not renegotiate an already compatible configuration", async () => {
+  (planMediaPlayback as Mock).mockResolvedValue({ stream: converted });
   await render();
-  await fail();
   await fail();
   expect(state.error).toBe("Decode failed");
-  expect(createMediaPlaybackSource).toHaveBeenCalledTimes(2);
+  expect(prepareMediaPlayback).toHaveBeenCalledTimes(1);
 });
-
-it.each([401, 403, 404, 410, 429])(
-  "stops HTTP %s without converting or diagnosing",
-  async (httpStatus) => {
-    await render();
-    const original = state.source;
-    await fail({ kind: "network", httpStatus, message: "Request rejected" });
-    expect(state.error).toBe("Request rejected");
-    expect(planMediaPlayback).not.toHaveBeenCalled();
-    expect(getMediaPlaybackDecision).not.toHaveBeenCalled();
-    expect(releaseMediaPlayback).toHaveBeenCalledWith(original);
-  },
-);
-
-it("does not transcode because of a disconnected client", async () => {
-  await render();
-  await fail({ kind: "network", message: "Offline" });
-  expect(state.error).toBe("Offline");
-  expect(planMediaPlayback).not.toHaveBeenCalled();
-});
-
-it("diagnoses a server-side stream failure rather than reporting a decoder error", async () => {
+it("rejects a fallback that Plex resolves to the previous configuration", async () => {
+  (planMediaPlayback as Mock)
+    .mockResolvedValueOnce({ stream })
+    .mockResolvedValueOnce({ stream: converted });
+  (prepareMediaPlayback as Mock).mockImplementation(async () => prepared(stream));
   await render();
   await fail();
-  await fail({ kind: "network", httpStatus: 500, message: "Server failed" });
-  expect(getMediaPlaybackDecision).toHaveBeenCalledTimes(1);
-  expect((createMediaPlaybackSource as Mock).mock.lastCall?.[3]).toEqual(converted);
+  expect(state.error).toBe("Decode failed");
+  expect(state.source).toBeNull();
+  expect(releaseMediaPlayback).toHaveBeenCalledWith(expect.objectContaining({ id: "source-2" }));
 });
-
-it("advances once when duplicate failures arrive before React renders", async () => {
+it.each([401, 403, 404, 410, 429, 500, undefined])(
+  "keeps network failure %s out of conversion",
+  async (httpStatus) => {
+    await render();
+    const first = state.source;
+    await fail({ kind: "network", httpStatus, message: "Connection failed" });
+    expect(state.error).toBe("Connection failed");
+    expect(prepareMediaPlayback).toHaveBeenCalledTimes(1);
+    expect(releaseMediaPlayback).toHaveBeenCalledWith(first);
+  },
+);
+it("reports subtitle failure as a warning while keeping the ready source", async () => {
+  await render();
+  const first = state.source!;
+  await act(async () => {
+    state.reportReady(first.id);
+    state.reportSubtitleError({
+      sourceId: first.id,
+      kind: "subtitle",
+      httpStatus: 403,
+      message: "Subtitles unavailable",
+    });
+  });
+  expect(state.source).toBe(first);
+  expect(state.error).toBeNull();
+  expect(state.loading).toBe(false);
+  expect(state.subtitleError).toBe("Subtitles unavailable");
+  expect(prepareMediaPlayback).toHaveBeenCalledTimes(1);
+  metadata = movie("2");
+  await render();
+  expect(state.subtitleError).toBeNull();
+  expect(
+    state.reportSubtitleError({
+      sourceId: first.id,
+      kind: "subtitle",
+      message: "Stale",
+    }),
+  ).toBe(false);
+});
+it("handles duplicate decoder failures as a single fallback", async () => {
   await render();
   const sourceId = state.source!.id;
   await act(async () => {
     state.reportError({ sourceId, kind: "media", message: "Decode failed" });
-    state.reportError({ sourceId, kind: "media", message: "Decode failed twice" });
+    state.reportError({ sourceId, kind: "media", message: "Duplicate" });
   });
-  expect(createMediaPlaybackSource).toHaveBeenCalledTimes(2);
-  expect(getMediaPlaybackDecision).not.toHaveBeenCalled();
+  expect(prepareMediaPlayback).toHaveBeenCalledTimes(2);
 });
-
-it("ignores old failure and readiness events after switching the item", async () => {
+it("ignores old source events after item changes", async () => {
   await render();
   const old = state.source!;
   metadata = movie("2");
   await render();
-  const current = state.source;
-  expect(state.reportError({ sourceId: old.id, kind: "media", message: "Old error" })).toBe(false);
+  const active = state.source;
+  expect(
+    state.reportError({
+      sourceId: old.id,
+      kind: "media",
+      message: "Old error",
+    }),
+  ).toBe(false);
   expect(state.reportReady(old.id)).toBe(false);
-  expect(state.source).toBe(current);
-  expect(planMediaPlayback).not.toHaveBeenCalled();
+  expect(state.source).toBe(active);
   expect(releaseMediaPlayback).toHaveBeenCalledWith(old);
 });
-
-it("rejects source events when the session changes before the next React render", async () => {
+it("rejects events if authentication changes before React renders", async () => {
   await render();
   const sourceId = state.source!.id;
   session.revision++;
   expect(state.reportError({ sourceId, kind: "media", message: "Old error" })).toBe(false);
   expect(state.reportReady(sourceId)).toBe(false);
-  expect(planMediaPlayback).not.toHaveBeenCalled();
 });
-
-it("discards a late capability probe after a new item is selected", async () => {
-  let complete!: (plan: PlexStreamPlan) => void;
+it("discards a late capability probe after selecting a different item", async () => {
+  let complete!: (request: MediaPlaybackRequest) => void;
   (planMediaPlayback as Mock).mockReturnValueOnce(
     new Promise((resolve) => {
       complete = resolve;
     }),
   );
-  quality = { bitrate: 2000 };
   await render();
   metadata = movie("2");
-  quality = {};
   await render();
-  const current = state.source;
-  await act(async () => complete(stream));
-  expect(state.source).toBe(current);
-  expect(createMediaPlaybackSource).toHaveBeenCalledTimes(1);
+  const active = state.source;
+  await act(async () => complete(request));
+  expect(state.source).toBe(active);
+  expect(prepareMediaPlayback).toHaveBeenCalledTimes(1);
 });
-
-it("aborts a delayed diagnosis when the profile changes, retaining owning credentials", async () => {
-  let complete!: (decision: unknown) => void;
-  (getMediaPlaybackDecision as Mock).mockReturnValueOnce(
+it("aborts profile preparation and releases a late source with its owning credentials", async () => {
+  let complete!: (result: ReturnType<typeof prepared>) => void;
+  (prepareMediaPlayback as Mock).mockReturnValueOnce(
     new Promise((resolve) => {
       complete = resolve;
     }),
   );
   await render();
-  await fail();
-  await fail();
-  const call = (getMediaPlaybackDecision as Mock).mock.calls[0];
+  const call = (prepareMediaPlayback as Mock).mock.calls[0];
   expect(call[4]).toEqual({ "X-Plex-Token": "owner" });
   session.scope = { serverId: "server", profileKey: "child" };
   session.token = "child";
   session.revision++;
   await render();
   expect(call[5].aborted).toBe(true);
-  const current = state.source;
-  await act(async () =>
-    complete({ MediaContainer: { generalDecisionCode: 2000, generalDecisionText: "Old failure" } }),
-  );
-  expect(state.source).toBe(current);
+  const active = state.source;
+  const late = prepared(stream);
+  await act(async () => complete(late));
+  expect(state.source).toBe(active);
   expect(state.error).toBeNull();
   expect(state.source?.requestContext).toEqual({ "X-Plex-Token": "child" });
+  expect(releaseMediaPlayback).toHaveBeenCalledWith(late.source);
 });
-
-it("cancels diagnosis on unmount without creating a late source", async () => {
-  let complete!: (decision: unknown) => void;
-  (getMediaPlaybackDecision as Mock).mockReturnValueOnce(
+it("cancels preparation on unmount and releases an ignored-abort response", async () => {
+  let complete!: (result: ReturnType<typeof prepared>) => void;
+  (prepareMediaPlayback as Mock).mockReturnValueOnce(
     new Promise((resolve) => {
       complete = resolve;
     }),
   );
   await render();
-  await fail();
-  await fail();
-  const signal = (getMediaPlaybackDecision as Mock).mock.calls[0][5];
+  const signal = (prepareMediaPlayback as Mock).mock.calls[0][5];
   await act(async () => root.unmount());
   expect(signal.aborted).toBe(true);
-  await act(async () => complete({ MediaContainer: { generalDecisionCode: 1001 } }));
-  expect(createMediaPlaybackSource).toHaveBeenCalledTimes(2);
+  const late = prepared(stream);
+  await act(async () => complete(late));
+  expect(releaseMediaPlayback).toHaveBeenCalledWith(late.source);
 });
-
-it("uses burn-in after a sidecar failure while preserving the selected subtitle", async () => {
+it("releases the previous stream before reserving fallback capacity", async () => {
+  (planMediaPlayback as Mock)
+    .mockResolvedValueOnce({ stream })
+    .mockResolvedValueOnce({ stream: converted });
   await render();
-  await fail({ kind: "subtitle", message: "Subtitle failed" });
-  expect(planMediaPlayback).toHaveBeenCalledWith(expect.anything(), {}, "burn-subtitles");
+  let complete!: () => void;
+  (releaseMediaPlayback as Mock).mockReturnValueOnce(
+    new Promise<void>((resolve) => {
+      complete = resolve;
+    }),
+  );
+  await fail();
+  expect(prepareMediaPlayback).toHaveBeenCalledTimes(1);
+  await act(async () => complete());
+  expect(prepareMediaPlayback).toHaveBeenCalledTimes(2);
 });
-
-it("starts with Plex for a lower bitrate and restarts originals on explicit retry", async () => {
+it("renegotiates quality changes and explicit reload after terminal failure", async () => {
+  await render();
   quality = { bitrate: 2000 };
   await render();
-  expect(state.source?.type).toBe("dash");
-  expect(planMediaPlayback).toHaveBeenCalledWith(expect.anything(), { bitrate: 2000 }, "stream");
-  expect(getMediaPlaybackDecision).not.toHaveBeenCalled();
-  quality = {};
-  await render();
+  expect(planMediaPlayback).toHaveBeenLastCalledWith(
+    expect.anything(),
+    { bitrate: 2000 },
+    "initial",
+  );
   await fail({ kind: "network", message: "Offline" });
   expect(state.error).toBe("Offline");
   await act(async () => state.reload());
   expect(state.error).toBeNull();
-  expect(state.source?.type).toBe("file");
+  expect(state.source).not.toBeNull();
 });
-
-it("stops its owned session on page unload and removes the listener on unmount", async () => {
-  quality = { bitrate: 2000 };
+it("cleans only its source on unload and detaches the pagehide listener", async () => {
   await render();
   const source = state.source;
   window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));

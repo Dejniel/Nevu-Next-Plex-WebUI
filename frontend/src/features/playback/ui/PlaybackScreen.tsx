@@ -136,24 +136,35 @@ function PlaybackSession({
 
   return (
     <>
-      {playbackMedia.queueError && (
-        <Alert
-          severity="warning"
+      {(playbackMedia.queueError || playbackMedia.subtitleError) && (
+        <Box
           sx={{
             position: "absolute",
             top: 16,
             left: 16,
             right: 16,
             zIndex: 30,
+            display: "flex",
+            flexDirection: "column",
+            gap: 1,
           }}
-          action={
-            <Button color="inherit" onClick={playbackMedia.reloadQueue}>
-              Retry
-            </Button>
-          }
         >
-          {playbackMedia.queueError}
-        </Alert>
+          {playbackMedia.queueError && (
+            <Alert
+              severity="warning"
+              action={
+                <Button color="inherit" onClick={playbackMedia.reloadQueue}>
+                  Retry
+                </Button>
+              }
+            >
+              {playbackMedia.queueError}
+            </Alert>
+          )}
+          {playbackMedia.subtitleError && (
+            <Alert severity="warning">{playbackMedia.subtitleError}</Alert>
+          )}
+        </Box>
       )}
       <AppDialog
         open={showError !== false}
@@ -258,6 +269,7 @@ function PlaybackSession({
               onPlay={() => playbackRuntime.setPlaying(true)}
               onBuffering={playbackRuntime.setBuffering}
               onPlayRejected={() => playbackRuntime.setPlaying(false)}
+              onSubtitleError={playbackMedia.reportSubtitleError}
               onError={(error) => {
                 if (playbackMedia.reportSourceError(error)) {
                   if (

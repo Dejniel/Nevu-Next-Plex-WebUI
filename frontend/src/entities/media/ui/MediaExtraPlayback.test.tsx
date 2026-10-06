@@ -11,11 +11,13 @@ let mockVideoProps: VideoPlayerProps;
 let mockCurrentTime: number;
 let mockDuration: number;
 const mockRecover = vi.fn();
+const mockSubtitleError = vi.fn();
 vi.mock("../model/useMediaPlaybackSource", () => ({
   useMediaPlaybackSource: () => ({
     source: { id: "source", url: "/file", type: "file" },
     error: null,
     reportError: mockRecover,
+    reportSubtitleError: mockSubtitleError,
     reportReady: () => true,
   }),
 }));
@@ -167,4 +169,20 @@ it("ignores a stale Discover failure after switching to a different extra", asyn
 
   expect(mockVideoProps.source).toEqual(discoverSource);
   expect(container.textContent).not.toContain("Old request failed");
+});
+
+it("routes a subtitle warning separately without moving the playhead or restarting", async () => {
+  await render();
+  await act(async () =>
+    mockVideoProps.onSubtitleError!({
+      sourceId: "source",
+      kind: "subtitle",
+      message: "Missing captions",
+      position: 24,
+    }),
+  );
+  expect(mockSubtitleError).toHaveBeenCalledTimes(1);
+  expect(mockRecover).not.toHaveBeenCalled();
+  await render();
+  expect(mockVideoProps.startTime).toBe(12);
 });

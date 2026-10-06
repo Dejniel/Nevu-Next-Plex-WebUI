@@ -80,3 +80,16 @@ it("treats cancellation and recoverable Shaka events as cleanup", () => {
   expect(shakaVideoError({ code: 7000 })).toBeNull();
   expect(shakaVideoError({ code: 1002, severity: 1 })).toBeNull();
 });
+
+it("keeps native network errors reported by Shaka out of decoder recovery", () => {
+  expect(shakaVideoError({ category: 3, code: 3016, data: [2] })).toMatchObject({
+    kind: "network",
+  });
+  expect(shakaVideoError({ category: 3, code: 3016, data: [3] })).toMatchObject({ kind: "media" });
+  expect(shakaVideoError({ category: 3, code: 3016, data: [1] })).toBeNull();
+});
+
+it("distinguishes unsupported formats from malformed manifests", () => {
+  expect(shakaVideoError({ category: 4, code: 4032 })).toMatchObject({ kind: "unsupported" });
+  expect(shakaVideoError({ category: 4, code: 4001 })).toMatchObject({ kind: "unknown" });
+});

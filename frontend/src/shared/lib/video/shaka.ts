@@ -18,7 +18,7 @@ export function loadShaka() {
   return library;
 }
 
-export async function createStreamingPlayer(video: HTMLVideoElement) {
+export async function createStreamingPlayer(source: VideoSource) {
   const shaka = await loadShaka();
   if (!shaka.Player.isBrowserSupported())
     throw new Error("This browser does not support streaming video.");
@@ -27,14 +27,37 @@ export async function createStreamingPlayer(video: HTMLVideoElement) {
     streaming: {
       bufferingGoal: 30,
       bufferBehind: 30,
+      ignoreTextStreamFailures: true,
+      inaccurateManifestTolerance: source.seekPreRoll ?? 2,
       retryParameters: { maxAttempts: 3 },
-      preferNativeHls: Boolean(
-        video.canPlayType("application/vnd.apple.mpegurl"),
-      ),
     },
     manifest: { retryParameters: { maxAttempts: 3 } },
     abr: { defaultBandwidthEstimate: 5_000_000, restrictToElementSize: true },
   });
+  if (source.stripSegmentInitialization) {
+    player.getNetworkingEngine()?.registerResponseFilter(
+      (_type, response, context) => {
+        if (
+          context?.type !==
+          shaka.net.NetworkingEngine.AdvancedRequestType.MEDIA_SEGMENT
+        ) return;
+        // Repeated initialization resets MSE's decoder and drops non-keyframes.
+        // The manifest's initialization segment has configured the stream.
+        let initializationEnd = 0;
+        new shaka.util.Mp4Parser()
+          .box("moov", ({ start, size, parser }) => {
+            initializationEnd = start + size;
+            parser.stop();
+          })
+          .box("moof", ({ parser }) => parser.stop())
+          .parse(response.data);
+        if (initializationEnd) {
+          response.data = shaka.util.BufferUtils.toUint8(response.data)
+            .slice(initializationEnd).buffer;
+        }
+      },
+    );
+  }
   return player;
 }
 

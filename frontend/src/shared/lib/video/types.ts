@@ -8,6 +8,10 @@ export interface VideoSource {
   id: string;
   url: string;
   type: "file" | "hls" | "dash";
+  /** The manifest supplies initialization separately from each media fragment. */
+  stripSegmentInitialization?: boolean;
+  /** Earlier media needed to decode a seek into non-independent fragments. */
+  seekPreRoll?: number;
   textTracks?: VideoTextTrack[];
   loadTextTracks?: (
     signal: AbortSignal,
