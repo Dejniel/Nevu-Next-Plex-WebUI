@@ -95,12 +95,14 @@ export default function TitlePrimaryActions({
   onDataChanged,
   onEditMetadata,
   onMatch,
+  onWriteReview,
 }: {
   capabilities: MediaActionCapabilities;
   data: Plex.Metadata;
   onDataChanged: (data: Plex.Metadata) => void;
   onEditMetadata: () => void;
   onMatch: () => void;
+  onWriteReview?: () => void;
 }) {
   const navigate = useNavigate();
   const [playLoading, setPlayLoading] = useState(false);
@@ -238,6 +240,7 @@ export default function TitlePrimaryActions({
           item={data}
           onChanged={onDataChanged}
           menuRef={ratingMenuRef}
+          onWriteReview={onWriteReview}
         />
       </ActionSlot>
 

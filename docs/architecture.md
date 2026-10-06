@@ -59,7 +59,9 @@ features/library/
 ```
 
 `features/title-details` follows the same boundary for title metadata, extra selection,
-reviews, downloads, and the details dialog. `features/playback` owns stream
+reviews, downloads, and the details dialog. Review entry points share one Plex
+editor and a profile-scoped Query resource; confirmed saves update its readers.
+`features/playback` owns stream
 selection, timeline reporting, subtitle search, queue controls, and the routed
 player screen. `features/watch-together` owns the cross-session connection,
 protocol adapter, room dialog, waiting room, notifications, and player-facing

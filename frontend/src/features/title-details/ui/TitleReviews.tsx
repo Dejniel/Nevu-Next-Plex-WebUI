@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Alert,
   Avatar,
@@ -13,169 +14,194 @@ import {
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { motion } from "motion/react";
-import { useAuthSession } from "features/session/public";
-import {
-  getPlexReviews,
-  type PlexReview,
-  type PlexReviews,
-} from "../api/plexCommunity";
-import PlexReviewDialog from "./PlexReviewDialog";
+import { useActiveServerScope, useAuthSession } from "features/session/model";
+import { serverQueryClient } from "shared/api/queryClient";
+import type { PlexReview } from "../api/plexCommunity";
+import { titleReviewsQueryOptions } from "../model/titleReviewsQuery";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
+
+function ReviewsHeading({
+  title,
+  action,
+}: {
+  title: string;
+  action?: ReactNode;
+}) {
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: 1.5,
+        mb: 2,
+      }}
+    >
+      <Typography variant="h6" sx={{ fontWeight: "bold" }}>
+        {title}
+      </Typography>
+      {action && <Box sx={{ ml: "auto" }}>{action}</Box>}
+    </Box>
+  );
+}
 
 function ReviewsSection({
   title,
   reviews,
+  action,
+  loading = false,
 }: {
   title: string;
   reviews: PlexReview[];
+  action?: ReactNode;
+  loading?: boolean;
 }) {
-  if (!reviews.length) return null;
+  if (!reviews.length && !action && !loading) return null;
   return (
-    <Box sx={{ width: "100%" }}>
-      <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
-        {title}
-      </Typography>
-      <Grid container spacing={3}>
-        {reviews.map((review) => {
-          const username =
-            review.userV2?.displayName ||
-            review.userV2?.username ||
-            "Anonymous User";
-          const date = new Date(review.date);
-          return (
-            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={review.id}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 2.5,
-                  height: "100%",
-                  bgcolor: (theme) =>
-                    alpha(theme.palette.background.paper, 0.4),
-                }}
-              >
-                <Box
+    <Box component="section" aria-label={title} sx={{ width: "100%" }}>
+      <ReviewsHeading title={title} action={action} />
+      {loading ? (
+        <Skeleton variant="rounded" height={160} />
+      ) : !reviews.length ? (
+        <Typography color="text.secondary">No recent reviews yet.</Typography>
+      ) : (
+        <Grid container spacing={3}>
+          {reviews.map((review) => {
+            const username =
+              review.userV2?.displayName ||
+              review.userV2?.username ||
+              "Anonymous User";
+            const date = new Date(review.date);
+            return (
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={review.id}>
+                <Paper
+                  elevation={0}
                   sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1.5,
-                    mb: 2,
+                    p: 2.5,
+                    height: "100%",
+                    bgcolor: (theme) =>
+                      alpha(theme.palette.background.paper, 0.4),
                   }}
                 >
-                  <Avatar src={review.userV2?.avatar}>
-                    {username.charAt(0)}
-                  </Avatar>
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography noWrap sx={{ fontWeight: "medium" }}>
-                      {username}
-                    </Typography>
-                    <Rating
-                      value={(review.reviewRating ?? review.rating ?? 0) / 2}
-                      precision={0.5}
-                      size="small"
-                      readOnly
-                    />
-                    {!Number.isNaN(date.getTime()) && (
-                      <Typography
-                        variant="caption"
-                        component="time"
-                        dateTime={date.toISOString()}
-                        sx={{ display: "block", color: "text.secondary" }}
-                      >
-                        {dateFormat.format(date)}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1.5,
+                      mb: 2,
+                    }}
+                  >
+                    <Avatar src={review.userV2?.avatar}>
+                      {username.charAt(0)}
+                    </Avatar>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography noWrap sx={{ fontWeight: "medium" }}>
+                        {username}
                       </Typography>
-                    )}
-                  </Box>
-                </Box>
-                {review.message && (
-                  <>
-                    <Divider sx={{ mb: 2 }} />
-                    {review.hasSpoilers ? (
-                      <Box component="details">
+                      <Rating
+                        value={(review.reviewRating ?? review.rating ?? 0) / 2}
+                        precision={0.5}
+                        size="small"
+                        readOnly
+                      />
+                      {!Number.isNaN(date.getTime()) && (
                         <Typography
-                          component="summary"
-                          sx={{ cursor: "pointer" }}
+                          variant="caption"
+                          component="time"
+                          dateTime={date.toISOString()}
+                          sx={{ display: "block", color: "text.secondary" }}
                         >
-                          Show spoilers
+                          {dateFormat.format(date)}
                         </Typography>
+                      )}
+                      {review.status === "PENDING" && (
+                        <Typography variant="caption" color="text.secondary">
+                          Your review is awaiting moderation.
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                  {review.message && (
+                    <>
+                      <Divider sx={{ mb: 2 }} />
+                      {review.hasSpoilers ? (
+                        <Box component="details">
+                          <Typography
+                            component="summary"
+                            sx={{ cursor: "pointer" }}
+                          >
+                            Show spoilers
+                          </Typography>
+                          <Typography
+                            sx={{
+                              mt: 1,
+                              whiteSpace: "pre-wrap",
+                              overflowWrap: "anywhere",
+                            }}
+                          >
+                            {review.message}
+                          </Typography>
+                        </Box>
+                      ) : (
                         <Typography
                           sx={{
-                            mt: 1,
                             whiteSpace: "pre-wrap",
                             overflowWrap: "anywhere",
                           }}
                         >
                           {review.message}
                         </Typography>
-                      </Box>
-                    ) : (
-                      <Typography
-                        sx={{
-                          whiteSpace: "pre-wrap",
-                          overflowWrap: "anywhere",
-                        }}
-                      >
-                        {review.message}
-                      </Typography>
-                    )}
-                  </>
-                )}
-              </Paper>
-            </Grid>
-          );
-        })}
-      </Grid>
+                      )}
+                    </>
+                  )}
+                </Paper>
+              </Grid>
+            );
+          })}
+        </Grid>
+      )}
     </Box>
   );
 }
 
 export default function TitleReviews({
   data,
+  onWriteReview,
 }: {
   data: Plex.Metadata | undefined;
+  onWriteReview?: () => void;
 }) {
-  const sessionRevision = useAuthSession((state) => state.revision);
+  const { profileKey } = useActiveServerScope();
   const confirmed = useAuthSession((state) => state.activeUser?.confirmed);
-  const metadataID = data?.guid.match(
-    /^plex:\/\/(?:movie|show|season|episode)\/([^/]+)$/,
-  )?.[1];
-  const [reviews, setReviews] = useState<PlexReviews | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [warning, setWarning] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
-
-  useEffect(() => {
-    setReviews(null);
-    setWarning(null);
-    setEditing(false);
-    if (!metadataID) {
-      setLoading(false);
-      return;
-    }
-    const controller = new AbortController();
-    setLoading(true);
-    getPlexReviews(metadataID, controller.signal)
-      .then((result) => {
-        if (!controller.signal.aborted) setReviews(result);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted)
-          setWarning("Plex community reviews are temporarily unavailable.");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, [metadataID, sessionRevision]);
-
-  const top = reviews?.topReviews.nodes || [];
+  const result = useQuery(
+    titleReviewsQueryOptions(profileKey, data?.guid),
+    serverQueryClient,
+  );
+  const reviews = result.data;
+  const loading = result.isPending && result.isFetching;
+  const own = reviews?.userReview?.message ? reviews.userReview : null;
+  const top =
+    reviews?.topReviews.nodes.filter((review) => review.id !== own?.id) || [];
   const topIDs = new Set(top.map((review) => review.id));
-  const recent =
-    reviews?.recentReviews.nodes.filter((review) => !topIDs.has(review.id)) ||
-    [];
-  const friends = reviews?.friendReviews.nodes || [];
+  const recent = [
+    ...(own ? [own] : []),
+    ...(reviews?.recentReviews.nodes.filter(
+      (review) => review.id !== own?.id && !topIDs.has(review.id),
+    ) || []),
+  ];
+  const friends =
+    reviews?.friendReviews.nodes.filter((review) => review.id !== own?.id) || [];
   const critics = data?.Review || [];
-  const own = reviews?.userReview ? [reviews.userReview] : [];
+  const reviewAction = onWriteReview && (
+    <Button
+      variant="outlined"
+      disabled={!reviews || confirmed === false}
+      onClick={onWriteReview}
+    >
+      Write your own review
+    </Button>
+  );
 
   return (
     <Box
@@ -185,60 +211,19 @@ export default function TitleReviews({
       exit={{ opacity: 0 }}
       sx={{ display: "flex", flexDirection: "column", gap: 4, width: "100%" }}
     >
-      {metadataID && (
-        <Button
-          variant="outlined"
-          sx={{ alignSelf: "flex-start" }}
-          disabled={loading || !reviews || confirmed === false}
-          onClick={() => setEditing(true)}
-        >
-          {reviews?.userReview?.message ? "Edit your review" : "Write a review"}
-        </Button>
-      )}
       {confirmed === false && (
         <Alert severity="info">
           Writing reviews requires a verified Plex account.
         </Alert>
       )}
-      {editing && metadataID && reviews && (
-        <PlexReviewDialog
-          key={`${metadataID}:${sessionRevision}`}
-          metadataID={metadataID}
-          review={reviews.userReview}
-          onClose={() => setEditing(false)}
-          onSaved={(saved) => {
-            setReviews(
-              (current) =>
-                current && {
-                  ...current,
-                  userReview: saved,
-                  topReviews: {
-                    nodes: current.topReviews.nodes.map((review) =>
-                      review.id === saved.id ? saved : review,
-                    ),
-                  },
-                  recentReviews: {
-                    nodes: current.recentReviews.nodes.map((review) =>
-                      review.id === saved.id ? saved : review,
-                    ),
-                  },
-                  friendReviews: {
-                    nodes: current.friendReviews.nodes.map((review) =>
-                      review.id === saved.id ? saved : review,
-                    ),
-                  },
-                },
-            );
-            setEditing(false);
-          }}
-        />
+      {result.isError && (
+        <Alert severity="warning">
+          Plex community reviews are temporarily unavailable.
+        </Alert>
       )}
-      {warning && <Alert severity="warning">{warning}</Alert>}
       {critics.length > 0 && (
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
-            Critic reviews
-          </Typography>
+        <Box component="section" aria-label="Critic reviews">
+          <ReviewsHeading title="Critic reviews" action={reviewAction} />
           <Grid container spacing={3}>
             {critics.map((review) => (
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={review.id}>
@@ -269,31 +254,25 @@ export default function TitleReviews({
           </Grid>
         </Box>
       )}
-      {loading ? (
-        <Skeleton variant="rounded" height={160} />
-      ) : (
-        <>
-          {!warning &&
-            !critics.length &&
-            !own.length &&
-            !top.length &&
-            !recent.length &&
-            !friends.length && (
-              <Typography color="text.secondary">
-                No reviews available for this title yet.
-              </Typography>
-            )}
-          <ReviewsSection title="Your review" reviews={own} />
-          {reviews?.userReview?.status === "PENDING" && (
-            <Typography color="text.secondary">
-              Your review is awaiting moderation.
-            </Typography>
-          )}
-          <ReviewsSection title="Recent reviews" reviews={recent} />
-          <ReviewsSection title="Top reviews" reviews={top} />
-          <ReviewsSection title="Friend reviews" reviews={friends} />
-        </>
-      )}
+      {!loading &&
+        !result.isError &&
+        !reviewAction &&
+        !critics.length &&
+        !top.length &&
+        !recent.length &&
+        !friends.length && (
+          <Typography color="text.secondary">
+            No reviews available for this title yet.
+          </Typography>
+        )}
+      <ReviewsSection
+        title="Recent reviews"
+        reviews={recent}
+        action={reviewAction}
+        loading={loading}
+      />
+      <ReviewsSection title="Top reviews" reviews={top} />
+      <ReviewsSection title="Friend reviews" reviews={friends} />
     </Box>
   );
 }

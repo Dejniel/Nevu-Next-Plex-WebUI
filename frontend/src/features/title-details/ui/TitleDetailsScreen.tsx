@@ -45,6 +45,7 @@ import { alpha } from "@mui/material/styles";
 import { AnimatePresence, motion } from "motion/react";
 import { AppDialog, StretchedLink, useConfirmModal } from "shared/ui";
 import TitleReviews from "./TitleReviews";
+import TitleReviewEditor from "./TitleReviewEditor";
 import TitleOverview from "./TitleOverview";
 import TitleDetails from "./TitleDetails";
 import TitleMedia from "./TitleMedia";
@@ -57,12 +58,17 @@ import {
   type MetadataUpdate,
 } from "features/media-actions/public";
 import { withoutExtra } from "entities/media/model";
-import { useCanManageServer, useServerSession } from "features/session/public";
+import {
+  useAuthSession,
+  useCanManageServer,
+  useServerSession,
+} from "features/session/public";
 import { useTitleExtras } from "../model/useTitleExtras";
 import ExpandableDescription from "./ExpandableDescription";
 import { libraryBrowseTo, mediaWatchTo } from "shared/lib/navigation";
 import { useTitleDetailsData } from "../model/useTitleDetailsData";
 import TitlePrimaryActions from "./TitlePrimaryActions";
+import { getReviewMetadataID } from "../model/titleReviewsQuery";
 import {
   openMediaListDialog,
   renderMediaListMenuItems,
@@ -113,7 +119,9 @@ function TitleDetailsScreen() {
   const [page, setPage] = useState<number>(0);
   const [editMetadataOpen, setEditMetadataOpen] = useState(false);
   const [matchOpen, setMatchOpen] = useState(false);
+  const [reviewTarget, setReviewTarget] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const sessionRevision = useAuthSession((state) => state.revision);
 
   const mid = searchParams.get("mid");
   const plexGuid = searchParams.get("pguid");
@@ -132,6 +140,10 @@ function TitleDetailsScreen() {
     setSelectedSeason,
     subtitles,
   } = useTitleDetailsData(mid, plexGuid);
+  const reviewIdentity = `${sessionRevision}:${data?.ratingKey}:${data?.guid}`;
+  const writeReview = getReviewMetadataID(data?.guid)
+    ? () => setReviewTarget(reviewIdentity)
+    : undefined;
   const capabilities = data
     ? getMediaActionCapabilities(data, {
         localItem: true,
@@ -173,6 +185,7 @@ function TitleDetailsScreen() {
   useEffect(() => {
     setEditMetadataOpen(false);
     setMatchOpen(false);
+    setReviewTarget(null);
     setNotice(null);
   }, [mid, plexGuid]);
 
@@ -549,6 +562,7 @@ function TitleDetailsScreen() {
                     onDataChanged={setData}
                     onEditMetadata={() => setEditMetadataOpen(true)}
                     onMatch={() => setMatchOpen(true)}
+                    onWriteReview={writeReview}
                   />
                 )}
               </Box>
@@ -794,11 +808,18 @@ function TitleDetailsScreen() {
               />
             )}
             {page === 3 && (
-              <TitleReviews data={data} />
+              <TitleReviews data={data} onWriteReview={writeReview} />
             )}
             {page === 4 && data && <TitleMedia data={data} />}
           </AnimatePresence>
         </Box>
+        {data && reviewTarget === reviewIdentity && (
+          <TitleReviewEditor
+            key={reviewIdentity}
+            item={data}
+            onClose={() => setReviewTarget(null)}
+          />
+        )}
         {data && capabilities?.canEditMetadata && (
           <EditMetadataDialog
             data={data}

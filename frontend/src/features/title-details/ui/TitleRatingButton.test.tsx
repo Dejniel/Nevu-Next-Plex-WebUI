@@ -36,7 +36,7 @@ async function clearRating(
   );
   await act(async () => trigger.click());
   const clear = Array.from(document.querySelectorAll("button")).find(
-    (button) => button.textContent === "Clear rating",
+    (button) => button.getAttribute("aria-label") === "Clear rating",
   )!;
   await act(async () => clear.click());
   return clear;
@@ -67,3 +67,28 @@ it.each([false, new Error("offline")])(
     expect(clear.disabled).toBe(false);
   },
 );
+
+it("disables the clear icon without a rating and opens reviews independently", async () => {
+  const onWriteReview = vi.fn();
+  await act(async () =>
+    root.render(
+      <TitleRatingButton
+        item={{ ratingKey: "12" } as Plex.Metadata}
+        onChanged={vi.fn()}
+        onWriteReview={onWriteReview}
+      />,
+    ),
+  );
+  const trigger = host.querySelector<HTMLButtonElement>('button[aria-label="Rate this title"]')!;
+  vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 38, 38));
+  await act(async () => trigger.click());
+  const clear = document.querySelector<HTMLButtonElement>('button[aria-label="Clear rating"]')!;
+  expect(clear.disabled).toBe(true);
+  expect(clear.getAttribute("title")).toBeNull();
+  const write = Array.from(document.querySelectorAll("button")).find(
+    (button) => button.textContent === "Write your own review",
+  )!;
+  await act(async () => write.click());
+  expect(onWriteReview).toHaveBeenCalledTimes(1);
+  expect(save).not.toHaveBeenCalled();
+});

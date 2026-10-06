@@ -70,7 +70,9 @@ On title pages, resize through desktop/mobile layouts and change text size.
 Check action overflow, keyboard focus, and original-file selection from the menu.
 Save and clear a rating, including a failed request. Check Plex reviews, spoiler
 expansion, creating/editing a review, failed saves, and profile changes during
-a save. Live review writes use the account’s Plex privacy settings.
+a save. Check the review editor from the star menu and both section headers;
+your review should appear once, first in Recent, immediately after saving.
+Live review writes use the account’s Plex privacy settings.
 
 For list browsing, create a collection and a video playlist in test Plex using
 the samples. Check their library views, search, empty states, and back links.
