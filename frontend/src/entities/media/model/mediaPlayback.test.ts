@@ -1,4 +1,4 @@
-import { planMediaPlayback, playbackDecisionPlan, playbackProfile } from "./mediaPlayback";
+import { planMediaPlayback, playbackDecisionPlan, playbackProfile, PlexPlaybackRefusal } from "./mediaPlayback";
 import type { MediaVersion } from "./mediaVersions";
 import type { VideoCapabilityProbe } from "shared/lib/video/capabilities";
 
@@ -298,6 +298,30 @@ it("retains the server reason when no playback is allowed", async () => {
   ).toThrow("Playback unavailable. Conversion is disabled.");
   expect(() => playbackDecisionPlan({ MediaContainer: {} }, request)).toThrow("did not return");
 });
+
+it.each([
+  { code: undefined, denied: false },
+  { code: 1001, denied: false },
+  { code: 2000, denied: true },
+  { code: 4000, denied: true },
+])(
+  "classifies conversion refusal from decision code $code without matching the message",
+  async ({ code: transcodeDecisionCode, denied }) => {
+    const request = await plan();
+    let refusal: unknown;
+    try {
+      playbackDecisionPlan({ MediaContainer: {
+        generalDecisionCode: 2000,
+        generalDecisionText: "Serwer nie może rozpocząć odtwarzania.",
+        transcodeDecisionCode,
+      } }, request);
+    } catch (error) {
+      refusal = error;
+    }
+    expect(refusal).toBeInstanceOf(PlexPlaybackRefusal);
+    expect(refusal).toMatchObject({ conversionDenied: denied });
+  },
+);
 
 it("interprets the selected audio and burn-in without extracting a duplicate subtitle", async () => {
   const request = await plan();

@@ -7,7 +7,7 @@ import {
   useAuthSession,
 } from "features/session/model";
 import { prepareMediaPlayback, releaseMediaPlayback } from "../api/mediaPlayback";
-import { planMediaPlayback, playbackPlanKey } from "./mediaPlayback";
+import { planMediaPlayback, playbackPlanKey, PlexPlaybackRefusal } from "./mediaPlayback";
 import type { MediaPlaybackQuality, PlexPlaybackSource } from "./mediaPlayback";
 import { getMediaVersions } from "./mediaVersions";
 import type { MediaVersion } from "./mediaVersions";
@@ -125,10 +125,25 @@ export function useMediaPlaybackSource(
         dispatch({ type: "source", run, attempt, plan, source });
       } catch (reason) {
         if (!isCurrent()) return;
+        let canTryOriginal = false;
+        if (
+          reason instanceof PlexPlaybackRefusal &&
+          reason.conversionDenied &&
+          (run.quality.bitrate ?? 0) > 0 &&
+          run.version
+        ) {
+          try {
+            canTryOriginal = (await planMediaPlayback(run.version, ORIGINAL)).copyVideo;
+          } catch {
+            // An unavailable browser capability cannot offer Original recovery.
+          }
+        }
+        if (!isCurrent()) return;
         dispatch({
           type: "failure",
           run,
           attempt,
+          canTryOriginal,
           failure: {
             kind: reason instanceof PlexRequestError ? "network" : "unknown",
             httpStatus: reason instanceof PlexRequestError ? reason.status : undefined,
@@ -171,6 +186,7 @@ export function useMediaPlaybackSource(
   return {
     source: "source" in state ? state.source : null,
     error: state.status === "failed" ? state.error : null,
+    canTryOriginal: state.status === "failed" && state.canTryOriginal && ownsSession(state.run),
     subtitleError:
       "source" in state && subtitleFailure?.sourceId === state.source.id
         ? subtitleFailure.message

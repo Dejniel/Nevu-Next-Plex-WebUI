@@ -135,13 +135,17 @@ are copied into segments; incompatible tracks and subtitle burn-in require
 conversion. Quality presets request H264 conversion regardless of the source's
 average bitrate; audio copying remains independent. Decisions must include an
 active video track; conversion success codes alone are insufficient. Original
-quality removes the bitrate limit while retaining segmented delivery. The Plex source type excludes
-original files; its ID owns the streaming session. Discover extras retain their
-independent resolver.
+quality removes the bitrate limit while retaining segmented delivery. The Plex
+source type excludes original files; its ID owns the streaming session. Discover
+extras retain their independent resolver.
 `useMediaPlaybackSource` owns cancellation, publication and session cleanup.
 After a decoder/format failure it permits one different H264/AAC conversion,
 also negotiated through `/decision`. Network retries belong to Shaka;
 access denial, missing files and network failures never trigger conversion.
+After a conversion refusal, explicit quality presets may offer Try Original if
+the capability plan can copy video. This user action keeps the resume position,
+uses segmented playback and leaves saved quality unchanged; the next item
+restores it.
 DASH targets use eight-second segments and `BreakNonKeyframes`, matching PMS's
 fixed index. The API supplies source traits for separate initialization and seek
 pre-roll. Shaka's response filter removes repeated MP4 initialization from media

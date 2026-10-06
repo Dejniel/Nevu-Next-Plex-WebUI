@@ -2,7 +2,8 @@ import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { prepareMediaPlayback, releaseMediaPlayback } from "../api/mediaPlayback";
-import { planMediaPlayback } from "./mediaPlayback";
+import { planMediaPlayback, PlexPlaybackRefusal } from "./mediaPlayback";
+import { PlexRequestError } from "shared/api/PlexClient";
 import type {
   PlexPlaybackPlan,
   PlexPlaybackSource,
@@ -150,6 +151,78 @@ it("does not bypass a failed decision by opening the file", async () => {
   expect(state.error).toBe("A Plex Pass is required.");
   expect(state.source).toBeNull();
   expect(prepareMediaPlayback).toHaveBeenCalledTimes(1);
+});
+it("offers user-controlled Original after conversion refusal without another Plex request", async () => {
+  quality = { bitrate: 12000 };
+  (planMediaPlayback as Mock).mockResolvedValueOnce(converted).mockResolvedValueOnce(stream);
+  (prepareMediaPlayback as Mock).mockRejectedValue(new PlexPlaybackRefusal("Server busy", true));
+  await render();
+  expect(state.error).toBe("Server busy");
+  expect(state.source).toBeNull();
+  expect(state.canTryOriginal).toBe(true);
+  expect(planMediaPlayback).toHaveBeenLastCalledWith(expect.anything(), {});
+  expect(prepareMediaPlayback).toHaveBeenCalledTimes(1);
+  quality = { bitrate: -1 };
+  (prepareMediaPlayback as Mock).mockImplementation(async () => prepared(stream));
+  await render();
+  expect(state.error).toBeNull();
+  expect(state.canTryOriginal).toBe(false);
+  expect(state.source).not.toBeNull();
+});
+it.each([
+  { reason: "unsupported codec", original: converted },
+  { reason: "burn-in subtitles", original: { ...converted, subtitles: "burn" } },
+])(
+  "does not offer Original when video needs conversion because of $reason",
+  async ({ original }) => {
+    quality = { bitrate: 12000 };
+    (planMediaPlayback as Mock).mockResolvedValueOnce(converted).mockResolvedValueOnce(original);
+    (prepareMediaPlayback as Mock).mockRejectedValue(new PlexPlaybackRefusal("Server busy", true));
+    await render();
+    expect(state.canTryOriginal).toBe(false);
+    expect(state.error).toBe("Server busy");
+  },
+);
+it.each([
+  { quality: {}, failure: new PlexPlaybackRefusal("Busy", true) },
+  { quality: { bitrate: -1 }, failure: new PlexPlaybackRefusal("Busy", true) },
+  { quality: { bitrate: 12000 }, failure: new PlexPlaybackRefusal("Denied", false) },
+  { quality: { bitrate: 12000 }, failure: new PlexRequestError(403, "Forbidden") },
+  { quality: { bitrate: 12000 }, failure: new Error("Unknown failure") },
+])("does not offer Original for an unchanged quality or unrelated refusal: %j", async (sample) => {
+  quality = sample.quality;
+  (prepareMediaPlayback as Mock).mockRejectedValue(sample.failure);
+  await render();
+  expect(state.canTryOriginal).toBe(false);
+  expect(planMediaPlayback).toHaveBeenCalledTimes(1);
+});
+it("preserves the Plex reason if probing Original fails", async () => {
+  quality = { bitrate: 12000 };
+  (planMediaPlayback as Mock).mockResolvedValueOnce(converted).mockRejectedValueOnce(new Error("Probe failed"));
+  (prepareMediaPlayback as Mock).mockRejectedValue(new PlexPlaybackRefusal("Server busy", true));
+  await render();
+  expect(state.canTryOriginal).toBe(false);
+  expect(state.error).toBe("Server busy");
+});
+it.each(["item", "profile"])("discards a late Original suggestion after a %s change", async (change) => {
+  let complete!: (plan: PlexPlaybackPlan) => void;
+  quality = { bitrate: 12000 };
+  (planMediaPlayback as Mock).mockResolvedValueOnce(converted).mockReturnValueOnce(
+    new Promise((resolve) => { complete = resolve; }),
+  );
+  (prepareMediaPlayback as Mock).mockRejectedValueOnce(new PlexPlaybackRefusal("Server busy", true));
+  await render();
+  if (change === "item") metadata = movie("2");
+  else {
+    session.scope = { serverId: "server", profileKey: "child" };
+    session.revision++;
+  }
+  await render();
+  const active = state.source;
+  await act(async () => complete(stream));
+  expect(state.source).toBe(active);
+  expect(state.canTryOriginal).toBe(false);
+  expect(state.error).toBeNull();
 });
 it("does not renegotiate an already compatible configuration", async () => {
   (planMediaPlayback as Mock).mockResolvedValue(converted);

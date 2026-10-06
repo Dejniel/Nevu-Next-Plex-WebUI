@@ -9,12 +9,18 @@ let mockVideoProps: VideoPlayerProps;
 let mockCurrentTime: number;
 let mockDuration: number;
 let mockItemID: string;
+let mockPlaybackError: string | undefined;
+let mockCanTryOriginal: boolean;
 const mockRecover = vi.fn();
 const mockSubtitleError = vi.fn();
+const mockTryOriginal = vi.fn();
+const mockReload = vi.fn();
+const mockPauseTogether = vi.fn();
 vi.mock("shared/ui", async () => {
   const React = await import("react");
   return {
-    AppDialog: () => null,
+    AppDialog: ({ open, actions, children }: { open: boolean; actions: React.ReactNode; children: React.ReactNode }) =>
+      open ? <div role="dialog">{children}{actions}</div> : null,
     CenteredSpinner: () => null,
     VideoPlayer: React.forwardRef(function MockVideo(
       props: VideoPlayerProps,
@@ -36,24 +42,33 @@ vi.mock("react-router-dom", () => ({
   useSearchParams: () => [new URLSearchParams("t=12000")],
 }));
 vi.mock("../model/usePlaybackMedia", () => ({
-  usePlaybackMedia: () => ({
+  usePlaybackMedia: (options: { setError: (error: string | false) => void }) => {
+    const error = mockPlaybackError;
+    const { setError } = options;
+    React.useEffect(() => { setError(error || false); }, [error, setError]);
+    return {
     metadata: { ratingKey: "42", type: "movie" },
     source: { id: "source", url: "/video", type: "dash" },
     reportSourceError: mockRecover,
     reportSubtitleError: mockSubtitleError,
     reportSourceReady: () => true,
-  }),
+    canTryOriginal: mockCanTryOriginal,
+    tryOriginal: mockTryOriginal,
+    reloadSource: mockReload,
+    };
+  },
 }));
 vi.mock("../model/usePlaybackTimeline", () => ({
   usePlaybackTimeline: vi.fn().mockReturnValue({ reportStopped: vi.fn() }),
 }));
 vi.mock("features/watch-together/public", () => ({
-  useWatchTogetherPlayback: () => ({ pause: vi.fn() }),
+  useWatchTogetherPlayback: () => ({ pause: mockPauseTogether }),
 }));
 vi.mock("./PlaybackControlsOverlay", () => ({ default: () => null }));
 vi.mock("./PlaybackInfoOverlay", () => ({ default: () => null }));
 
 let root: Root;
+let container: HTMLDivElement;
 const render = () =>
   act(async () => {
     root.render(<PlaybackScreen />);
@@ -66,10 +81,14 @@ beforeEach(() => {
   (usePlaybackTimeline as Mock).mockReturnValue({
     reportStopped: vi.fn(),
   });
-  root = createRoot(document.createElement("div"));
+  container = document.createElement("div");
+  root = createRoot(container);
   mockItemID = "42";
   mockDuration = 0;
   mockCurrentTime = 0;
+  mockPlaybackError = undefined;
+  mockCanTryOriginal = false;
+  mockTryOriginal.mockReturnValue(true);
   mockRecover.mockReturnValue(true);
 });
 afterEach(async () => {
@@ -148,4 +167,52 @@ it("reports subtitle warnings without applying a video fallback position", async
   expect(mockRecover).not.toHaveBeenCalled();
   await render();
   expect(mockVideoProps.startTime).toBe(12);
+});
+
+const clickOriginal = () => act(async () => {
+  const button = Array.from(container.querySelectorAll("button")).find((node) => node.textContent === "Try Original");
+  expect(button).toBeDefined();
+  button!.click();
+});
+
+it("offers Original only when the media model confirms recovery", async () => {
+  mockPlaybackError = "Maximum simultaneous video transcodes reached.";
+  await render();
+  expect(container.textContent).not.toContain("Try Original");
+  mockCanTryOriginal = true;
+  await render();
+  expect(container.textContent).toContain("Try Original");
+});
+
+it("tries Original at the initial resume position when no source has loaded", async () => {
+  mockPlaybackError = "Server busy";
+  mockCanTryOriginal = true;
+  await render();
+  await clickOriginal();
+  expect(mockTryOriginal).toHaveBeenCalledTimes(1);
+  expect(mockReload).not.toHaveBeenCalled();
+  expect(container.querySelector('[role="dialog"]')).toBeNull();
+  expect(mockVideoProps.startTime).toBe(12);
+  expect(mockVideoProps.playing).toBe(true);
+});
+
+it("tries Original at the captured failure position after the source is cleared", async () => {
+  await render();
+  await act(async () => mockVideoProps.onError!({ sourceId: "source", kind: "media", message: "decode", position: 7.25 }));
+  mockPlaybackError = "Server busy";
+  mockCanTryOriginal = true;
+  await render();
+  await clickOriginal();
+  expect(mockVideoProps.startTime).toBe(7.25);
+  expect(mockVideoProps.playing).toBe(true);
+});
+
+it("keeps the error visible if recovery is no longer available", async () => {
+  mockPlaybackError = "Server busy";
+  mockCanTryOriginal = true;
+  mockTryOriginal.mockReturnValue(false);
+  await render();
+  await clickOriginal();
+  expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+  expect(mockVideoProps.playing).toBe(false);
 });

@@ -110,6 +110,7 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     callbacks.current.onSourceChanging();
     setMetadata(null);
     setShowMetadata(null);
+    setQuality(parseStoredPlaybackQuality(localStorage.getItem("quality")));
     callbacks.current.setError(false);
 
     void (async () => {
@@ -313,6 +314,19 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
       persistPlaybackQuality(nextQuality);
   };
 
+  const tryOriginal = () => {
+    if (
+      !playbackSource.canTryOriginal ||
+      metadata?.ratingKey !== callbacks.current.itemID
+    )
+      return false;
+    operation.current += 1;
+    callbacks.current.onSourceChanging();
+    callbacks.current.setError(false);
+    setQuality({ bitrate: -1 });
+    return true;
+  };
+
   const downloadOnDemandSubtitle = async (subtitle: SubtitleSearchResult) => {
     const itemID = callbacks.current.itemID;
     if (!itemID || !metadata || !activeVersion)
@@ -363,6 +377,8 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
         ? playbackSource.reload()
         : setInitialRevision((revision) => revision + 1),
     quality,
+    canTryOriginal: playbackSource.canTryOriginal,
+    tryOriginal,
     activeVersion,
     mediaVersions,
     audioChoices,

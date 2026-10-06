@@ -126,12 +126,14 @@ function PlaybackSession({
     return () => window.clearTimeout(timeout);
   }, [playing]);
 
-  const reloadPlayback = () => {
+  const retryPlayback = (retry: () => void | boolean) => {
+    const position = playbackRuntime.getDuration() > 0
+      ? playbackRuntime.getCurrentTime()
+      : null;
+    if (retry() === false) return;
+    if (position !== null) playbackRuntime.requestResumeAt(position);
     setShowError(false);
-    if (playbackRuntime.getDuration() > 0)
-      playbackRuntime.requestResumeAt(playbackRuntime.getCurrentTime());
     playbackRuntime.setPlaying(true);
-    playbackMedia.reloadSource();
   };
 
   return (
@@ -173,7 +175,19 @@ function PlaybackSession({
         onClose={() => setShowError(false)}
         actions={
           <>
-            <Button variant="outlined" color="primary" onClick={reloadPlayback}>
+            {playbackMedia.canTryOriginal && (
+              <Button
+                variant="contained"
+                onClick={() => retryPlayback(playbackMedia.tryOriginal)}
+              >
+                Try Original
+              </Button>
+            )}
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={() => retryPlayback(playbackMedia.reloadSource)}
+            >
               Reload
             </Button>
             <Button
@@ -190,6 +204,11 @@ function PlaybackSession({
         }
       >
         <Typography sx={{ textAlign: "center" }}>{showError}</Typography>
+        {playbackMedia.canTryOriginal && (
+          <Typography sx={{ mt: 2, textAlign: "center" }}>
+            Try Original to play without video conversion. Your saved streaming quality will stay the same.
+          </Typography>
+        )}
       </AppDialog>
 
       <Box

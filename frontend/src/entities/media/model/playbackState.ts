@@ -29,6 +29,7 @@ export type PlaybackState =
       run: PlaybackOwner;
       attempt: PlaybackAttempt;
       error: string;
+      canTryOriginal: boolean;
     };
 
 export type PlaybackAction =
@@ -50,6 +51,7 @@ export type PlaybackAction =
       run: PlaybackOwner;
       attempt: PlaybackAttempt;
       failure: VideoPlaybackError;
+      canTryOriginal?: boolean;
     };
 
 export const idlePlayback: PlaybackState = {
@@ -94,5 +96,6 @@ export function playbackReducer(state: PlaybackState, action: PlaybackAction): P
         run: state.run,
         attempt: state.attempt,
         error: action.failure.message,
+        canTryOriginal: action.canTryOriginal ?? false,
       };
 }

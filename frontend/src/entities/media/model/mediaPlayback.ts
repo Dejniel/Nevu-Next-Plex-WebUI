@@ -11,6 +11,13 @@ export interface MediaPlaybackQuality {
   bitrate?: number;
 }
 
+export class PlexPlaybackRefusal extends Error {
+  constructor(message: string, readonly conversionDenied: boolean) {
+    super(message);
+    this.name = "PlexPlaybackRefusal";
+  }
+}
+
 export interface PlexPlaybackPlan {
   protocol: "hls" | "dash";
   copyVideo: boolean;
@@ -204,7 +211,7 @@ export function playbackDecisionPlan(
   if (!code || !Number.isFinite(code) || code < 1000)
     throw new Error("Plex did not return a playback decision.");
   if (code >= 2000)
-    throw new Error(
+    throw new PlexPlaybackRefusal(
       [
         container.generalDecisionText ?? container.mdeDecisionText,
         container.transcodeDecisionCode && container.transcodeDecisionCode >= 2000
@@ -213,6 +220,7 @@ export function playbackDecisionPlan(
       ]
         .filter((text, index, values) => text && values.indexOf(text) === index)
         .join(" ") || "Plex could not prepare this media for playback.",
+      (container.transcodeDecisionCode ?? 0) >= 2000,
     );
   const versions = container.Metadata?.[0]?.Media ?? [];
   const media = versions.find((media) => media.selected) ?? versions[0];
