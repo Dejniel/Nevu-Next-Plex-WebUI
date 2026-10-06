@@ -4,9 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { prepareMediaPlayback, releaseMediaPlayback } from "../api/mediaPlayback";
 import { planMediaPlayback } from "./mediaPlayback";
 import type {
-  MediaPlaybackRequest,
   PlexPlaybackPlan,
-  PlexStreamPlan,
   PlexPlaybackSource,
   MediaPlaybackQuality,
 } from "./mediaPlayback";
@@ -36,8 +34,7 @@ vi.mock("./mediaPlayback", async () => ({
   ...(await vi.importActual<typeof import("./mediaPlayback")>("./mediaPlayback")),
   planMediaPlayback: vi.fn(),
 }));
-const stream: PlexStreamPlan = {
-  kind: "plex",
+const stream: PlexPlaybackPlan = {
   protocol: "dash",
   copyVideo: true,
   copyAudio: true,
@@ -45,14 +42,10 @@ const stream: PlexStreamPlan = {
   audioCodec: "aac",
   subtitles: "none",
 };
-const converted: PlexStreamPlan = {
+const converted: PlexPlaybackPlan = {
   ...stream,
   copyVideo: false,
   copyAudio: false,
-};
-const request: MediaPlaybackRequest = {
-  original: { container: "mp4", videoCodec: "h264", audioCodec: "aac" },
-  stream,
 };
 function movie(id = "1"): Plex.Metadata {
   return {
@@ -91,10 +84,9 @@ function prepared(plan: PlexPlaybackPlan, context = { "X-Plex-Token": "owner" })
     plan,
     source: {
       id: `source-${++sequence}`,
-      type: plan.kind === "original" ? "file" : plan.protocol,
+      type: plan.protocol,
       url: "/media",
       requestContext: context,
-      sessionID: plan.kind === "original" ? undefined : `source-${sequence}`,
     } satisfies PlexPlaybackSource,
   };
 }
@@ -110,22 +102,22 @@ beforeEach(() => {
   sequence = 0;
   (releaseMediaPlayback as Mock).mockResolvedValue(undefined);
   (planMediaPlayback as Mock).mockImplementation(async (_version, _quality, intent) =>
-    intent === "compatible" ? { stream: converted } : request,
+    intent === "compatible" ? converted : stream,
   );
   (prepareMediaPlayback as Mock).mockImplementation(
-    async (_metadata, _version, _quality, options: MediaPlaybackRequest, context) =>
-      prepared(options.original ? { kind: "original" } : options.stream!, context),
+    async (_metadata, _version, _quality, plan: PlexPlaybackPlan, context) =>
+      prepared(plan, context),
   );
 });
 afterEach(async () => {
   await act(async () => root.unmount());
 });
 
-it("negotiates before publishing an original, then accepts only its readiness event", async () => {
+it("negotiates before publishing a stream, then accepts only its readiness event", async () => {
   await render();
   expect(planMediaPlayback).toHaveBeenCalledWith(expect.anything(), {}, "initial");
   expect(prepareMediaPlayback).toHaveBeenCalledTimes(1);
-  expect(state.source?.type).toBe("file");
+  expect(state.source?.type).toBe("dash");
   expect(state.loading).toBe(true);
   expect(state.reportReady("stale")).toBe(false);
   await act(async () => {
@@ -133,10 +125,10 @@ it("negotiates before publishing an original, then accepts only its readiness ev
   });
   expect(state.loading).toBe(false);
 });
-it("starts the negotiated Plex stream immediately when the original is unavailable", async () => {
-  (planMediaPlayback as Mock).mockResolvedValue({ stream });
+it("publishes negotiated HLS through the same lifecycle", async () => {
+  (planMediaPlayback as Mock).mockResolvedValue({ ...stream, protocol: "hls" });
   await render();
-  expect(state.source?.type).toBe("dash");
+  expect(state.source?.type).toBe("hls");
   expect(prepareMediaPlayback).toHaveBeenCalledTimes(1);
 });
 it("renegotiates one compatible fallback after an actual decoder failure", async () => {
@@ -160,7 +152,7 @@ it("does not bypass a failed decision by opening the file", async () => {
   expect(prepareMediaPlayback).toHaveBeenCalledTimes(1);
 });
 it("does not renegotiate an already compatible configuration", async () => {
-  (planMediaPlayback as Mock).mockResolvedValue({ stream: converted });
+  (planMediaPlayback as Mock).mockResolvedValue(converted);
   await render();
   await fail();
   expect(state.error).toBe("Decode failed");
@@ -168,8 +160,8 @@ it("does not renegotiate an already compatible configuration", async () => {
 });
 it("rejects a fallback that Plex resolves to the previous configuration", async () => {
   (planMediaPlayback as Mock)
-    .mockResolvedValueOnce({ stream })
-    .mockResolvedValueOnce({ stream: converted });
+    .mockResolvedValueOnce(stream)
+    .mockResolvedValueOnce(converted);
   (prepareMediaPlayback as Mock).mockImplementation(async () => prepared(stream));
   await render();
   await fail();
@@ -250,7 +242,7 @@ it("rejects events if authentication changes before React renders", async () => 
   expect(state.reportReady(sourceId)).toBe(false);
 });
 it("discards a late capability probe after selecting a different item", async () => {
-  let complete!: (request: MediaPlaybackRequest) => void;
+  let complete!: (plan: PlexPlaybackPlan) => void;
   (planMediaPlayback as Mock).mockReturnValueOnce(
     new Promise((resolve) => {
       complete = resolve;
@@ -260,7 +252,7 @@ it("discards a late capability probe after selecting a different item", async ()
   metadata = movie("2");
   await render();
   const active = state.source;
-  await act(async () => complete(request));
+  await act(async () => complete(stream));
   expect(state.source).toBe(active);
   expect(prepareMediaPlayback).toHaveBeenCalledTimes(1);
 });
@@ -304,8 +296,8 @@ it("cancels preparation on unmount and releases an ignored-abort response", asyn
 });
 it("releases the previous stream before reserving fallback capacity", async () => {
   (planMediaPlayback as Mock)
-    .mockResolvedValueOnce({ stream })
-    .mockResolvedValueOnce({ stream: converted });
+    .mockResolvedValueOnce(stream)
+    .mockResolvedValueOnce(converted);
   await render();
   let complete!: () => void;
   (releaseMediaPlayback as Mock).mockReturnValueOnce(

@@ -9,7 +9,6 @@ import type {
   PlexPlaybackDecision,
   PlexPlaybackPlan,
   PlexPlaybackSource,
-  MediaPlaybackRequest,
 } from "../model/mediaPlayback";
 
 const DASH_SEGMENT_SECONDS = 8;
@@ -17,17 +16,15 @@ const DASH_SEGMENT_SECONDS = 8;
 function playbackRequestParams(
   metadata: Plex.Metadata,
   version: MediaVersion,
-  request: MediaPlaybackRequest,
+  plan: PlexPlaybackPlan,
   quality: MediaPlaybackQuality,
   sessionID: string,
   requestContext: Record<string, unknown>,
 ) {
-  const { original, stream } = request;
-  const subtitle = stream?.subtitle ?? original?.subtitle;
   return {
     ...requestContext,
     "X-Plex-Client-Profile-Name": "Generic",
-    "X-Plex-Client-Profile-Extra": playbackProfile(request),
+    "X-Plex-Client-Profile-Extra": playbackProfile(plan),
     "X-Plex-Session-Identifier": sessionID,
     "X-Plex-Incomplete-Segments": 1,
     session: sessionID,
@@ -36,18 +33,17 @@ function playbackRequestParams(
     partIndex: version.partIndex,
     audioStreamID: version.part.Stream?.find((stream) => stream.streamType === 2 && stream.selected)
       ?.id,
-    subtitleStreamID: subtitle?.id ?? 0,
-    protocol: stream?.protocol ?? "http",
-    ...(stream?.protocol === "dash" ? { secondsPerSegment: DASH_SEGMENT_SECONDS } : {}),
-    directPlay: original ? 1 : 0,
-    directStream: stream?.copyVideo ? 1 : 0,
-    directStreamAudio: stream?.copyAudio ? 1 : 0,
-    // Native compatibility has been checked for this exact media/part selection.
-    hasMDE: original ? 1 : 0,
+    subtitleStreamID: plan.subtitle?.id ?? 0,
+    protocol: plan.protocol,
+    ...(plan.protocol === "dash" ? { secondsPerSegment: DASH_SEGMENT_SECONDS } : {}),
+    directPlay: 0,
+    directStream: plan.copyVideo ? 1 : 0,
+    directStreamAudio: plan.copyAudio ? 1 : 0,
+    hasMDE: 0,
     fastSeek: 0,
     audioBoost: 100,
     subtitleSize: 100,
-    subtitles: stream?.subtitles ?? (subtitle ? "sidecar" : "none"),
+    subtitles: plan.subtitles,
     autoAdjustQuality: 0,
     ...(quality.bitrate && quality.bitrate > 0 ? { maxVideoBitrate: quality.bitrate } : {}),
   };
@@ -66,7 +62,7 @@ export async function prepareMediaPlayback(
   metadata: Plex.Metadata,
   version: MediaVersion,
   quality: MediaPlaybackQuality,
-  request: MediaPlaybackRequest,
+  requestedPlan: PlexPlaybackPlan,
   requestContext: Record<string, unknown>,
   signal: AbortSignal,
 ): Promise<{ source: PlexPlaybackSource; plan: PlexPlaybackPlan }> {
@@ -76,7 +72,7 @@ export async function prepareMediaPlayback(
   const params = playbackRequestParams(
     metadata,
     version,
-    request,
+    requestedPlan,
     quality,
     sessionID,
     requestContext,
@@ -87,32 +83,24 @@ export async function prepareMediaPlayback(
       signal,
     );
     signal.throwIfAborted();
-    const plan = playbackDecisionPlan(decision, request);
+    const plan = playbackDecisionPlan(decision, requestedPlan);
     const source: PlexPlaybackSource = {
       id: sessionID,
       requestContext,
-      type: plan.kind === "original" ? "file" : plan.protocol,
-      url:
-        plan.kind === "original"
-          ? proxyMediaURL(version.part.key, {
-              ...requestContext,
-              "X-Plex-Session-Identifier": sessionID,
-              session: sessionID,
-            })
-          : proxyMediaURL(
-              `/video/:/transcode/universal/start.${plan.protocol === "hls" ? "m3u8" : "mpd"}`,
-              params,
-            ),
-      sessionID: plan.kind === "original" ? undefined : sessionID,
-      stripSegmentInitialization: plan.kind === "plex" && plan.protocol === "dash",
+      type: plan.protocol,
+      url: proxyMediaURL(
+        `/video/:/transcode/universal/start.${plan.protocol === "hls" ? "m3u8" : "mpd"}`,
+        params,
+      ),
+      stripSegmentInitialization: plan.protocol === "dash",
       // Copied fragments can begin between keyframes. Fetch preceding media on
       // a seek so the decoder can reach the requested position without a gap jump.
       seekPreRoll:
-        plan.kind === "plex" && plan.protocol === "dash" && plan.copyVideo
+        plan.protocol === "dash" && plan.copyVideo
           ? 2 * DASH_SEGMENT_SECONDS
           : undefined,
     };
-    if (plan.subtitle && (plan.kind === "original" || plan.subtitles === "sidecar")) {
+    if (plan.subtitle && plan.subtitles === "sidecar") {
       source.subtitleSessionID = uuidV4();
       source.loadTextTracks = (signal) =>
         loadSubtitleTracks(metadata, version, plan, source, signal);
@@ -224,8 +212,6 @@ async function stopSessions(
 }
 
 export async function pingMediaPlayback(source: PlexPlaybackSource) {
-  if (source.sessionID) {
-    const response = await fetch(sessionURL(source.requestContext, source.sessionID, "ping"));
-    if (!response.ok) throw new Error("Plex could not keep the playback session alive.");
-  }
+  const response = await fetch(sessionURL(source.requestContext, source.id, "ping"));
+  if (!response.ok) throw new Error("Plex could not keep the playback session alive.");
 }

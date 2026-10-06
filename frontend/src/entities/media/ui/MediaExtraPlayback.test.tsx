@@ -14,7 +14,7 @@ const mockRecover = vi.fn();
 const mockSubtitleError = vi.fn();
 vi.mock("../model/useMediaPlaybackSource", () => ({
   useMediaPlaybackSource: () => ({
-    source: { id: "source", url: "/file", type: "file" },
+    source: { id: "source", url: "/stream", type: "dash" },
     error: null,
     reportError: mockRecover,
     reportSubtitleError: mockSubtitleError,

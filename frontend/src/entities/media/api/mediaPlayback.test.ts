@@ -1,9 +1,9 @@
 import type { Mock } from "vitest";
 import { ProxiedRequest } from "shared/api/backend";
 import { PlexRequestError } from "shared/api/PlexClient";
-import { prepareMediaPlayback, releaseMediaPlayback } from "./mediaPlayback";
+import { prepareMediaPlayback, releaseMediaPlayback, pingMediaPlayback } from "./mediaPlayback";
 import type { MediaVersion } from "../model/mediaVersions";
-import type { MediaPlaybackRequest } from "../model/mediaPlayback";
+import type { PlexPlaybackPlan } from "../model/mediaPlayback";
 import { uuidV4 } from "shared/lib/identifiers";
 
 vi.mock("shared/api/backend", () => ({
@@ -21,16 +21,13 @@ const version = {
   },
 } as MediaVersion;
 const metadata = { ratingKey: "42" } as Plex.Metadata;
-const request: MediaPlaybackRequest = {
-  stream: {
-    kind: "plex",
-    protocol: "dash",
-    copyVideo: true,
-    copyAudio: true,
-    videoCodec: "h264",
-    audioCodec: "aac",
-    subtitles: "none",
-  },
+const request: PlexPlaybackPlan = {
+  protocol: "dash",
+  copyVideo: true,
+  copyAudio: true,
+  videoCodec: "h264",
+  audioCodec: "aac",
+  subtitles: "none",
 };
 const context = { "X-Plex-Token": "owning-profile" };
 const prepare = (options = request, quality = {}, signal = new AbortController().signal) =>
@@ -65,7 +62,6 @@ it("prepares and starts a stream with the same session and identical parameters"
   expect(start.searchParams.has("maxVideoBitrate")).toBe(false);
   expect(source).toMatchObject({
     id: "session-42",
-    sessionID: "session-42",
     type: "dash",
     stripSegmentInitialization: true,
     seekPreRoll: 16,
@@ -82,32 +78,26 @@ it("prepares and starts a stream with the same session and identical parameters"
   );
   expect(fetch).not.toHaveBeenCalled();
 });
-it("also negotiates an original before exposing its URL", async () => {
+it("rejects an unexpected Direct Play decision without exposing the original URL", async () => {
   (ProxiedRequest as Mock).mockResolvedValue({
     status: 200,
     data: { MediaContainer: { generalDecisionCode: 1000 } },
   });
-  const { source } = await prepare({
-    ...request,
-    original: { container: "mkv", videoCodec: "h264", audioCodec: "aac" },
-  });
-  expect(source).toMatchObject({ type: "file", sessionID: undefined });
-  expect(new URL(source.url).pathname).toBe("/dynproxy/library/parts/20/file.mkv");
+  await expect(prepare()).rejects.toThrow("did not prepare the requested segmented stream");
   const params = decisionRequest().searchParams;
-  expect(params.get("directPlay")).toBe("1");
-  expect(params.get("hasMDE")).toBe("1");
-  expect(params.get("X-Plex-Client-Profile-Extra")).toContain("add-direct-play-profile");
-  expect(fetch).not.toHaveBeenCalled();
+  expect(params.get("directPlay")).toBe("0");
+  expect(params.get("X-Plex-Client-Profile-Extra")).not.toContain("add-direct-play-profile");
+  expect(new URL((fetch as Mock).mock.calls[0][0]).pathname).toBe(
+    "/dynproxy/video/:/transcode/universal/stop",
+  );
 });
 it("keeps quality and HLS conversion choices in preparation and start", async () => {
   const { source } = await prepare(
     {
-      stream: {
-        ...request.stream!,
-        protocol: "hls",
-        copyVideo: false,
-        copyAudio: false,
-      },
+      ...request,
+      protocol: "hls",
+      copyVideo: false,
+      copyAudio: false,
     },
     { bitrate: 240 },
   );
@@ -123,11 +113,9 @@ it("reserves independent lazy subtitle extraction after video preparation", asyn
   (uuidV4 as Mock).mockReturnValueOnce("video-session").mockReturnValueOnce("subtitle-session");
   const { source } = await prepare(
     {
-      stream: {
-        ...request.stream!,
-        subtitles: "sidecar",
-        subtitle: { id: 6, languageCode: "eng" } as Plex.Stream,
-      },
+      ...request,
+      subtitles: "sidecar",
+      subtitle: { id: 6, languageCode: "eng" } as Plex.Stream,
     },
     { bitrate: 240 },
   );
@@ -151,11 +139,9 @@ it("reserves independent lazy subtitle extraction after video preparation", asyn
 });
 it("keeps subtitle HTTP failures separate from video failure", async () => {
   const { source } = await prepare({
-    stream: {
-      ...request.stream!,
-      subtitles: "sidecar",
-      subtitle: { id: 6 } as Plex.Stream,
-    },
+    ...request,
+    subtitles: "sidecar",
+    subtitle: { id: 6 } as Plex.Stream,
   });
   (ProxiedRequest as Mock).mockResolvedValue({
     status: 403,
@@ -215,15 +201,8 @@ it("does not reserve a session when already aborted", async () => {
   expect(ProxiedRequest).not.toHaveBeenCalled();
   expect(fetch).not.toHaveBeenCalled();
 });
-it("releases an original reservation and retains unload credentials", async () => {
-  (ProxiedRequest as Mock).mockResolvedValue({
-    status: 200,
-    data: { MediaContainer: { generalDecisionCode: 1000 } },
-  });
-  const { source } = await prepare({
-    original: { container: "mp4", videoCodec: "h264", audioCodec: "aac" },
-    stream: null,
-  });
+it("releases its stream session and retains unload credentials", async () => {
+  const { source } = await prepare();
   await releaseMediaPlayback(source, true);
   const stop = new URL((fetch as Mock).mock.calls[0][0]);
   expect(stop.pathname).toBe("/dynproxy/video/:/transcode/universal/stop");
@@ -233,4 +212,13 @@ it("releases an original reservation and retains unload credentials", async () =
     keepalive: true,
     signal: expect.any(AbortSignal),
   });
+});
+
+it("pings the source's owning session", async () => {
+  const { source } = await prepare();
+  await pingMediaPlayback(source);
+  const ping = new URL((fetch as Mock).mock.calls[0][0]);
+  expect(ping.pathname).toBe("/dynproxy/video/:/transcode/universal/ping");
+  expect(ping.searchParams.get("session")).toBe(source.id);
+  expect(ping.searchParams.get("X-Plex-Token")).toBe("owning-profile");
 });

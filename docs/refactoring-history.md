@@ -2,6 +2,16 @@
 
 Status: structural migration completed on 2026-09-29
 
+## Segmented Plex playback — 2026-10-06
+
+Removed automatic original-file playback from the Plex model and API. One
+HLS/DASH plan now negotiates copied or converted tracks through `/decision`;
+Original quality retains segmented delivery. Source IDs own playback sessions.
+Discover keeps its independent resolver. Verification: 580 frontend tests,
+types/lint/build, Docker build and 16 Chromium/Plex scenarios. A ten-minute MP4
+with end-of-file metadata started within two seconds after fetching 7.3 MB of
+its 136 MB, retained a bounded buffer and passed forward/backward seeking.
+
 ## Cache review corrections — 2026-10-06
 
 Fixed changing demand during atomic window refresh, retained prior parent

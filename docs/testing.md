@@ -44,11 +44,15 @@ For playback checks, generate synthetic samples with local FFmpeg:
 bash tools/generate-playback-samples.sh "$PLEX_TEST_MEDIA_PATH/PlaybackSamples"
 ```
 
-Add `/data/PlaybackSamples` as a movie library. Samples cover MP4, MKV with two
+Add `/data/PlaybackSamples` as a movie library. Samples cover MP4 (including a
+ten-minute file with metadata at the end), MKV with two
 audio tracks and SRT, AC3, styled ASS, VP9 (libvpx), and HEVC Main 10 (libx265).
 Check Original, lower bitrate, track changes while paused, subtitles, seeking,
-resume, trailers, and Watch Together. Every local source must be negotiated through
-`/decision`; stream preparation/start must use the same session and parameters.
+resume, trailers, and Watch Together. Every Plex source must negotiate HLS/DASH
+through `/decision`; preparation/start must use the same session and parameters.
+Original quality must still fetch segments, with no video request to
+`/library/parts/.../file`. Verify start before the complete media is downloaded
+and bounded buffering on a long sample, including MP4 with metadata at the end.
 After a decoder/format failure, allow one different negotiated H264/AAC alternative.
 Network retries must keep the source/session, and subtitle failures must warn
 without restarting video. Check retained pause/position, stale events after an

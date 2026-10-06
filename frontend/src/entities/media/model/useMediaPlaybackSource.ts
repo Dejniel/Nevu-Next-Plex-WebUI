@@ -97,19 +97,18 @@ export function useMediaPlaybackSource(
         if (!run.version?.part.key) throw new Error("No playable media file is available.");
         await releasing.current;
         if (!isCurrent()) return;
-        const request = await planMediaPlayback(run.version, run.quality, attempt.kind);
+        const requestedPlan = await planMediaPlayback(run.version, run.quality, attempt.kind);
         if (!isCurrent()) return;
         if (
           attempt.kind === "compatible" &&
-          (!request.stream ||
-            playbackPlanKey(request.stream) === playbackPlanKey(attempt.failedPlan))
+          playbackPlanKey(requestedPlan) === playbackPlanKey(attempt.failedPlan)
         )
           throw new Error(attempt.failure.message);
         const { source, plan } = await prepareMediaPlayback(
           run.metadata,
           run.version,
           run.quality,
-          request,
+          requestedPlan,
           run.requestContext,
           controller.signal,
         );

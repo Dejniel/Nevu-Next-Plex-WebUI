@@ -38,7 +38,7 @@ vi.mock("react-router-dom", () => ({
 vi.mock("../model/usePlaybackMedia", () => ({
   usePlaybackMedia: () => ({
     metadata: { ratingKey: "42", type: "movie" },
-    source: { id: "source", url: "/video", type: "file" },
+    source: { id: "source", url: "/video", type: "dash" },
     reportSourceError: mockRecover,
     reportSubtitleError: mockSubtitleError,
     reportSourceReady: () => true,

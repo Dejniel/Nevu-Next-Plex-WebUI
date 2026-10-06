@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Generate small synthetic files for the standalone Plex test library.
+# Generate synthetic files for the standalone Plex test library.
 # Existing files are retained. FFmpeg is only needed on the machine generating samples.
 command -v ffmpeg >/dev/null || { echo 'Install FFmpeg to generate playback samples.' >&2; exit 1; }
 samples_dir="${1:-/tmp/nevu-test-media/PlaybackSamples}"
 mkdir -p "$samples_dir"
 mp4_sample="$samples_dir/Nevu MP4 Sample (2026).mp4"
+long_mp4_sample="$samples_dir/Nevu Long MP4 Sample (2026).mp4"
 mkv_sample="$samples_dir/Nevu MKV Sample (2026).mkv"
 ac3_sample="$samples_dir/Nevu AC3 Sample (2026).mkv"
 hevc_sample="$samples_dir/Nevu HEVC Sample (2026).mkv"
@@ -31,6 +32,11 @@ if [[ ! -f "$mp4_sample" ]]; then
     -f lavfi -i 'testsrc2=size=640x360:rate=24:duration=60' \
     -f lavfi -i 'sine=frequency=440:sample_rate=48000:duration=60' \
     -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -movflags +faststart "$mp4_sample"
+fi
+if [[ ! -f "$long_mp4_sample" ]]; then
+  # Ten minutes, with MP4 metadata at the end, to check segmented start/buffering.
+  ffmpeg -hide_banner -loglevel error -n -stream_loop 9 -i "$mp4_sample" \
+    -map 0 -c copy -t 600 "$long_mp4_sample"
 fi
 if [[ ! -f "$mkv_sample" ]]; then
   ffmpeg -hide_banner -loglevel error -n -i "$mp4_sample" \
