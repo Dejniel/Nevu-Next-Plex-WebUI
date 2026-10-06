@@ -7,7 +7,7 @@ import { serverQueryClient as client } from "shared/api/queryClient";
 import { createMediaListSource } from "../api/mediaLists";
 import { listPageOptions, mediaListWindowKey } from "./listPages";
 import { applyMediaListChanges } from "./listSync";
-import { useMediaList } from "./useMediaList";
+import { useMediaList, useMediaListWindow } from "./useMediaList";
 import type { MediaListPage, MediaListQuery } from "./mediaLists";
 import type { LibraryCardDto } from "@nevu/contracts";
 
@@ -41,15 +41,17 @@ const response = (offset: number, total = 500): MediaListPage => ({
 let root: Root;
 let query: MediaListQuery;
 let state: ReturnType<typeof useMediaList>;
+let range = { start: 0, end: 0, visibleStart: 0, visibleEnd: 0 };
 function Harness() {
-  state = useMediaList(query);
+  state = useMediaList(useMediaListWindow(query), range);
   return null;
 }
 const render = async () => {
   await act(async () => root.render(<Harness />));
 };
 const demand = async (start: number, end = start + 99) => {
-  await act(async () => state.requestRange({ start, end, visibleStart: start, visibleEnd: end }));
+  range = { start, end, visibleStart: start, visibleEnd: end };
+  await render();
 };
 const refresh = () =>
   client.invalidateQueries({ queryKey: mediaListWindowKey(scope, query), exact: true });
@@ -88,6 +90,7 @@ beforeEach(() => {
   });
   useUserSettings.setState({ profileKey: scope.profileKey });
   query = { kind: "playlist", id: "20" };
+  range = { start: 0, end: 0, visibleStart: 0, visibleEnd: 0 };
   root = createRoot(document.createElement("div"));
   summary.mockResolvedValue({
     kind: "playlist",
@@ -129,7 +132,7 @@ it("shares the first page across consumers and ignores playlist navigation libra
   await render();
   const second = createRoot(document.createElement("div"));
   function Other() {
-    useMediaList({ ...query, libraryID: "99" });
+    useMediaList(useMediaListWindow({ ...query, libraryID: "99" }));
     return null;
   }
   await act(async () => second.render(<Other />));
@@ -157,6 +160,7 @@ it("resets demand when changing lists and makes no requests without a profile", 
   await render();
   await demand(300);
   query = { kind: "playlist", id: "21" };
+  range = { start: 0, end: 0, visibleStart: 0, visibleEnd: 0 };
   await render();
   expect(page.mock.calls.map(([offset]) => offset)).toEqual([0, 300, 0]);
   await act(async () => useUserSettings.setState({ profileKey: null }));

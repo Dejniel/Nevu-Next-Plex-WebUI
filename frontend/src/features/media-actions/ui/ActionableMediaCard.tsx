@@ -8,7 +8,7 @@ import {
   openMediaListDialog,
   type MediaListKind,
 } from "features/media-lists/public";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { memo, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { mediaDetailsTo } from "shared/lib/navigation";
 import { useBigReader, useConfirmModal } from "shared/ui";
@@ -47,7 +47,7 @@ export type ActionableMediaCardProps = Omit<
   playbackTo?: string;
 };
 
-export default function ActionableMediaCard({
+function ActionableMediaCard({
   item,
   PlexTvSource = false,
   canPlay = true,
@@ -303,3 +303,5 @@ export default function ActionableMediaCard({
     </>
   );
 }
+
+export default memo(ActionableMediaCard);

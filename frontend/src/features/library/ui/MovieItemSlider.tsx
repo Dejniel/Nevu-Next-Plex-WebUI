@@ -9,7 +9,7 @@ import { Link, To, useLocation } from "react-router-dom";
 import { shuffleArray } from "shared/lib/arrays";
 import { ActionableMediaCard } from "features/media-actions/public";
 import { getLibraryCardWidth, LibraryCardLayout } from "./LibraryCardViewControls";
-import { useLibraryPages } from "../model/useLibraryPages";
+import { useLibraryPages, useLibraryWindow } from "../model/useLibraryPages";
 import type { LibraryQuery } from "../model/libraryQuery";
 import { libraryBrowseTo } from "shared/lib/navigation";
 
@@ -54,7 +54,7 @@ function MovieItemSlider({
     const metadata = directory.data.Metadata ?? [];
     return shuffle ? shuffleArray(metadata) : metadata;
   }, [data, dir, directory.data, shuffle]);
-  const queryRange = useLibraryPages(query, {
+  const queryRange = useLibraryPages(useLibraryWindow(query), {
     start: 0,
     end: QUERY_SHELF_LIMIT - 1,
     visibleStart: 0,

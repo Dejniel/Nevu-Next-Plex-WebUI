@@ -1,6 +1,6 @@
 import { Box } from "@mui/material";
 import { useVirtualizer, useWindowVirtualizer } from "@tanstack/react-virtual";
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 
 export interface GridRange {
   start: number;
@@ -9,7 +9,7 @@ export interface GridRange {
   visibleEnd: number;
 }
 
-interface VirtualGridProps {
+interface VirtualGridOptions {
   count: number | null;
   minimumCount?: number;
   itemWidth: number;
@@ -18,15 +18,12 @@ interface VirtualGridProps {
   resetKey?: string | null;
   observeRef?: React.RefObject<HTMLElement | null>;
   scrollElementRef?: React.RefObject<HTMLDivElement | null>;
-  onRangeChange?: (range: GridRange) => void;
-  itemKey?: (index: number) => React.Key;
-  renderItem: (index: number, imageSizes: string) => React.ReactNode;
 }
 
 const GAP = 16;
 
-/** A virtual card layout; callers own data, actions, loading and errors. */
-export default function VirtualGrid({
+/** Compute the current range before the caller reads its pages. */
+export function useVirtualGrid({
   count,
   minimumCount = 0,
   itemWidth,
@@ -35,16 +32,14 @@ export default function VirtualGrid({
   resetKey,
   observeRef,
   scrollElementRef,
-  onRangeChange,
-  itemKey,
-  renderItem,
-}: VirtualGridProps) {
-  const gridRef = useRef<HTMLDivElement>(null);
+}: VirtualGridOptions) {
+  const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null);
   const [geometry, setGeometry] = useState({ width: 0, top: 0 });
-  const previousKey = useRef<string | null | undefined>(undefined);
+  const [activeKey, setActiveKey] = useState<string | null | undefined>(undefined);
+  const positioned = !resetKey || activeKey === resetKey;
 
   useLayoutEffect(() => {
-    const grid = gridRef.current;
+    const grid = gridElement;
     if (!grid) return;
     let frame = 0;
     const update = () => {
@@ -77,7 +72,7 @@ export default function VirtualGrid({
       observer.disconnect();
       window.removeEventListener("resize", schedule);
     };
-  }, [observeRef, scrollElementRef]);
+  }, [gridElement, observeRef, scrollElementRef]);
 
   const columns = Math.max(
     1,
@@ -101,11 +96,11 @@ export default function VirtualGrid({
   };
   const windowGrid = useWindowVirtualizer({
     ...options,
-    enabled: !scrollElementRef,
+    enabled: Boolean(gridElement) && positioned && !scrollElementRef,
   });
   const containedGrid = useVirtualizer<HTMLDivElement, HTMLDivElement>({
     ...options,
-    enabled: Boolean(scrollElementRef),
+    enabled: Boolean(gridElement && scrollElementRef) && positioned,
     getScrollElement: () => scrollElementRef?.current ?? null,
   });
   const virtualizer = scrollElementRef ? containedGrid : windowGrid;
@@ -118,7 +113,8 @@ export default function VirtualGrid({
     virtualizer.measure();
   }, [columns, rowHeight, virtualizer]);
   useLayoutEffect(() => {
-    if (resetKey && previousKey.current !== resetKey) {
+    if (!gridElement) return;
+    if (resetKey && activeKey !== resetKey) {
       if (scrollElementRef?.current) scrollElementRef.current.scrollTop = 0;
       else
         window.scrollTo({
@@ -126,49 +122,59 @@ export default function VirtualGrid({
           behavior: "instant",
         });
     }
-    previousKey.current = resetKey;
-  }, [geometry.top, resetKey, scrollElementRef]);
-  useEffect(() => {
-    if (!onRangeChange || !displayCount) return;
-    const relativeScroll = Math.max(0, scrollOffset - geometry.top);
-    const viewportHeight =
-      scrollElementRef?.current?.clientHeight ?? window.innerHeight;
-    onRangeChange({
-      start: firstRow * columns,
-      end: Math.min(displayCount - 1, (lastRow + 1) * columns - 1),
-      visibleStart: Math.floor(relativeScroll / rowHeight) * columns,
-      visibleEnd: Math.min(
-        displayCount - 1,
-        (Math.ceil((relativeScroll + viewportHeight) / rowHeight) + 1) *
-          columns -
-          1,
-      ),
-    });
-  }, [
+    setActiveKey(resetKey);
+  }, [activeKey, geometry.top, gridElement, resetKey, scrollElementRef]);
+  const relativeScroll = Math.max(0, scrollOffset - geometry.top);
+  const viewportHeight = scrollElementRef?.current?.clientHeight ?? window.innerHeight;
+  const range: GridRange = {
+    start: firstRow * columns,
+    end: Math.max(0, Math.min(displayCount - 1, (lastRow + 1) * columns - 1)),
+    visibleStart: Math.floor(relativeScroll / rowHeight) * columns,
+    visibleEnd: Math.max(0, Math.min(
+      displayCount - 1,
+      (Math.ceil((relativeScroll + viewportHeight) / rowHeight) + 1) * columns - 1,
+    )),
+  };
+  return {
+    ref: setGridElement,
+    range,
+    rows,
     columns,
-    displayCount,
-    firstRow,
-    geometry.top,
-    lastRow,
-    onRangeChange,
     rowHeight,
-    scrollElementRef,
-    scrollOffset,
-  ]);
+    displayCount,
+    cardWidth,
+    itemWidth,
+    top: geometry.top,
+    height: virtualizer.getTotalSize(),
+    measureElement: virtualizer.measureElement,
+  };
+}
+
+/** Render only the rows computed by useVirtualGrid; features supply their data. */
+export default function VirtualGrid({
+  grid,
+  itemKey,
+  renderItem,
+}: {
+  grid: ReturnType<typeof useVirtualGrid>;
+  itemKey?: (index: number) => React.Key;
+  renderItem: (index: number, imageSizes: string) => React.ReactNode;
+}) {
+  const { rows, columns, rowHeight, displayCount, cardWidth, itemWidth, top } = grid;
 
   return (
     <Box
-      ref={gridRef}
+      ref={grid.ref}
       sx={{
         width: "100%",
-        height: virtualizer.getTotalSize(),
+        height: grid.height,
         position: "relative",
       }}
     >
       {rows.map((row) => (
         <Box
           key={row.key}
-          ref={virtualizer.measureElement}
+          ref={grid.measureElement}
           data-index={row.index}
           sx={{
             position: "absolute",
@@ -176,7 +182,7 @@ export default function VirtualGrid({
             left: 0,
             width: "100%",
             height: rowHeight,
-            transform: `translateY(${row.start - geometry.top}px)`,
+            transform: `translateY(${row.start - top}px)`,
             display: "grid",
             gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
             gap: `${GAP}px`,

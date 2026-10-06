@@ -98,6 +98,9 @@ descriptor containing only the published revision. `shared/lib/queryWindow`
 prepares and validates replacement pages before publication; a small transport
 limiter bounds page work. Pending refreshes follow Query's live observers,
 cancelling obsolete queued/running pages while retaining shared demand.
+First-page hooks supply grid counts; `useVirtualGrid` computes the current range
+before page hooks read it in the same render. Cached jumps render available cards
+immediately. Memoized actionable cards skip unchanged props during scrolling.
 Summaries publish with list pages, and repeated playlist
 entries retain their positions and IDs. Canonical metadata is shared by cards,
 previews, Home, details and playback selection. Sections, directories, recommendation

@@ -5,7 +5,7 @@ import type { LibraryPageDto, LibraryPageRequest } from "@nevu/contracts";
 import { useServerSession } from "features/session/model";
 import { serverQueryClient as client } from "shared/api/queryClient";
 import { getLibraryPage, LibraryPageError } from "../api/libraryPage";
-import { useLibraryPages } from "./useLibraryPages";
+import { useLibraryPages, useLibraryWindow } from "./useLibraryPages";
 import { libraryWindowKey } from "./libraryPages";
 import { libraryPageQueryKey, type LibraryQuery } from "./libraryQuery";
 import { applyLibraryChanges } from "./librarySync";
@@ -59,7 +59,7 @@ function Harness({
   value?: LibraryQuery;
   name?: string;
 }) {
-  const result = useLibraryPages(value, {
+  const result = useLibraryPages(useLibraryWindow(value), {
     start,
     end: start + 20,
     visibleStart: start,

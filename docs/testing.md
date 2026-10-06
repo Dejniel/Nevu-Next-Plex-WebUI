@@ -79,6 +79,9 @@ the samples. Check their library views, search, empty states, and back links.
 Verify playlist order with Next, playback completion, and returning to the list;
 include repeated titles, episodes, and another profile when available. For large
 lists, check the last item and retry a failed page or playback queue.
+Jump away and back to cached ranges: cards should appear without an intervening
+empty frame or another page read. Check poster crossfades (500 ms), reduced motion,
+window/contained scrolling, resizing and lists with an initially unknown total.
 Check adding from cards and title details to existing and new lists, preserving
 their contents, and action availability for users without management permission.
 Change titles and list contents in Plex while browsing Nevu; check background

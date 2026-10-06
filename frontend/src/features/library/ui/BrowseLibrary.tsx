@@ -41,7 +41,7 @@ import {
   librarySortOptions,
 } from "../model/librarySort";
 import { getLibraryRandomSeed, replaceLibraryRandomSeed } from "../model/libraryRandom";
-import { useLibraryPages } from "../model/useLibraryPages";
+import { useLibraryWindow } from "../model/useLibraryPages";
 import type { LibraryQuery } from "../model/libraryQuery";
 
 function isLibraryItemType(value: string | null | undefined): value is LibraryItemType {
@@ -198,7 +198,7 @@ function BrowseLibraryContent({
       sort: effectiveSort,
     };
   }, [baseQuery, effectiveSort, randomSeed, randomSeedContext]);
-  const range = useLibraryPages(query);
+  const range = useLibraryWindow(query);
   const itemCount = range.totalSize?.toLocaleString();
   const typeSelector = (
     <Select

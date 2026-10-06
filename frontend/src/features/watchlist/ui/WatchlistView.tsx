@@ -23,7 +23,7 @@ import { ActionableMediaCard } from "features/media-actions/public";
 import { useUserSettings } from "features/settings/model";
 import React, { useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import VirtualGrid from "shared/ui/VirtualGrid";
+import VirtualGrid, { useVirtualGrid } from "shared/ui/VirtualGrid";
 import {
   selectWatchlistItems,
   type WatchlistSort,
@@ -77,6 +77,15 @@ export default function WatchlistView({
     (Boolean(profileKey) && watchlist.isPending) ||
     (libraryOnly && availability.loading);
   const unavailableScope = libraryOnly && Boolean(availability.error);
+
+  const grid = useVirtualGrid({
+    count: selected.length,
+    itemWidth: getLibraryCardWidth(cardView.layout, cardView.size),
+    imageAspectRatio: cardView.layout === "poster" ? 2 / 3 : 16 / 9,
+    footerHeight: 94,
+    observeRef: toolbarRef,
+    resetKey: `${libraryID ?? "all"}:${libraryOnly}:${search}:${sort}`,
+  });
 
   return (
     <LibraryBrowseFrame
@@ -164,12 +173,7 @@ export default function WatchlistView({
         </Box>
       ) : selected.length > 0 ? (
         <VirtualGrid
-          count={selected.length}
-          itemWidth={getLibraryCardWidth(cardView.layout, cardView.size)}
-          imageAspectRatio={cardView.layout === "poster" ? 2 / 3 : 16 / 9}
-          footerHeight={94}
-          observeRef={toolbarRef}
-          resetKey={`${libraryID ?? "all"}:${libraryOnly}:${search}:${sort}`}
+          grid={grid}
           itemKey={(index) => selected[index].guid}
           renderItem={(index, imageSizes) => {
             const remote = selected[index];

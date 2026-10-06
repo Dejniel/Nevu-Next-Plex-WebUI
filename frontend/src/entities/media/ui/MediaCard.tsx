@@ -235,7 +235,7 @@ function MediaCard({
               opacity: artworkStatus === "loaded" ? 1 : 0,
               animation:
                 artworkStatus === "loaded"
-                  ? `${artworkFadeIn} 160ms ease-out`
+                  ? `${artworkFadeIn} 500ms ease-out`
                   : "none",
               "@media (prefers-reduced-motion: reduce)": { animation: "none" },
             }}
@@ -252,7 +252,7 @@ function MediaCard({
               width: "100%",
               height: "100%",
               opacity: artworkStatus === "loaded" ? 0 : 1,
-              transition: "opacity 160ms ease-out",
+              transition: "opacity 500ms ease-out",
               pointerEvents: "none",
               "@media (prefers-reduced-motion: reduce)": { transition: "none" },
             }}

@@ -24,13 +24,13 @@ import {
 import { ActionableMediaCard } from "features/media-actions/public";
 import React, { useRef } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import VirtualGrid from "shared/ui/VirtualGrid";
+import VirtualGrid, { useVirtualGrid } from "shared/ui/VirtualGrid";
 import {
   playlistWatchPath,
   type MediaListKind,
   type MediaListQuery,
 } from "../model/mediaLists";
-import { useMediaList } from "../model/useMediaList";
+import { useMediaList, useMediaListWindow } from "../model/useMediaList";
 import MediaListCard from "./MediaListCard";
 
 export default function MediaListsView({
@@ -51,15 +51,26 @@ export default function MediaListsView({
     requestedSort === "titleSort:desc" || requestedSort === "addedAt:desc"
       ? requestedSort
       : "titleSort:asc";
-  const data = useMediaList({
+  const query: MediaListQuery = {
     kind,
     libraryID,
     id,
     search: id ? undefined : search,
     sort: id ? undefined : sort,
-  });
+  };
   const cardView = useLibraryCardView();
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const list = useMediaListWindow(query);
+  const grid = useVirtualGrid({
+    count: list.total,
+    minimumCount: list.knownSize + (list.total === null ? 1 : 0),
+    itemWidth: getLibraryCardWidth(cardView.layout, cardView.size),
+    imageAspectRatio: cardView.layout === "poster" ? 2 / 3 : 16 / 9,
+    footerHeight: 94,
+    observeRef: toolbarRef,
+    resetKey: list.key,
+  });
+  const data = useMediaList(list, grid.range);
   const title = kind === "collection" ? "Collections" : "Playlists";
   const setParam = (name: string, value: string) => {
     const next = new URLSearchParams(params);
@@ -242,17 +253,9 @@ export default function MediaListsView({
           </Typography>
         </Box>
       ) : (
-        data.items.size > 0 && (
+        Boolean(list.first.data?.items.length) && (
           <VirtualGrid
-            key={data.key}
-            count={data.total}
-            minimumCount={data.knownSize + (data.total === null ? 1 : 0)}
-            itemWidth={getLibraryCardWidth(cardView.layout, cardView.size)}
-            imageAspectRatio={cardView.layout === "poster" ? 2 / 3 : 16 / 9}
-            footerHeight={94}
-            observeRef={toolbarRef}
-            resetKey={data.key}
-            onRangeChange={data.requestRange}
+            grid={grid}
             itemKey={(index) => {
               const record = data.items.get(index);
               return record?.kind === "media"

@@ -1,9 +1,9 @@
 import { hashKey } from "@tanstack/react-query";
 import { Alert, Box, Button, Skeleton } from "@mui/material";
-import React, { useState } from "react";
-import VirtualGrid, { type GridRange } from "shared/ui/VirtualGrid";
+import React from "react";
+import VirtualGrid, { useVirtualGrid } from "shared/ui/VirtualGrid";
 import { ActionableMediaCard } from "features/media-actions/public";
-import { useLibraryPages } from "../model/useLibraryPages";
+import { useLibraryPages, useLibraryWindow } from "../model/useLibraryPages";
 import { LIBRARY_RANGE_SIZE, libraryResultQueryKey, type LibraryQuery } from "../model/libraryQuery";
 import { getLibraryCardWidth, LibraryCardLayout } from "./LibraryCardViewControls";
 
@@ -49,16 +49,19 @@ function LibraryCollectionGrid({
   emptyAction,
   ...gridProps
 }: LibraryCollectionGridProps) {
-  const [visible, setVisible] = useState<GridRange>({
-    start: 0,
-    end: 0,
-    visibleStart: 0,
-    visibleEnd: 0,
+  const collection = useLibraryWindow(query);
+  const grid = useVirtualGrid({
+    ...gridProps,
+    count: query ? collection.totalSize : loading ? null : 0,
+    minimumCount: collection.knownSize + (collection.totalSize === null ? 1 : 0),
+    itemWidth: getLibraryCardWidth(layout, cardSize),
+    imageAspectRatio: layout === "poster" ? 2 / 3 : 16 / 9,
+    resetKey: collection.queryKey,
   });
-  const range = useLibraryPages(query, visible);
+  const range = useLibraryPages(collection, grid.range);
   const { queryKey } = range;
   const initialError = range.errors.get(0);
-  if (initialError && !range.items.size && queryKey)
+  if (initialError && !collection.first.data && queryKey)
     return (
       <Alert
         severity="error"
@@ -93,7 +96,7 @@ function LibraryCollectionGrid({
 
   return (
     <>
-      {initialError && range.items.size > 0 && queryKey && (
+      {initialError && collection.first.data && queryKey && (
         <Alert
           severity="warning"
           sx={{ mb: 2 }}
@@ -107,13 +110,7 @@ function LibraryCollectionGrid({
         </Alert>
       )}
       <VirtualGrid
-        {...gridProps}
-        count={query ? range.totalSize : loading ? null : 0}
-        minimumCount={range.knownSize + (range.hasMore ? 1 : 0)}
-        itemWidth={getLibraryCardWidth(layout, cardSize)}
-        imageAspectRatio={layout === "poster" ? 2 / 3 : 16 / 9}
-        resetKey={queryKey}
-        onRangeChange={query ? setVisible : undefined}
+        grid={grid}
         itemKey={(index) => range.items.get(index)?.ratingKey ?? index}
         renderItem={(index, imageSizes) => {
           const item = range.items.get(index);

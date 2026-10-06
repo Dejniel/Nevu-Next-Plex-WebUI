@@ -79,11 +79,12 @@ vi.mock("features/media-actions/public", () => ({
   ); },
 }));
 vi.mock("shared/ui/VirtualGrid", () => ({
+  useVirtualGrid: (options: { count: number }) => options,
   default: ({
-    count,
+    grid: { count },
     renderItem,
   }: {
-    count: number;
+    grid: { count: number };
     renderItem: (index: number, sizes: string) => React.ReactNode;
   }) => (
     <div>

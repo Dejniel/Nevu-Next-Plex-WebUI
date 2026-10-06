@@ -53,3 +53,15 @@ and Recommended with a mocked cloud identity; standalone Plex data is unchanged.
 Against `f95d52b`: application +409/-192 (**+217**),
 tests +622/-45 (**+577**), excluding docs. No dependency or parallel cache was added.
 The standalone test stack was updated and retains `restart: "no"`.
+
+## Scrolling correction — 2026-10-06
+
+Grid geometry and page reads now share one render, removing the range-update
+effect and intermediate empty cells on cached jumps. Actionable cards are memoized;
+poster and placeholder crossfades last 500 ms. Query still owns all page data.
+In a Chromium fixture with 20,000 titles, a desktop one-row step reduced card
+renders from 135 to 5 (mobile: 27 to 1), with no page reads on cached jumps.
+Verification: 623 frontend tests, types/lint/build, cached-jump browser measurements
+and first/cached-image/reduced-motion checks pass. Additional browser checks for
+contained/list/unknown-total layouts were blocked by Chromium startup; automated
+range, refresh and unknown-total coverage passes. Test Nevu is updated, `restart: "no"`.

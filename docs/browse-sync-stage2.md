@@ -21,8 +21,10 @@ A changed filter/sort/seed resets the grid and visible-range demand. Refreshes o
 the same result retain its scroll position; reset scrolling is immediate to avoid
 fetching intermediate ranges of a new result.
 
-`useLibraryPages` derives the displayed indices from observed pages. The small
-abort-aware transport limiter allows two requests and prioritizes visible pages
+`useLibraryWindow` observes page zero for counts; `useVirtualGrid` computes the
+current range before `useLibraryPages` observes and derives its displayed indices.
+Cached jumps therefore render their cards immediately, without a range-update effect.
+The small abort-aware transport limiter allows two requests and prioritizes visible pages
 over overscan. Query's window lifecycle handles stale mount/focus/reconnect and
 one-minute visible refresh checks. Pages do not independently refetch positions.
 
