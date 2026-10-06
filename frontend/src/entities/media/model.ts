@@ -29,6 +29,7 @@ export type { MediaVersion, TrackChoice, TrackPreference } from "./model/mediaVe
 export type { MediaItemData } from "./model/media";
 export {
   matchesMediaScope,
+  affectedMediaParents,
   publishMediaChange,
   subscribeToMediaChanges,
 } from "./model/mediaChanges";
@@ -40,7 +41,9 @@ export {
   mediaGuidQueryOptions,
   readMediaQueryKey,
 } from "./model/mediaMetadataQuery";
-export { applyMediaDetailsChanges, hasCachedChildMedia } from "./model/mediaDetailsSync";
+export { applyMediaDetailsChanges } from "./model/mediaDetailsSync";
+export { applyMediaMetadataChanges } from "./model/mediaMetadataSync";
+export { getCachedMediaItems, mediaChangeContext } from "./model/mediaChangeContext";
 export type {
   MediaChange,
   MediaScope,
@@ -67,7 +70,7 @@ export {
 } from "./model/mediaAvailability";
 export type { MediaAvailability } from "./model/mediaAvailability";
 export { useMediaAvailability } from "./model/useMediaAvailability";
-export { applyAvailabilityChanges, hasCachedAvailableMedia } from "./model/availabilitySync";
+export { applyAvailabilityChanges } from "./model/availabilitySync";
 export { availabilityQueryOptions } from "./model/availabilityQuery";
 
 export { mediaExtrasQueryOptions } from "./model/mediaExtrasQuery";

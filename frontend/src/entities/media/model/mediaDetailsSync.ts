@@ -1,14 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { MediaScope, ReconciledMediaChange } from "./mediaChanges";
+import { affectedMediaParents, type ReconciledMediaChange } from "./mediaChanges";
 import { readMediaQueryKey } from "./mediaMetadataQuery";
-
-export function hasCachedChildMedia(client: QueryClient, scope: MediaScope, id: string) {
-  return client
-    .getQueriesData<Plex.Metadata[]>({
-      queryKey: ["media-children", scope.serverId, scope.profileKey],
-    })
-    .some(([, items]) => items?.some((item) => item.ratingKey === id));
-}
 
 export async function applyMediaDetailsChanges(
   client: QueryClient,
@@ -35,7 +27,8 @@ export async function applyMediaDetailsChanges(
         key.kind === "media-children"
           ? (query.state.data as Plex.Metadata[] | undefined)
           : undefined;
-      const affected = changes.filter(({ change, update }) => {
+      const affected = changes.filter((entry) => {
+        const { change, update, parentScopeUnknown } = entry;
         if (change.kind === "list") return false;
         if (key.kind === "media-guid")
           return (
@@ -50,18 +43,19 @@ export async function applyMediaDetailsChanges(
             !items ||
             items.some((item) => String(item.librarySectionID) === change.sectionId)
           );
-        const parents = change.effect === "metadata" ? change.parentIds : undefined;
+        const parents = affectedMediaParents(entry);
         return (
           key.id === change.id ||
-          update?.parentIds?.includes(key.id) ||
-          parents?.includes(key.id) ||
+          parents.includes(key.id) ||
           items?.some(
             (item) =>
               item.ratingKey === change.id ||
               item.parentRatingKey === change.id ||
               item.grandparentRatingKey === change.id,
           ) ||
-          (!update && !parents?.length && change.effect !== "metadata")
+          ((parentScopeUnknown || (!update && !parents.length && change.effect !== "metadata")) &&
+            (!change.sectionId || !items ||
+              items.some((item) => String(item.librarySectionID) === change.sectionId)))
         );
       });
       if (!affected.length) return;

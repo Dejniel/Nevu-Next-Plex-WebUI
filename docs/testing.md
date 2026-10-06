@@ -78,6 +78,11 @@ their contents, and action availability for users without management permission.
 Change titles and list contents in Plex while browsing Nevu; check background
 updates, retained scroll/filters, hidden-tab return, connection recovery and Retry
 after a failed refresh. Include a scrolled multi-page list and profile switches.
+Jump to a distant range after replacement page requests have started; obsolete
+requests must not block publication, and another consumer must retain its shared
+page. Delete an episode in test Plex and check season/show counts and On Deck.
+Check that edited genre/actor tags refresh filter options, while description-only
+edits preserve unaffected discovery directories.
 
 Stop with `docker compose -f compose.test.yaml down`. Adding `-v` resets the
 test stack's volumes; sample media remains in the host directory.

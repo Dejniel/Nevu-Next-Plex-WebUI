@@ -72,6 +72,29 @@ test("watched changes rebuild dependent random filters while another token retai
   } finally { axios.get = original; }
 });
 
+test("actor changes revalidate random membership even when the card projection is unchanged", async () => {
+  const original = axios.get;
+  let changed = false;
+  let reads = 0;
+  const item = { ...card(42), librarySectionID: 1 };
+  axios.get = async url => {
+    if (url.endsWith("/metadata/42")) return { data: { MediaContainer: {
+      Metadata: [{ ...item, Role: [{ id: 2, tag: "New actor" }] }],
+    } } };
+    reads++;
+    return { data: { MediaContainer: { totalSize: changed ? 0 : 1, Metadata: changed ? [] : [item] } } };
+  };
+  const filtered = { ...randomRequest, filterExpression: JSON.stringify({ kind: "clause", field: "actor", operator: "=", value: "1" }) };
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex" });
+    await callRouter(router, filtered);
+    changed = true;
+    await callRouter(router, { id: "42" }, "secret", "/synchronize", "post");
+    assert.equal((await callRouter(router, filtered)).body.totalSize, 0);
+    assert.equal(reads, 2);
+  } finally { axios.get = original; }
+});
+
 test("an item absent from a filtered random catalog can enter it after synchronization", async () => {
   const original = axios.get;
   let added = false;

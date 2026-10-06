@@ -6,6 +6,15 @@ vi.mock("features/session/model", () => ({
   authedGetStrict: vi.fn(),
 }));
 
+it("preserves a filter source's existing query string and forwards cancellation", async () => {
+  vi.mocked(authedGetStrict).mockResolvedValue({ MediaContainer: { size: 0 } });
+  const controller = new AbortController();
+  await getLibraryDirectory("/library/sections/1/genre?type=1", undefined, controller.signal);
+  const [url, signal] = vi.mocked(authedGetStrict).mock.calls.at(-1)!;
+  expect(new URL(url, window.location.origin).searchParams.get("type")).toBe("1");
+  expect(signal).toBe(controller.signal);
+});
+
 beforeEach(() => vi.clearAllMocks());
 
 it("loads arbitrary library directories", async () => {

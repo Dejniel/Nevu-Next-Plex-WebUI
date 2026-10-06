@@ -35,3 +35,21 @@ Against `3e1ad20`: application +1,156/-1,271 lines (**-115**); tests +838/-256
 (**+582**), excluding docs. Across the entire cache/sync refactor, including its
 first cleanup attempt: application **-52** lines. No dependency was added.
 Main JS is 429.27 kB gzip versus 428.61 kB (+0.66 kB).
+
+## Review corrections — 2026-10-06
+
+Pending window refreshes now follow live Query observers, cancelling obsolete
+queued/running pages without losing shared demand or propagating obsolete errors.
+Prior/current relationships survive deletion and parent moves; unknown ancestry
+revalidates scoped season/show metadata. Verified deltas are captured before
+publication. Directory reconciliation patches stable results, ignores unaffected
+facets/schema, and revalidates unknown dependencies. Filter selectors share native
+directory queries with discovery, including cancellation, profile isolation and Retry.
+Card comparisons cannot establish changes to omitted fields such as actor tags.
+
+Verification: 576 frontend tests, 52 backend tests, types/lint, production build
+and Docker build pass. Chromium confirms one genre/schema read across filtering
+and Recommended with a mocked cloud identity; standalone Plex data is unchanged.
+Against `f95d52b`: application +409/-192 (**+217**),
+tests +622/-45 (**+577**), excluding docs. No dependency or parallel cache was added.
+The standalone test stack was updated and retains `restart: "no"`.

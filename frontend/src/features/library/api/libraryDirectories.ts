@@ -8,7 +8,7 @@ export async function getLibraryDirectory(
   signal?: AbortSignal,
 ): Promise<Plex.MediaContainer> {
   const response = await authedGetStrict(
-    `${key}?${queryBuilder({ ...props, ...getIncludeProps() })}`,
+    `${key}${key.includes("?") ? "&" : "?"}${queryBuilder({ ...props, ...getIncludeProps() })}`,
     signal,
   );
   const container = response?.MediaContainer;

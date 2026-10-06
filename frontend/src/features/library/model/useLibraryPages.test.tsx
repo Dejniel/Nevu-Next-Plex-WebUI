@@ -197,6 +197,25 @@ it("prepares the union of simultaneous consumers and includes scrolling during r
   expect(latest.items.get(64)?.title).toBe("new 64");
 });
 
+it("moves refresh demand with the visible range after a replacement page has already started", async () => {
+  await render(<Harness start={64} />);
+  const pending = deferred<LibraryPageDto>();
+  fetch.mockImplementation((request, signal) => request.offset === 64
+    ? cancellable(pending.promise, signal!) : Promise.resolve(response(request, "new")));
+  let refresh!: ReturnType<typeof latest.refresh>;
+  await act(async () => { refresh = latest.refresh(); });
+  await settle();
+  const oldSignal = fetch.mock.calls.at(-1)![1]!;
+  await render(<Harness start={10_000} />);
+  expect(oldSignal.aborted).toBe(true);
+  pending.reject(new Error("Obsolete failure"));
+  await act(async () => { await refresh; });
+  await settle();
+  expect(latest.items.get(10_000)?.title).toBe("new 10000");
+  expect(latest.errors.size).toBe(0);
+  expect(fetch.mock.calls.slice(2).map(([request]) => request.offset)).toEqual([0, 64, 9984]);
+});
+
 it("patches safe metadata in active and inactive pages without a page read", async () => {
   await render(<Harness />);
   await render(<Harness start={128} />);

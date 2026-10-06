@@ -18,15 +18,27 @@ const dependencies = {
   unwatched: ["viewCount", "viewedLeafCount", "leafCount"],
   lastViewedAt: ["lastViewedAt"],
   genre: ["Genre"],
+  collection: ["Collection"],
   studio: ["studio"],
   contentRating: ["contentRating"],
 };
-function libraryFieldsUnaffected(field, changed) {
+const metadataDependencies = {
+  ...dependencies,
+  actor: ["Role"],
+  director: ["Director"],
+  writer: ["Writer"],
+  country: ["Country"],
+};
+function fieldsUnaffected(projectionDependencies, field, changed) {
   return (
-    Object.hasOwn(dependencies, field) &&
-    !dependencies[field].some((value) => changed.includes(value))
+    Object.hasOwn(projectionDependencies, field) &&
+    !changed.includes("unknown") &&
+    !projectionDependencies[field].some((value) => changed.includes(value))
   );
 }
+// Card comparisons cannot establish whether fields omitted from that projection changed.
+const libraryFieldsUnaffected = (field, changed) => fieldsUnaffected(dependencies, field, changed);
+const mediaFieldsUnaffected = (field, changed) => fieldsUnaffected(metadataDependencies, field, changed);
 function libraryFilterUnaffected(filter, changed) {
   if (!filter) return true;
   return filter.kind === "clause"
@@ -56,6 +68,7 @@ const mediaMetadataIncludes = Object.fromEntries(
 );
 module.exports = {
   libraryFieldsUnaffected,
+  mediaFieldsUnaffected,
   libraryFilterUnaffected,
   changedMediaFields,
   mediaMetadataIncludes,

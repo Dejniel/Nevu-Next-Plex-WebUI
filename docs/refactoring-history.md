@@ -2,6 +2,15 @@
 
 Status: structural migration completed on 2026-09-29
 
+## Cache review corrections — 2026-10-06
+
+Fixed changing demand during atomic window refresh, retained prior parent
+relationships after deletion/moves, and made raw directory reconciliation selective.
+Filter values now select shared directory queries instead of keeping their own
+request/state lifecycle. Verification: 576 frontend and 52 backend tests,
+types/lint, production build and Docker build. Details and line balance are in
+the [follow-up results](browse-cache-followup.md#review-corrections--2026-10-06).
+
 ## Decision-first playback — 2026-10-06
 
 Replaced the original/stream/diagnosis workaround with capability-driven

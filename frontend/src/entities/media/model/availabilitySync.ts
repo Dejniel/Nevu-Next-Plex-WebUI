@@ -1,14 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { availabilityQueryOptions } from "./availabilityQuery";
-import type { MediaScope, ReconciledMediaChange } from "./mediaChanges";
-
-export function hasCachedAvailableMedia(client: QueryClient, scope: MediaScope, id: string) {
-  return client
-    .getQueriesData<Plex.Metadata[]>({
-      queryKey: ["availability", scope.serverId, scope.profileKey],
-    })
-    .some(([, items]) => items?.some((item) => item.ratingKey === id));
-}
+import { affectedMediaParents, type ReconciledMediaChange } from "./mediaChanges";
 
 export async function applyAvailabilityChanges(
   client: QueryClient,
@@ -27,7 +19,8 @@ export async function applyAvailabilityChanges(
     let items = previous;
     let refresh = false;
     let patched = false;
-    for (const { change, update } of changes) {
+    for (const entry of changes) {
+      const { change, update, parentScopeUnknown } = entry;
       if (change.kind === "list") continue;
       if (change.kind === "recovery" || !update || change.kind !== "item" || !change.id) {
         refresh = true;
@@ -35,10 +28,13 @@ export async function applyAvailabilityChanges(
       }
       const old = previous?.filter((item) => item.ratingKey === change.id) ?? [];
       const matches = old.length || (update.item && requested.includes(update.item.guid));
-      const parent = update.parentIds?.some((id) =>
+      const parent = affectedMediaParents(entry).some((id) =>
         previous?.some((item) => item.ratingKey === id),
       );
-      if (parent) refresh = true;
+      if (parent || (parentScopeUnknown && previous?.some((item) =>
+        (item.type === "show" || item.type === "season") &&
+        (!change.sectionId || String(item.librarySectionID) === change.sectionId),
+      ))) refresh = true;
       if (!matches) {
         if (!update.item && !previous) refresh = true;
         continue;

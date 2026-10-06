@@ -94,7 +94,9 @@ One `serverQueryClient` owns browse responses, requests and eviction. Library,
 collection and playlist consumers observe actual page queries and share a window
 descriptor containing only the published revision. `shared/lib/queryWindow`
 prepares and validates replacement pages before publication; a small transport
-limiter bounds page work. Summaries publish with list pages, and repeated playlist
+limiter bounds page work. Pending refreshes follow Query's live observers,
+cancelling obsolete queued/running pages while retaining shared demand.
+Summaries publish with list pages, and repeated playlist
 entries retain their positions and IDs. Canonical metadata is shared by cards,
 previews, Home, details and playback selection. Sections, directories, recommendation
 context, child lists, GUID resolution and Discover extras also use native queries.
@@ -105,6 +107,13 @@ Feature rules patch compatible occurrences or refresh affected windows; one
 canonical read can supply library cards, lists, details and availability. Random
 catalog freshness stays in the backend. Unknown collection/smart-list dependencies
 retain scoped recovery. Session changes clear Query requests and data.
+
+Reconciliation captures prior relationships and verified metadata differences
+before publication. Deletion and parent moves reach cached seasons/shows; missing
+relationships trigger scoped recovery. Raw directories use known dependencies,
+preserve container fields when patching, and revalidate opaque predicates.
+Filter values select from the same directory queries as discovery. Full metadata
+dependencies remain separate from fields provable by the smaller card projection.
 
 Watchlist reads and confirmed membership mutations use Query directly; local
 availability caches plain metadata arrays, with GUID indexes derived by consumers.

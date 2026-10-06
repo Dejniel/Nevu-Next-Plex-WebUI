@@ -5,6 +5,7 @@ import {
   synchronizeLibraryItem,
   libraryWindowKey,
   libraryPageOptions,
+  libraryDirectoryQueryOptions,
 } from "features/library/model";
 import { listPageOptions, mediaListWindowKey } from "features/media-lists/model";
 import { startBrowseSynchronization } from "./browseSynchronization";
@@ -46,6 +47,176 @@ afterEach(() => {
   client.clear();
   vi.useRealTimers();
   focusManager.setFocused(undefined);
+});
+
+it.each(["membership", "unknown"] as const)("refreshes full season/show metadata after a deleted episode (%s)", async (effect) => {
+  const episode = {
+    ratingKey: "101", type: "episode", librarySectionID: 1,
+    parentRatingKey: "100", grandparentRatingKey: "99",
+  } as Plex.Metadata;
+  const reads = [vi.fn(async () => ({ leafCount: 0 })), vi.fn(async () => ({ leafCount: 0 }))];
+  const stops = ["100", "99"].map((id, index) => new QueryObserver(client, {
+    queryKey: mediaMetadataQueryKey(scope, id),
+    queryFn: reads[index],
+    initialData: { ratingKey: id, type: index ? "show" : "season", librarySectionID: 1, leafCount: 1 },
+    staleTime: Infinity,
+  }).subscribe(() => {}));
+  const children = mediaChildrenQueryOptions(scope, "100");
+  const readChildren = vi.fn(async () => [] as Plex.Metadata[]);
+  stops.push(new QueryObserver(client, {
+    ...children, queryFn: readChildren, initialData: [episode], staleTime: Infinity,
+  }).subscribe(() => {}));
+  vi.mocked(synchronizeLibraryItem).mockResolvedValue({ item: null });
+  try {
+    sync.enqueue({ ...scope, sectionId: "1", kind: "item", effect, id: "101" });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(readChildren).toHaveBeenCalledTimes(1);
+    expect(reads.map((read) => read.mock.calls.length)).toEqual([1, 1]);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  } finally { stops.forEach((stop) => stop()); }
+});
+
+it("uses scoped parent recovery when a deleted item's relationships are unavailable", async () => {
+  const reads = Array.from({ length: 4 }, () => vi.fn(async () => ({ leafCount: 0 })));
+  const stops = [
+    { id: "show-1", section: 1, activeScope: scope },
+    { id: "show-2", section: 2, activeScope: scope },
+    { id: "show-guest", section: 1, activeScope: { ...scope, profileKey: "guest" } },
+    { id: "movie-1", section: 1, activeScope: scope, type: "movie" },
+  ].map(({ id, section, activeScope, type }, index) => new QueryObserver(client, {
+    queryKey: mediaMetadataQueryKey(activeScope, id), queryFn: reads[index],
+    initialData: { ratingKey: id, type: type ?? "show", librarySectionID: section, leafCount: 1 },
+    staleTime: Infinity,
+  }).subscribe(() => {}));
+  vi.mocked(synchronizeLibraryItem).mockResolvedValue({ item: null });
+  try {
+    sync.enqueue({ ...scope, sectionId: "1", kind: "item", effect: "unknown", id: "101" });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(reads.map((read) => read.mock.calls.length)).toEqual([1, 0, 0, 0]);
+  } finally { stops.forEach((stop) => stop()); }
+});
+
+it.each(["library", "directory", "playlist", "availability", "onDeck"])(
+  "retains parent evidence from %s before a membership refresh removes it", async (source) => {
+    const episode = {
+      ratingKey: "101", type: "episode", librarySectionID: 1,
+      parentRatingKey: "100", grandparentRatingKey: "99",
+    } as Plex.Metadata;
+    const show = { ratingKey: "99", type: "show", librarySectionID: 1, leafCount: 1,
+      ...(source === "onDeck" && { OnDeck: { Metadata: episode } }),
+    } as Plex.Metadata;
+    if (source === "library") client.setQueryData(libraryPageOptions("server", {
+      profileKey: "owner", sectionId: 1, type: "episode", sort: "titleSort",
+    }, 0, 0).queryKey, { offset: 0, size: 1, totalSize: 1, hasMore: false, items: [episode as LibraryCardDto] });
+    if (source === "directory") client.setQueryData(libraryDirectoryQueryOptions(scope,
+      "/library/sections/1/all", { type: 4 },
+    ).queryKey, { Metadata: [episode] } as Plex.MediaContainer);
+    if (source === "playlist") client.setQueryData(listPageOptions(scope,
+      { kind: "playlist", id: "20" }, 0, 0,
+    ).queryKey, { offset: 0, total: 1, summary: null, items: [{ kind: "media", supported: true, position: 0, item: episode }] });
+    if (source === "availability") client.setQueryData(availabilityQueryOptions(scope, ["episode"]).queryKey, [episode]);
+    const read = vi.fn(async () => ({ ...show, OnDeck: undefined, leafCount: 0 }));
+    const stop = new QueryObserver(client, {
+      queryKey: mediaMetadataQueryKey(scope, "99"), queryFn: read, initialData: show, staleTime: Infinity,
+    }).subscribe(() => {});
+    try {
+      sync.enqueue({ ...scope, sectionId: "1", kind: "item", effect: "membership", id: "101" });
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(read).toHaveBeenCalledTimes(1);
+    } finally { stop(); }
+  },
+);
+
+it("cancels a cold parent read before it can publish pre-change aggregates", async () => {
+  client.setQueryData(mediaChildrenQueryOptions(scope, "100").queryKey, [{
+    ratingKey: "101", type: "episode", parentRatingKey: "100", grandparentRatingKey: "99", librarySectionID: 1,
+  } as Plex.Metadata]);
+  const key = mediaMetadataQueryKey(scope, "99");
+  let finish!: (value: Plex.Metadata) => void;
+  let signal!: AbortSignal;
+  const read = vi.fn().mockImplementationOnce((context) => {
+    signal = context.signal;
+    return new Promise<Plex.Metadata>((resolve) => { finish = resolve; });
+  }).mockResolvedValue({ ratingKey: "99", leafCount: 0 });
+  const stop = new QueryObserver(client, { queryKey: key, queryFn: read }).subscribe(() => {});
+  try {
+    sync.enqueue({ ...scope, sectionId: "1", kind: "item", effect: "membership", id: "101" });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(signal.aborted).toBe(true);
+    finish({ ratingKey: "99", leafCount: 1 } as Plex.Metadata);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(client.getQueryData(key)).toEqual({ ratingKey: "99", leafCount: 0 });
+    expect(read).toHaveBeenCalledTimes(2);
+  } finally { stop(); }
+});
+
+it("does not let a deleted item's details error block its parent/child reconciliation or duplicate the read", async () => {
+  const episode = {
+    ratingKey: "101", type: "episode", parentRatingKey: "100", grandparentRatingKey: "99", librarySectionID: 1,
+  } as Plex.Metadata;
+  const readItem = vi.fn(async () => { throw new Error("404: deleted"); });
+  const readParent = vi.fn(async () => ({ ratingKey: "99", leafCount: 0 }));
+  const readChildren = vi.fn(async () => [] as Plex.Metadata[]);
+  const stops = [
+    new QueryObserver(client, { queryKey: mediaMetadataQueryKey(scope, "101"), queryFn: readItem, initialData: episode, staleTime: Infinity }).subscribe(() => {}),
+    new QueryObserver(client, { queryKey: mediaMetadataQueryKey(scope, "99"), queryFn: readParent, initialData: { ratingKey: "99", type: "show", leafCount: 1 }, staleTime: Infinity }).subscribe(() => {}),
+    new QueryObserver(client, { ...mediaChildrenQueryOptions(scope, "100"), queryFn: readChildren, initialData: [episode], staleTime: Infinity }).subscribe(() => {}),
+  ];
+  vi.mocked(synchronizeLibraryItem).mockResolvedValue({ item: null });
+  try {
+    sync.enqueue({ ...scope, sectionId: "1", kind: "item", effect: "unknown", id: "101" });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(readItem).toHaveBeenCalledTimes(1);
+    expect(readParent).toHaveBeenCalledTimes(1);
+    expect(readChildren).toHaveBeenCalledTimes(1);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  } finally { stops.forEach((stop) => stop()); }
+});
+
+it("refreshes prior and current parent metadata when an episode moves", async () => {
+  const before = {
+    ratingKey: "101", type: "episode", librarySectionID: 1,
+    parentRatingKey: "100", grandparentRatingKey: "99",
+  } as Plex.Metadata;
+  client.setQueryData(mediaMetadataQueryKey(scope, "101"), before);
+  const reads = Array.from({ length: 4 }, () => vi.fn(async () => ({ leafCount: 1 })));
+  const stops = ["100", "99", "200", "199"].map((id, index) => new QueryObserver(client, {
+    queryKey: mediaMetadataQueryKey(scope, id), queryFn: reads[index],
+    initialData: { ratingKey: id, librarySectionID: 1 }, staleTime: Infinity,
+  }).subscribe(() => {}));
+  const metadata = { ...before, parentRatingKey: "200", grandparentRatingKey: "199" };
+  vi.mocked(synchronizeLibraryItem).mockResolvedValue({
+    item: metadata as unknown as LibraryCardDto, metadata, sectionId: "1", parentIds: ["200", "199"],
+  });
+  try {
+    sync.enqueue({ ...scope, sectionId: "1", kind: "item", effect: "unknown", id: "101" });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(reads.map((read) => read.mock.calls.length)).toEqual([1, 1, 1, 1]);
+    expect(client.getQueryData(mediaMetadataQueryKey(scope, "101"))).toEqual(metadata);
+  } finally { stops.forEach((stop) => stop()); }
+});
+
+it("preserves the verified before/after delta for directories before publishing canonical metadata", async () => {
+  const before = {
+    ratingKey: "1", type: "movie", librarySectionID: 1, summary: "Old",
+  } as Plex.Metadata;
+  client.setQueryData(mediaMetadataQueryKey(scope, "1"), before);
+  const reads = Array.from({ length: 3 }, () => vi.fn(async () => ({ size: 0 } as Plex.MediaContainer)));
+  const stops = ["/library/sections/1", "/library/sections/1/genre", "/library/sections/1/actor"]
+    .map((dir, index) => new QueryObserver(client, {
+      ...libraryDirectoryQueryOptions(scope, dir), queryFn: reads[index],
+      initialData: { size: 0 } as Plex.MediaContainer, staleTime: Infinity,
+    }).subscribe(() => {}));
+  const metadata = { ...before, summary: "New" };
+  vi.mocked(synchronizeLibraryItem).mockResolvedValue({
+    item: metadata as unknown as LibraryCardDto, metadata, sectionId: "1",
+  });
+  try {
+    sync.enqueue({ ...scope, sectionId: "1", kind: "item", effect: "unknown", id: "1" });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(reads.map((read) => read.mock.calls.length)).toEqual([0, 0, 0]);
+    expect(client.getQueryData(mediaMetadataQueryKey(scope, "1"))).toEqual(metadata);
+  } finally { stops.forEach((stop) => stop()); }
 });
 
 it("limits an eight-second scan to three window refreshes including its final reconciliation", async () => {

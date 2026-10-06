@@ -79,6 +79,7 @@ export interface LibraryCardDto {
 }
 
 export function libraryFieldsUnaffected(field: string, changed: readonly string[]): boolean;
+export function mediaFieldsUnaffected(field: string, changed: readonly string[]): boolean;
 export function libraryFilterUnaffected(
   filter: LibraryFilterExpression | undefined,
   changed: readonly string[],

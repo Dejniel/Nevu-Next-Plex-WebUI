@@ -1,10 +1,11 @@
 import { focusManager } from "@tanstack/react-query";
+import { changedMediaFields } from "@nevu/contracts";
 import {
   applyAvailabilityChanges,
   applyMediaDetailsChanges,
-  readMediaQueryKey,
-  hasCachedAvailableMedia,
-  hasCachedChildMedia,
+  applyMediaMetadataChanges,
+  getCachedMediaItems,
+  mediaChangeContext,
   mediaMetadataQueryKey,
   type MediaChange,
   type MediaScope,
@@ -13,14 +14,15 @@ import {
 import {
   applyLibraryChanges,
   applyLibraryDirectoryChanges,
+  getCachedLibraryItems,
   invalidateRandomCatalogs,
   synchronizeLibraryItem,
 } from "features/library/model";
-import { applyMediaListChanges, hasCachedListMedia } from "features/media-lists/model";
+import { applyMediaListChanges, getCachedListItems } from "features/media-lists/model";
 import { applyHomeChanges } from "features/home/model";
 import { serverQueryClient } from "shared/api/queryClient";
 
-/** Event batching only. Query owns data, errors, requests and result lifetimes.
+/** Batch scoped events and obtain canonical evidence; feature/entity rules own publication.
  * At most one batch per five seconds during a scan, with a trailing reconciliation. */
 export function startBrowseSynchronization(
   scope: MediaScope,
@@ -53,29 +55,32 @@ export function startBrowseSynchronization(
       const invalidatedSections = new Set<string>();
       for (const change of batch) {
         if (!isCurrent() || abort.signal.aborted) break;
+        // Capture relationships before publishing canonical data or refreshing child lists.
+        const occurrences = change.kind === "item" && change.id ? [
+          ...getCachedMediaItems(client, scope),
+          ...getCachedLibraryItems(client, scope),
+          ...getCachedListItems(client, scope),
+        ] : [];
+        const prior = change.kind === "item" && change.id
+          ? mediaChangeContext(occurrences, change.id) : undefined;
+        let verified = change;
         let update: ReconciledMediaChange["update"];
         if (change.kind === "item" && change.effect !== "membership" && change.id) {
           try {
             const metadataKey = mediaMetadataQueryKey(scope, change.id);
             const cached = client.getQueryState(metadataKey) !== undefined;
-            const includeDetails =
-              cached ||
-              hasCachedListMedia(client, scope, change.id) ||
-              hasCachedChildMedia(client, scope, change.id) ||
-              hasCachedAvailableMedia(client, scope, change.id);
+            const before = client.getQueryData<Plex.Metadata>(metadataKey);
+            const includeDetails = cached || Boolean(prior?.found);
             update = await synchronizeLibraryItem(change.id, abort.signal, includeDetails);
-            if (isCurrent() && !abort.signal.aborted && cached) {
-              await client.cancelQueries({
-                queryKey: metadataKey,
-                exact: true,
-              });
-              if (update.metadata) client.setQueryData(metadataKey, update.metadata);
-              else
-                await client.invalidateQueries({
-                  queryKey: metadataKey,
-                  exact: true,
-                });
-            }
+            if (before && update.metadata) verified = {
+              ...change,
+              id: change.id,
+              effect: "metadata",
+              fields: [...new Set([
+                ...(change.effect === "metadata" ? change.fields : []),
+                ...changedMediaFields(before, update.metadata as Plex.Metadata),
+              ])],
+            };
           } catch (error) {
             if (abort.signal.aborted) throw error;
           }
@@ -91,35 +96,29 @@ export function startBrowseSynchronization(
           invalidatedSections.add(section);
         }
         if (!isCurrent() || abort.signal.aborted) break;
+        const context = change.kind === "item" && change.id
+          ? mediaChangeContext([
+              ...occurrences,
+              ...(update?.item ? [update.item] : []),
+              ...(update?.metadata ? [update.metadata as Plex.Metadata] : []),
+            ], change.id)
+          : undefined;
         changes.push({
-          change: update ? { ...change, sectionId: update.sectionId } : change,
-          update,
-        });
-      }
-      const parentIds = new Set(changes.flatMap(({ update }) => update?.parentIds ?? []));
-      if (isCurrent() && !abort.signal.aborted) {
-        await client.invalidateQueries({
-          queryKey: ["media", scope.serverId, scope.profileKey],
-          predicate: (query) => {
-            const key = readMediaQueryKey(query.queryKey);
-            if (!key) return false;
-            return (
-              parentIds.has(key.id) ||
-              changes.some(({ change, update }) => {
-                if (update?.metadata) return false;
-                if (change.kind === "list") return false;
-                if (change.kind === "item" && change.id) return key.id === change.id;
-                const metadata = query.state.data as Plex.Metadata | undefined;
-                return (
-                  !change.sectionId ||
-                  !metadata ||
-                  String(metadata.librarySectionID) === change.sectionId
-                );
-              })
-            );
+          change: {
+            ...verified,
+            sectionId: prior?.sectionId && update?.sectionId && prior.sectionId !== update.sectionId
+              ? undefined
+              : update?.sectionId ?? change.sectionId ?? (update?.item === null ? prior?.sectionId : undefined),
           },
+          update,
+          ...(context && {
+            parentIds: context.parentIds,
+            parentScopeUnknown: context.parentScopeUnknown,
+          }),
         });
       }
+      if (isCurrent() && !abort.signal.aborted)
+        await applyMediaMetadataChanges(client, changes);
       if (isCurrent() && !abort.signal.aborted)
         await Promise.all([
           applyLibraryChanges(client, changes),

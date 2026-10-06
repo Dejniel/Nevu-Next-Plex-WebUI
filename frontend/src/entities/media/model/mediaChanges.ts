@@ -25,6 +25,17 @@ export type SynchronizationDecision = "ignore" | "patch" | "refresh";
 export interface ReconciledMediaChange {
   change: MediaChange;
   update?: LibraryItemUpdateDto;
+  /** Prior and current relationships; retained even when the canonical read returns 404. */
+  parentIds?: readonly string[];
+  parentScopeUnknown?: boolean;
+}
+
+export function affectedMediaParents({ change, update, parentIds }: ReconciledMediaChange) {
+  return [...new Set([
+    ...(parentIds ?? []),
+    ...(update?.parentIds ?? []),
+    ...(change.kind === "item" && change.effect === "metadata" ? change.parentIds ?? [] : []),
+  ])];
 }
 
 export function matchesMediaScope(scope: MediaScope, change: MediaScope) {

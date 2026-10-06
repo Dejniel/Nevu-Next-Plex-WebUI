@@ -8,5 +8,5 @@ export type { PlaylistPlaybackContext } from "./model/mediaLists";
 export { getMediaListCapabilities } from "./model/mediaListEditing";
 export type { MediaListCapabilities } from "./model/mediaListEditing";
 export { decideMediaListSynchronization } from "./model/listSynchronization";
-export { applyMediaListChanges, hasCachedListMedia } from "./model/listSync";
+export { applyMediaListChanges, getCachedListItems } from "./model/listSync";
 export { listPageOptions, mediaListWindowKey } from "./model/listPages";

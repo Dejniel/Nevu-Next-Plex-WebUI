@@ -4,13 +4,25 @@ import {
   type LibraryItemUpdateDto,
   type LibraryPageDto,
 } from "@nevu/contracts";
-import type { MediaChange, ReconciledMediaChange } from "entities/media/model";
+import { affectedMediaParents, type MediaChange, type MediaScope, type ReconciledMediaChange } from "entities/media/model";
 import {
   decideLibrarySynchronization,
   libraryDependenciesUnaffected,
 } from "./librarySynchronization";
 import { libraryResultFromKey } from "./libraryQuery";
 import { isQueryWindowKey, queryPageLocation, type QueryWindow } from "shared/lib/queryWindow";
+
+export function getCachedLibraryItems(client: QueryClient, scope: MediaScope) {
+  return [
+    ...client.getQueriesData<LibraryPageDto>({
+      queryKey: ["library", scope.serverId, scope.profileKey],
+      predicate: (query) => queryPageLocation(query.queryKey) !== null,
+    }).flatMap(([, page]) => page?.items ?? []),
+    ...client.getQueriesData<Plex.MediaContainer>({
+      queryKey: ["library-directory", scope.serverId, scope.profileKey],
+    }).flatMap(([, container]) => container?.Metadata ?? []),
+  ];
+}
 
 export async function applyLibraryChanges(
   client: QueryClient,
@@ -34,7 +46,11 @@ export async function applyLibraryChanges(
       .flatMap((page) => (page.state.data as LibraryPageDto | undefined)?.items ?? []);
     const patches = new Map<string, NonNullable<LibraryItemUpdateDto["item"]>>();
     let refresh = false;
-    for (const { change, update } of changes) {
+    for (const entry of changes) {
+      const { change, update } = entry;
+      refresh ||= affectedMediaParents(entry).some((id) =>
+        beforeItems.some((item) => item.ratingKey === id),
+      );
       const before =
         update?.item && beforeItems.find((item) => item.ratingKey === update.item!.ratingKey);
       const fields = before && update?.item ? changedMediaFields(before, update.item) : [];
@@ -49,7 +65,7 @@ export async function applyLibraryChanges(
               id: update.item.ratingKey,
               sectionId: update.sectionId,
               fields,
-              parentIds: update.parentIds,
+              parentIds: affectedMediaParents(entry),
             }
           : change;
       const decision = decideLibrarySynchronization(scope.serverId, query, effect);

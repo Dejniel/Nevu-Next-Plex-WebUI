@@ -1,20 +1,18 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { changedMediaFields } from "@nevu/contracts";
-import type { MediaChange, MediaScope, ReconciledMediaChange } from "entities/media/model";
+import { affectedMediaParents, type MediaChange, type MediaScope, type ReconciledMediaChange } from "entities/media/model";
 import { isQueryWindowKey, queryPageLocation, type QueryWindow } from "shared/lib/queryWindow";
 import { mediaListResultFromKey, type ListPage } from "./listPages";
 import { decideMediaListSynchronization } from "./listSynchronization";
 
-export function hasCachedListMedia(client: QueryClient, scope: MediaScope, id: string) {
+export function getCachedListItems(client: QueryClient, scope: MediaScope) {
   return client
     .getQueryCache()
     .findAll({ queryKey: ["media-lists", scope.serverId, scope.profileKey] })
-    .some(
-      (query) =>
-        queryPageLocation(query.queryKey) !== null &&
-        (query.state.data as ListPage | undefined)?.items.some(
-          (record) => record.kind === "media" && record.supported && record.item.ratingKey === id,
-        ),
+    .flatMap((query) => queryPageLocation(query.queryKey) === null ? [] :
+      ((query.state.data as ListPage | undefined)?.items ?? []).flatMap((record) =>
+        record.kind === "media" && record.supported ? [record.item] : [],
+      ),
     );
 }
 
@@ -47,7 +45,8 @@ export async function applyMediaListChanges(
     )?.summary;
     const patches = new Map<string, Plex.Metadata>();
     let refresh = false;
-    for (const { change, update } of changes) {
+    for (const entry of changes) {
+      const { change, update, parentScopeUnknown } = entry;
       const metadata = update?.metadata as Plex.Metadata | undefined;
       const before = records.find(
         (record) =>
@@ -72,16 +71,20 @@ export async function applyMediaListChanges(
               effect: "metadata",
               id: update.item.ratingKey,
               fields,
-              parentIds: update.parentIds,
+              parentIds: affectedMediaParents(entry),
             }
           : change;
       let decision = decideMediaListSynchronization(scope, query, effect, summary ?? undefined);
       if (
-        update?.parentIds?.some((id) =>
+        affectedMediaParents(entry).some((id) =>
           records.some(
             (record) => record.kind === "media" && record.supported && record.item.ratingKey === id,
           ),
-        )
+        ) || (parentScopeUnknown && records.some((record) =>
+          record.kind === "media" && record.supported &&
+          (record.item.type === "show" || record.item.type === "season") &&
+          (!change.sectionId || String(record.item.librarySectionID) === change.sectionId),
+        ))
       )
         decision = "refresh";
       refresh ||= decision === "refresh";

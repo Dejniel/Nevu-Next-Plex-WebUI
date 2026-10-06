@@ -59,6 +59,11 @@ it("considers nested filters and unknown fields even when an item is not loaded"
       filterExpression: { kind: "clause", field: "futurePredicate", operator: "=", value: "1" },
     }),
   ).toBe("refresh");
+  // The card projection omits Role; equality of cards cannot establish actor membership.
+  expect(decide(change(["summary"]), {
+    filterExpression: { kind: "clause", field: "actor", operator: "=", value: "1" },
+  })).toBe("refresh");
+  expect(decide(change(["unknown"]))).toBe("refresh");
   expect(
     decide(change(["summary"]), {
       filterExpression: { kind: "clause", field: "year", operator: "=", value: "2020" },
