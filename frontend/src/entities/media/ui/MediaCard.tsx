@@ -17,7 +17,7 @@ import {
   IconButton,
   Skeleton,
 } from "@mui/material";
-import React, { JSX, memo, useEffect } from "react";
+import React, { JSX, memo } from "react";
 import { useLocation } from "react-router-dom";
 import {
   getResponsiveTranscodeImageProps,
@@ -32,9 +32,11 @@ import MediaExtraPlayback from "./MediaExtraPlayback";
 import { mediaQualityBadge } from "../model/mediaVersions";
 import { mediaArtworkPath } from "../model/mediaArtwork";
 import { isMediaWatched } from "../model/mediaWatchedState";
-import { alpha } from "@mui/material/styles";
+import { alpha, keyframes } from "@mui/material/styles";
 import { mediaDetailsTo } from "shared/lib/navigation";
 import type { MediaItemData } from "../model/media";
+
+const artworkFadeIn = keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
 
 export interface MediaCardProps {
   item: MediaItemData;
@@ -120,14 +122,16 @@ function MediaCard({
       })
     : null;
   const artworkUrl = artwork?.src || null;
-  const [artworkStatus, setArtworkStatus] = React.useState<
-    "loading" | "loaded" | "missing"
-  >(artworkUrl ? "loading" : "missing");
+  const [artworkResult, setArtworkResult] = React.useState<{
+    url: string;
+    status: "loaded" | "missing";
+  } | null>(null);
+  const artworkStatus = !artworkUrl
+    ? "missing"
+    : artworkResult?.url === artworkUrl
+      ? artworkResult.status
+      : "loading";
   const detailsTarget = mediaDetailsTo(location, item, PlexTvSource);
-
-  useEffect(() => {
-    setArtworkStatus(artworkUrl ? "loading" : "missing");
-  }, [artworkUrl]);
 
   return (
     <Box
@@ -212,14 +216,15 @@ function MediaCard({
       >
         {artwork && artworkStatus !== "missing" && (
           <Box
+            key={artwork.src}
             component="img"
             {...artwork}
             alt=""
             draggable={false}
             loading={imageLoading}
             decoding="async"
-            onLoad={() => setArtworkStatus("loaded")}
-            onError={() => setArtworkStatus("missing")}
+            onLoad={() => setArtworkResult({ url: artwork.src, status: "loaded" })}
+            onError={() => setArtworkResult({ url: artwork.src, status: "missing" })}
             sx={{
               position: "absolute",
               inset: 0,
@@ -228,20 +233,28 @@ function MediaCard({
               objectFit: "cover",
               objectPosition: layout === "poster" ? "center top" : "center",
               opacity: artworkStatus === "loaded" ? 1 : 0,
-              transition: "opacity 0.12s ease",
+              animation:
+                artworkStatus === "loaded"
+                  ? `${artworkFadeIn} 160ms ease-out`
+                  : "none",
+              "@media (prefers-reduced-motion: reduce)": { animation: "none" },
             }}
           />
         )}
 
-        {artworkStatus === "loading" && (
+        {artworkStatus !== "missing" && (
           <Skeleton
             variant="rectangular"
-            animation="wave"
+            animation={artworkStatus === "loading" ? "wave" : false}
             sx={{
               position: "absolute",
               inset: 0,
               width: "100%",
               height: "100%",
+              opacity: artworkStatus === "loaded" ? 0 : 1,
+              transition: "opacity 160ms ease-out",
+              pointerEvents: "none",
+              "@media (prefers-reduced-motion: reduce)": { transition: "none" },
             }}
           />
         )}
