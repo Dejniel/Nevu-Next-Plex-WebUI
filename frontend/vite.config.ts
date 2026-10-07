@@ -11,6 +11,7 @@ const apiPaths = [
   "/user",
   "/sharing",
   "/libraries",
+  "/server-preferences",
   "/library-page",
   "/discover",
   "/socket.io",

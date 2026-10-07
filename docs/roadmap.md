@@ -23,13 +23,6 @@ the README and release notes; implementation-only cleanup belongs in the
 - Add `Folders` to movie and TV libraries, browsing nested folders and their media
   within the selected library.
 
-### Server settings
-
-- Build an administrator-only, API-driven settings screen grouped by Plex
-  metadata rather than a hard-coded form.
-- Save only changed values and identify options that require a restart or have
-  significant side effects.
-
 ## Later
 
 ### Music and detailed lists

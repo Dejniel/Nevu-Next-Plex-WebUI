@@ -38,7 +38,8 @@ function fieldsUnaffected(projectionDependencies, field, changed) {
 }
 // Card comparisons cannot establish whether fields omitted from that projection changed.
 const libraryFieldsUnaffected = (field, changed) => fieldsUnaffected(dependencies, field, changed);
-const mediaFieldsUnaffected = (field, changed) => fieldsUnaffected(metadataDependencies, field, changed);
+const mediaFieldsUnaffected = (field, changed) =>
+  fieldsUnaffected(metadataDependencies, field, changed);
 function libraryFilterUnaffected(filter, changed) {
   if (!filter) return true;
   return filter.kind === "clause"
@@ -66,10 +67,18 @@ const mediaMetadataIncludes = Object.fromEntries(
     "Related",
   ].map((name) => [`include${name}`, 1]),
 );
-module.exports = {
+export {
   libraryFieldsUnaffected,
   mediaFieldsUnaffected,
   libraryFilterUnaffected,
   changedMediaFields,
   mediaMetadataIncludes,
 };
+
+export {
+  normalizePlexPreferences,
+  preferenceValue,
+  preferenceValueError,
+  preferenceChanges,
+  validatePreferenceChanges,
+} from "./preferences.js";

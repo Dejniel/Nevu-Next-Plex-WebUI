@@ -11,6 +11,7 @@ import { registerSync } from './common/sync.js';
 import { registerRemote } from './common/remote.js';
 import { createPlexSharingRouter } from './plexSharing.js';
 import { createPlexLibrariesRouter } from './plexLibraries.js';
+import { createPlexPreferencesRouter } from './plexPreferences.js';
 import { APP_VERSION } from './appVersion.js';
 import { createLibraryPageRouter } from './libraryPage.js';
 import { safeRequestUrl, shouldLogRequest } from './requestLogging.js';
@@ -176,6 +177,10 @@ app.use('/sharing', createPlexSharingRouter({
 
 app.use('/libraries', createPlexLibrariesRouter({
     plexServer: process.env.PLEX_SERVER || 'http://localhost:32400',
+    httpsAgent: plexHttpsAgent,
+}));
+app.use('/server-preferences', createPlexPreferencesRouter({
+    plexServer: plexServerUrl.origin,
     httpsAgent: plexHttpsAgent,
 }));
 

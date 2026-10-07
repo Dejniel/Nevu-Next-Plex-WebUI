@@ -1,6 +1,6 @@
-import axios, { type AxiosRequestConfig } from 'axios';
+import axios from 'axios';
+import { normalizePlexPreferences, validatePreferenceChanges, type PlexPreference } from '@nevu/contracts';
 import express from 'express';
-import https from 'node:https';
 import {
     LIBRARY_PRESETS,
     libraryKind,
@@ -9,12 +9,7 @@ import {
     libraryName,
     sectionId,
 } from './common/libraryRules.js';
-import { canManagePlexServer, CheckPlexUser, isUnrestrictedPlexAccount } from './common/plex.js';
-
-interface LibrariesRouterOptions {
-    plexServer: string;
-    httpsAgent?: https.Agent;
-}
+import { plexManagement, sendPlexManagementError as sendPlexError, type PlexManagementOptions } from './common/plexManagement.js';
 
 interface PlexLocation {
     id?: number;
@@ -35,35 +30,6 @@ interface PlexLibrary {
     Location?: PlexLocation[];
 }
 
-interface PlexPreference {
-    id?: string;
-    label?: string;
-    summary?: string;
-    type?: string;
-    value?: unknown;
-    default?: unknown;
-    enumValues?: unknown;
-    hidden?: boolean;
-}
-
-function plexErrorMessage(error: unknown) {
-    if (!axios.isAxiosError(error)) return 'Plex library request failed';
-    const data = error.response?.data;
-    if (typeof data === 'object' && data) {
-        const message = (data as { message?: string; error?: string }).message ||
-            (data as { message?: string; error?: string }).error;
-        if (message) return message;
-    }
-    if (typeof data === 'string' && data.trim()) return data.trim();
-    return error.message || 'Plex library request failed';
-}
-
-function sendPlexError(res: express.Response, error: unknown) {
-    const upstream = axios.isAxiosError(error) ? error.response?.status : undefined;
-    const status = upstream && upstream >= 400 && upstream < 500 ? upstream : 502;
-    res.status(status).send({ error: plexErrorMessage(error) });
-}
-
 function mapLibrary(library: PlexLibrary) {
     return {
         id: String(library.key),
@@ -82,66 +48,13 @@ function mapLibrary(library: PlexLibrary) {
     };
 }
 
-function mapPreference(preference: PlexPreference) {
-    return {
-        id: preference.id || '',
-        label: preference.label || preference.id || '',
-        summary: preference.summary || '',
-        type: preference.type || 'text',
-        value: preference.value,
-        default: preference.default,
-        enumValues: typeof preference.enumValues === 'string' ? preference.enumValues : '',
-        hidden: Boolean(preference.hidden),
-    };
-}
-
 export function createPlexLibrariesRouter({
     plexServer,
     httpsAgent,
-}: LibrariesRouterOptions) {
+}: PlexManagementOptions) {
     const router = express.Router();
 
-    function requestConfig(token: string): AxiosRequestConfig {
-        return {
-            headers: {
-                Accept: 'application/json',
-                'X-Plex-Token': token,
-                'X-Plex-Pms-Api-Version': '1.2.3',
-            },
-            timeout: 20000,
-            ...(httpsAgent && { httpsAgent }),
-        };
-    }
-
-    async function authenticate(req: express.Request, res: express.Response) {
-        const token = req.headers['x-plex-token'];
-        if (typeof token !== 'string' || !token) {
-            res.status(401).send({ error: 'The active Plex session is missing' });
-            return null;
-        }
-
-        const user = await CheckPlexUser(token);
-        if (!user) {
-            res.status(401).send({ error: 'The active Plex session has expired' });
-            return null;
-        }
-        if (!isUnrestrictedPlexAccount(user)) {
-            res.status(403).send({ error: 'Library management requires an unrestricted Plex account' });
-            return null;
-        }
-
-        try {
-            const providers = await axios.get(`${plexServer}/media/providers`, requestConfig(token));
-            if (!canManagePlexServer(user, providers.data)) {
-                res.status(403).send({ error: 'This Plex session cannot manage the server' });
-                return null;
-            }
-        } catch (error) {
-            sendPlexError(res, error);
-            return null;
-        }
-        return token;
-    }
+    const { authenticate, requestConfig } = plexManagement({ plexServer, httpsAgent });
 
     async function libraries(token: string): Promise<PlexLibrary[]> {
         const response = await axios.get(
@@ -160,36 +73,7 @@ export function createPlexLibrariesRouter({
             `${plexServer}/library/sections/${id}/prefs`,
             requestConfig(token),
         );
-        return response.data?.MediaContainer?.Setting || [];
-    }
-
-    async function validatedPreferences(token: string, id: string, value: unknown) {
-        if (value === undefined) return {} as Record<string, string>;
-        if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-
-        const available = new Map(
-            (await preferences(token, id))
-                .filter((setting) => setting.id && !setting.hidden)
-                .map((setting) => [setting.id as string, setting]),
-        );
-        const result: Record<string, string> = {};
-
-        for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
-            const setting = available.get(key);
-            if (!setting) return null;
-            const candidate = String(raw);
-            if (candidate.length > 1024) return null;
-
-            if (setting.type === 'bool' && !['true', 'false', '0', '1'].includes(candidate))
-                return null;
-            if (setting.type === 'int' && !/^-?\d+$/.test(candidate)) return null;
-            if (typeof setting.enumValues === 'string' && setting.enumValues) {
-                const allowed = setting.enumValues.split('|').map((entry) => entry.split(':', 1)[0]);
-                if (!allowed.includes(candidate)) return null;
-            }
-            result[key] = candidate;
-        }
-        return result;
+        return normalizePlexPreferences(response.data?.MediaContainer?.Setting || []);
     }
 
     function sectionParams(
@@ -259,7 +143,7 @@ export function createPlexLibrariesRouter({
                 preferences(token, id),
             ]);
             if (!library) return res.status(404).send({ error: 'Library not found' });
-            res.send({ library: mapLibrary(library), preferences: prefs.map(mapPreference) });
+            res.send({ library: mapLibrary(library), preferences: prefs });
         } catch (error) {
             sendPlexError(res, error);
         }
@@ -294,17 +178,30 @@ export function createPlexLibrariesRouter({
         const token = await authenticate(req, res);
         if (!token) return;
         const id = sectionId(req.params.id);
-        const name = libraryName(req.body?.name);
-        const language = libraryLanguage(req.body?.language);
-        const locations = libraryLocations(req.body?.locations);
-        if (!id || !name || !language || !locations)
-            return res.status(400).send({ error: 'Invalid library configuration' });
+        if (!id) return res.status(400).send({ error: 'Invalid library ID' });
 
+        if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body))
+            return res.status(400).send({ error: 'Invalid library configuration' });
         try {
             const library = await existingLibrary(token, id);
             if (!library) return res.status(404).send({ error: 'Library not found' });
-            const prefs = await validatedPreferences(token, id, req.body?.preferences);
-            if (!prefs) return res.status(400).send({ error: 'Invalid library preference' });
+            const currentLocations = (library.Location || []).map((location) => location.path).filter(Boolean);
+            const name = libraryName(req.body?.name === undefined ? library.title : req.body.name);
+            const language = libraryLanguage(req.body?.language === undefined ? library.language : req.body.language);
+            const locations = libraryLocations(req.body?.locations === undefined ? currentLocations : req.body.locations);
+            if (!name || !language || !locations)
+                return res.status(400).send({ error: 'Invalid library configuration' });
+            let prefs: Record<string, string> = {};
+            if (req.body?.preferences !== undefined) {
+                const available = await preferences(token, id);
+                try { prefs = validatePreferenceChanges(available, req.body.preferences); }
+                catch (error) {
+                    return res.status(400).send({ error: error instanceof Error ? error.message : 'Invalid library preference' });
+                }
+            }
+            if (name === library.title && language === library.language &&
+                JSON.stringify(locations) === JSON.stringify(currentLocations) && !Object.keys(prefs).length)
+                return res.send({ ok: true });
             const params = sectionParams(
                 { name, language, locations },
                 library.scanner || '',

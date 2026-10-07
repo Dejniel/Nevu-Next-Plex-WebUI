@@ -36,6 +36,7 @@ Nevu Next is a modified fork of [Ipmake/NevuForPlex](https://github.com/Ipmake/N
 - **Metadata administration** with title, sort title, original title, summary, tagline, studio, release date, year, and content-rating editing plus Plex field lock and unlock controls.
 - **Plex metadata matching** with editable search criteria, provider candidates, and manager-only Match, Fix Match, and Unmatch actions.
 - **Plex library administration** for server managers: create, edit, and delete libraries; browse server folders; scan files; refresh metadata; analyze media; and empty library trash.
+- **Plex server preferences** generated from the connected server, with grouped sections, search, advanced options, individual defaults, and saving only edited values. Library preferences use the same fields and validation.
 - **Library sharing management** for granting, updating, and removing another Plex user's access without leaving Nevu Next.
 - **Original-file downloads** when the active Plex account is allowed to download media.
 - **Watch Together through Nevu Sync**, which can be disabled for a simpler local installation.

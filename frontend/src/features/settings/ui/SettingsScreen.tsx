@@ -7,6 +7,7 @@ import SettingsAccount from "./SettingsAccount";
 import SettingsPlexHome from "./SettingsPlexHome";
 import SettingsSharing from "./SettingsSharing";
 import SettingsLibrariesAdmin from "./SettingsLibrariesAdmin";
+import SettingsServer from "./SettingsServer";
 import { useCanManageServer } from "features/session/public";
 
 function SettingsScreen() {
@@ -46,6 +47,7 @@ function SettingsScreen() {
         {canManageServer && (
           <>
             <SettingsDivider title="Manage" />
+            <SettingsItem title="Plex server" link="/settings/server" />
             <SettingsItem title="Libraries" link="/settings/manage-libraries" />
             <SettingsItem title="Sharing" link="/settings/sharing" />
           </>
@@ -74,6 +76,7 @@ function SettingsScreen() {
           <Route path="/account" element={<SettingsAccount />} />
           <Route path="/plex-home" element={<SettingsPlexHome />} />
           <Route path="/sharing" element={<SettingsSharing />} />
+          <Route path="/server" element={<SettingsServer />} />
           <Route
             path="/manage-libraries"
             element={<SettingsLibrariesAdmin />}

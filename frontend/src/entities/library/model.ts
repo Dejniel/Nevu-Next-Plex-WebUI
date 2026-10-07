@@ -1,4 +1,8 @@
-export { librariesQueryOptions, notifyLibrariesChanged, useLibraries } from "./model/libraries";
+export {
+  librariesQueryOptions,
+  notifyLibrariesChanged,
+  useLibraries,
+} from "./model/libraries";
 export {
   browseLibraryFolders,
   createLibrary,
@@ -14,7 +18,7 @@ export type {
   LibraryDetails,
   LibraryFolder,
   LibraryInput,
-  LibraryPreference,
+  LibraryUpdateInput,
   ManagedLibrary,
   ManagedLibraryType,
 } from "./api/libraryAdmin";

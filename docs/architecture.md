@@ -82,6 +82,18 @@ editing and matching, original-file downloads, and playback-target resolution
 while the shared `MediaCard` remains presentation-focused. `entities/library`
 owns reusable library data and administration requests.
 
+Server and library preferences share the normalized `Setting` contract and
+validation in `contracts/preferences`; `entities/plex-preferences` owns the field
+renderer and sparse local drafts. Settings uses native profile/server-scoped
+queries for server preferences, library administration and server folders. Drafts
+retain edits across background reads without copying server responses. Writes
+use captured credentials, reject obsolete sessions and revalidate affected
+resources. The backend verifies the active account and PMS management permission,
+excludes hidden values and validates edits against freshly read descriptors.
+Server groups and field availability come from PMS; known effects and restart
+requirements use a small explicit annotation map. Metadata editing keeps its
+own value/lock model rather than treating metadata as preferences.
+
 Plex Home membership and permissions come from Plex's Home API, using the active
 profile's account token. Settings observes one native Query resource and revalidates
 it after writes; safe profile fields update the session and profile picker. PINs

@@ -1,10 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import {
-  AuthStorage,
-  useAuthSession,
-  useServerSession,
-} from "features/session/model";
+import { useSettingsSession } from "./settingsSession";
 import { serverQueryClient } from "shared/api/queryClient";
 import {
   createShare,
@@ -20,22 +16,10 @@ type SharingChange =
   | { type: "remove"; id: number };
 
 function useSharingSession() {
-  const revision = useAuthSession((state) => state.revision);
-  const status = useAuthSession((state) => state.status);
-  const serverId =
-    useServerSession((state) => state.server?.machineIdentifier) ?? "";
-  const token = AuthStorage.getProfileAccountToken();
+  const session = useSettingsSession();
   return {
-    revision,
-    serverId,
-    token,
-    ready: status === "ready" && Boolean(serverId && token),
-    queryKey: ["plex-sharing", serverId, revision] as const,
-    isCurrent: () =>
-      useAuthSession.getState().status === "ready" &&
-      useAuthSession.getState().revision === revision &&
-      useServerSession.getState().server?.machineIdentifier === serverId &&
-      AuthStorage.getProfileAccountToken() === token,
+    ...session,
+    queryKey: ["plex-sharing", session.serverId, session.revision] as const,
   };
 }
 

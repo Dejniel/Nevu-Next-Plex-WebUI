@@ -18,7 +18,6 @@ import {
   CircularProgress,
   Divider,
   FormControl,
-  FormControlLabel,
   IconButton,
   InputLabel,
   List,
@@ -30,33 +29,33 @@ import {
   MenuItem,
   Select,
   Snackbar,
-  Switch,
   Tab,
   Tabs,
   TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { AppDialog, ConfirmDialog } from "shared/ui";
-import {
-  browseLibraryFolders,
-  createLibrary,
-  deleteLibrary,
-  getManagedLibraries,
-  getManagedLibrary,
-  LibraryDetails,
-  LibraryFolder,
+import type {
   LibraryInput,
-  LibraryPreference,
-  ManagedLibrary,
+  LibraryUpdateInput,
   ManagedLibraryType,
-  runLibraryAction,
-  updateLibrary,
-  notifyLibrariesChanged,
 } from "entities/library/model";
 import { useCanManageServer } from "features/session/public";
+import { useActiveServerScope, useAuthSession } from "features/session/model";
+import {
+  usePreferenceDraft,
+  validatePreferenceChanges,
+} from "entities/plex-preferences/model";
+import { PreferenceField } from "entities/plex-preferences/public";
+import {
+  useLibraryChange,
+  useLibraryFolders,
+  useManagedLibraries,
+  useManagedLibrary,
+} from "../model/useLibraryAdministration";
 
 const ROOT_BROWSE_KEY = "/services/browse/Lw==";
 const LIBRARY_TYPES: Array<{ value: ManagedLibraryType; label: string }> = [
@@ -115,26 +114,24 @@ const menuDotsSx = {
 };
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Plex library request failed.";
+  return error instanceof Error
+    ? error.message
+    : "Plex library request failed.";
 }
 
 function libraryIcon(type: string) {
   switch (type) {
-    case "movie": return <LocalMoviesRounded />;
-    case "show": return <TvRounded />;
-    case "artist": return <LibraryMusicRounded />;
-    case "photo": return <PhotoLibraryRounded />;
-    default: return <VideoLibraryRounded />;
+    case "movie":
+      return <LocalMoviesRounded />;
+    case "show":
+      return <TvRounded />;
+    case "artist":
+      return <LibraryMusicRounded />;
+    case "photo":
+      return <PhotoLibraryRounded />;
+    default:
+      return <VideoLibraryRounded />;
   }
-}
-
-function parseEnum(value: string) {
-  return value.split("|").filter(Boolean).map((entry) => {
-    const separator = entry.indexOf(":");
-    return separator < 0
-      ? { value: entry, label: entry }
-      : { value: entry.slice(0, separator), label: entry.slice(separator + 1) };
-  });
 }
 
 function FolderBrowser({
@@ -149,24 +146,11 @@ function FolderBrowser({
   const [history, setHistory] = useState<Array<{ key: string; path: string }>>([
     { key: ROOT_BROWSE_KEY, path: "/" },
   ]);
-  const [folders, setFolders] = useState<LibraryFolder[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const current = history[history.length - 1];
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    setLoading(true);
-    setError("");
-    browseLibraryFolders(current.key)
-      .then((paths) => {
-        if (!cancelled) setFolders(paths.filter((folder) => folder.path !== current.path));
-      })
-      .catch((reason) => !cancelled && setError(errorMessage(reason)))
-      .finally(() => !cancelled && setLoading(false));
-    return () => { cancelled = true; };
-  }, [current.key, current.path, open]);
+  const query = useLibraryFolders(current.key, open);
+  const folders = (query.data ?? []).filter(
+    (folder) => folder.path !== current.path,
+  );
 
   useEffect(() => {
     if (open) setHistory([{ key: ROOT_BROWSE_KEY, path: "/" }]);
@@ -190,7 +174,9 @@ function FolderBrowser({
             </IconButton>
           </span>
         </Tooltip>
-        <Typography noWrap sx={{ fontFamily: "monospace", flex: 1 }}>{current.path}</Typography>
+        <Typography noWrap sx={{ fontFamily: "monospace", flex: 1 }}>
+          {current.path}
+        </Typography>
         <Button
           variant="contained"
           disabled={current.path === "/"}
@@ -200,68 +186,45 @@ function FolderBrowser({
         </Button>
       </Box>
       <Divider />
-      {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
-      {loading ? (
-        <Box sx={{ py: 6, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>
+      {query.error && (
+        <Alert
+          severity="error"
+          sx={{ m: 2 }}
+          action={<Button onClick={() => query.refetch()}>Retry</Button>}
+        >
+          {query.error.message}
+        </Alert>
+      )}
+      {query.isPending ? (
+        <Box sx={{ py: 6, display: "flex", justifyContent: "center" }}>
+          <CircularProgress />
+        </Box>
       ) : (
         <List disablePadding sx={{ maxHeight: "50vh", overflowY: "auto" }}>
           {folders.map((folder) => (
             <ListItemButton
               key={folder.key}
-              onClick={() => setHistory((items) => [...items, { key: folder.key, path: folder.path }])}
+              onClick={() =>
+                setHistory((items) => [
+                  ...items,
+                  { key: folder.key, path: folder.path },
+                ])
+              }
             >
-              <ListItemIcon><FolderRounded /></ListItemIcon>
+              <ListItemIcon>
+                <FolderRounded />
+              </ListItemIcon>
               <ListItemText primary={folder.title} secondary={folder.path} />
             </ListItemButton>
           ))}
-          {!folders.length && !error && (
-            <ListItem><ListItemText primary="No folders found." /></ListItem>
+          {!folders.length && !query.error && (
+            <ListItem>
+              <ListItemText primary="No folders found." />
+            </ListItem>
           )}
         </List>
       )}
     </AppDialog>
-  );
-}
-
-function PreferenceField({
-  preference,
-  value,
-  onChange,
-}: {
-  preference: LibraryPreference;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const choices = parseEnum(preference.enumValues);
-  if (preference.type === "bool") {
-    return (
-      <FormControlLabel
-        control={<Switch checked={["true", "1"].includes(value)} onChange={(_, checked) => onChange(checked ? "true" : "false")} />}
-        label={preference.label}
-      />
-    );
-  }
-  if (choices.length) {
-    return (
-      <FormControl fullWidth size="small">
-        <InputLabel>{preference.label}</InputLabel>
-        <Select label={preference.label} value={value} onChange={(event) => onChange(String(event.target.value))}>
-          {choices.map((choice) => <MenuItem key={choice.value} value={choice.value}>{choice.label}</MenuItem>)}
-        </Select>
-        {preference.summary && <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.5 }}>{preference.summary}</Typography>}
-      </FormControl>
-    );
-  }
-  return (
-    <TextField
-      fullWidth
-      size="small"
-      type={preference.type === "int" ? "number" : "text"}
-      label={preference.label}
-      helperText={preference.summary}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-    />
   );
 }
 
@@ -276,125 +239,178 @@ function LibraryEditor({
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
-  const [details, setDetails] = useState<LibraryDetails | null>(null);
-  const [type, setType] = useState<ManagedLibraryType>("movie");
-  const [name, setName] = useState("");
-  const [language, setLanguage] = useState("en-US");
-  const [locations, setLocations] = useState<string[]>([]);
-  const [preferences, setPreferences] = useState<Record<string, string>>({});
+  const query = useManagedLibrary(libraryId);
+  const details = query.data;
+  const [general, setGeneral] = useState<Partial<LibraryInput>>({});
+  const type = general.type ?? "movie";
+  const name = general.name ?? details?.library.title ?? "";
+  const language = general.language ?? details?.library.language ?? "en-US";
+  const locations = general.locations ?? details?.library.locations ?? [];
+  const preferences = usePreferenceDraft(details?.preferences ?? []);
   const [tab, setTab] = useState(0);
   const [folderOpen, setFolderOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!open) return;
-    setTab(0);
-    setError("");
-    if (!libraryId) {
-      setDetails(null);
-      setType("movie");
-      setName("");
-      setLanguage("en-US");
-      setLocations([]);
-      setPreferences({});
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    getManagedLibrary(libraryId)
-      .then((result) => {
-        if (cancelled) return;
-        setDetails(result);
-        setName(result.library.title);
-        setLanguage(result.library.language);
-        setLocations(result.library.locations);
-        setPreferences(Object.fromEntries(
-          result.preferences
-            .filter((setting) => !setting.hidden && setting.id)
-            .map((setting) => [setting.id, String(setting.value ?? "")]),
-        ));
-      })
-      .catch((reason) => !cancelled && setError(errorMessage(reason)))
-      .finally(() => !cancelled && setLoading(false));
-    return () => { cancelled = true; };
-  }, [libraryId, open]);
+  const change = useLibraryChange();
+  const loading = Boolean(libraryId && query.isPending);
+  const saving = change.isPending;
+  const generalChanges: LibraryUpdateInput = {
+    ...(name.trim() !== details?.library.title && { name: name.trim() }),
+    ...(language !== details?.library.language && { language }),
+    ...(JSON.stringify(locations) !==
+      JSON.stringify(details?.library.locations) && { locations }),
+  };
+  const dirty =
+    Object.keys(generalChanges).length > 0 ||
+    Object.keys(preferences.changes).length > 0;
 
   const save = async () => {
     if (!name.trim() || !locations.length) {
       setError("Enter a library name and select at least one folder.");
       return;
     }
-    setSaving(true);
     setError("");
-    const input: LibraryInput = { name: name.trim(), language, locations };
     try {
       if (libraryId) {
-        input.preferences = preferences;
-        await updateLibrary(libraryId, input);
+        await change.mutateAsync({
+          type: "update",
+          id: libraryId,
+          input: {
+            ...generalChanges,
+            preferences: validatePreferenceChanges(
+              details?.preferences ?? [],
+              preferences.draft,
+            ),
+          },
+        });
       } else {
-        input.type = type;
-        await createLibrary(input);
+        await change.mutateAsync({
+          type: "create",
+          input: { name: name.trim(), language, locations, type },
+        });
       }
       onSaved(libraryId ? "Library updated." : "Library created.");
     } catch (reason) {
       setError(errorMessage(reason));
-    } finally {
-      setSaving(false);
     }
   };
 
-  const visiblePreferences = details?.preferences.filter((setting) => !setting.hidden && setting.id) || [];
+  const visiblePreferences = details?.preferences ?? [];
   return (
     <>
       <AppDialog
         open={open}
-        title={libraryId ? `Edit ${details?.library.title || "library"}` : "Add library"}
+        title={
+          libraryId
+            ? `Edit ${details?.library.title || "library"}`
+            : "Add library"
+        }
         onClose={onClose}
         busy={saving}
         headerContent={
           <>
-            <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ px: 3 }}>
-              <Tab label="General" />
-              <Tab label="Folders" />
-              {libraryId && <Tab label="Advanced" />}
+            <Tabs
+              value={tab}
+              onChange={(_, value) => setTab(value)}
+              sx={{ px: 3 }}
+            >
+              <Tab label="General" disabled={saving} />
+              <Tab label="Folders" disabled={saving} />
+              {libraryId && <Tab label="Advanced" disabled={saving} />}
             </Tabs>
             <Divider />
           </>
         }
         contentSx={{ minHeight: 330 }}
         actions={
-          <Button variant="contained" onClick={save} disabled={saving || loading}>{saving ? "Saving..." : "Save"}</Button>
+          <Button
+            variant="contained"
+            onClick={save}
+            disabled={
+              saving || loading || Boolean(libraryId && (!details || !dirty))
+            }
+          >
+            {saving ? "Saving..." : "Save"}
+          </Button>
         }
       >
-        {loading ? <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box> : (
+        {query.error && libraryId && (
+          <Alert
+            severity="error"
+            sx={{ mb: 2 }}
+            action={<Button onClick={() => query.refetch()}>Retry</Button>}
+          >
+            {query.error.message}
+          </Alert>
+        )}
+        {loading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
           <>
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
             {tab === 0 && (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {!libraryId && (
                   <FormControl fullWidth>
                     <InputLabel>Library type</InputLabel>
-                    <Select label="Library type" value={type} onChange={(event) => setType(event.target.value as ManagedLibraryType)}>
-                      {LIBRARY_TYPES.map((item) => <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>)}
+                    <Select
+                      disabled={saving}
+                      label="Library type"
+                      value={type}
+                      onChange={(event) =>
+                        setGeneral((current) => ({
+                          ...current,
+                          type: event.target.value as ManagedLibraryType,
+                        }))
+                      }
+                    >
+                      {LIBRARY_TYPES.map((item) => (
+                        <MenuItem key={item.value} value={item.value}>
+                          {item.label}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 )}
-                <TextField label="Name" value={name} onChange={(event) => setName(event.target.value)} fullWidth autoFocus />
+                <TextField
+                  disabled={saving}
+                  label="Name"
+                  value={name}
+                  onChange={(event) =>
+                    setGeneral((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }
+                  fullWidth
+                  autoFocus
+                />
                 <FormControl fullWidth>
                   <InputLabel id="library-language-label">Language</InputLabel>
                   <Select
+                    disabled={saving}
                     labelId="library-language-label"
                     label="Language"
                     value={language}
-                    onChange={(event) => setLanguage(String(event.target.value))}
+                    onChange={(event) =>
+                      setGeneral((current) => ({
+                        ...current,
+                        language: String(event.target.value),
+                      }))
+                    }
                   >
                     {!LIBRARY_LANGUAGES.some(([code]) => code === language) && (
                       <MenuItem value={language}>{language}</MenuItem>
                     )}
                     {LIBRARY_LANGUAGES.map(([code, label]) => (
-                      <MenuItem key={code} value={code}>{label}</MenuItem>
+                      <MenuItem key={code} value={code}>
+                        {label}
+                      </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
@@ -402,20 +418,55 @@ function LibraryEditor({
             )}
             {tab === 1 && (
               <Box>
-                <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
-                  <Button startIcon={<AddRounded />} onClick={() => setFolderOpen(true)}>Add folder</Button>
+                <Box
+                  sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}
+                >
+                  <Button
+                    disabled={saving}
+                    startIcon={<AddRounded />}
+                    onClick={() => setFolderOpen(true)}
+                  >
+                    Add folder
+                  </Button>
                 </Box>
                 <List disablePadding>
                   {locations.map((path) => (
                     <ListItem
                       key={path}
-                      secondaryAction={<Tooltip title="Remove folder"><IconButton onClick={() => setLocations((items) => items.filter((item) => item !== path))}><DeleteOutlineRounded /></IconButton></Tooltip>}
+                      secondaryAction={
+                        <Tooltip title="Remove folder">
+                          <IconButton
+                            disabled={saving}
+                            onClick={() =>
+                              setGeneral((current) => ({
+                                ...current,
+                                locations: locations.filter(
+                                  (item) => item !== path,
+                                ),
+                              }))
+                            }
+                          >
+                            <DeleteOutlineRounded />
+                          </IconButton>
+                        </Tooltip>
+                      }
                     >
-                      <ListItemIcon><FolderRounded /></ListItemIcon>
-                      <ListItemText primary={path} slotProps={{ primary: { sx: { fontFamily: "monospace" } } }} />
+                      <ListItemIcon>
+                        <FolderRounded />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={path}
+                        slotProps={{
+                          primary: { sx: { fontFamily: "monospace" } },
+                        }}
+                      />
                     </ListItem>
                   ))}
-                  {!locations.length && <ListItem><ListItemText primary="No folders selected." /></ListItem>}
+                  {!locations.length && (
+                    <ListItem>
+                      <ListItemText primary="No folders selected." />
+                    </ListItem>
+                  )}
                 </List>
               </Box>
             )}
@@ -425,11 +476,18 @@ function LibraryEditor({
                   <PreferenceField
                     key={setting.id}
                     preference={setting}
-                    value={preferences[setting.id] ?? ""}
-                    onChange={(value) => setPreferences((current) => ({ ...current, [setting.id]: value }))}
+                    value={preferences.draft[setting.id] ?? setting.value}
+                    onChange={(value) =>
+                      preferences.setValue(setting.id, value)
+                    }
+                    disabled={saving}
                   />
                 ))}
-                {!visiblePreferences.length && <Typography sx={{ color: "text.secondary" }}>No advanced settings are available.</Typography>}
+                {!visiblePreferences.length && (
+                  <Typography sx={{ color: "text.secondary" }}>
+                    No advanced settings are available.
+                  </Typography>
+                )}
               </Box>
             )}
           </>
@@ -439,7 +497,12 @@ function LibraryEditor({
         open={folderOpen}
         onClose={() => setFolderOpen(false)}
         onSelect={(path) => {
-          setLocations((items) => items.includes(path) ? items : [...items, path]);
+          setGeneral((current) => ({
+            ...current,
+            locations: locations.includes(path)
+              ? locations
+              : [...locations, path],
+          }));
           setFolderOpen(false);
         }}
       />
@@ -448,64 +511,72 @@ function LibraryEditor({
 }
 
 export default function SettingsLibrariesAdmin() {
+  const revision = useAuthSession((state) => state.revision);
+  const { serverId } = useActiveServerScope();
+  return <LibraryAdministration key={`${serverId}:${revision}`} />;
+}
+
+function LibraryAdministration() {
   const canManageServer = useCanManageServer();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [libraries, setLibraries] = useState<ManagedLibrary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const query = useManagedLibraries();
+  const libraries = query.data ?? [];
+  const change = useLibraryChange();
   const [notice, setNotice] = useState("");
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
-  const [menuLibrary, setMenuLibrary] = useState<ManagedLibrary | null>(null);
-  const [confirmAction, setConfirmAction] = useState<"refresh-metadata" | "empty-trash" | null>(null);
-  const [confirmBusy, setConfirmBusy] = useState(false);
-  const [deletingBusy, setDeletingBusy] = useState(false);
+  const [menuLibrary, setMenuLibrary] = useState<
+    (typeof libraries)[number] | null
+  >(null);
+  const [confirmAction, setConfirmAction] = useState<
+    "refresh-metadata" | "empty-trash" | null
+  >(null);
   const editing = searchParams.get("edit");
   const deleting = searchParams.get("delete");
   const adding = searchParams.has("add");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      setLibraries(await getManagedLibraries());
-    } catch (reason) {
-      setError(errorMessage(reason));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (canManageServer) void load();
-  }, [canManageServer, load]);
-  const deleteTarget = useMemo(() => libraries.find((library) => library.id === deleting) || null, [deleting, libraries]);
+  const deleteTarget =
+    libraries.find((library) => library.id === deleting) || null;
 
   if (!canManageServer) return <Navigate to="/settings/account" replace />;
 
   const closeEditor = () => setSearchParams({});
-  const changed = async (message: string) => {
+  const changed = (message: string) => {
     closeEditor();
     setNotice(message);
-    await load();
-    notifyLibrariesChanged();
   };
-  const performAction = async (action: "scan" | "refresh-metadata" | "analyze" | "empty-trash") => {
+  const performAction = async (
+    action: "scan" | "refresh-metadata" | "analyze" | "empty-trash",
+  ) => {
     if (!menuLibrary) return;
     try {
-      await runLibraryAction(menuLibrary.id, action);
-      setNotice(action === "scan" ? "Library scan started." : "Library action started.");
+      await change.mutateAsync({ type: "action", id: menuLibrary.id, action });
+      setNotice(
+        action === "scan" ? "Library scan started." : "Library action started.",
+      );
+      setMenuAnchor(null);
+      return true;
     } catch (reason) {
       setNotice(errorMessage(reason));
+      return false;
     }
-    setMenuAnchor(null);
   };
 
   return (
     <Box sx={{ width: "100%" }}>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 2,
+          mb: 2,
+        }}
+      >
         <Box>
           <Typography variant="h4">Libraries</Typography>
-          <Typography sx={{ color: "text.secondary" }}>Create and maintain Plex libraries.</Typography>
+          <Typography sx={{ color: "text.secondary" }}>
+            Create and maintain Plex libraries.
+          </Typography>
         </Box>
         <Button
           component={Link}
@@ -517,9 +588,19 @@ export default function SettingsLibrariesAdmin() {
         </Button>
       </Box>
       <Divider />
-      {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-      {loading ? (
-        <Box sx={{ py: 8, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>
+      {query.error && (
+        <Alert
+          severity="error"
+          sx={{ mt: 2 }}
+          action={<Button onClick={() => query.refetch()}>Retry</Button>}
+        >
+          {query.error.message}
+        </Alert>
+      )}
+      {query.isPending ? (
+        <Box sx={{ py: 8, display: "flex", justifyContent: "center" }}>
+          <CircularProgress />
+        </Box>
       ) : (
         <List disablePadding>
           {libraries.map((library) => (
@@ -536,7 +617,17 @@ export default function SettingsLibrariesAdmin() {
                       <EditRounded />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Library actions"><IconButton sx={menuDotsSx} onClick={(event) => { setMenuLibrary(library); setMenuAnchor(event.currentTarget); }}><MoreVertRounded /></IconButton></Tooltip>
+                  <Tooltip title="Library actions">
+                    <IconButton
+                      sx={menuDotsSx}
+                      onClick={(event) => {
+                        setMenuLibrary(library);
+                        setMenuAnchor(event.currentTarget);
+                      }}
+                    >
+                      <MoreVertRounded />
+                    </IconButton>
+                  </Tooltip>
                 </Box>
               }
               sx={{ minHeight: 72, pr: 12 }}
@@ -549,11 +640,19 @@ export default function SettingsLibrariesAdmin() {
               />
             </ListItem>
           ))}
-          {!libraries.length && !error && <ListItem><ListItemText primary="No Plex libraries found." /></ListItem>}
+          {!libraries.length && !query.error && (
+            <ListItem>
+              <ListItemText primary="No Plex libraries found." />
+            </ListItem>
+          )}
         </List>
       )}
 
-      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={() => setMenuAnchor(null)}
+      >
         <MenuItem
           component={Link}
           to={`/settings/manage-libraries?edit=${menuLibrary?.id || ""}`}
@@ -562,10 +661,28 @@ export default function SettingsLibrariesAdmin() {
           <ListItemText>Edit</ListItemText>
         </MenuItem>
         <Divider />
-        <MenuItem onClick={() => performAction("scan")}><ListItemText>Scan library files</ListItemText></MenuItem>
-        <MenuItem onClick={() => { setConfirmAction("refresh-metadata"); setMenuAnchor(null); }}><ListItemText>Refresh all metadata</ListItemText></MenuItem>
-        <MenuItem onClick={() => performAction("analyze")}><ListItemText>Analyze</ListItemText></MenuItem>
-        <MenuItem onClick={() => { setConfirmAction("empty-trash"); setMenuAnchor(null); }}><ListItemText>Empty trash</ListItemText></MenuItem>
+        <MenuItem onClick={() => performAction("scan")}>
+          <ListItemText>Scan library files</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setConfirmAction("refresh-metadata");
+            setMenuAnchor(null);
+          }}
+        >
+          <ListItemText>Refresh all metadata</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => performAction("analyze")}>
+          <ListItemText>Analyze</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setConfirmAction("empty-trash");
+            setMenuAnchor(null);
+          }}
+        >
+          <ListItemText>Empty trash</ListItemText>
+        </MenuItem>
         <Divider />
         <MenuItem
           component={Link}
@@ -577,23 +694,32 @@ export default function SettingsLibrariesAdmin() {
         </MenuItem>
       </Menu>
 
-      <LibraryEditor open={adding || Boolean(editing)} libraryId={editing} onClose={closeEditor} onSaved={changed} />
+      {(adding || editing) && (
+        <LibraryEditor
+          key={editing ?? "add"}
+          open
+          libraryId={editing}
+          onClose={closeEditor}
+          onSaved={changed}
+        />
+      )}
       <ConfirmDialog
         open={Boolean(deleting)}
         title={`Delete ${deleteTarget?.title || "library"}?`}
         message="This removes the library from Plex but does not delete its media files."
-        busy={deletingBusy}
+        busy={change.isPending}
         onClose={closeEditor}
         onConfirm={async () => {
           if (!deleteTarget) return;
-          setDeletingBusy(true);
           try {
-            await deleteLibrary(deleteTarget.id, deleteTarget.title);
+            await change.mutateAsync({
+              type: "remove",
+              id: deleteTarget.id,
+              title: deleteTarget.title,
+            });
             await changed("Library deleted.");
           } catch (reason) {
             setNotice(errorMessage(reason));
-          } finally {
-            setDeletingBusy(false);
           }
         }}
         confirmLabel="Delete"
@@ -603,29 +729,32 @@ export default function SettingsLibrariesAdmin() {
       />
       <ConfirmDialog
         open={confirmAction !== null}
-        title={confirmAction === "empty-trash" ? "Empty library trash?" : "Refresh all metadata?"}
+        title={
+          confirmAction === "empty-trash"
+            ? "Empty library trash?"
+            : "Refresh all metadata?"
+        }
         message={
           confirmAction === "empty-trash"
             ? "Plex will permanently remove unavailable items from this library."
             : "Plex will refresh metadata for every item in this library."
         }
-        busy={confirmBusy}
+        busy={change.isPending}
         onClose={() => setConfirmAction(null)}
         onConfirm={async () => {
           if (!confirmAction) return;
-          setConfirmBusy(true);
-          try {
-            await performAction(confirmAction);
-            setConfirmAction(null);
-          } finally {
-            setConfirmBusy(false);
-          }
+          if (await performAction(confirmAction)) setConfirmAction(null);
         }}
         confirmLabel="Continue"
         busyLabel="Working..."
         confirmColor={confirmAction === "empty-trash" ? "error" : "primary"}
       />
-      <Snackbar open={Boolean(notice)} autoHideDuration={5000} onClose={() => setNotice("")} message={notice} />
+      <Snackbar
+        open={Boolean(notice)}
+        autoHideDuration={5000}
+        onClose={() => setNotice("")}
+        message={notice}
+      />
     </Box>
   );
 }

@@ -1,3 +1,5 @@
+export * from "./preferences.js";
+
 export type LibraryItemType = "movie" | "show" | "episode";
 
 export type LibrarySort = string;

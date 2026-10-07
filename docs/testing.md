@@ -77,6 +77,14 @@ changes during a save. Check the review editor from the star menu and both secti
 headers; your review should appear once, first in Recent, immediately after saving.
 Live review writes use the account’s Plex privacy settings.
 
+For server/library preferences, check grouping, search, advanced options, empty
+enum choices, boolean descriptions, decimal values, default restoration and
+mobile labels. Save one field and verify that untouched preferences are omitted.
+Refresh while editing, retry a failed save, and change profile/server during both
+the write and subsequent read. Verify restricted/non-manager access and hidden
+fields using mocked endpoints. Use only standalone Plex for automated settings
+writes; connection and transcoder settings require representative environments.
+
 Plex Home, reviews and sharing change the cloud account even from a standalone
 server. Use mocked writes for automation. Check draft preservation on background
 refresh, partial Home edits, inline errors/retry, and profile changes during both
