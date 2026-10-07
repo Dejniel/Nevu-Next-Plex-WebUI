@@ -2,7 +2,11 @@ import { notifyManager } from "@tanstack/react-query";
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { serverQueryClient } from "shared/api/queryClient";
-import { useServerSession } from "features/session/model";
+import {
+  AuthStorage,
+  useAuthSession,
+  useServerSession,
+} from "features/session/model";
 import { useUserSettings } from "features/settings/model";
 import * as listSync from "../model/listSync";
 import { editPlaylist } from "../api/playlistEditing";
@@ -93,6 +97,12 @@ beforeEach(() => {
   serverQueryClient.clear();
   initial = null;
   profile = "owner:2";
+  AuthStorage.saveActiveSession({
+    profile: null,
+    accountToken: "account",
+    serverToken: "server",
+  });
+  useAuthSession.setState({ status: "ready", revision: 1 });
   useUserSettings.setState({ profileKey: profile });
   useServerSession.setState({
     server: { machineIdentifier: "local" } as Plex.ServerPreferences,
@@ -258,4 +268,30 @@ it("does not send a previous profile's action even before its editor unmounts", 
   expect(document.querySelector('[role="alert"]')?.textContent).toContain(
     "profile changed",
   );
+});
+
+it("ignores a confirmed deletion if the session changes during list revalidation", async () => {
+  initial = { type: "delete" };
+  let finish!: () => void;
+  vi.spyOn(listSync, "applyMediaListChanges").mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  await render();
+  await click("Delete playlist");
+  const signal = save.mock.calls[0][2];
+  await act(async () => useAuthSession.setState({ revision: 2 }));
+  expect(signal.aborted).toBe(true);
+  await act(async () => finish());
+  expect(deleted).not.toHaveBeenCalled();
+});
+
+it("blocks a write immediately after sign-out, even if its editor is still mounted", async () => {
+  initial = { type: "delete" };
+  await render();
+  await act(async () => useAuthSession.setState({ status: "signedOut" }));
+  await click("Delete playlist");
+  expect(save).not.toHaveBeenCalled();
 });

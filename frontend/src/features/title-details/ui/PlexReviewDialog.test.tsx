@@ -100,6 +100,9 @@ it("keeps the draft and shows the Plex error when a save fails", async () => {
   expect(document.querySelector("textarea")?.value).toBe("My review");
   expect(onSaved).not.toHaveBeenCalled();
   expect(saveButton().disabled).toBe(false);
+  save.mockResolvedValue({ ...review, message: "My review" });
+  await act(async () => saveButton().click());
+  expect(onSaved).toHaveBeenCalledTimes(1);
 });
 
 it("prevents duplicate saves and closing while the request is pending", async () => {
@@ -115,7 +118,10 @@ it("prevents duplicate saves and closing while the request is pending", async ()
       />,
     ),
   );
-  await act(async () => saveButton().click());
+  await act(async () => {
+    saveButton().click();
+    saveButton().click();
+  });
   await act(async () =>
     document
       .querySelector('[role="dialog"]')!

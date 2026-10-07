@@ -57,7 +57,9 @@ function headers() {
   };
 }
 
-function sharingError(error: unknown): SharingError {
+function sharingError(error: unknown): Error {
+  if (axios.isCancel(error))
+    return new DOMException("Sharing request cancelled", "AbortError");
   if (!axios.isAxiosError(error))
     return new SharingError("Nevu could not update Plex sharing.");
 

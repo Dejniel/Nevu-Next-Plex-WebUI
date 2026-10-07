@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   canManagePlexServer,
   hasPlexFeature,
-  isPlexServerOwner,
+  isUnrestrictedPlexAccount,
 } from "../dist/common/plex.js";
 import {
   libraryKind,
@@ -23,8 +23,8 @@ test("finds Plex capabilities in nested provider responses", () => {
 
 test("allows management only to an unrestricted user with the manage capability", () => {
   const providers = { Feature: [{ type: "manage" }] };
-  assert.equal(isPlexServerOwner({ restricted: false }), true);
-  assert.equal(isPlexServerOwner({ restricted: true }), false);
+  assert.equal(isUnrestrictedPlexAccount({ restricted: false }), true);
+  assert.equal(isUnrestrictedPlexAccount({ restricted: true }), false);
   assert.equal(canManagePlexServer({ restricted: false }, providers), true);
   assert.equal(canManagePlexServer({ restricted: true }, providers), false);
   assert.equal(canManagePlexServer({ restricted: false }, {}), false);

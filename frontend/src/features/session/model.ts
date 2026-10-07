@@ -1,11 +1,12 @@
 export { AuthStorage } from "./model/authStorage";
 export { getPlexHomeOverview, changePlexHome } from "./api/plexHome";
-export type { PlexHomeSession, PlexHomeChange } from "./api/plexHome";
+export type { PlexHomeSession } from "./api/plexHome";
 export { homeMemberActions, HOME_RESTRICTION_PROFILES } from "./model/plexHome";
 export type {
   PlexHomeMember,
   PlexHomeInvite,
   PlexHomeOverview,
+  PlexHomeChange,
 } from "./model/plexHome";
 export { useAuthSession } from "./model/authSession";
 export { plexProfileKey } from "./model/profileIdentity";

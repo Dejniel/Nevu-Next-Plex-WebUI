@@ -31,7 +31,7 @@ export default function PlexReviewDialog({
   useEffect(() => () => pendingRequest.current?.abort(), []);
 
   const save = async () => {
-    if (saving || !message.trim()) return;
+    if (pendingRequest.current || !message.trim()) return;
     const controller = new AbortController();
     pendingRequest.current = controller;
     setSaving(true);
@@ -56,6 +56,7 @@ export default function PlexReviewDialog({
             : "Plex could not save your review. Try again.",
         );
     } finally {
+      if (pendingRequest.current === controller) pendingRequest.current = null;
       if (!controller.signal.aborted) setSaving(false);
     }
   };

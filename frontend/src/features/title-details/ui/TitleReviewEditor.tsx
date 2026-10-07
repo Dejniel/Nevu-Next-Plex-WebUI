@@ -1,6 +1,10 @@
 import { Alert, Box, Button, CircularProgress } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
-import { useActiveServerScope, useAuthSession } from "features/session/model";
+import {
+  AuthStorage,
+  useActiveServerScope,
+  useAuthSession,
+} from "features/session/model";
 import { serverQueryClient } from "shared/api/queryClient";
 import { AppDialog } from "shared/ui";
 import type { PlexReviews } from "../api/plexCommunity";
@@ -21,6 +25,11 @@ export default function TitleReviewEditor({
   const { profileKey } = useActiveServerScope();
   const revision = useAuthSession((state) => state.revision);
   const confirmed = useAuthSession((state) => state.activeUser?.confirmed);
+  const token = AuthStorage.getProfileAccountToken();
+  const isCurrent = () =>
+    useAuthSession.getState().status === "ready" &&
+    useAuthSession.getState().revision === revision &&
+    AuthStorage.getProfileAccountToken() === token;
   const options = titleReviewsQueryOptions(profileKey, item.guid);
   const reviews = useQuery(options, serverQueryClient);
 
@@ -55,12 +64,12 @@ export default function TitleReviewEditor({
       review={reviews.data.userReview}
       onClose={onClose}
       onSaved={async (saved) => {
-        if (useAuthSession.getState().revision !== revision) return;
+        if (!isCurrent()) return;
         await serverQueryClient.cancelQueries({
           queryKey: options.queryKey,
           exact: true,
         });
-        if (useAuthSession.getState().revision !== revision) return;
+        if (!isCurrent()) return;
         serverQueryClient.setQueryData<PlexReviews>(
           options.queryKey,
           (current) => current && replaceOwnReview(current, saved),

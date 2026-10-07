@@ -9,7 +9,7 @@ import {
     libraryName,
     sectionId,
 } from './common/libraryRules.js';
-import { canManagePlexServer, CheckPlexUser, isPlexServerOwner } from './common/plex.js';
+import { canManagePlexServer, CheckPlexUser, isUnrestrictedPlexAccount } from './common/plex.js';
 
 interface LibrariesRouterOptions {
     plexServer: string;
@@ -125,8 +125,8 @@ export function createPlexLibrariesRouter({
             res.status(401).send({ error: 'The active Plex session has expired' });
             return null;
         }
-        if (!isPlexServerOwner(user)) {
-            res.status(403).send({ error: 'Library management requires the Plex Home owner' });
+        if (!isUnrestrictedPlexAccount(user)) {
+            res.status(403).send({ error: 'Library management requires an unrestricted Plex account' });
             return null;
         }
 

@@ -19,6 +19,8 @@ export async function setMediaRating(
   if (!token) throw new Error("The active Plex profile session has expired.");
   const revision = useAuthSession.getState().revision;
   const scope = getActiveServerScope();
+  if (useAuthSession.getState().status !== "ready" || !scope)
+    throw new Error("The active Plex session changed. Open this action again.");
   signal?.throwIfAborted();
   const response = await ProxiedRequest(
     `/:/rate?${queryBuilder({
@@ -38,6 +40,7 @@ export async function setMediaRating(
   signal?.throwIfAborted();
   const current = getActiveServerScope();
   if (
+    useAuthSession.getState().status !== "ready" ||
     useAuthSession.getState().revision !== revision ||
     AuthStorage.getServerToken() !== token ||
     current?.serverId !== scope?.serverId ||
@@ -45,7 +48,7 @@ export async function setMediaRating(
   )
     throw new Error("The active Plex profile changed. Open this action again.");
   const accepted = response.status >= 200 && response.status < 300;
-  if (accepted && scope)
+  if (accepted)
     publishMediaChange({
       ...scope,
       kind: "item",

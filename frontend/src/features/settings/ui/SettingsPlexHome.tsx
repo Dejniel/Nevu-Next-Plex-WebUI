@@ -20,7 +20,6 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useQuery } from "@tanstack/react-query";
 import React, { useState } from "react";
 import { useAuthSession, useCanManageServer } from "features/session/public";
 import {
@@ -32,10 +31,9 @@ import type {
   PlexHomeInvite,
   PlexHomeMember,
 } from "features/session/model";
-import { serverQueryClient } from "shared/api/queryClient";
 import { AppDialog, ConfirmDialog } from "shared/ui";
-import { getSharingOverview } from "../api/sharing";
 import { usePlexHome } from "../model/usePlexHome";
+import { useSharingOverview } from "../model/useSharing";
 import {
   PlexHomeInviteEditor,
   PlexHomeMemberEditor,
@@ -59,12 +57,7 @@ function HomeLibraries({
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
-  const revision = useAuthSession((state) => state.revision);
-  const queryKey = ["plex-sharing", revision];
-  const overview = useQuery(
-    { queryKey, queryFn: ({ signal }) => getSharingOverview(signal) },
-    serverQueryClient,
-  );
+  const overview = useSharingOverview(true);
   if (!overview.data)
     return (
       <AppDialog
@@ -99,7 +92,6 @@ function HomeLibraries({
       libraries={overview.data.libraries}
       onClose={onClose}
       onSaved={onSaved}
-      onSettled={() => serverQueryClient.invalidateQueries({ queryKey })}
     />
   );
 }

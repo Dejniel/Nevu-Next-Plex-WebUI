@@ -87,7 +87,12 @@ profile's account token. Settings observes one native Query resource and revalid
 it after writes; safe profile fields update the session and profile picker. PINs
 exist only in the open form/request, outside persistence and the mutation cache.
 Home administration and server management are independent permissions. Home
-library access reuses the sharing editor and backend rather than a second workflow.
+library access and Sharing observe the same profile/server-scoped Query resource
+and use one mutation model. Forms retain drafts across background refreshes;
+successful writes revalidate before closing, with a final session check.
+Managed-user name and restriction changes form one operation, with one pending
+state and revalidation even after partial failure. Membership changes also
+invalidate library access. PINs remain outside Query mutation variables.
 
 `app/library/LibraryBrowse` composes the library view selector and its screens.
 Watchlist, collection, and playlist views share `LibraryBrowseFrame`; all library

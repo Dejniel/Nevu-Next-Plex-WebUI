@@ -1,5 +1,5 @@
 import axios from "axios";
-import { AuthStorage } from "features/session/model";
+import { AuthStorage, useAuthSession } from "features/session/model";
 
 export interface PlexReview {
   id: string;
@@ -57,15 +57,34 @@ async function request<T>(
   signal?: AbortSignal,
 ): Promise<T> {
   const token = AuthStorage.getProfileAccountToken();
-  if (!token) throw new Error("The active Plex profile session has expired.");
-  const response = await axios.post<{
-    data?: T;
-    errors?: { message?: string }[];
-  }>(
-    "https://community.plex.tv/api",
-    { operationName, query, variables },
-    { headers: { "X-Plex-Token": token }, timeout: 8000, signal },
-  );
+  const revision = useAuthSession.getState().revision;
+  if (!token || useAuthSession.getState().status !== "ready")
+    throw new Error("The active Plex profile session has expired.");
+  signal?.throwIfAborted();
+  const response = await axios
+    .post<{
+      data?: T;
+      errors?: { message?: string }[];
+    }>(
+      "https://community.plex.tv/api",
+      { operationName, query, variables },
+      { headers: { "X-Plex-Token": token }, timeout: 8000, signal },
+    )
+    .catch((error: unknown) => {
+      if (axios.isCancel(error))
+        throw new DOMException("Plex reviews request cancelled", "AbortError");
+      // Query owns read failures; do not retain request credentials in its cache.
+      throw new Error(
+        "Plex community reviews are temporarily unavailable. Try again.",
+      );
+    });
+  signal?.throwIfAborted();
+  if (
+    useAuthSession.getState().status !== "ready" ||
+    useAuthSession.getState().revision !== revision ||
+    AuthStorage.getProfileAccountToken() !== token
+  )
+    throw new Error("The active Plex profile changed. Open this action again.");
   if (response.data.errors?.length)
     throw new Error(
       response.data.errors[0].message || "Plex could not complete the request.",

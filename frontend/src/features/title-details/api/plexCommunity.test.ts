@@ -1,8 +1,13 @@
 import axios from "axios";
-import { AuthStorage } from "features/session/model";
+import { AuthStorage, useAuthSession } from "features/session/model";
 import { getPlexReviews, savePlexReview } from "./plexCommunity";
 
-vi.mock("axios", () => ({ default: { post: vi.fn() } }));
+vi.mock("axios", async (importOriginal) => ({
+  default: {
+    ...(await importOriginal<typeof import("axios")>()).default,
+    post: vi.fn(),
+  },
+}));
 const post = vi.mocked(axios.post);
 const reviews = {
   userReview: null,
@@ -12,6 +17,8 @@ const reviews = {
 };
 
 beforeEach(() => {
+  vi.resetAllMocks();
+  useAuthSession.setState({ status: "ready", revision: 1 });
   localStorage.clear();
   sessionStorage.clear();
   AuthStorage.saveActiveSession({
@@ -19,6 +26,37 @@ beforeEach(() => {
     accountToken: "active-profile",
     serverToken: "server",
   });
+});
+
+it.each(["profile", "sign-out", "abort"])(
+  "ignores a late cloud response after %s",
+  async (change) => {
+    let finish!: (value: unknown) => void;
+    post.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const controller = new AbortController();
+    const pending = getPlexReviews("movie-id", controller.signal);
+    if (change === "profile") useAuthSession.setState({ revision: 2 });
+    else if (change === "sign-out")
+      useAuthSession.setState({ status: "signedOut" });
+    else controller.abort();
+    finish({ data: { data: reviews } });
+    await expect(pending).rejects.toThrow();
+  },
+);
+
+it("does not retain request credentials when a community request fails", async () => {
+  post.mockRejectedValue({
+    isAxiosError: true,
+    config: { headers: { "X-Plex-Token": "private" } },
+  });
+  const error = await getPlexReviews("movie-id").catch((error) => error);
+  expect(error.message).toContain("temporarily unavailable");
+  expect(error).not.toHaveProperty("config");
 });
 
 it("reads Plex reviews with the active profile token and supports cancellation", async () => {

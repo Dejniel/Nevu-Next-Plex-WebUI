@@ -108,7 +108,7 @@ it("rejects a missing session instead of sending an unauthenticated request", as
   expect(ProxiedRequest).not.toHaveBeenCalled();
 });
 
-it.each(["abort", "profile", "server"])(
+it.each(["abort", "profile", "server", "sign-out"])(
   "does not publish a stale write after %s changes",
   async (change) => {
     let finish!: (response: { status: number }) => void;
@@ -125,6 +125,8 @@ it.each(["abort", "profile", "server"])(
       const pending = setMediaRating(8, "12", controller.signal);
       if (change === "abort") controller.abort();
       else if (change === "profile") useAuthSession.setState({ revision: 2 });
+      else if (change === "sign-out")
+        useAuthSession.setState({ status: "signedOut" });
       else
         useServerSession.setState({
           server: { machineIdentifier: "other" } as Plex.ServerPreferences,
@@ -137,3 +139,9 @@ it.each(["abort", "profile", "server"])(
     }
   },
 );
+
+it("does not write while the session is leaving its ready state", async () => {
+  useAuthSession.setState({ status: "selectingProfile" });
+  await expect(setMediaRating(8, "12")).rejects.toThrow("session changed");
+  expect(ProxiedRequest).not.toHaveBeenCalled();
+});

@@ -69,9 +69,10 @@ it("renames a managed profile without rewriting its unchanged/custom restriction
   await click("Save");
   expect(actions.change).toHaveBeenCalledTimes(1);
   expect(actions.change).toHaveBeenCalledWith({
-    type: "rename",
+    type: "edit",
     member: { ...member, restrictionProfile: "custom" },
     title: "Renamed child",
+    restrictionProfile: "custom",
   });
   expect(actions.onSaved).toHaveBeenCalled();
 });

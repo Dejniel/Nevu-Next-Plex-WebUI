@@ -9,11 +9,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import { AppDialog } from "shared/ui";
-import { useAuthSession } from "features/session/model";
-import { createShare, deleteShare, updateShare } from "../api/sharing";
+import { useAuthSession, useActiveServerScope } from "features/session/model";
 import type { PlexShare, SharingLibrary } from "../api/sharing";
+import { useSharingChange } from "../model/useSharing";
 
 interface ShareEditorProps {
   open: boolean;
@@ -22,42 +22,44 @@ interface ShareEditorProps {
   recipient?: { id: number; title: string };
   onClose: () => void;
   onSaved: (message: string) => void;
-  onSettled?: () => Promise<unknown>;
 }
 
-export default function ShareEditor({
-  open,
+export default function ShareEditor(props: ShareEditorProps) {
+  const revision = useAuthSession((state) => state.revision);
+  const { serverId } = useActiveServerScope();
+  if (!props.open) return null;
+  return (
+    <SharingForm
+      key={`${serverId}:${revision}:${props.recipient?.id ?? props.share?.id ?? "new"}`}
+      {...props}
+    />
+  );
+}
+
+function SharingForm({
   share,
   libraries,
   recipient,
   onClose,
   onSaved,
-  onSettled,
 }: ShareEditorProps) {
   const [account, setAccount] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
-  const [allowDownloads, setAllowDownloads] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const controller = useRef<AbortController | null>(null);
-  const revision = useAuthSession((state) => state.revision);
-  useEffect(() => () => controller.current?.abort(), [revision]);
-
-  useEffect(() => {
-    if (!open) return;
-    setAccount("");
-    setSelected(
-      share?.allLibraries
-        ? libraries.map((library) => library.id)
-        : share?.librarySectionIds ||
-            (recipient ? [] : libraries.map((library) => library.id)),
-    );
-    setAllowDownloads(share?.allowDownloads ?? true);
-    setError(null);
-  }, [libraries, open, share, recipient]);
+  const [selected, setSelected] = useState<string[]>(() =>
+    share?.allLibraries
+      ? libraries.map((library) => library.id)
+      : share?.librarySectionIds ||
+        (recipient ? [] : libraries.map((library) => library.id)),
+  );
+  const [allowDownloads, setAllowDownloads] = useState(
+    share?.allowDownloads ?? true,
+  );
+  const mutation = useSharingChange();
+  const saving = mutation.isPending;
+  const error = mutation.error?.message;
 
   const allSelected =
-    libraries.length > 0 && selected.length === libraries.length;
+    libraries.length > 0 &&
+    libraries.every((library) => selected.includes(library.id));
   const toggleLibrary = (id: string) => {
     setSelected((current) =>
       current.includes(id)
@@ -66,65 +68,42 @@ export default function ShareEditor({
     );
   };
 
-  const save = async () => {
+  const save = () => {
     if (
-      controller.current ||
+      saving ||
       (selected.length === 0 && (!recipient || !share)) ||
       (!share && !recipient && !account.trim())
     )
       return;
-    const operation = new AbortController();
-    controller.current = operation;
-    setSaving(true);
-    setError(null);
-    try {
-      const input = { librarySectionIds: selected, allowDownloads };
-      if (share && selected.length === 0) {
-        await deleteShare(share.id, operation.signal);
-      } else if (share) {
-        await updateShare(share.id, input, operation.signal);
-      } else {
-        await createShare(
-          {
-            ...input,
-            ...(recipient
-              ? { invitedId: recipient.id }
-              : { invitedAccount: account.trim() }),
+    const input = { librarySectionIds: selected, allowDownloads };
+    mutation.mutate(
+      share
+        ? selected.length === 0
+          ? { type: "remove", id: share.id }
+          : { type: "update", id: share.id, input }
+        : {
+            type: "create",
+            input: {
+              ...input,
+              ...(recipient
+                ? { invitedId: recipient.id }
+                : { invitedAccount: account.trim() }),
+            },
           },
-          operation.signal,
-        );
-      }
-      if (
-        !operation.signal.aborted &&
-        useAuthSession.getState().revision === revision
-      )
-        onSaved(
-          recipient || share
-            ? `Updated access for ${recipient?.title || share?.displayName}.`
-            : "Plex invitation sent.",
-        );
-    } catch (error) {
-      if (
-        !operation.signal.aborted &&
-        useAuthSession.getState().revision === revision
-      )
-        setError(
-          error instanceof Error ? error.message : "Sharing update failed.",
-        );
-    } finally {
-      if (useAuthSession.getState().revision === revision) await onSettled?.();
-      controller.current = null;
-      if (
-        !operation.signal.aborted &&
-        useAuthSession.getState().revision === revision
-      )
-        setSaving(false);
-    }
+      {
+        onSuccess: () =>
+          onSaved(
+            recipient || share
+              ? `Updated access for ${recipient?.title || share?.displayName}.`
+              : "Plex invitation sent.",
+          ),
+      },
+    );
   };
 
   return (
     <AppDialog
-      open={open}
+      open
       title={
         recipient
           ? `Libraries for ${recipient.title}`

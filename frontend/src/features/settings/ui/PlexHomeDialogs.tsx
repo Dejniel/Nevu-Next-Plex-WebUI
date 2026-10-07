@@ -62,30 +62,18 @@ export function PlexHomeMemberEditor({
     member.title !== title.trim() ||
     member.restrictionProfile !== restriction;
   const save = async () => {
-    if (!member) {
-      if (
-        await change({ type: "create", title, restrictionProfile: restriction })
-      )
-        onSaved(
-          "Managed user created. Choose Libraries from their menu to grant access.",
-        );
-      return;
-    }
     if (
-      member.title !== title.trim() &&
-      !(await change({ type: "rename", member, title }))
-    )
-      return;
-    if (
-      member.restrictionProfile !== restriction &&
-      !(await change({
-        type: "restrictions",
-        member,
+      await change({
+        ...(member ? { type: "edit", member } : { type: "create" }),
+        title,
         restrictionProfile: restriction,
-      }))
+      })
     )
-      return;
-    onSaved("Managed user updated.");
+      onSaved(
+        member
+          ? "Managed user updated."
+          : "Managed user created. Choose Libraries from their menu to grant access.",
+      );
   };
   return (
     <AppDialog

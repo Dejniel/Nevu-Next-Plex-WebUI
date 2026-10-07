@@ -23,7 +23,7 @@ export function hasPlexFeature(value: unknown, feature: string): boolean {
     return Object.values(object).some((entry) => hasPlexFeature(entry, feature));
 }
 
-export function isPlexServerOwner(user: { restricted?: boolean } | null | undefined): boolean {
+export function isUnrestrictedPlexAccount(user: { restricted?: boolean } | null | undefined): boolean {
     return Boolean(user && !user.restricted);
 }
 
@@ -31,5 +31,5 @@ export function canManagePlexServer(
     user: { restricted?: boolean } | null | undefined,
     providers: unknown,
 ): boolean {
-    return isPlexServerOwner(user) && hasPlexFeature(providers, 'manage');
+    return isUnrestrictedPlexAccount(user) && hasPlexFeature(providers, 'manage');
 }

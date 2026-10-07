@@ -206,22 +206,98 @@ it("creates a managed profile with only the chosen name and age preset", async (
 });
 
 it("changes only a dirty name and clears a preset using Plex's omission contract", async () => {
-  await changePlexHome(session, home, {
-    type: "rename",
-    member: managed,
-    title: "New name",
-  });
-  await changePlexHome(session, home, {
-    type: "restrictions",
-    member: managed,
-    restrictionProfile: "unrestricted",
-  });
+  await changePlexHome(
+    session,
+    {
+      ...home,
+      members: home.members.map((member) =>
+        member.id === managed.id
+          ? { ...member, restrictionProfile: "teen" }
+          : member,
+      ),
+    },
+    {
+      type: "edit",
+      member: managed,
+      title: "New name",
+      restrictionProfile: "unrestricted",
+    },
+  );
   expect(cloud.post.mock.calls.map((call) => call.slice(0, 2))).toEqual([
     [
       "https://plex.tv/api/v2/home/users/restricted/2",
       { friendlyName: "New name" },
     ],
     ["https://plex.tv/api/v2/home/users/restricted/profile", { userId: 2 }],
+  ]);
+});
+
+it("preserves an unchanged custom preset while renaming a managed user", async () => {
+  const member = { ...managed, restrictionProfile: "custom" };
+  await changePlexHome(
+    session,
+    { ...home, members: [owner, member] },
+    {
+      type: "edit",
+      member,
+      title: "Renamed",
+      restrictionProfile: "custom",
+    },
+  );
+  expect(cloud.post).toHaveBeenCalledTimes(1);
+  expect(cloud.post.mock.calls[0][0]).toBe(
+    "https://plex.tv/api/v2/home/users/restricted/2",
+  );
+});
+
+it("cancels a compound edit before the second cloud write", async () => {
+  const operation = new AbortController();
+  cloud.post.mockImplementationOnce(async () => {
+    operation.abort();
+  });
+  await expect(
+    changePlexHome(
+      session,
+      home,
+      {
+        type: "edit",
+        member: managed,
+        title: "Renamed",
+        restrictionProfile: "teen",
+      },
+      operation.signal,
+    ),
+  ).rejects.toThrow();
+  expect(cloud.post).toHaveBeenCalledTimes(1);
+});
+
+it("retries only the unsaved part after Plex confirms a partial edit", async () => {
+  cloud.post
+    .mockResolvedValueOnce({})
+    .mockRejectedValueOnce(new Error("Restrictions failed"));
+  const input = {
+    type: "edit",
+    member: managed,
+    title: "Renamed",
+    restrictionProfile: "teen",
+  } as const;
+  await expect(changePlexHome(session, home, input)).rejects.toThrow(
+    "Restrictions failed",
+  );
+  await changePlexHome(
+    session,
+    {
+      ...home,
+      members: home.members.map((member) =>
+        member.id === managed.id ? { ...member, title: "Renamed" } : member,
+      ),
+    },
+    input,
+  );
+  expect(cloud.post.mock.calls.map(([url]) => url)).toEqual([
+    "https://plex.tv/api/v2/home/users/restricted/2",
+    "https://plex.tv/api/v2/home/users/restricted/profile",
+    "https://plex.tv/api/v2/home/users/restricted/profile",
   ]);
 });
 
@@ -283,7 +359,12 @@ it("never retains request secrets in a PIN error and allows retry", async () => 
 it.each([
   { type: "remove", member: owner },
   { type: "pin", member: regular, pin: "1234", currentPin: "1234" },
-  { type: "rename", member: regular, title: "Changed" },
+  {
+    type: "edit",
+    member: regular,
+    title: "Changed",
+    restrictionProfile: "unrestricted",
+  },
   { type: "pin", member: { ...managed, id: 99 }, pin: "1234", currentPin: "" },
 ] as const)(
   "blocks forbidden or stale member actions before sending a request: %o",
@@ -320,7 +401,12 @@ it("validates names, presets, PINs and the server-provided member limit", async 
   for (const input of [
     { type: "create", title: "kids", restrictionProfile: "teen" },
     { type: "create", title: "", restrictionProfile: "teen" },
-    { type: "restrictions", member: managed, restrictionProfile: "invalid" },
+    {
+      type: "edit",
+      member: managed,
+      title: "New name",
+      restrictionProfile: "invalid",
+    },
     { type: "pin", member: owner, pin: "1234", currentPin: "" },
     { type: "pin", member: managed, pin: "12", currentPin: "" },
   ] as const)

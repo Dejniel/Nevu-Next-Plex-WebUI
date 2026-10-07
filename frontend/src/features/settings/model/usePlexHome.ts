@@ -43,7 +43,7 @@ export function usePlexHome() {
       controller.current?.abort();
       controller.current = null;
     };
-  }, [revision, session.activeId]);
+  }, [revision, session.activeId, session.token, status]);
   useEffect(() => {
     if (query.data) updateHomeProfiles(query.data.members, revision);
   }, [query.data, revision, updateHomeProfiles]);
@@ -61,6 +61,10 @@ export function usePlexHome() {
     const current = () => !operation.signal.aborted && sameSession();
     let saved = false;
     try {
+      if (!current())
+        throw new Error(
+          "The active Plex session changed. Open this action again.",
+        );
       await changePlexHome(session, query.data, input, operation.signal);
       saved = true;
     } catch (failure) {
@@ -73,7 +77,14 @@ export function usePlexHome() {
     } finally {
       if (sameSession()) {
         // A timed-out write may still have reached Plex. Re-read its authoritative state.
-        await serverQueryClient.invalidateQueries({ queryKey, exact: true });
+        await Promise.all([
+          serverQueryClient.invalidateQueries({ queryKey, exact: true }),
+          ["remove", "guest", "invitation"].includes(input.type)
+            ? serverQueryClient.invalidateQueries({
+                queryKey: ["plex-sharing"],
+              })
+            : Promise.resolve(),
+        ]);
       }
       if (controller.current === operation) controller.current = null;
       if (current()) setPending(false);

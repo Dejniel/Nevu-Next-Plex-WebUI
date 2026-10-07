@@ -1,6 +1,12 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { useAuthSession } from "features/session/model";
+import { notifyManager } from "@tanstack/react-query";
+import {
+  AuthStorage,
+  useAuthSession,
+  useServerSession,
+} from "features/session/model";
+import { serverQueryClient } from "shared/api/queryClient";
 import { createShare, deleteShare, updateShare } from "../api/sharing";
 import type { PlexShare } from "../api/sharing";
 import ShareEditor from "./ShareEditor";
@@ -26,10 +32,23 @@ const share: PlexShare = {
 let root: Root;
 let host: HTMLDivElement;
 const saved = vi.fn();
+beforeAll(() => notifyManager.setScheduler(queueMicrotask));
+afterAll(() =>
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0)),
+);
 beforeEach(() => {
   vi.resetAllMocks();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   useAuthSession.setState({ status: "ready", revision: 1 });
+  AuthStorage.saveActiveSession({
+    profile: null,
+    accountToken: "account",
+    serverToken: "server",
+  });
+  useServerSession.setState({
+    server: { machineIdentifier: "local" } as Plex.ServerPreferences,
+  });
+  serverQueryClient.clear();
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
@@ -37,6 +56,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   host.remove();
+  serverQueryClient.clear();
   vi.unstubAllGlobals();
 });
 async function render(current: PlexShare | null) {
@@ -95,4 +115,26 @@ it("aborts a library access write and ignores success after switching profile", 
   expect(signal.aborted).toBe(true);
   await act(async () => finish());
   expect(saved).not.toHaveBeenCalled();
+});
+
+it("keeps an unsaved draft when the same recipient's sharing data refreshes", async () => {
+  await render(share);
+  await click("Movies");
+  await act(async () =>
+    root.render(
+      <ShareEditor
+        open
+        recipient={{ ...recipient }}
+        share={{ ...share }}
+        libraries={[...libraries]}
+        onClose={vi.fn()}
+        onSaved={saved}
+      />,
+    ),
+  );
+  expect(
+    document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked,
+  ).toBe(false);
+  await click("Save");
+  expect(deleteShare).toHaveBeenCalledWith(42, expect.any(AbortSignal));
 });

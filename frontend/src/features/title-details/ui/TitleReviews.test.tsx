@@ -1,7 +1,7 @@
 import { act, useState } from "react";
 import { notifyManager } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
-import { useAuthSession } from "features/session/model";
+import { AuthStorage, useAuthSession } from "features/session/model";
 import { serverQueryClient as client } from "shared/api/queryClient";
 import TitleReviews from "./TitleReviews";
 import TitleReviewEditor from "./TitleReviewEditor";
@@ -23,7 +23,9 @@ vi.mock("shared/ui", async () => ({
 const get = vi.mocked(getPlexReviews);
 const save = vi.mocked(savePlexReview);
 beforeAll(() => notifyManager.setScheduler(queueMicrotask));
-afterAll(() => notifyManager.setScheduler((callback) => setTimeout(callback, 0)));
+afterAll(() =>
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0)),
+);
 const empty: PlexReviews = {
   userReview: null,
   friendReviews: { nodes: [] },
@@ -36,9 +38,23 @@ let host: HTMLDivElement;
 beforeEach(() => {
   vi.resetAllMocks();
   client.clear();
+  localStorage.clear();
+  sessionStorage.clear();
+  AuthStorage.saveActiveSession({
+    profile: null,
+    accountToken: "account",
+    serverToken: "server",
+  });
   useAuthSession.setState({
+    status: "ready",
     ownerUser: { id: 1 } as Plex.UserData,
-    activeProfile: { id: 1, title: "Owner", protected: false, restricted: false, isOwner: true },
+    activeProfile: {
+      id: 1,
+      title: "Owner",
+      protected: false,
+      restricted: false,
+      isOwner: true,
+    },
     activeUser: { confirmed: true } as Plex.UserData,
     revision: 1,
   });
@@ -142,8 +158,17 @@ it("protects spoilers with an explicit expandable control and tolerates invalid 
 });
 
 it("puts your review first in Recent, without duplicating it in other sections", async () => {
-  const own = { id: "own", date: "2026-01-01", message: "My older review", status: "PENDING" };
-  const recent = { id: "recent", date: "2026-10-05", message: "A newer review" };
+  const own = {
+    id: "own",
+    date: "2026-01-01",
+    message: "My older review",
+    status: "PENDING",
+  };
+  const recent = {
+    id: "recent",
+    date: "2026-10-05",
+    message: "A newer review",
+  };
   const top = { id: "top", date: "2026-10-05", message: "A popular review" };
   get.mockResolvedValue({
     userReview: own,
@@ -176,7 +201,9 @@ it("puts your review first in Recent, without duplicating it in other sections",
   const buttons = Array.from(host.querySelectorAll("button"));
   expect(buttons).toHaveLength(2);
   expect(
-    buttons.map((button) => button.closest("section")?.getAttribute("aria-label")),
+    buttons.map((button) =>
+      button.closest("section")?.getAttribute("aria-label"),
+    ),
   ).toEqual(["Critic reviews", "Recent reviews"]);
   for (const button of buttons) await act(async () => button.click());
   expect(write).toHaveBeenCalledTimes(2);
@@ -196,7 +223,9 @@ function EditorHarness() {
 }
 async function openEditor() {
   await act(async () => root.render(<EditorHarness />));
-  await act(async () => host.querySelector<HTMLButtonElement>("button")!.click());
+  await act(async () =>
+    host.querySelector<HTMLButtonElement>("button")!.click(),
+  );
 }
 async function saveText(message: string) {
   const input = document.querySelector("textarea")!;
@@ -216,16 +245,27 @@ async function saveText(message: string) {
 it("shares reviews with the editor and immediately adds the saved review first in Recent", async () => {
   const other = { id: "other", date: "2026-10-05", message: "Another opinion" };
   get.mockResolvedValue({ ...empty, recentReviews: { nodes: [other] } });
-  save.mockResolvedValue({ id: "own", date: "2026-10-06", message: "My new opinion" });
+  save.mockResolvedValue({
+    id: "own",
+    date: "2026-10-06",
+    message: "My new opinion",
+  });
   await openEditor();
   expect(get).toHaveBeenCalledTimes(1);
   await saveText("My new opinion");
   expect(save).toHaveBeenCalledWith(
-    { metadata: "one", message: "My new opinion", hasSpoilers: false, rating: null },
+    {
+      metadata: "one",
+      message: "My new opinion",
+      hasSpoilers: false,
+      rating: null,
+    },
     undefined,
     expect.any(AbortSignal),
   );
-  const recent = host.querySelector('section[aria-label="Recent reviews"]')!.textContent!;
+  const recent = host.querySelector(
+    'section[aria-label="Recent reviews"]',
+  )!.textContent!;
   expect(recent.indexOf("My new opinion")).toBeLessThan(
     recent.indexOf("Another opinion"),
   );
@@ -234,14 +274,22 @@ it("shares reviews with the editor and immediately adds the saved review first i
 });
 
 it("does not let a stale background read restore the previous review after saving", async () => {
-  const own = { id: "own", date: "2026-10-05", message: "Previous opinion", reviewRating: 8 };
+  const own = {
+    id: "own",
+    date: "2026-10-05",
+    message: "Previous opinion",
+    reviewRating: 8,
+  };
   get.mockResolvedValue({ ...empty, userReview: own });
   await openEditor();
   expect(document.querySelector("textarea")?.value).toBe("Previous opinion");
   let finishRead!: (reviews: PlexReviews) => void;
-  get.mockImplementationOnce(() => new Promise((resolve) => {
-    finishRead = resolve;
-  }));
+  get.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishRead = resolve;
+      }),
+  );
   await act(async () => {
     void client.invalidateQueries({
       queryKey: titleReviewsQueryOptions("1:1", movie.guid).queryKey,
@@ -260,20 +308,33 @@ it("does not let a stale background read restore the previous review after savin
 it("cancels an old profile's pending save and keeps its late result out of the new profile", async () => {
   get.mockResolvedValue(empty);
   let finishSave!: (review: PlexReview) => void;
-  save.mockImplementation(() => new Promise((resolve) => {
-    finishSave = resolve;
-  }));
+  save.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finishSave = resolve;
+      }),
+  );
   await openEditor();
   await saveText("Old profile opinion");
   const signal = save.mock.calls[0][2]!;
   await act(async () =>
     useAuthSession.setState({
-      activeProfile: { id: 2, title: "Other", protected: false, restricted: false, isOwner: false },
+      activeProfile: {
+        id: 2,
+        title: "Other",
+        protected: false,
+        restricted: false,
+        isOwner: false,
+      },
       revision: 2,
     }),
   );
   await act(async () =>
-    finishSave({ id: "old", date: "2026-10-06", message: "Old profile opinion" }),
+    finishSave({
+      id: "old",
+      date: "2026-10-06",
+      message: "Old profile opinion",
+    }),
   );
   expect(signal.aborted).toBe(true);
   expect(host.textContent).not.toContain("Old profile opinion");
@@ -296,5 +357,30 @@ it("keeps the Recent heading and write action when community reviews are empty",
   );
   const section = host.querySelector('section[aria-label="Recent reviews"]')!;
   expect(section.textContent).toContain("No recent reviews yet.");
-  expect(section.querySelector<HTMLButtonElement>("button")?.disabled).toBe(false);
+  expect(section.querySelector<HTMLButtonElement>("button")?.disabled).toBe(
+    false,
+  );
+});
+
+it("does not publish a late review after sign-out without a revision change", async () => {
+  get.mockResolvedValue(empty);
+  let finish!: (review: PlexReview) => void;
+  save.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  await openEditor();
+  await saveText("Signed-out opinion");
+  await act(async () => useAuthSession.setState({ status: "signedOut" }));
+  await act(async () =>
+    finish({ id: "own", date: "2026-10-07", message: "Signed-out opinion" }),
+  );
+  expect(
+    client.getQueryData<PlexReviews>(
+      titleReviewsQueryOptions("1:1", movie.guid).queryKey,
+    )?.userReview,
+  ).toBeNull();
+  expect(host.textContent).not.toContain("Signed-out opinion");
 });

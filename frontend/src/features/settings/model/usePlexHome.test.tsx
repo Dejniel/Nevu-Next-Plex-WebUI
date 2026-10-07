@@ -141,9 +141,10 @@ it("keeps Plex as the source of truth after an uncertain write and permits retry
   await act(async () => {
     expect(
       await state.change({
-        type: "rename",
+        type: "edit",
         member: overview.members[1],
         title: "Changed",
+        restrictionProfile: "teen",
       }),
     ).toBe(false);
   });
@@ -154,9 +155,10 @@ it("keeps Plex as the source of truth after an uncertain write and permits retry
   await act(async () => {
     expect(
       await state.change({
-        type: "rename",
+        type: "edit",
         member: overview.members[1],
         title: "Changed",
+        restrictionProfile: "teen",
       }),
     ).toBe(true);
   });
@@ -204,9 +206,10 @@ it("cancels a pending write on profile change and ignores its late result", asyn
   let saving!: Promise<boolean>;
   await act(async () => {
     saving = state.change({
-      type: "rename",
+      type: "edit",
       member: overview.members[1],
       title: "Old write",
+      restrictionProfile: "teen",
     });
   });
   const signal = write.mock.calls[0][3]!;
@@ -269,9 +272,10 @@ it("does not report a saved change to a new profile while revalidation is pendin
   let saving!: Promise<boolean>;
   await act(async () => {
     saving = state.change({
-      type: "rename",
+      type: "edit",
       member: overview.members[1],
       title: "Changed",
+      restrictionProfile: "teen",
     });
   });
   expect(read).toHaveBeenCalledTimes(2);
@@ -289,4 +293,25 @@ it("does not report a saved change to a new profile while revalidation is pendin
     expect(await saving).toBe(false);
   });
   expect(AuthStorage.getProfileAccountToken()).toBe("child-account-token");
+});
+
+it("invalidates shared library access when Home membership changes", async () => {
+  const key = ["plex-sharing", "server", 1];
+  serverQueryClient.setQueryData(key, { libraries: [], shares: [] });
+  await act(async () => {
+    expect(
+      await state.change({ type: "remove", member: overview.members[1] }),
+    ).toBe(true);
+  });
+  expect(serverQueryClient.getQueryState(key)?.isInvalidated).toBe(true);
+});
+
+it("does not send a Home write after sign-out even before its screen unmounts", async () => {
+  await act(async () => {
+    useAuthSession.setState({ status: "signedOut" });
+    expect(
+      await state.change({ type: "remove", member: overview.members[1] }),
+    ).toBe(false);
+  });
+  expect(write).not.toHaveBeenCalled();
 });

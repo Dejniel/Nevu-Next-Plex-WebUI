@@ -77,6 +77,12 @@ changes during a save. Check the review editor from the star menu and both secti
 headers; your review should appear once, first in Recent, immediately after saving.
 Live review writes use the account’s Plex privacy settings.
 
+Plex Home, reviews and sharing change the cloud account even from a standalone
+server. Use mocked writes for automation. Check draft preservation on background
+refresh, partial Home edits, inline errors/retry, and profile changes during both
+the write and subsequent revalidation. Verify that Home membership changes also
+refresh library access, while PINs stay outside storage and the mutation cache.
+
 For list browsing, create a collection and a video playlist in test Plex using
 the samples. Check their library views, search, empty states, and back links.
 Verify playlist order with Next, playback completion, and returning to the list;

@@ -3,12 +3,13 @@ import { XMLParser } from "fast-xml-parser";
 import { APP_VERSION } from "shared/config/version";
 import {
   HOME_RESTRICTION_PROFILES,
-  homeMemberActions,
+  canChangePlexHome,
 } from "../model/plexHome";
 import type {
   PlexHomeInvite,
   PlexHomeMember,
   PlexHomeOverview,
+  PlexHomeChange,
 } from "../model/plexHome";
 
 const parser = new XMLParser({
@@ -166,16 +167,6 @@ export async function getPlexHomeOverview(
   });
 }
 
-export type PlexHomeChange =
-  | { type: "create"; title: string; restrictionProfile: string }
-  | { type: "rename"; member: PlexHomeMember; title: string }
-  | { type: "restrictions"; member: PlexHomeMember; restrictionProfile: string }
-  | { type: "pin"; member: PlexHomeMember; pin: string; currentPin: string }
-  | { type: "remove"; member: PlexHomeMember }
-  | { type: "invite"; account: string }
-  | { type: "invitation"; invite: PlexHomeInvite; accept: boolean }
-  | { type: "guest"; enabled: boolean };
-
 export async function changePlexHome(
   session: PlexHomeSession,
   overview: PlexHomeOverview,
@@ -186,30 +177,10 @@ export async function changePlexHome(
     "member" in change
       ? overview.members.find((item) => item.id === change.member.id)
       : undefined;
-  const actions =
-    member && homeMemberActions(member, session.activeId, overview.canManage);
-  const permitted =
-    change.type === "pin"
-      ? actions?.pin
-      : change.type === "remove"
-        ? actions?.remove
-        : change.type === "rename" || change.type === "restrictions"
-          ? actions?.edit
-          : change.type === "invitation"
-            ? (!change.accept || change.invite.incoming) &&
-              overview.invites.some(
-                (invite) =>
-                  invite.id === change.invite.id &&
-                  invite.incoming === change.invite.incoming,
-              ) &&
-              (change.invite.incoming || overview.canManage)
-            : change.type === "invite"
-              ? overview.canInvite
-              : overview.canManage;
-  if (!permitted)
+  if (!canChangePlexHome(change, overview, session.activeId))
     throw new Error("The active profile cannot make this Plex Home change.");
 
-  if (change.type === "create" || change.type === "rename") {
+  if (change.type === "create" || change.type === "edit") {
     const title = change.title.trim();
     if (!title || title.length > 100)
       throw new Error("Enter a name between 1 and 100 characters.");
@@ -223,7 +194,9 @@ export async function changePlexHome(
       throw new Error("A Home user already exists with this name.");
   }
   if (
-    (change.type === "create" || change.type === "restrictions") &&
+    (change.type === "create" ||
+      (change.type === "edit" &&
+        change.restrictionProfile !== member?.restrictionProfile)) &&
     !HOME_RESTRICTION_PROFILES.some(
       (profile) => profile.value === change.restrictionProfile,
     )
@@ -267,24 +240,25 @@ export async function changePlexHome(
           options,
         );
         break;
-      case "rename":
-        await axios.post(
-          `${CLOUD}/api/v2/home/users/restricted/${member!.id}`,
-          { friendlyName: change.title.trim() },
-          options,
-        );
-        break;
-      case "restrictions":
-        await axios.post(
-          `${CLOUD}/api/v2/home/users/restricted/profile`,
-          {
-            userId: member!.id,
-            ...(change.restrictionProfile !== "unrestricted" && {
-              restrictionProfile: change.restrictionProfile,
-            }),
-          },
-          options,
-        );
+      case "edit":
+        if (change.title.trim() !== member!.title)
+          await axios.post(
+            `${CLOUD}/api/v2/home/users/restricted/${member!.id}`,
+            { friendlyName: change.title.trim() },
+            options,
+          );
+        signal?.throwIfAborted();
+        if (change.restrictionProfile !== member!.restrictionProfile)
+          await axios.post(
+            `${CLOUD}/api/v2/home/users/restricted/profile`,
+            {
+              userId: member!.id,
+              ...(change.restrictionProfile !== "unrestricted" && {
+                restrictionProfile: change.restrictionProfile,
+              }),
+            },
+            options,
+          );
         break;
       case "pin": {
         const params = member!.restricted
