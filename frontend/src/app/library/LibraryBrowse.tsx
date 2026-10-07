@@ -1,5 +1,13 @@
 import React from "react";
-import { Box, Button, ButtonGroup, MenuItem, Select } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  ButtonGroup,
+  CircularProgress,
+  MenuItem,
+  Select,
+} from "@mui/material";
 import { AnimatePresence } from "motion/react";
 import {
   Link,
@@ -11,6 +19,11 @@ import { WatchlistView } from "features/watchlist/routes";
 import { MediaListsView } from "features/media-lists/routes";
 import { BrowseRecommendations, BrowseLibrary } from "features/library/public";
 import { libraryViewTo } from "shared/lib/navigation";
+import {
+  libraryViews,
+  useLibraries,
+  type LibraryView,
+} from "entities/library/model";
 
 const views = [
   { id: "recommendations", label: "Recommended" },
@@ -19,16 +32,19 @@ const views = [
   { id: "collections", label: "Collections" },
   { id: "playlists", label: "Playlists" },
 ] as const;
-type BrowsePages = (typeof views)[number]["id"];
+type BrowsePages = LibraryView;
 
 function BrowsePageSelector({
   page,
   setPage,
+  availableViews,
 }: {
   page: BrowsePages;
   setPage: (page: BrowsePages) => void;
+  availableViews: readonly LibraryView[];
 }) {
   const location = useLocation();
+  const visibleViews = views.filter((view) => availableViews.includes(view.id));
   return (
     <>
       <Select
@@ -48,7 +64,7 @@ function BrowsePageSelector({
           },
         }}
       >
-        {views.map((view) => (
+        {visibleViews.map((view) => (
           <MenuItem key={view.id} value={view.id}>
             {view.label}
           </MenuItem>
@@ -81,7 +97,7 @@ function BrowsePageSelector({
           },
         }}
       >
-        {views.map((view) => (
+        {visibleViews.map((view) => (
           <Button
             key={view.id}
             component={Link}
@@ -104,18 +120,15 @@ function BrowsePageSelector({
 function LibraryBrowse() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { libraryID } = useParams<{ libraryID: string }>();
+  const libraries = useLibraries();
+  const library = libraries.data?.find((entry) => entry.key === libraryID);
+  const availableViews = libraryViews(library?.type);
   const requestedPage = searchParams.get("view");
   const storedPage = localStorage.getItem("browsePage");
-  const page: BrowsePages =
-    requestedPage === "browse" ||
-    requestedPage === "recommendations" ||
-    requestedPage === "watchlist" ||
-    requestedPage === "collections" ||
-    requestedPage === "playlists"
-      ? requestedPage
-      : storedPage === "browse"
-        ? "browse"
-        : "recommendations";
+  const page =
+    availableViews.find((view) => view === requestedPage) ||
+    availableViews.find((view) => view === storedPage) ||
+    availableViews[0];
   const setPage = (nextPage: BrowsePages) => {
     if (nextPage === "recommendations" || nextPage === "browse")
       localStorage.setItem("browsePage", nextPage);
@@ -125,7 +138,50 @@ function LibraryBrowse() {
     next.delete("list");
     setSearchParams(next);
   };
-  const pageSelector = <BrowsePageSelector page={page} setPage={setPage} />;
+  React.useEffect(() => {
+    if (
+      !library ||
+      !requestedPage ||
+      availableViews.some((view) => view === requestedPage)
+    )
+      return;
+    const next = new URLSearchParams(searchParams);
+    next.set("view", page);
+    next.delete("shelf");
+    next.delete("list");
+    setSearchParams(next, { replace: true });
+  }, [
+    availableViews,
+    library,
+    page,
+    requestedPage,
+    searchParams,
+    setSearchParams,
+  ]);
+  const pageSelector = (
+    <BrowsePageSelector
+      page={page}
+      setPage={setPage}
+      availableViews={availableViews}
+    />
+  );
+
+  if (libraries.isPending)
+    return (
+      <Box sx={{ mt: 12, mx: "auto" }}>
+        <CircularProgress />
+      </Box>
+    );
+  if (libraries.isError && !library)
+    return (
+      <Alert
+        sx={{ mt: 10 }}
+        severity="error"
+        action={<Button onClick={() => void libraries.refetch()}>Retry</Button>}
+      >
+        {libraries.error.message}
+      </Alert>
+    );
 
   return (
     <Box

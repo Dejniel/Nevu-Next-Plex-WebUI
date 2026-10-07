@@ -89,6 +89,33 @@ it("loads the grid and replaces its query without retaining the previous section
   expect(element.textContent).toContain("Library 2 film 0");
 });
 
+it.each(["artist", "album", "track", "photoalbum", "photo"] as const)(
+  "uses cached range jumps for %s through the shared catalog", async type => {
+    request.mockImplementation(async ({ offset, sectionId }) => ({
+      offset, size: 64, totalSize: 20_000, hasMore: true,
+      items: Array.from({ length: 64 }, (_, index) => ({
+        ratingKey: `${sectionId}:${offset + index}`, title: `${type} ${offset + index}`, type,
+        librarySectionID: sectionId,
+      })),
+    }));
+    const catalog = { ...query, type };
+    await render(catalog);
+    await settle();
+    viewport.row = 10_000;
+    await render(catalog);
+    await settle();
+    expect(element.textContent).toContain(`${type} 10000`);
+    viewport.row = 0;
+    await render(catalog);
+    commits.length = 0;
+    viewport.row = 10_000;
+    await render(catalog);
+    expect(commits[0]).toContain(`${type} 10000`);
+    expect(request.mock.calls.map(([page]) => page.offset)).toEqual([0, 9984]);
+    expect(request.mock.calls.every(([page]) => page.type === type)).toBe(true);
+  },
+);
+
 it.each([false, true])("draws a cached jump in the first commit (contained: %s)", async (contained) => {
   await render(query, contained);
   await settle();

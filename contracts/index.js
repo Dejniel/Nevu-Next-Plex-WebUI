@@ -1,5 +1,7 @@
 "use strict";
 
+export * from "./library.js";
+
 // Dependencies, not a second Plex filter evaluator. Unknown fields need revalidation.
 const dependencies = {
   random: [],

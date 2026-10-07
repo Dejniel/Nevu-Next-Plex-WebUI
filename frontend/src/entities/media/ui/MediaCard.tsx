@@ -19,18 +19,23 @@ import {
 } from "@mui/material";
 import React, { JSX, memo } from "react";
 import { useLocation } from "react-router-dom";
+import { isVideoLibraryItemType } from "@nevu/contracts";
 import {
   getResponsiveTranscodeImageProps,
   LANDSCAPE_IMAGE_WIDTHS,
   POSTER_IMAGE_WIDTHS,
 } from "../model/mediaImages";
-import { durationToText } from "shared/lib/duration";
 import { StretchedLink } from "shared/ui";
 import { usePreviewAudio } from "../model/previewAudio";
 import { useMediaPreview } from "../model/useMediaPreview";
 import MediaExtraPlayback from "./MediaExtraPlayback";
 import { mediaQualityBadge } from "../model/mediaVersions";
-import { mediaArtworkPath } from "../model/mediaArtwork";
+import {
+  mediaArtworkPath,
+  mediaCardAspectRatio,
+  type MediaArtworkLayout,
+} from "../model/mediaArtwork";
+import { mediaCardText } from "../model/mediaCardText";
 import { isMediaWatched } from "../model/mediaWatchedState";
 import { alpha, keyframes } from "@mui/material/styles";
 import { mediaDetailsTo } from "shared/lib/navigation";
@@ -48,7 +53,7 @@ export interface MediaCardProps {
   itemsPerPage?: number;
   index?: number;
   PlexTvSource?: boolean;
-  layout?: "landscape" | "poster";
+  layout?: MediaArtworkLayout;
   imageSizes?: string;
   imageLoading?: "eager" | "lazy";
   overlayActions?: React.ReactNode;
@@ -70,7 +75,8 @@ function MediaCard({
   const { muted } = usePreviewAudio();
 
   const [hovered, setHovered] = React.useState(false);
-  const previewEnabled = layout === "landscape";
+  const video = isVideoLibraryItemType(item.type) || item.type === "season";
+  const previewEnabled = video && layout === "landscape";
   const preview = useMediaPreview(
     item,
     hovered &&
@@ -78,46 +84,18 @@ function MediaCard({
       !new URLSearchParams(location.search).has("mid"),
     PlexTvSource,
   );
-  const isEpisode = item.type === "episode";
   const displayRating = getPrimaryMediaRating(item);
-  const qualityLabel = mediaQualityBadge(item);
-  const cardTitle = isEpisode
-    ? item.grandparentTitle || item.parentTitle || item.title
-    : item.title;
-  const episodeCode = [
-    item.parentIndex !== undefined
-      ? `S${String(item.parentIndex).padStart(2, "0")}`
-      : null,
-    item.index !== undefined ? `E${String(item.index).padStart(2, "0")}` : null,
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const secondaryText = isEpisode
-    ? [episodeCode, cardTitle !== item.title ? item.title : null]
-        .filter(Boolean)
-        .join(" · ")
-    : [
-        item.year || null,
-        item.type === "movie" && item.duration
-          ? durationToText(item.duration)
-          : null,
-        item.type === "show" && (item.seasonCount ?? item.childCount)
-          ? `${item.seasonCount ?? item.childCount} ${
-              (item.seasonCount ?? item.childCount) === 1 ? "Season" : "Seasons"
-            }`
-          : null,
-        item.Genre?.slice(0, layout === "landscape" ? 2 : 1)
-          .map((genre) => genre.tag)
-          .join(", ") || null,
-      ]
-        .filter(Boolean)
-        .join(" · ");
+  const qualityLabel = video ? mediaQualityBadge(item) : null;
+  const { title: cardTitle, subtitle: secondaryText } = mediaCardText(
+    item,
+    layout,
+  );
   const artworkPath = mediaArtworkPath(item, layout);
   const artwork = artworkPath
     ? getResponsiveTranscodeImageProps(artworkPath, {
         widths:
           layout === "poster" ? POSTER_IMAGE_WIDTHS : LANDSCAPE_IMAGE_WIDTHS,
-        aspectRatio: layout === "poster" ? 2 / 3 : 16 / 9,
+        aspectRatio: mediaCardAspectRatio(layout),
         sizes:
           imageSizes ||
           (itemsPerPage
@@ -136,7 +114,7 @@ function MediaCard({
     : artworkResult?.url === artworkUrl
       ? artworkResult.status
       : "loading";
-  const detailsTarget = mediaDetailsTo(location, item, PlexTvSource);
+  const detailsTarget = video ? mediaDetailsTo(location, item, PlexTvSource) : null;
 
   return (
     <Box
@@ -170,10 +148,10 @@ function MediaCard({
             : "center center",
         transition:
           "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease",
-        cursor: "pointer",
+        cursor: detailsTarget ? "pointer" : "default",
 
         "&:hover": {
-          transform: "scale(1.02)",
+          transform: detailsTarget ? "scale(1.02)" : undefined,
           zIndex: 10,
           backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.08),
           boxShadow: (theme) =>
@@ -199,18 +177,20 @@ function MediaCard({
         setHovered(false);
       }}
     >
-      <StretchedLink
-        className="movie-item-link"
-        to={detailsTarget}
-        label={`Open details for ${cardTitle}`}
-        zIndex={20}
-      />
+      {detailsTarget && (
+        <StretchedLink
+          className="movie-item-link"
+          to={detailsTarget}
+          label={`Open details for ${cardTitle}`}
+          zIndex={20}
+        />
+      )}
 
       {/* Thumbnail area */}
       <Box
         sx={{
           width: "100%",
-          aspectRatio: layout === "poster" ? "2/3" : "16/9",
+          aspectRatio: mediaCardAspectRatio(layout),
           position: "relative",
           overflow: "hidden",
           flexShrink: 0,
@@ -228,8 +208,12 @@ function MediaCard({
             draggable={false}
             loading={imageLoading}
             decoding="async"
-            onLoad={() => setArtworkResult({ url: artwork.src, status: "loaded" })}
-            onError={() => setArtworkResult({ url: artwork.src, status: "missing" })}
+            onLoad={() =>
+              setArtworkResult({ url: artwork.src, status: "loaded" })
+            }
+            onError={() =>
+              setArtworkResult({ url: artwork.src, status: "missing" })
+            }
             sx={{
               position: "absolute",
               inset: 0,
@@ -452,7 +436,8 @@ function MediaCard({
       </Box>
 
       {/* Progress bar */}
-      {item.duration !== undefined &&
+      {(item.type === "episode" || item.type === "movie") &&
+        item.duration !== undefined &&
         item.duration > 0 &&
         (item.type === "episode" ||
           (item.type === "movie" && item.viewOffset)) && (
@@ -565,7 +550,8 @@ function MediaTypePlaceholder({ type }: { type: string }) {
     return <TvRounded sx={sx} />;
   if (["artist", "album", "track"].includes(type))
     return <MusicNoteRounded sx={sx} />;
-  if (type === "photo") return <PhotoOutlined sx={sx} />;
+  if (type === "photo" || type === "photoalbum")
+    return <PhotoOutlined sx={sx} />;
   if (["movie", "video"].includes(type)) return <MovieOutlined sx={sx} />;
   return <VideoLibraryOutlined sx={sx} />;
 }

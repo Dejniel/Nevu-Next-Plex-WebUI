@@ -23,7 +23,7 @@ export function selectLocalMedia(
   availability: ReadonlyMap<string, MediaAvailability>,
   sectionId?: string,
 ) {
-  const copies = availability.get(item.guid)?.localItems ?? [];
+  const copies = item.guid ? availability.get(item.guid)?.localItems ?? [] : [];
   return (
     copies.find((copy) => String(copy.librarySectionID) === sectionId) ??
     copies[0] ??

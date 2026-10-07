@@ -43,7 +43,9 @@ Nevu Next is a modified fork of [Ipmake/NevuForPlex](https://github.com/Ipmake/N
 - **Optional native HTTPS** with mounted PEM files or a persistent self-signed certificate.
 - **Self-hosted Docker deployment** with reproducible multi-platform images built from lockfiles and published to GHCR.
 
-Nevu Next currently targets Plex movie and TV libraries. It is not an official Plex product and is not affiliated with Plex, Inc.
+Nevu Next supports movie and TV workflows and catalog browsing for music artists,
+albums, tracks, photo albums, and photos. Music playback and full photo viewing
+are planned. It is not an official Plex product and is not affiliated with Plex, Inc.
 
 Supported browsers: Chrome 117+, Edge 121+, Firefox 121+, and Safari 17+
 (including iOS), following [Material UI's browser requirements](https://mui.com/material-ui/migration/upgrade-to-v9/).

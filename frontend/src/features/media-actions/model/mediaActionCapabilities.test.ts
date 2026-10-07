@@ -1,4 +1,5 @@
 import type { MediaItemData } from "entities/media/model";
+import type { LibraryCardDto, LibraryVideoCardDto } from "@nevu/contracts";
 import { getMediaActionCapabilities } from "./mediaActionCapabilities";
 
 const manager = {
@@ -11,7 +12,7 @@ const movie = {
   title: "Movie",
   type: "movie",
   guid: "plex://movie/1",
-} as MediaItemData;
+} satisfies LibraryVideoCardDto;
 
 it("allows a manager to edit, match, unmatch, download and mark a local movie", () => {
   expect(getMediaActionCapabilities(movie, manager)).toEqual({
@@ -156,3 +157,13 @@ it("leaves its item and request context untouched", () => {
   expect(movie.guid).toBe("plex://movie/1");
   expect(manager.localItem).toBe(true);
 });
+
+it.each(["artist", "album", "track", "photoalbum", "photo"] as const)(
+  "does not expose video workflows for a %s", type => {
+    const item: LibraryCardDto = { ratingKey: "10", type, title: "Catalog item" };
+    expect(getMediaActionCapabilities(item, manager))
+      .toEqual({ canEditMetadata: false, canMatch: false, canUnmatch: false,
+        canDownload: false, canSetWatched: false, similarRatingKey: null,
+        canAddToCollection: false, canAddToPlaylist: false });
+  },
+);

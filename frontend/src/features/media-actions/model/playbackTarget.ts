@@ -29,9 +29,12 @@ export async function resolvePlaybackTarget(
     )
       throw new Error("The active Plex session changed.");
   };
-  const localItem = plexTvSource
-    ? await serverQueryClient.fetchQuery(mediaGuidQueryOptions(scope, item.guid))
-    : item;
+  let localItem: MediaItemData | null = item;
+  if (plexTvSource) {
+    if (!item.guid)
+      return { path: null, message: "This item has no Plex discovery identifier." };
+    localItem = await serverQueryClient.fetchQuery(mediaGuidQueryOptions(scope, item.guid));
+  }
   assertCurrent();
   if (!localItem)
     return {

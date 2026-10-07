@@ -1,4 +1,5 @@
 import type { LibraryFilterClause, LibraryItemType, LibrarySort } from "@nevu/contracts";
+import { isLibraryItemType, isVideoLibraryItemType } from "@nevu/contracts";
 import { ShuffleRounded } from "@mui/icons-material";
 import {
   Alert,
@@ -44,10 +45,6 @@ import { getLibraryRandomSeed, replaceLibraryRandomSeed } from "../model/library
 import { useLibraryWindow } from "../model/useLibraryPages";
 import type { LibraryQuery } from "../model/libraryQuery";
 
-function isLibraryItemType(value: string | null | undefined): value is LibraryItemType {
-  return value === "movie" || value === "show" || value === "episode";
-}
-
 export default function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) {
   const { libraryID } = useParams<{ libraryID: string }>();
   return libraryID ? (
@@ -91,6 +88,9 @@ function BrowseLibraryContent({
     supportedTypes.find((entry) => entry.active) ||
     supportedTypes[0];
   const activeItemType = isLibraryItemType(activeType?.type) ? activeType.type : undefined;
+  const video = isVideoLibraryItemType(activeItemType);
+  const layout = video ? cardView.layout
+    : activeItemType === "photo" || activeItemType === "photoalbum" ? "landscape" : "square";
   const unsupportedLibrary = Boolean(library && supportedTypes.length === 0);
   const filterTypes = React.useMemo(
     () => (activeType?.Field?.length ? [activeType] : []),
@@ -242,6 +242,7 @@ function BrowseLibraryContent({
       <Box ref={toolbarRef} sx={{ width: "100%" }}>
         <LibraryViewToolbar
           cardView={cardView}
+          showOrientation={video}
           showLeadingOnMobile
           compactTypeNavigation={compactBrowse ? typeSelector : undefined}
           leading={
@@ -391,7 +392,7 @@ function BrowseLibraryContent({
           ) : (
             <WindowLibraryCollectionGrid
               query={query}
-              layout={cardView.layout}
+              layout={layout}
               cardSize={cardView.size}
               loading={!library}
               observeRef={toolbarRef}

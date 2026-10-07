@@ -11,6 +11,7 @@ interface LibraryViewToolbarProps {
   pageNavigation: React.ReactNode;
   showLeadingOnMobile?: boolean;
   compactTypeNavigation?: React.ReactNode;
+  showOrientation?: boolean;
 }
 
 export default function LibraryViewToolbar({
@@ -19,6 +20,7 @@ export default function LibraryViewToolbar({
   pageNavigation,
   showLeadingOnMobile = false,
   compactTypeNavigation,
+  showOrientation = true,
 }: LibraryViewToolbarProps) {
   const compact = Boolean(compactTypeNavigation);
   return (
@@ -95,6 +97,7 @@ export default function LibraryViewToolbar({
             onSizeCommit={cardView.saveSize}
             onLayoutChange={cardView.setLayout}
             fullWidthOnSmallScreens={compact}
+            showOrientation={showOrientation}
           />
         </Box>
 

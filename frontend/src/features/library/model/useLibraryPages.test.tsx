@@ -1,7 +1,7 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { focusManager } from "@tanstack/react-query";
-import type { LibraryPageDto, LibraryPageRequest } from "@nevu/contracts";
+import type { LibraryPageDto, LibraryPageRequest, LibraryVideoCardDto } from "@nevu/contracts";
 import { useServerSession } from "features/session/model";
 import { serverQueryClient as client } from "shared/api/queryClient";
 import { getLibraryPage, LibraryPageError } from "../api/libraryPage";
@@ -17,7 +17,7 @@ vi.mock("../api/libraryPage", async (original) => ({
 const fetch = vi.mocked(getLibraryPage);
 const query: LibraryQuery = { profileKey: "owner", sectionId: 1, type: "movie", sort: "titleSort" };
 const scope = { serverId: "server", profileKey: "owner" };
-const response = (request: LibraryPageRequest, label = "old", total = 20_000): LibraryPageDto => ({
+const response = (request: LibraryPageRequest, label = "old", total = 20_000): Omit<LibraryPageDto, "items"> & { items: LibraryVideoCardDto[] } => ({
   offset: request.offset,
   totalSize: total,
   size: Math.min(64, Math.max(0, total - request.offset)),
@@ -326,6 +326,7 @@ it("refreshes parent aggregates when an untyped result contains a changed episod
   }));
   await render(<Harness value={{ ...query, type: undefined }} />);
   const before = latest.items.get(0)!;
+  if (before.type !== "episode") throw new Error("Expected an episode fixture");
   await act(async () =>
     applyLibraryChanges(client, [
       {

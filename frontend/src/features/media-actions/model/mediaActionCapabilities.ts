@@ -1,4 +1,5 @@
 import type { MediaItemData } from "entities/media/model";
+import { isVideoLibraryItemType } from "@nevu/contracts";
 import { isMatchedMetadata } from "./matching";
 import {
   getMediaListCapabilities,
@@ -24,7 +25,8 @@ export function getMediaActionCapabilities(
   item: MediaItemData,
   { localItem, canManageServer, allowDownloads }: MediaActionContext,
 ): MediaActionCapabilities {
-  const canEditMetadata = localItem && canManageServer;
+  const video = isVideoLibraryItemType(item.type) || item.type === "season";
+  const canEditMetadata = localItem && canManageServer && video;
   const canMatch = canEditMetadata && ["movie", "show"].includes(item.type);
   const similarRatingKey =
     item.type === "episode" ? item.grandparentRatingKey : item.ratingKey;
@@ -36,7 +38,7 @@ export function getMediaActionCapabilities(
     canUnmatch: canMatch && isMatchedMetadata(item),
     canDownload:
       localItem && allowDownloads && ["movie", "episode"].includes(item.type),
-    canSetWatched: localItem,
-    similarRatingKey: localItem && similarRatingKey ? similarRatingKey : null,
+    canSetWatched: localItem && video,
+    similarRatingKey: localItem && isVideoLibraryItemType(item.type) && similarRatingKey ? similarRatingKey : null,
   };
 }

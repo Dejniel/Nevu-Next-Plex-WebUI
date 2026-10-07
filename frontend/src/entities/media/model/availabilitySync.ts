@@ -27,7 +27,7 @@ export async function applyAvailabilityChanges(
         continue;
       }
       const old = previous?.filter((item) => item.ratingKey === change.id) ?? [];
-      const matches = old.length || (update.item && requested.includes(update.item.guid));
+      const matches = old.length || (update.item?.guid && requested.includes(update.item.guid));
       const parent = affectedMediaParents(entry).some((id) =>
         previous?.some((item) => item.ratingKey === id),
       );

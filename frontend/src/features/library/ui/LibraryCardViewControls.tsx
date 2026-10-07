@@ -12,8 +12,9 @@ import {
 } from "@mui/material";
 import React from "react";
 import { useUserSettings } from "features/settings/model";
+import type { MediaArtworkLayout } from "entities/media/model";
 
-export type LibraryCardLayout = "landscape" | "poster";
+export type LibraryCardLayout = MediaArtworkLayout;
 
 export const DEFAULT_CARD_SIZE = 40;
 
@@ -24,10 +25,8 @@ export const normalizeCardSize = (value: string | undefined) => {
     : DEFAULT_CARD_SIZE;
 };
 
-export const getLibraryCardWidth = (
-  layout: LibraryCardLayout,
-  size: number,
-) => Math.round(layout === "poster" ? 140 + size * 1.6 : 190 + size * 2.2);
+export const getLibraryCardWidth = (layout: LibraryCardLayout, size: number) =>
+  Math.round(layout === "landscape" ? 190 + size * 2.2 : 140 + size * 1.6);
 
 export function useLibraryCardView() {
   const { settings, setSetting } = useUserSettings();
@@ -57,6 +56,7 @@ export function LibraryCardViewControls({
   onSizeCommit,
   onLayoutChange,
   fullWidthOnSmallScreens = false,
+  showOrientation = true,
 }: {
   layout: LibraryCardLayout;
   size: number;
@@ -64,6 +64,7 @@ export function LibraryCardViewControls({
   onSizeCommit: (value: number) => void;
   onLayoutChange: (value: LibraryCardLayout) => void;
   fullWidthOnSmallScreens?: boolean;
+  showOrientation?: boolean;
 }) {
   return (
     <Box
@@ -109,27 +110,29 @@ export function LibraryCardViewControls({
         <GridViewRounded sx={{ fontSize: 22, opacity: 0.8, flexShrink: 0 }} />
       </Box>
 
-      <ToggleButtonGroup
-        exclusive
-        size="small"
-        value={layout}
-        onChange={(_, value: LibraryCardLayout | null) => {
-          if (value) onLayoutChange(value);
-        }}
-        aria-label="Library card layout"
-        sx={{ flexShrink: 0 }}
-      >
-        <Tooltip title="Landscape cards">
-          <ToggleButton value="landscape" aria-label="Landscape cards">
-            <CropLandscapeRounded fontSize="small" />
-          </ToggleButton>
-        </Tooltip>
-        <Tooltip title="Poster cards">
-          <ToggleButton value="poster" aria-label="Poster cards">
-            <CropPortraitRounded fontSize="small" />
-          </ToggleButton>
-        </Tooltip>
-      </ToggleButtonGroup>
+      {showOrientation && (
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={layout}
+          onChange={(_, value: LibraryCardLayout | null) => {
+            if (value) onLayoutChange(value);
+          }}
+          aria-label="Library card layout"
+          sx={{ flexShrink: 0 }}
+        >
+          <Tooltip title="Landscape cards">
+            <ToggleButton value="landscape" aria-label="Landscape cards">
+              <CropLandscapeRounded fontSize="small" />
+            </ToggleButton>
+          </Tooltip>
+          <Tooltip title="Poster cards">
+            <ToggleButton value="poster" aria-label="Poster cards">
+              <CropPortraitRounded fontSize="small" />
+            </ToggleButton>
+          </Tooltip>
+        </ToggleButtonGroup>
+      )}
     </Box>
   );
 }

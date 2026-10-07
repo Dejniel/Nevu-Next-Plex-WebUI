@@ -1,4 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
+import { isLibraryContainerType } from "@nevu/contracts";
 import { affectedMediaParents, type ReconciledMediaChange } from "./mediaChanges";
 import { readMediaQueryKey } from "./mediaMetadataQuery";
 
@@ -22,7 +23,7 @@ export async function applyMediaMetadataChanges(
       if (change.kind === "list") return false;
       if (change.kind === "item" && change.id) {
         if (key.id === change.id) return !update?.metadata;
-        if (!parentScopeUnknown || (metadata && metadata.type !== "show" && metadata.type !== "season"))
+        if (!parentScopeUnknown || (metadata && !isLibraryContainerType(metadata.type) && metadata.type !== "season"))
           return false;
       }
       return !change.sectionId || !metadata || String(metadata.librarySectionID) === change.sectionId;

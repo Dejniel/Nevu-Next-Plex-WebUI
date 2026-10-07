@@ -68,3 +68,9 @@ it("uses the same transformation for slim library cards and full Plex metadata",
   expect(updated.Field).toBe(full.Field);
   expect(updated.summary).toBe("Full metadata");
 });
+
+it.each(["track", "photo"])("does not treat %s play counts as watched video", type => {
+  const item = Object.freeze({ type, viewCount: 5 });
+  expect(isMediaWatched(item)).toBe(false);
+  expect(applyMediaWatchedState(item, true)).toBe(item);
+});

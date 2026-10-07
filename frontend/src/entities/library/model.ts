@@ -24,3 +24,5 @@ export type {
 } from "./api/libraryAdmin";
 
 export { getLibraries } from "./api/libraries";
+export { isBrowsableLibraryType, libraryViews } from "./model/libraryBrowsing";
+export type { LibraryView } from "./model/libraryBrowsing";

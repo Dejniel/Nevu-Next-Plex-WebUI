@@ -1,4 +1,5 @@
 import { MoreVertRounded, PlayArrowRounded } from "@mui/icons-material";
+import { isVideoLibraryItemType } from "@nevu/contracts";
 import { CircularProgress, IconButton, Tooltip } from "@mui/material";
 import { MediaCard, type MediaCardProps } from "entities/media/public";
 import { applyMediaWatchedState, setMediaPlayedStatus } from "entities/media/model";
@@ -48,7 +49,13 @@ export type ActionableMediaCardProps = Omit<
   renderMenuItems?: (onClose: () => void) => React.ReactNode;
 };
 
-function ActionableMediaCard({
+function ActionableMediaCard(props: ActionableMediaCardProps) {
+  if (!isVideoLibraryItemType(props.item.type) && props.item.type !== "season")
+    return <MediaCard {...props} />;
+  return <VideoMediaCard {...props} />;
+}
+
+function VideoMediaCard({
   item,
   PlexTvSource = false,
   canPlay = true,

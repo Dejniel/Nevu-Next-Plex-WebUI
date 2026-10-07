@@ -1,6 +1,20 @@
 export * from "./preferences.js";
 
-export type LibraryItemType = "movie" | "show" | "episode";
+export type LibraryVideoType = "movie" | "show" | "episode";
+export type LibraryMusicType = "artist" | "album" | "track";
+export type LibraryPhotoType = "photoalbum" | "photo";
+export type LibraryItemType =
+  | LibraryVideoType
+  | LibraryMusicType
+  | LibraryPhotoType;
+export const libraryItemTypeNumbers: Readonly<Record<LibraryItemType, number>>;
+export function isLibraryItemType(value: unknown): value is LibraryItemType;
+export function isVideoLibraryItemType(
+  value: unknown,
+): value is LibraryVideoType;
+export function isLibraryContainerType(
+  value: unknown,
+): value is "show" | "artist" | "album" | "photoalbum";
 
 export type LibrarySort = string;
 
@@ -8,7 +22,15 @@ export type LibrarySource = "all" | "onDeck";
 
 export type LibraryFilterMode = "and" | "or";
 
-export type LibraryFilterOperator = "=" | "!=" | "==" | "!==" | "<=" | ">=" | "<<=" | ">>=";
+export type LibraryFilterOperator =
+  | "="
+  | "!="
+  | "=="
+  | "!=="
+  | "<="
+  | ">="
+  | "<<="
+  | ">>=";
 
 export interface LibraryFilterClause {
   field: string;
@@ -34,7 +56,7 @@ export interface LibraryGenreDto {
   tag: string;
 }
 
-export interface LibraryMediaDto {
+export interface LibraryVideoMediaDto {
   bitrate?: number;
   height?: number;
   videoDynamicRange?: string;
@@ -42,11 +64,10 @@ export interface LibraryMediaDto {
   width?: number;
 }
 
-export interface LibraryCardDto {
+export interface LibraryCardBase {
   ratingKey: string;
   key?: string;
-  guid: string;
-  type: LibraryItemType;
+  guid?: string;
   title: string;
   titleSort?: string;
   librarySectionID?: number;
@@ -61,29 +82,69 @@ export interface LibraryCardDto {
   grandparentTitle?: string;
   parentRatingKey?: string;
   grandparentRatingKey?: string;
+  parentThumb?: string;
+  grandparentThumb?: string;
   parentIndex?: number;
   index?: number;
   year?: number;
-  duration?: number;
-  seasonCount?: number;
-  childCount?: number;
   thumb?: string;
   art?: string;
   audienceRating?: number;
   audienceRatingImage?: string;
   rating?: number;
   ratingImage?: string;
+  Genre?: LibraryGenreDto[];
+  Collection?: LibraryGenreDto[];
+}
+
+export interface LibraryVideoCardDto extends LibraryCardBase {
+  type: LibraryVideoType;
+  guid: string;
+  duration?: number;
+  seasonCount?: number;
+  childCount?: number;
   viewCount?: number;
   viewOffset?: number;
   viewedLeafCount?: number;
   leafCount?: number;
-  Genre?: LibraryGenreDto[];
-  Collection?: LibraryGenreDto[];
-  Media?: LibraryMediaDto[];
+  Media?: LibraryVideoMediaDto[];
 }
 
-export function libraryFieldsUnaffected(field: string, changed: readonly string[]): boolean;
-export function mediaFieldsUnaffected(field: string, changed: readonly string[]): boolean;
+export interface LibraryMusicCardDto extends LibraryCardBase {
+  type: LibraryMusicType;
+  duration?: number;
+  childCount?: number;
+  leafCount?: number;
+  viewCount?: number;
+  Media?: {
+    audioCodec?: string;
+    audioChannels?: number;
+    bitrate?: number;
+    container?: string;
+  }[];
+}
+
+export interface LibraryPhotoCardDto extends LibraryCardBase {
+  type: LibraryPhotoType;
+  childCount?: number;
+  leafCount?: number;
+  composite?: string;
+  Media?: { width?: number; height?: number; container?: string }[];
+}
+
+export type LibraryCardDto =
+  | LibraryVideoCardDto
+  | LibraryMusicCardDto
+  | LibraryPhotoCardDto;
+
+export function libraryFieldsUnaffected(
+  field: string,
+  changed: readonly string[],
+): boolean;
+export function mediaFieldsUnaffected(
+  field: string,
+  changed: readonly string[],
+): boolean;
 export function libraryFilterUnaffected(
   filter: LibraryFilterExpression | undefined,
   changed: readonly string[],

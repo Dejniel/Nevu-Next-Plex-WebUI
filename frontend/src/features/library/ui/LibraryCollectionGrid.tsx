@@ -3,6 +3,7 @@ import { Alert, Box, Button, Skeleton } from "@mui/material";
 import React from "react";
 import VirtualGrid, { useVirtualGrid } from "shared/ui/VirtualGrid";
 import { ActionableMediaCard } from "features/media-actions/public";
+import { mediaCardAspectRatio } from "entities/media/model";
 import { useLibraryPages, useLibraryWindow } from "../model/useLibraryPages";
 import { LIBRARY_RANGE_SIZE, libraryResultQueryKey, type LibraryQuery } from "../model/libraryQuery";
 import { getLibraryCardWidth, LibraryCardLayout } from "./LibraryCardViewControls";
@@ -55,7 +56,7 @@ function LibraryCollectionGrid({
     count: query ? collection.totalSize : loading ? null : 0,
     minimumCount: collection.knownSize + (collection.totalSize === null ? 1 : 0),
     itemWidth: getLibraryCardWidth(layout, cardSize),
-    imageAspectRatio: layout === "poster" ? 2 / 3 : 16 / 9,
+    imageAspectRatio: mediaCardAspectRatio(layout),
     resetKey: collection.queryKey,
   });
   const range = useLibraryPages(collection, grid.range);
@@ -153,7 +154,7 @@ function CardSkeleton({ layout }: { layout: LibraryCardLayout }) {
       <Box
         sx={{
           width: "100%",
-          aspectRatio: layout === "poster" ? "2/3" : "16/9",
+          aspectRatio: mediaCardAspectRatio(layout),
           position: "relative",
           overflow: "hidden",
           backgroundColor: "#17191e",
@@ -214,7 +215,7 @@ function RangeErrorCard({
   return (
     <Box
       sx={{
-        aspectRatio: layout === "poster" ? "2/3" : "16/9",
+        aspectRatio: mediaCardAspectRatio(layout),
         minHeight: 90,
         border: "1px solid",
         borderColor: "divider",

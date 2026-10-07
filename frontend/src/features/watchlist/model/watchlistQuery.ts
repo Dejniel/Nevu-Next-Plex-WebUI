@@ -48,6 +48,7 @@ export function useWatchlistAction(item: MediaItemData) {
         }),
       mutationFn: async (edit: MembershipEdit) => {
         if (!isCurrent(edit)) throw new Error("The active Plex profile changed.");
+        if (!canWatchlist(edit.item)) throw new Error("This item cannot be added to Watchlist.");
         if (edit.included) await addToWatchlist(edit.item.guid);
         else await removeFromWatchlist(edit.item.guid);
       },

@@ -27,12 +27,13 @@ the README and release notes; implementation-only cleanup belongs in the
 
 ### Music and detailed lists
 
-Add artists, albums, tracks, queues, and a detailed list layout designed around
-music rather than adding a movie-only table first.
+Extend catalog browsing with artist/album navigation, detailed track lists,
+persistent audio playback, and queues.
 
 ### Photo libraries
 
-Browse Plex photo libraries, albums, and individual photos.
+Extend catalog browsing with album navigation and a full photo viewer with
+zoom and slideshows.
 
 ### Experience improvements
 

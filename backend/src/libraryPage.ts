@@ -10,7 +10,8 @@ import type {
     LibrarySource,
     LibrarySort,
 } from '@nevu/contracts';
-import { changedMediaFields, libraryFilterUnaffected, mediaMetadataIncludes } from '@nevu/contracts';
+import { changedMediaFields, isLibraryContainerType, isLibraryItemType, libraryItemTypeNumbers, libraryFilterUnaffected, mediaMetadataIncludes } from '@nevu/contracts';
+import { InvalidLibraryPageError, projectLibraryCard, projectLibraryPage, readLibraryMetadata } from './libraryCardProjection.js';
 import axios from 'axios';
 import { createHash } from 'node:crypto';
 import express from 'express';
@@ -24,9 +25,6 @@ interface LibraryPageRouterOptions {
     maxConcurrentRequests?: number;
 }
 
-type JsonObject = Record<string, unknown>;
-
-const itemTypes = new Set<LibraryItemType>(['movie', 'show', 'episode']);
 const librarySources = new Set<LibrarySource>(['all', 'onDeck']);
 const filterModes = new Set<LibraryFilterMode>(['and', 'or']);
 const filterOperators = new Set<LibraryFilterOperator>([
@@ -39,40 +37,6 @@ const MAX_FILTER_NODES = 64;
 const MAX_FILTER_DEPTH = 4;
 const MAX_FILTER_EXPRESSION_LENGTH = 16384;
 const MAX_FILTER_VALUE_LENGTH = 256;
-const typeNumbers: Record<LibraryItemType, number> = {
-    movie: 1,
-    show: 2,
-    episode: 4,
-};
-const cardFields = [
-    'ratingKey',
-    'key',
-    'guid',
-    'type',
-    'title',
-    'titleSort', 'librarySectionID', 'addedAt', 'updatedAt', 'lastViewedAt',
-    'originallyAvailableAt', 'studio', 'contentRating', 'userRating',
-    'parentTitle',
-    'grandparentTitle',
-    'parentRatingKey',
-    'grandparentRatingKey',
-    'parentIndex',
-    'index',
-    'year',
-    'duration',
-    'seasonCount',
-    'childCount',
-    'thumb',
-    'art',
-    'audienceRating',
-    'audienceRatingImage',
-    'rating',
-    'ratingImage',
-    'viewCount',
-    'viewOffset',
-    'viewedLeafCount',
-    'leafCount',
-] as const;
 const excludedFields = [
     'summary',
     'tagline',
@@ -97,105 +61,6 @@ const RANDOM_FETCH_SIZE = 500;
 const RANDOM_CATALOG_TTL_MS = 30 * 60 * 1000;
 const RANDOM_CATALOG_LIMIT = 8;
 const RANDOM_ORDER_LIMIT = 16;
-
-export class InvalidLibraryPageError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = 'InvalidLibraryPageError';
-    }
-}
-
-function pick(source: JsonObject, fields: readonly string[]) {
-    return Object.fromEntries(
-        fields
-            .filter((field) => source[field] !== undefined)
-            .map((field) => [field, source[field]]),
-    );
-}
-
-function projectMedia(media: unknown) {
-    if (!Array.isArray(media)) return undefined;
-    return media
-        .filter((entry): entry is JsonObject => Boolean(entry && typeof entry === 'object'))
-        .map((entry) => pick(entry, [
-            'bitrate',
-            'height',
-            'videoDynamicRange',
-            'videoResolution',
-            'width',
-        ]));
-}
-
-function projectGenres(genres: unknown) {
-    if (!Array.isArray(genres)) return undefined;
-    return genres
-        .filter((genre): genre is JsonObject => Boolean(genre && typeof genre === 'object'))
-        .map((genre) => pick(genre, ['id', 'tag']))
-        .filter((genre) => typeof genre.tag === 'string');
-}
-
-function projectLibraryCards(metadata: unknown): LibraryCardDto[] {
-    if (metadata === undefined) return [];
-    if (!Array.isArray(metadata))
-        throw new InvalidLibraryPageError('Library metadata is not an array');
-
-    return metadata.map((candidate, index) => {
-        if (!candidate || typeof candidate !== 'object')
-            throw new InvalidLibraryPageError(`Invalid library item at index ${index}`);
-        const item = candidate as JsonObject;
-        if (
-            typeof item.ratingKey !== 'string' ||
-            typeof item.guid !== 'string' ||
-            typeof item.type !== 'string' || !itemTypes.has(item.type as LibraryItemType) ||
-            typeof item.title !== 'string'
-        ) throw new InvalidLibraryPageError(`Incomplete library item at index ${index}`);
-
-        const genres = projectGenres(item.Genre);
-        const media = projectMedia(item.Media);
-        const collections = projectGenres(item.Collection);
-        return {
-            ...pick(item, cardFields),
-            ...(genres && { Genre: genres }),
-            ...(collections && { Collection: collections }),
-            ...(media && { Media: media }),
-        } as LibraryCardDto;
-    });
-}
-
-export function projectLibraryPage(
-    container: unknown,
-    requestedOffset = 0,
-    requestedSize = 0,
-): LibraryPageDto {
-    const source = container && typeof container === 'object'
-        ? container as JsonObject
-        : {};
-    const items = projectLibraryCards(source.Metadata).map(item => ({
-        ...item,
-        ...(item.librarySectionID === undefined && source.librarySectionID !== undefined && {
-            librarySectionID: Number(source.librarySectionID),
-        }),
-    }));
-    const offset = Number.isInteger(source.offset) ? Number(source.offset) : requestedOffset;
-    const totalSize = Number.isInteger(source.totalSize) ? Number(source.totalSize) : null;
-    const reportedSize = Number.isInteger(source.size) ? Number(source.size) : items.length;
-
-    if (
-        reportedSize !== items.length ||
-        (totalSize !== null && (offset + items.length > totalSize ||
-            (items.length === 0 && offset < totalSize)))
-    ) throw new InvalidLibraryPageError('Plex returned an inconsistent library page');
-
-    return {
-        offset,
-        size: items.length,
-        totalSize,
-        hasMore: totalSize !== null
-            ? offset + items.length < totalSize
-            : requestedSize > 0 && items.length >= requestedSize,
-        items,
-    };
-}
 
 export class RequestLimiter {
     private active = 0;
@@ -389,7 +254,7 @@ function parseRequest(query: express.Request['query']): ParsedRequest | null {
         !isValidPlexSort(sort) ||
         filterExpression === null ||
         !librarySources.has(source) ||
-        (type && !itemTypes.has(type)) ||
+        (type && !isLibraryItemType(type)) ||
         (isRandomSort(sort) && (
             source !== 'all' || !seed || !/^[a-zA-Z0-9_-]{1,64}$/.test(seed)
         ))
@@ -423,7 +288,7 @@ function plexParams(
 ) {
     const params = new URLSearchParams();
     params.set('sort', sort);
-    if (request.type) params.set('type', String(typeNumbers[request.type]));
+    if (request.type) params.set('type', String(libraryItemTypeNumbers[request.type]));
     params.set('excludeFields', excludedFields);
     params.set('excludeElements', excludedElements);
     params.set('X-Plex-Container-Start', String(offset));
@@ -532,7 +397,7 @@ export function createLibraryPageRouter({
                     offset,
                     RANDOM_FETCH_SIZE,
                 );
-                const page = projectLibraryPage(container, offset, RANDOM_FETCH_SIZE);
+                const page = projectLibraryPage(container, offset, RANDOM_FETCH_SIZE, request.type);
                 if (page.offset !== offset)
                     throw new InvalidLibraryPageError('Plex returned a mismatched library page');
                 if (offset === 0) {
@@ -660,13 +525,13 @@ export function createLibraryPageRouter({
                 headers: { Accept: 'application/json', 'X-Plex-Token': token }, timeout: 20000,
                 ...(httpAgent && { httpAgent }), ...(httpsAgent && { httpsAgent }),
             }));
-            const metadata = response.data?.MediaContainer?.Metadata?.[0];
+            const metadata = readLibraryMetadata(response.data?.MediaContainer)[0];
             if (!metadata || String(metadata.ratingKey) !== id)
                 throw new InvalidLibraryPageError('Missing canonical metadata');
             const sectionId = metadata.librarySectionID === undefined ? undefined : String(metadata.librarySectionID);
             const parentIds = [metadata.parentRatingKey, metadata.grandparentRatingKey]
                 .filter((value): value is string => typeof value === 'string' && /^\d+$/.test(value));
-            const item = itemTypes.has(metadata.type) ? projectLibraryCards([metadata])[0] : null;
+            const item = isLibraryItemType(metadata.type) ? projectLibraryCard(metadata) : null;
             // Section moves invalidate the old section too; absence can mean entry into a filter.
             for (const key of matchingKeys(token)) {
                 const catalog = randomCatalogs.get(key);
@@ -676,17 +541,17 @@ export function createLibraryPageRouter({
                 const stable = before && item && catalog &&
                     !fields.some(field => ['type', 'librarySectionID', 'parentRatingKey', 'grandparentRatingKey', 'Collection'].includes(field)) &&
                     libraryFilterUnaffected(catalog.request.filterExpression, fields) &&
-                    !(parentIds.length && (!catalog.request.type || catalog.request.type === 'show'));
+                    !(parentIds.length && (!catalog.request.type || isLibraryContainerType(catalog.request.type)));
                 if (!stable || pendingCatalogs.has(key)) { evictCatalog(key); continue; }
                 catalog.items = catalog.items.map(card => card.ratingKey === id ? item : card);
                 for (const [orderKey, order] of randomOrders)
                     if (orderKey.startsWith(`${key}:`))
                         order.items = order.items.map(card => card.ratingKey === id ? item : card);
             }
-            // Children can change parent aggregates, including random show catalogs.
+            // Children can change aggregates for shows, artists, albums and photo albums.
             if (parentIds.length) for (const key of matchingKeys(token, sectionId)) {
                 const catalog = randomCatalogs.get(key);
-                if (!catalog || !catalog.request.type || catalog.request.type === 'show') evictCatalog(key);
+                if (!catalog || !catalog.request.type || isLibraryContainerType(catalog.request.type)) evictCatalog(key);
             }
             return res.send({ item, sectionId, parentIds, ...(includeDetails && { metadata }) });
         } catch (error) {
@@ -730,7 +595,7 @@ export function createLibraryPageRouter({
                     request.offset,
                     request.size,
                 );
-                page = projectLibraryPage(container, request.offset, request.size);
+                page = projectLibraryPage(container, request.offset, request.size, request.type);
             }
             res.send(page);
         } catch (error) {

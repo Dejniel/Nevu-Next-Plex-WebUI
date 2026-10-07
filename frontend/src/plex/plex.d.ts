@@ -52,7 +52,7 @@ declare namespace Plex {
         voiceSearch: boolean;
     }
 
-    type LibaryType = 'movie' | 'show' | 'artist' | 'photo' | 'episode' | 'track' | 'season' | 'album' | 'secondary';
+    type LibaryType = 'movie' | 'show' | 'artist' | 'photo' | 'photoalbum' | 'episode' | 'track' | 'season' | 'album' | 'secondary';
 
     interface LibarySection {
         allowSync: boolean;
@@ -193,6 +193,9 @@ declare namespace Plex {
         parentKey?: string;
         grandparentTitle?: string;
         parentTitle?: string;
+        parentThumb?: string;
+        grandparentThumb?: string;
+        composite?: string;
         originalTitle?: string;
         contentRating: string;
         summary: string;

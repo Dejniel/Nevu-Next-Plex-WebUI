@@ -48,6 +48,15 @@ headless entry point when importing `public.ts` would also load UI dependencies.
 `entities/media` owns reusable media data helpers and cards shared by library,
 title details, and playback.
 
+Library browsing shares one paged catalog for video, music and photos. The
+contracts discriminate video, music and photo cards; the backend projects only
+their browsing fields and normalizes Plex photo-album `Directory` records to
+`photoalbum`. Native Plex descriptors supply types, filters and sorting.
+`entities/library` determines available library views, while media presentation
+selects artwork and captions by type. Video actions and previews stay restricted
+to video. Parent synchronization includes artists, albums and photo albums;
+all types retain the existing Query windows, virtualization and cached jumps.
+
 The library module is the reference implementation:
 
 ```text

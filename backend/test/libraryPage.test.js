@@ -3,11 +3,10 @@ import test from "node:test";
 import axios from "axios";
 import {
   createLibraryPageRouter,
-  InvalidLibraryPageError,
-  projectLibraryPage,
   RequestLimiter,
   stableRandomOrder,
 } from "../dist/libraryPage.js";
+import { InvalidLibraryPageError, projectLibraryPage } from "../dist/libraryCardProjection.js";
 
 function card(id, title = `Movie ${id}`) {
   return {
@@ -17,6 +16,108 @@ function card(id, title = `Movie ${id}`) {
     type: "movie",
   };
 }
+
+for (const [type, number] of [["artist", 8], ["album", 9], ["track", 10], ["photo", 13], ["photoalbum", 14]]) {
+  test(`loads ${type} pages with the native Plex search type and a bounded projection`, async () => {
+    const original = axios.get;
+    axios.get = async (url, config) => {
+      assert.equal(url, "http://plex/library/sections/3/all");
+      assert.equal(config.params.get("type"), String(number));
+      assert.equal(config.params.get("X-Plex-Container-Start"), "64");
+      assert.equal(config.params.get("sort"), "titleSort");
+      const entry = {
+        ratingKey: "70", type: type === "photoalbum" ? "photo" : type, title: "Catalog item",
+        parentTitle: "Parent", parentThumb: "/parent/thumb",
+        duration: 185000, childCount: 2, viewCount: 5, summary: "Omitted",
+        Media: [{ audioCodec: "flac", audioChannels: 2, bitrate: 900,
+          width: 4000, height: 3000, container: "jpeg", videoResolution: "1080",
+          Part: [{ file: "/private/path", key: "/library/parts/1/file" }] }],
+      };
+      return { data: { MediaContainer: {
+        offset: 64, size: 1, totalSize: 65, librarySectionID: 3,
+        [type === "photoalbum" ? "Directory" : "Metadata"]: [entry],
+      } } };
+    };
+    try {
+      const router = createLibraryPageRouter({ plexServer: "http://plex" });
+      const result = await callRouter(router, { sectionId: "3", type, sort: "titleSort", offset: "64", size: "64" });
+      assert.equal(result.status, 200);
+      assert.equal(result.body.offset, 64);
+      assert.equal(result.body.totalSize, 65);
+      assert.equal(result.body.hasMore, false);
+      const item = result.body.items[0];
+      assert.equal(item.type, type);
+      assert.equal(item.librarySectionID, 3);
+      assert.equal(item.parentThumb, "/parent/thumb");
+      assert.equal(item.summary, undefined);
+      assert.equal(item.Media[0].Part, undefined);
+      assert.equal(item.Media[0].videoResolution, undefined);
+      if (type === "photo" || type === "photoalbum") {
+        assert.equal(item.duration, undefined);
+        assert.equal(item.viewCount, undefined);
+        assert.equal(item.Media[0].audioCodec, undefined);
+        assert.equal(item.Media[0].width, 4000);
+      } else {
+        assert.equal(item.duration, 185000);
+        assert.equal(item.Media[0].audioCodec, "flac");
+        assert.equal(item.Media[0].width, undefined);
+      }
+    } finally { axios.get = original; }
+  });
+}
+
+test("normalizes photo albums without confusing an ordinary photo with an album", () => {
+  const photo = { ratingKey: "1", type: "photo", title: "Photo", key: "/library/metadata/1" };
+  const album = { ...photo, ratingKey: "2", key: "/library/metadata/2/children" };
+  assert.deepEqual(projectLibraryPage({ Metadata: [photo, album], size: 2 }).items.map(item => item.type), ["photo", "photoalbum"]);
+  assert.equal(projectLibraryPage({ Metadata: [photo], size: 1 }, 0, 64, "photoalbum").items[0].type, "photoalbum");
+  assert.throws(() => projectLibraryPage({ Directory: [{ key: "genre", title: "Genre" }] }), InvalidLibraryPageError);
+  assert.throws(() => projectLibraryPage({ Directory: "invalid" }), InvalidLibraryPageError);
+  assert.throws(() => projectLibraryPage({ Metadata: [{ ratingKey: "1", type: "movie", title: "No GUID" }] }), InvalidLibraryPageError);
+});
+
+test("music changes patch track artwork but revalidate artist and album aggregates in random catalogs", async () => {
+  const original = axios.get;
+  let changed = false;
+  const reads = { artist: 0, album: 0, track: 0 };
+  axios.get = async (url, config) => {
+    const track = { ratingKey: "30", type: "track", title: "Track", thumb: changed ? "fresh" : "old",
+      librarySectionID: 3, parentRatingKey: "20", grandparentRatingKey: "10" };
+    if (url.endsWith("/metadata/30")) return { data: { MediaContainer: { Metadata: [track] } } };
+    const type = ({ 8: "artist", 9: "album", 10: "track" })[config.params.get("type")];
+    reads[type]++;
+    const item = type === "track" ? track : { ratingKey: type === "artist" ? "10" : "20", type,
+      title: type, librarySectionID: 3, childCount: changed ? 2 : 1 };
+    return { data: { MediaContainer: { size: 1, totalSize: 1, Metadata: [item] } } };
+  };
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex" });
+    const base = { sectionId: "3", sort: "random", seed: "music", offset: "0", size: "64" };
+    for (const type of Object.keys(reads)) await callRouter(router, { ...base, type });
+    changed = true;
+    const update = await callRouter(router, { id: "30" }, "secret", "/synchronize", "post");
+    assert.equal(update.body.item.type, "track");
+    assert.deepEqual(update.body.parentIds, ["20", "10"]);
+    assert.equal((await callRouter(router, { ...base, type: "track" })).body.items[0].thumb, "fresh");
+    for (const type of ["artist", "album"])
+      assert.equal((await callRouter(router, { ...base, type })).body.items[0].childCount, 2);
+    assert.deepEqual(reads, { artist: 2, album: 2, track: 1 });
+  } finally { axios.get = original; }
+});
+
+test("synchronizes a native photo album Directory into its catalog type", async () => {
+  const original = axios.get;
+  axios.get = async () => ({ data: { MediaContainer: { Directory: [
+    { ratingKey: "20", type: "photo", title: "Album", librarySectionID: 3, childCount: 8 },
+  ] } } });
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex" });
+    const result = await callRouter(router, { id: "20" }, "secret", "/synchronize", "post");
+    assert.equal(result.status, 200);
+    assert.equal(result.body.item.type, "photoalbum");
+    assert.equal(result.body.item.childCount, 8);
+  } finally { axios.get = original; }
+});
 
 const randomRequest = { sectionId: "1", type: "movie", sort: "random", seed: "stable", offset: "0", size: "64" };
 test("a canonical metadata read updates later random pages without rebuilding or reshuffling 1300 items", async () => {

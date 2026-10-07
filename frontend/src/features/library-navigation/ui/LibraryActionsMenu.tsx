@@ -23,7 +23,7 @@ import {
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { ConfirmDialog } from "shared/ui";
-import { runLibraryAction } from "entities/library/model";
+import { libraryViews, runLibraryAction } from "entities/library/model";
 import { useUserSettings } from "features/settings/model";
 import {
   LIBRARY_NAVIGATION_SETTING,
@@ -91,11 +91,12 @@ export default function LibraryActionsMenu({ anchorEl, library, libraries, onClo
           { view: "watchlist", label: "Watchlist", icon: <BookmarkRounded /> },
           { view: "collections", label: "Collections", icon: <CollectionsBookmarkRounded /> },
           { view: "playlists", label: "Playlists", icon: <PlaylistPlayRounded /> },
-        ].map((entry) => <MenuItem key={entry.view} component={Link} to={`/browse/${library.key}?view=${entry.view}`} onClick={onClose}>
+        ].filter(entry => libraryViews(library.type).some(view => view === entry.view))
+        .map((entry) => <MenuItem key={entry.view} component={Link} to={`/browse/${library.key}?view=${entry.view}`} onClick={onClose}>
           <ListItemIcon>{entry.icon}</ListItemIcon>
           <ListItemText>{entry.label}</ListItemText>
         </MenuItem>)}
-        <Divider />
+        {library && libraryViews(library.type).length > 1 && <Divider />}
         <MenuItem onClick={togglePinned}>
           <ListItemIcon>{isPinned ? <PushPinOutlined /> : <PushPinRounded />}</ListItemIcon>
           <ListItemText>{isPinned ? "Unpin" : "Pin"}</ListItemText>

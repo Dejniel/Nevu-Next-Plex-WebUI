@@ -16,6 +16,14 @@ const change = (fields: readonly string[]): Extract<MediaChange, { effect: "meta
 const decide = (event: MediaChange, overrides: Partial<LibraryQuery> = {}) =>
   decideLibrarySynchronization("server", { ...query, ...overrides }, event);
 
+it.each(["artist", "album", "photoalbum"] as const)("revalidates %s aggregates after a child changes", type => {
+  expect(decide({ ...change(["thumb"]), parentIds: ["20"] }, { type })).toBe("refresh");
+});
+
+it.each(["track", "photo"] as const)("patches %s artwork in an unaffected title-sorted result", type => {
+  expect(decide({ ...change(["thumb"]), parentIds: ["20"] }, { type })).toBe("patch");
+});
+
 it.each([
   ["summary", "titleSort", "patch"],
   ["title", "titleSort", "refresh"],

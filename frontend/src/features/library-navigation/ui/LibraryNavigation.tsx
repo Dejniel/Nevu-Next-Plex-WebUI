@@ -10,7 +10,7 @@ import {
   Popper,
   Typography,
 } from "@mui/material";
-import { useLibraries } from "entities/library/model";
+import { isBrowsableLibraryType, useLibraries } from "entities/library/model";
 import { useUserSettings } from "features/settings/model";
 import { Fragment, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -48,7 +48,7 @@ export default function LibraryNavigation({
   const [menuLibrary, setMenuLibrary] = useState<NavigationLibrary | null>(null);
 
   const navigation = normalizeLibraryNavigation(
-    (libraries || []).filter((library) => ["movie", "show"].includes(library.type)),
+    (libraries || []).filter((library) => isBrowsableLibraryType(library.type)),
     settings,
   );
   const openMenu = (anchor: HTMLElement, library: NavigationLibrary) => {

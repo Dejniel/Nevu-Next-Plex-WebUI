@@ -1,4 +1,4 @@
-import { libraryFieldsUnaffected, libraryFilterUnaffected } from "@nevu/contracts";
+import { isLibraryContainerType, libraryFieldsUnaffected, libraryFilterUnaffected } from "@nevu/contracts";
 import {
   matchesMediaScope,
   type MediaChange,
@@ -44,7 +44,7 @@ export function decideLibrarySynchronization(
     return "refresh";
   if (
     query.source === "onDeck" ||
-    ((!query.type || query.type === "show") && change.parentIds?.length)
+    ((!query.type || isLibraryContainerType(query.type)) && change.parentIds?.length)
   )
     return "refresh";
   return libraryDependenciesUnaffected(query, change.fields) ? "patch" : "refresh";

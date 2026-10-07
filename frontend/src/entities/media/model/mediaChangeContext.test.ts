@@ -33,3 +33,13 @@ it("keeps unknown relationships conservative, without mistaking two season IDs f
   expect(mediaChangeContext([{ ratingKey: "1", type: "movie" }], "1"))
     .toMatchObject({ parentIds: [], parentScopeUnknown: false });
 });
+
+it("follows music and photo ancestry using the same cached relationship model", () => {
+  expect(mediaChangeContext([
+    { ratingKey: "30", type: "track", parentRatingKey: "20", librarySectionID: 3 },
+    { ratingKey: "20", type: "album", parentRatingKey: "10" },
+  ], "30")).toMatchObject({ parentIds: ["20", "10"], parentScopeUnknown: false, sectionId: "3" });
+  expect(mediaChangeContext([{ ratingKey: "50", type: "photo", parentRatingKey: "40", librarySectionID: 4 }], "50"))
+    .toMatchObject({ parentIds: ["40"], parentScopeUnknown: false, sectionId: "4" });
+  expect(mediaChangeContext([{ ratingKey: "30", type: "track" }], "30").parentScopeUnknown).toBe(true);
+});
