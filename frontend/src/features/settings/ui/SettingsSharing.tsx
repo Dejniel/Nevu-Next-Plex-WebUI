@@ -9,166 +9,24 @@ import {
   Avatar,
   Box,
   Button,
-  Checkbox,
   Chip,
   CircularProgress,
-  FormControlLabel,
   IconButton,
   Snackbar,
-  Switch,
-  TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { AppDialog, ConfirmDialog } from "shared/ui";
+import { ConfirmDialog } from "shared/ui";
 import {
-  createShare,
   deleteShare,
   getSharingOverview,
   PlexShare,
   SharingLibrary,
-  updateShare,
 } from "../api/sharing";
 import { useCanManageServer } from "features/session/public";
 
-interface ShareEditorProps {
-  open: boolean;
-  share: PlexShare | null;
-  libraries: SharingLibrary[];
-  onClose: () => void;
-  onSaved: (message: string) => void;
-}
-
-function ShareEditor({ open, share, libraries, onClose, onSaved }: ShareEditorProps) {
-  const [account, setAccount] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
-  const [allowDownloads, setAllowDownloads] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setAccount("");
-    setSelected(share?.librarySectionIds || libraries.map((library) => library.id));
-    setAllowDownloads(share?.allowDownloads ?? true);
-    setError(null);
-  }, [libraries, open, share]);
-
-  const allSelected = libraries.length > 0 && selected.length === libraries.length;
-  const toggleLibrary = (id: string) => {
-    setSelected((current) =>
-      current.includes(id)
-        ? current.filter((libraryId) => libraryId !== id)
-        : [...current, id],
-    );
-  };
-
-  const save = async () => {
-    if (selected.length === 0 || (!share && !account.trim())) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const input = { librarySectionIds: selected, allowDownloads };
-      if (share) {
-        await updateShare(share.id, input);
-        onSaved(`Updated access for ${share.displayName}.`);
-      } else {
-        await createShare({ ...input, invitedAccount: account.trim() });
-        onSaved("Plex invitation sent.");
-      }
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Sharing update failed.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <AppDialog
-      open={open}
-      title={share ? `Edit ${share.displayName}` : "Share libraries"}
-      onClose={onClose}
-      busy={saving}
-      actions={
-        <Button
-          variant="contained"
-          onClick={save}
-          disabled={saving || selected.length === 0 || (!share && !account.trim())}
-          startIcon={saving ? <CircularProgress size={16} /> : undefined}
-        >
-          {share ? "Save" : "Send invitation"}
-        </Button>
-      }
-    >
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {!share && (
-        <TextField
-          autoFocus
-          fullWidth
-          required
-          label="Plex email or username"
-          value={account}
-          disabled={saving}
-          autoComplete="off"
-          onChange={(event) => setAccount(event.target.value)}
-          sx={{ mt: 1, mb: 2 }}
-        />
-      )}
-
-      <Typography variant="subtitle2" sx={{ color: "text.secondary", mb: 0.5 }}>
-        Libraries
-      </Typography>
-      <FormControlLabel
-        control={
-          <Checkbox
-            checked={allSelected}
-            indeterminate={selected.length > 0 && !allSelected}
-            disabled={saving}
-            onChange={() =>
-              setSelected(allSelected ? [] : libraries.map((library) => library.id))
-            }
-          />
-        }
-        label="All libraries"
-      />
-      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}>
-        {libraries.map((library) => (
-          <FormControlLabel
-            key={library.id}
-            control={
-              <Checkbox
-                checked={selected.includes(library.id)}
-                disabled={saving}
-                onChange={() => toggleLibrary(library.id)}
-              />
-            }
-            label={library.title}
-          />
-        ))}
-      </Box>
-
-      {selected.length === 0 && (
-        <Typography variant="caption" color="error">
-          Select at least one library.
-        </Typography>
-      )}
-
-      <Box sx={{ mt: 2, pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={allowDownloads}
-              disabled={saving}
-              onChange={(_, checked) => setAllowDownloads(checked)}
-            />
-          }
-          label="Allow downloads"
-        />
-      </Box>
-    </AppDialog>
-  );
-}
+import ShareEditor from "./ShareEditor";
 
 export default function SettingsSharing() {
   const canManageServer = useCanManageServer();

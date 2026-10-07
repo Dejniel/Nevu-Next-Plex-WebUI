@@ -28,15 +28,32 @@ beforeEach(() => {
 it("loads shares with the active manager token in headers", async () => {
   mockedAxios.get.mockResolvedValue({ data: { libraries: [], shares: [] } });
 
-  await expect(getSharingOverview()).resolves.toEqual({ libraries: [], shares: [] });
+  await expect(getSharingOverview()).resolves.toEqual({
+    libraries: [],
+    shares: [],
+  });
   expect(mockedAxios.get).toHaveBeenCalledWith(
     expect.stringMatching(/\/sharing$/),
     {
+      signal: undefined,
       headers: {
         "X-Plex-Token": "manager-token",
         "X-Plex-Client-Identifier": "client-id",
       },
     },
+  );
+});
+
+it("grants managed profiles access by Plex user ID with request cancellation", async () => {
+  const signal = new AbortController().signal;
+  await createShare(
+    { invitedId: 2, librarySectionIds: ["1"], allowDownloads: false },
+    signal,
+  );
+  expect(mockedAxios.post).toHaveBeenCalledWith(
+    expect.stringMatching(/\/sharing$/),
+    { invitedId: 2, librarySectionIds: ["1"], allowDownloads: false },
+    expect.objectContaining({ signal }),
   );
 });
 

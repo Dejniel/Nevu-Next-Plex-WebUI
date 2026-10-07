@@ -5,6 +5,7 @@ export interface HomeProfile {
   thumb?: string;
   protected: boolean;
   restricted: boolean;
+  /** The account used to sign in; Home/server administration comes from Plex permissions. */
   isOwner: boolean;
 }
 

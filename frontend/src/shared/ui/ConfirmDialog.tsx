@@ -1,4 +1,5 @@
 import {
+  Alert,
   Button,
   CircularProgress,
   DialogContentText,
@@ -19,6 +20,7 @@ interface ConfirmDialogProps {
   confirmColor?: ButtonProps["color"];
   busy?: boolean;
   confirmDisabled?: boolean;
+  error?: string | null;
 }
 
 export default function ConfirmDialog({
@@ -32,6 +34,7 @@ export default function ConfirmDialog({
   confirmColor = "primary",
   busy = false,
   confirmDisabled = false,
+  error,
 }: ConfirmDialogProps) {
   return (
     <AppDialog
@@ -57,6 +60,11 @@ export default function ConfirmDialog({
         </>
       }
     >
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
       <DialogContentText>{message}</DialogContentText>
     </AppDialog>
   );

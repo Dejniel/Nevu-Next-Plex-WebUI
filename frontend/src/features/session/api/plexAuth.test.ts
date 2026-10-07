@@ -51,11 +51,12 @@ describe("buildPlexAuthUrl", () => {
     );
   });
 
-  it("returns the owner and Plex Home users only", async () => {
+  it("uses the actual Home membership list, including regular Plex accounts", async () => {
     mockedAxios.get.mockResolvedValue({
       data: `<MediaContainer>
-        <User id="2" title="Home user" home="1" protected="1" restricted="1" />
-        <User id="3" title="Friend" home="0" protected="0" restricted="0" />
+        <User id="1" title="Owner" admin="1" protected="1" restricted="0" />
+        <User id="2" title="Home user" admin="0" protected="1" restricted="1" />
+        <User id="3" title="Plex account" admin="0" protected="0" restricted="0" />
       </MediaContainer>`,
     });
 
@@ -66,10 +67,16 @@ describe("buildPlexAuthUrl", () => {
       restricted: false,
     } as Plex.UserData);
 
-    expect(profiles.map(({ id, title, isOwner }) => ({ id, title, isOwner }))).toEqual([
+    expect(
+      profiles.map(({ id, title, isOwner }) => ({ id, title, isOwner })),
+    ).toEqual([
       { id: 1, title: "Owner", isOwner: true },
       { id: 2, title: "Home user", isOwner: false },
+      { id: 3, title: "Plex account", isOwner: false },
     ]);
+    expect(mockedAxios.get.mock.calls[0][0]).toBe(
+      "https://plex.tv/api/home/users",
+    );
   });
 
   it("switches a Home user with Plex client headers", async () => {

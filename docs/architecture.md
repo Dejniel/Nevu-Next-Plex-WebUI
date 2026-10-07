@@ -82,6 +82,13 @@ editing and matching, original-file downloads, and playback-target resolution
 while the shared `MediaCard` remains presentation-focused. `entities/library`
 owns reusable library data and administration requests.
 
+Plex Home membership and permissions come from Plex's Home API, using the active
+profile's account token. Settings observes one native Query resource and revalidates
+it after writes; safe profile fields update the session and profile picker. PINs
+exist only in the open form/request, outside persistence and the mutation cache.
+Home administration and server management are independent permissions. Home
+library access reuses the sharing editor and backend rather than a second workflow.
+
 `app/library/LibraryBrowse` composes the library view selector and its screens.
 Watchlist, collection, and playlist views share `LibraryBrowseFrame`; all library
 views reuse the card toolbar and `shared/ui/VirtualGrid`.

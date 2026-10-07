@@ -3,6 +3,8 @@ import { XMLParser } from "fast-xml-parser";
 import { ProxiedRequest } from "shared/api/backend";
 import { APP_VERSION } from "shared/config/version";
 import type { HomeProfile } from "../model/authStorage";
+import { getPlexHomeMembers } from "./plexHome";
+import { homeProfiles } from "../model/plexHome";
 
 const xmlParser = new XMLParser({
   attributeNamePrefix: "",
@@ -37,10 +39,6 @@ function queryString(values: Record<string, string | number | boolean | null>) {
     if (value !== null) query.set(key, String(value));
   });
   return query.toString();
-}
-
-function parseBoolean(value: unknown): boolean {
-  return value === true || value === 1 || value === "1" || value === "true";
 }
 
 function asArray<T>(value: T | T[] | undefined): T[] {
@@ -90,7 +88,9 @@ export async function getPin(): Promise<Plex.TokenData> {
   return res.data;
 }
 
-export async function getPlexUser(token: string): Promise<Plex.UserData | null> {
+export async function getPlexUser(
+  token: string,
+): Promise<Plex.UserData | null> {
   try {
     const res = await axios.get("https://plex.tv/api/v2/user", {
       headers: plexHeaders(token),
@@ -117,20 +117,11 @@ export async function getHomeProfiles(
   const ownerUser = owner ?? (await getPlexUser(ownerToken));
   if (!ownerUser) throw new Error("The Plex account token is no longer valid.");
 
-  const response = await axios.get("https://plex.tv/api/users", {
-    headers: plexHeaders(ownerToken, "application/xml"),
-  });
-  const users = asArray<any>(parseXml(response.data)?.MediaContainer?.User)
-    .filter((user) => parseBoolean(user.home))
-    .map<HomeProfile>((user) => ({
-      id: Number(user.id),
-      title: user.title || user.username || "Plex Home user",
-      username: user.username || undefined,
-      thumb: user.thumb || undefined,
-      protected: parseBoolean(user.protected),
-      restricted: parseBoolean(user.restricted),
-      isOwner: false,
-    }));
+  const users = homeProfiles(
+    await getPlexHomeMembers(ownerToken),
+    Number(ownerUser.id),
+  );
+  if (users.some((user) => user.id === Number(ownerUser.id))) return users;
 
   const ownerProfile: HomeProfile = {
     id: Number(ownerUser.id),
@@ -183,7 +174,9 @@ async function getServerMachineIdentifier(token: string): Promise<string> {
   return identifier;
 }
 
-export async function resolveServerToken(accountToken: string): Promise<string> {
+export async function resolveServerToken(
+  accountToken: string,
+): Promise<string> {
   const machineIdentifier = await getServerMachineIdentifier(accountToken);
   const response = await axios.get(
     "https://plex.tv/api/resources?includeHttps=1&includeRelay=1&includeIPv6=1",
@@ -194,7 +187,9 @@ export async function resolveServerToken(accountToken: string): Promise<string> 
     (device) => device.clientIdentifier === machineIdentifier,
   );
   if (!server?.accessToken)
-    throw new Error("The selected profile does not have access to this server.");
+    throw new Error(
+      "The selected profile does not have access to this server.",
+    );
   return String(server.accessToken);
 }
 

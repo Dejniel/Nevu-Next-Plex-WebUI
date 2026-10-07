@@ -10,6 +10,8 @@ import {
 import { authErrorMessage } from "./authError";
 import { AuthStorage, HomeProfile } from "./authStorage";
 import { useServerSession } from "./serverSession";
+import { homeProfiles } from "./plexHome";
+import type { PlexHomeMember } from "./plexHome";
 
 export type AuthStatus =
   | "initializing"
@@ -35,6 +37,7 @@ interface AuthSessionState {
   signOut: () => void;
   setRememberProfile: (enabled: boolean) => void;
   clearError: () => void;
+  updateHomeProfiles: (members: PlexHomeMember[], revision: number) => void;
 }
 
 let operationGeneration = 0;
@@ -291,4 +294,30 @@ export const useAuthSession = create<AuthSessionState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+
+  updateHomeProfiles: (members, revision) => {
+    const state = get();
+    if (
+      state.status !== "ready" ||
+      state.revision !== revision ||
+      !state.ownerUser
+    )
+      return;
+    const profiles = homeProfiles(members, Number(state.ownerUser.id));
+    const activeProfile = profiles.find(
+      (profile) => profile.id === state.activeProfile?.id,
+    );
+    const session = AuthStorage.getActiveSession();
+    if (activeProfile && session)
+      AuthStorage.saveActiveSession({ ...session, profile: activeProfile });
+    set({
+      profiles,
+      ...(activeProfile && {
+        activeProfile,
+        activeUser: state.activeUser
+          ? { ...state.activeUser, protected: activeProfile.protected }
+          : null,
+      }),
+    });
+  },
 }));

@@ -30,13 +30,6 @@ the README and release notes; implementation-only cleanup belongs in the
 - Save only changed values and identify options that require a restart or have
   significant side effects.
 
-### Plex Home management
-
-- Manage Home members, profile restrictions, and supported add, edit, remove,
-  and PIN operations according to the active user's permissions.
-- Keep local interface preferences isolated per profile and never store a PIN
-  as plain text.
-
 ## Later
 
 ### Music and detailed lists
@@ -50,6 +43,8 @@ Browse Plex photo libraries, albums, and individual photos.
 
 ### Experience improvements
 
+- Extend Plex Home editing with profile pictures and custom rating/label restrictions;
+  preserve existing restrictions when changing library access.
 - Add removal of a written Plex review while preserving ratings and watch history.
   Plex's [current delete operation](https://support.plex.tv/articles/user-reviews/)
   removes both rating and review; confirm a text-only operation first.

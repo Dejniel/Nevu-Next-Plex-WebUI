@@ -12,6 +12,7 @@ interface SharingSettings {
 }
 
 interface PlexShareUser {
+    id?: number;
     friendlyName?: string | null;
     title?: string | null;
     username?: string | null;
@@ -26,6 +27,7 @@ interface PlexShareLibrary {
 
 interface PlexShare {
     id: number;
+    invitedId?: number;
     machineIdentifier: string;
     invitedEmail?: string | null;
     accepted?: boolean;
@@ -114,6 +116,7 @@ function normalizeShare(share: PlexShare) {
 
     return {
         id: share.id,
+        userId: share.invitedId ?? invited?.id ?? null,
         displayName:
             invited?.friendlyName ||
             invited?.title ||
@@ -286,7 +289,10 @@ export function createPlexSharingRouter({
         const invitedAccount = typeof req.body?.invitedAccount === 'string'
             ? req.body.invitedAccount.trim()
             : '';
-        if (!invitedAccount || invitedAccount.length > 254) {
+        const invitedId = req.body?.invitedId;
+        if (invitedId !== undefined && (!Number.isSafeInteger(invitedId) || invitedId <= 0))
+            return res.status(400).send({ error: 'Invalid Plex user ID' });
+        if (invitedId === undefined && (!invitedAccount || invitedAccount.length > 254)) {
             return res.status(400).send({ error: 'Enter a valid Plex email or username' });
         }
         const allowDownloads = requestedDownloads(req.body);
@@ -299,7 +305,7 @@ export function createPlexSharingRouter({
             await axios.post(
                 `${PLEX_TV_URL}/shared_servers`,
                 {
-                    invitedEmail: invitedAccount,
+                    ...(invitedId === undefined ? { invitedEmail: invitedAccount } : { invitedId }),
                     machineIdentifier: context.machineIdentifier,
                     librarySectionIds: context.ids.map(Number),
                     settings: sharingSettings(allowDownloads),

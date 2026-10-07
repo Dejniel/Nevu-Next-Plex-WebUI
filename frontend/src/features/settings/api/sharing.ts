@@ -10,6 +10,7 @@ export interface SharingLibrary {
 
 export interface PlexShare {
   id: number;
+  userId: number | null;
   displayName: string;
   account: string | null;
   home: boolean;
@@ -29,12 +30,14 @@ export interface ShareInput {
   allowDownloads: boolean;
 }
 
-export interface NewShareInput extends ShareInput {
-  invitedAccount: string;
-}
+export type NewShareInput = ShareInput &
+  ({ invitedAccount: string } | { invitedId: number });
 
 export class SharingError extends Error {
-  constructor(message: string, public readonly status?: number) {
+  constructor(
+    message: string,
+    public readonly status?: number,
+  ) {
     super(message);
     this.name = "SharingError";
   }
@@ -43,7 +46,10 @@ export class SharingError extends Error {
 function headers() {
   const token = AuthStorage.getProfileAccountToken();
   if (!token)
-    throw new SharingError("The active Plex manager session has expired. Sign in again.", 401);
+    throw new SharingError(
+      "The active Plex manager session has expired. Sign in again.",
+      401,
+    );
 
   return {
     "X-Plex-Token": token,
@@ -62,9 +68,14 @@ function sharingError(error: unknown): SharingError {
   return new SharingError(message, error.response?.status);
 }
 
-export async function getSharingOverview(): Promise<SharingOverview> {
+export async function getSharingOverview(
+  signal?: AbortSignal,
+): Promise<SharingOverview> {
   try {
-    const response = await axios.get(`${getBackendURL()}/sharing`, { headers: headers() });
+    const response = await axios.get(`${getBackendURL()}/sharing`, {
+      headers: headers(),
+      signal,
+    });
     return response.data as SharingOverview;
   } catch (error) {
     if (error instanceof SharingError) throw error;
@@ -72,27 +83,46 @@ export async function getSharingOverview(): Promise<SharingOverview> {
   }
 }
 
-export async function createShare(input: NewShareInput): Promise<void> {
+export async function createShare(
+  input: NewShareInput,
+  signal?: AbortSignal,
+): Promise<void> {
   try {
-    await axios.post(`${getBackendURL()}/sharing`, input, { headers: headers() });
+    await axios.post(`${getBackendURL()}/sharing`, input, {
+      headers: headers(),
+      signal,
+    });
   } catch (error) {
     if (error instanceof SharingError) throw error;
     throw sharingError(error);
   }
 }
 
-export async function updateShare(id: number, input: ShareInput): Promise<void> {
+export async function updateShare(
+  id: number,
+  input: ShareInput,
+  signal?: AbortSignal,
+): Promise<void> {
   try {
-    await axios.put(`${getBackendURL()}/sharing/${id}`, input, { headers: headers() });
+    await axios.put(`${getBackendURL()}/sharing/${id}`, input, {
+      headers: headers(),
+      signal,
+    });
   } catch (error) {
     if (error instanceof SharingError) throw error;
     throw sharingError(error);
   }
 }
 
-export async function deleteShare(id: number): Promise<void> {
+export async function deleteShare(
+  id: number,
+  signal?: AbortSignal,
+): Promise<void> {
   try {
-    await axios.delete(`${getBackendURL()}/sharing/${id}`, { headers: headers() });
+    await axios.delete(`${getBackendURL()}/sharing/${id}`, {
+      headers: headers(),
+      signal,
+    });
   } catch (error) {
     if (error instanceof SharingError) throw error;
     throw sharingError(error);
