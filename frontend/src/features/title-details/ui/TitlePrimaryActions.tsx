@@ -99,7 +99,9 @@ export default function TitlePrimaryActions({
 }: {
   capabilities: MediaActionCapabilities;
   data: Plex.Metadata;
-  onDataChanged: (data: Plex.Metadata) => void;
+  onDataChanged: React.Dispatch<
+    React.SetStateAction<Plex.Metadata | undefined>
+  >;
   onEditMetadata: () => void;
   onMatch: () => void;
   onWriteReview?: () => void;
@@ -142,7 +144,9 @@ export default function TitlePrimaryActions({
       }?`,
       onConfirm: async () => {
         await setMediaPlayedStatus(nextWatched, data.ratingKey);
-        onDataChanged(applyMediaWatchedState(data, nextWatched));
+        onDataChanged(
+          (current) => current && applyMediaWatchedState(current, nextWatched),
+        );
       },
       onCancel: () => undefined,
     });
@@ -238,7 +242,9 @@ export default function TitlePrimaryActions({
       <ActionSlot id="rating" hidden={hidden("rating")}>
         <TitleRatingButton
           item={data}
-          onChanged={onDataChanged}
+          onChanged={(userRating) =>
+            onDataChanged((current) => current && { ...current, userRating })
+          }
           menuRef={ratingMenuRef}
           onWriteReview={onWriteReview}
         />

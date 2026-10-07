@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import TitleRatingButton from "./TitleRatingButton";
 import { setMediaRating } from "../api/rating";
+import { useAuthSession } from "features/session/model";
 
 vi.mock("../api/rating", () => ({ setMediaRating: vi.fn() }));
 const save = vi.mocked(setMediaRating);
@@ -10,6 +11,7 @@ let host: HTMLDivElement;
 
 beforeEach(() => {
   vi.resetAllMocks();
+  useAuthSession.setState({ revision: 1 });
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   host = document.createElement("div");
   document.body.append(host);
@@ -23,13 +25,13 @@ afterEach(async () => {
 
 async function clearRating(
   item: Plex.Metadata,
-  onChanged: (item: Plex.Metadata) => void,
+  onChanged: (rating: number | undefined) => void,
 ) {
   await act(async () =>
     root.render(<TitleRatingButton item={item} onChanged={onChanged} />),
   );
   const trigger = host.querySelector<HTMLButtonElement>(
-    'button[aria-label="Your rating: 4 stars"]',
+    'button[aria-label="Your rating: 8.0/10"]',
   )!;
   vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue(
     new DOMRect(0, 0, 38, 38),
@@ -47,8 +49,8 @@ it("clears a rating only after Plex accepts the change, without mutating the ite
   const onChanged = vi.fn();
   save.mockResolvedValue(true);
   await clearRating(item, onChanged);
-  expect(onChanged).toHaveBeenCalledWith({ ...item, userRating: undefined });
-  expect(save).toHaveBeenCalledWith(-1, "12");
+  expect(onChanged).toHaveBeenCalledWith(undefined);
+  expect(save).toHaveBeenCalledWith(-1, "12", expect.any(AbortSignal));
   expect(item.userRating).toBe(8);
 });
 
@@ -79,10 +81,16 @@ it("disables the clear icon without a rating and opens reviews independently", a
       />,
     ),
   );
-  const trigger = host.querySelector<HTMLButtonElement>('button[aria-label="Rate this title"]')!;
-  vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 38, 38));
+  const trigger = host.querySelector<HTMLButtonElement>(
+    'button[aria-label="Rate this title"]',
+  )!;
+  vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue(
+    new DOMRect(0, 0, 38, 38),
+  );
   await act(async () => trigger.click());
-  const clear = document.querySelector<HTMLButtonElement>('button[aria-label="Clear rating"]')!;
+  const clear = document.querySelector<HTMLButtonElement>(
+    'button[aria-label="Clear rating"]',
+  )!;
   expect(clear.disabled).toBe(true);
   expect(clear.getAttribute("title")).toBeNull();
   const write = Array.from(document.querySelectorAll("button")).find(
@@ -91,4 +99,51 @@ it("disables the clear icon without a rating and opens reviews independently", a
   await act(async () => write.click());
   expect(onWriteReview).toHaveBeenCalledTimes(1);
   expect(save).not.toHaveBeenCalled();
+});
+
+it.each(["title", "profile"])(
+  "cancels pending rating saves when the %s changes and ignores late results",
+  async (change) => {
+    let finish!: (saved: boolean) => void;
+    save.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const item = { ratingKey: "12", userRating: 8 } as Plex.Metadata;
+    const onChanged = vi.fn();
+    await clearRating(item, onChanged);
+    const signal = save.mock.calls[0][2]!;
+    await act(async () => {
+      if (change === "profile") useAuthSession.setState({ revision: 2 });
+      else
+        root.render(
+          <TitleRatingButton
+            item={{ ratingKey: "13" } as Plex.Metadata}
+            onChanged={onChanged}
+          />,
+        );
+    });
+    await act(async () => finish(true));
+    expect(signal.aborted).toBe(true);
+    expect(onChanged).not.toHaveBeenCalled();
+  },
+);
+
+it("offers the same 0–10 scale when selecting stars", async () => {
+  const item = { ratingKey: "12", userRating: 8 } as Plex.Metadata;
+  save.mockResolvedValue(true);
+  await clearRating(item, vi.fn());
+  expect(document.querySelector(".MuiPopover-paper")?.textContent).toContain(
+    "Your rating: 8.0/10",
+  );
+  expect(
+    document.querySelector<HTMLInputElement>('input[value="5"]')?.labels?.[0]
+      .textContent,
+  ).toContain("10.0/10");
+  expect(
+    document.querySelector<HTMLInputElement>('input[value="0.5"]')?.labels?.[0]
+      .textContent,
+  ).toContain("1.0/10");
 });

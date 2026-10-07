@@ -8,12 +8,6 @@ the README and release notes; implementation-only cleanup belongs in the
 
 ## Now
 
-### Unify rating presentation
-
-- Present ratings on one clear display scale while preserving their source.
-- Show Plex critic, audience, friend, and active-user ratings without
-  duplicating a provider or inventing an unsupported aggregate score.
-
 ### Complete metadata workflows
 
 - Add the remaining editable fields exposed by Plex for each media type.
@@ -57,6 +51,8 @@ Browse Plex photo libraries, albums, and individual photos.
 ### Experience improvements
 
 - Add removal of a written Plex review while preserving ratings and watch history.
+  Plex's [current delete operation](https://support.plex.tv/articles/user-reviews/)
+  removes both rating and review; confirm a text-only operation first.
 - Revisit Home separately for desktop and mobile.
 - Consider an alternative title-details layout that is less dependent on a
   large backdrop while preserving the current cinematic view.

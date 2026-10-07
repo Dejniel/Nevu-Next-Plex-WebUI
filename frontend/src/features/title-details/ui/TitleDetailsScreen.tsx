@@ -45,6 +45,7 @@ import { alpha } from "@mui/material/styles";
 import { AnimatePresence, motion } from "motion/react";
 import { AppDialog, StretchedLink, useConfirmModal } from "shared/ui";
 import TitleReviews from "./TitleReviews";
+import TitleRatings from "./TitleRatings";
 import TitleReviewEditor from "./TitleReviewEditor";
 import TitleOverview from "./TitleOverview";
 import TitleDetails from "./TitleDetails";
@@ -82,30 +83,6 @@ const detailsPages: Record<string, number> = {
   reviews: 3,
   media: 4,
 };
-
-function TitleScore({
-  label,
-  value,
-  image,
-}: {
-  label: string;
-  value?: number;
-  image?: string;
-}) {
-  if (value === undefined) return null;
-  const score = image?.toLowerCase().includes("rottentomatoes")
-    ? `${Math.round(value * 10)}%`
-    : `${value.toFixed(1)}/10`;
-
-  return (
-    <Box sx={{ display: "flex", alignItems: "baseline", gap: 0.5 }}>
-      <Typography variant="body2" sx={{ color: "text.secondary" }}>
-        {label}
-      </Typography>
-      <Typography sx={{ fontWeight: 700 }}>{score}</Typography>
-    </Box>
-  );
-}
 
 function TitleDetailsScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -528,26 +505,7 @@ function TitleDetailsScreen() {
                   )}
               </Box>
 
-              <Box
-                sx={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  justifyContent: { xs: "center", sm: "flex-start" },
-                  gap: 2,
-                }}
-              >
-                <TitleScore
-                  label="Critics"
-                  value={data?.rating}
-                  image={data?.ratingImage}
-                />
-                <TitleScore
-                  label="Audience"
-                  value={data?.audienceRating}
-                  image={data?.audienceRatingImage}
-                />
-                <TitleScore label="You" value={data?.userRating} />
-              </Box>
+              <TitleRatings item={data} />
 
               <Box
                 sx={{

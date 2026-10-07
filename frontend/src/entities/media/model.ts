@@ -28,6 +28,14 @@ export {
 export type { MediaVersion, TrackChoice, TrackPreference } from "./model/mediaVersions";
 export type { MediaItemData } from "./model/media";
 export {
+  formatMediaRating,
+  getMediaRatings,
+  getPrimaryMediaRating,
+  mediaRatingLabel,
+  validMediaRating,
+} from "./model/mediaRatings";
+export type { MediaRating, MediaRatingKind } from "./model/mediaRatings";
+export {
   matchesMediaScope,
   affectedMediaParents,
   publishMediaChange,

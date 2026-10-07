@@ -201,6 +201,7 @@ declare namespace Plex {
         rating?: number;
         audienceRating?: number;
         userRating?: number;
+        Rating?: { value: number; image?: string; type?: string }[];
         viewOffset?: number;
         viewCount?: number;
         lastViewedAt?: number;
@@ -217,7 +218,7 @@ declare namespace Plex {
         seasonCount?: number;
         addedAt: number;
         updatedAt: number;
-        audienceRatingImage: string;
+        audienceRatingImage?: string;
         chapterSource?: string;
         primaryExtraKey?: string;
         extraType?: number;

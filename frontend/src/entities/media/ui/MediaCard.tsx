@@ -35,6 +35,11 @@ import { isMediaWatched } from "../model/mediaWatchedState";
 import { alpha, keyframes } from "@mui/material/styles";
 import { mediaDetailsTo } from "shared/lib/navigation";
 import type { MediaItemData } from "../model/media";
+import {
+  formatMediaRating,
+  getPrimaryMediaRating,
+  mediaRatingLabel,
+} from "../model/mediaRatings";
 
 const artworkFadeIn = keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
 
@@ -74,7 +79,7 @@ function MediaCard({
     PlexTvSource,
   );
   const isEpisode = item.type === "episode";
-  const displayRating = item.audienceRating ?? item.rating;
+  const displayRating = getPrimaryMediaRating(item);
   const qualityLabel = mediaQualityBadge(item);
   const cardTitle = isEpisode
     ? item.grandparentTitle || item.parentTitle || item.title
@@ -412,8 +417,9 @@ function MediaCard({
         )}
 
         {/* Audience score */}
-        {typeof displayRating === "number" && (
+        {displayRating && (
           <Box
+            title={`${mediaRatingLabel(displayRating)}: ${formatMediaRating(displayRating.value)}`}
             sx={{
               position: "absolute",
               top: "8px",
@@ -439,7 +445,7 @@ function MediaCard({
                 lineHeight: 1.4,
               }}
             >
-              {displayRating.toFixed(1)}
+              {formatMediaRating(displayRating.value)}
             </Typography>
           </Box>
         )}

@@ -8,7 +8,6 @@ import {
   Divider,
   Grid,
   Paper,
-  Rating,
   Skeleton,
   Typography,
 } from "@mui/material";
@@ -18,6 +17,8 @@ import { useActiveServerScope, useAuthSession } from "features/session/model";
 import { serverQueryClient } from "shared/api/queryClient";
 import type { PlexReview } from "../api/plexCommunity";
 import { titleReviewsQueryOptions } from "../model/titleReviewsQuery";
+import { getReviewRating, partitionTitleReviews } from "../model/titleReviews";
+import { MediaRatingValue } from "entities/media/public";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
@@ -99,12 +100,7 @@ function ReviewsSection({
                       <Typography noWrap sx={{ fontWeight: "medium" }}>
                         {username}
                       </Typography>
-                      <Rating
-                        value={(review.reviewRating ?? review.rating ?? 0) / 2}
-                        precision={0.5}
-                        size="small"
-                        readOnly
-                      />
+                      <MediaRatingValue value={getReviewRating(review)} />
                       {!Number.isNaN(date.getTime()) && (
                         <Typography
                           variant="caption"
@@ -180,18 +176,7 @@ export default function TitleReviews({
   );
   const reviews = result.data;
   const loading = result.isPending && result.isFetching;
-  const own = reviews?.userReview?.message ? reviews.userReview : null;
-  const top =
-    reviews?.topReviews.nodes.filter((review) => review.id !== own?.id) || [];
-  const topIDs = new Set(top.map((review) => review.id));
-  const recent = [
-    ...(own ? [own] : []),
-    ...(reviews?.recentReviews.nodes.filter(
-      (review) => review.id !== own?.id && !topIDs.has(review.id),
-    ) || []),
-  ];
-  const friends =
-    reviews?.friendReviews.nodes.filter((review) => review.id !== own?.id) || [];
+  const { top, recent, friends } = partitionTitleReviews(reviews);
   const critics = data?.Review || [];
   const reviewAction = onWriteReview && (
     <Button

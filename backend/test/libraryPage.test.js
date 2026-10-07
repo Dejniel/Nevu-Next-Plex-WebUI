@@ -177,6 +177,11 @@ test("projects library pages to the explicit card contract", () => {
     Metadata: [{
       ...card(42, "Movie"),
       summary: "Not needed by a card",
+      rating: 8.5,
+      ratingImage: "imdb://image.rating",
+      audienceRating: 9,
+      audienceRatingImage: "rottentomatoes://image.rating.upright",
+      Rating: [{ value: 8.5, type: "audience", image: "imdb://image.rating" }],
       Genre: [{ id: 1, tag: "Drama", extra: true }],
       Media: [{ width: 3840, height: 2160, videoResolution: "4k", Part: [{ file: "/secret" }] }],
     }],
@@ -189,6 +194,10 @@ test("projects library pages to the explicit card contract", () => {
     hasMore: true,
     items: [{
       ...card(42, "Movie"),
+      rating: 8.5,
+      ratingImage: "imdb://image.rating",
+      audienceRating: 9,
+      audienceRatingImage: "rottentomatoes://image.rating.upright",
       Genre: [{ id: 1, tag: "Drama" }],
       Media: [{ width: 3840, height: 2160, videoResolution: "4k" }],
     }],
@@ -258,6 +267,7 @@ test("loads a validated range and keeps the Plex token in a request header", asy
     assert.equal(upstream.config.params.get("unwatched!"), "1");
     assert.equal(upstream.config.params.get("year>"), "2020");
     assert.match(upstream.config.params.get("excludeElements"), /Part/);
+    assert.doesNotMatch(upstream.config.params.get("excludeFields"), /ratingImage|audienceRatingImage/);
     assert.deepEqual([...upstream.config.params.entries()].slice(6), [
       ["push", "1"],
       ["genre", "4"],

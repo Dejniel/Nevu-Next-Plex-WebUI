@@ -10,6 +10,7 @@ import {
 } from "@mui/material";
 import { AppDialog } from "shared/ui";
 import { savePlexReview, type PlexReview } from "../api/plexCommunity";
+import { getReviewRating } from "../model/titleReviews";
 
 export default function PlexReviewDialog({
   metadataID,
@@ -20,7 +21,7 @@ export default function PlexReviewDialog({
   metadataID: string;
   review: PlexReview | null;
   onClose: () => void;
-  onSaved: (review: PlexReview) => void;
+  onSaved: (review: PlexReview) => void | Promise<void>;
 }) {
   const [message, setMessage] = useState(review?.message || "");
   const [hasSpoilers, setHasSpoilers] = useState(review?.hasSpoilers || false);
@@ -41,12 +42,12 @@ export default function PlexReviewDialog({
           metadata: metadataID,
           message: message.trim(),
           hasSpoilers,
-          rating: review?.reviewRating ?? review?.rating ?? null,
+          rating: review ? (getReviewRating(review) ?? null) : null,
         },
         review?.id,
         controller.signal,
       );
-      if (!controller.signal.aborted) onSaved(result);
+      if (!controller.signal.aborted) await onSaved(result);
     } catch (error) {
       if (!controller.signal.aborted)
         setError(

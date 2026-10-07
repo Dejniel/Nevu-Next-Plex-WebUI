@@ -9,6 +9,7 @@ import {
   titleReviewsQueryOptions,
 } from "../model/titleReviewsQuery";
 import PlexReviewDialog from "./PlexReviewDialog";
+import { replaceOwnReview } from "../model/titleReviews";
 
 export default function TitleReviewEditor({
   item,
@@ -33,7 +34,9 @@ export default function TitleReviewEditor({
         ) : reviews.isError ? (
           <Alert
             severity="warning"
-            action={<Button onClick={() => void reviews.refetch()}>Retry</Button>}
+            action={
+              <Button onClick={() => void reviews.refetch()}>Retry</Button>
+            }
           >
             Plex community reviews are temporarily unavailable.
           </Alert>
@@ -51,32 +54,16 @@ export default function TitleReviewEditor({
       metadataID={getReviewMetadataID(item.guid)!}
       review={reviews.data.userReview}
       onClose={onClose}
-      onSaved={(saved) => {
+      onSaved={async (saved) => {
         if (useAuthSession.getState().revision !== revision) return;
-        void serverQueryClient.cancelQueries({
+        await serverQueryClient.cancelQueries({
           queryKey: options.queryKey,
           exact: true,
         });
-        serverQueryClient.setQueryData<PlexReviews>(options.queryKey, (current) =>
-          current && {
-            ...current,
-            userReview: saved,
-            topReviews: {
-              nodes: current.topReviews.nodes.map((review) =>
-                review.id === saved.id ? saved : review,
-              ),
-            },
-            recentReviews: {
-              nodes: current.recentReviews.nodes.map((review) =>
-                review.id === saved.id ? saved : review,
-              ),
-            },
-            friendReviews: {
-              nodes: current.friendReviews.nodes.map((review) =>
-                review.id === saved.id ? saved : review,
-              ),
-            },
-          },
+        if (useAuthSession.getState().revision !== revision) return;
+        serverQueryClient.setQueryData<PlexReviews>(
+          options.queryKey,
+          (current) => current && replaceOwnReview(current, saved),
         );
         onClose();
       }}

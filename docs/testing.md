@@ -68,10 +68,13 @@ native Safari HLS, HDR, and hardware transcoding require suitable environments.
 
 On title pages, resize through desktop/mobile layouts and change text size.
 Check action overflow, keyboard focus, and original-file selection from the menu.
-Save and clear a rating, including a failed request. Check Plex reviews, spoiler
-expansion, creating/editing a review, failed saves, and profile changes during
-a save. Check the review editor from the star menu and both section headers;
-your review should appear once, first in Recent, immediately after saving.
+Save and clear a rating, including a failed request.
+Check 0–10 scores and provider labels on cards, details and reviews, with separate
+Rotten Tomatoes critic/audience scores and no computed friend average. A missing
+score must stay absent. Change title/profile during a pending rating save.
+Check spoiler expansion, creating/editing a review, failed saves, and profile
+changes during a save. Check the review editor from the star menu and both section
+headers; your review should appear once, first in Recent, immediately after saving.
 Live review writes use the account’s Plex privacy settings.
 
 For list browsing, create a collection and a video playlist in test Plex using

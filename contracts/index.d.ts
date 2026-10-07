@@ -68,7 +68,9 @@ export interface LibraryCardDto {
   thumb?: string;
   art?: string;
   audienceRating?: number;
+  audienceRatingImage?: string;
   rating?: number;
+  ratingImage?: string;
   viewCount?: number;
   viewOffset?: number;
   viewedLeafCount?: number;

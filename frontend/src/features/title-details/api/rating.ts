@@ -1,12 +1,25 @@
-import { AuthStorage } from "features/session/model";
-import { getXPlexProps } from "features/session/model";
+import {
+  AuthStorage,
+  getActiveServerScope,
+  getXPlexProps,
+  useAuthSession,
+} from "features/session/model";
+import { publishMediaChange, validMediaRating } from "entities/media/model";
 import { queryBuilder } from "shared/lib/query";
 import { ProxiedRequest } from "shared/api/backend";
 
 export async function setMediaRating(
   rating: number,
   ratingKey: string,
+  signal?: AbortSignal,
 ): Promise<boolean> {
+  if (rating !== -1 && (!validMediaRating(rating) || rating === 0))
+    throw new Error("Choose a rating between 1 and 10.");
+  const token = AuthStorage.getServerToken();
+  if (!token) throw new Error("The active Plex profile session has expired.");
+  const revision = useAuthSession.getState().revision;
+  const scope = getActiveServerScope();
+  signal?.throwIfAborted();
   const response = await ProxiedRequest(
     `/:/rate?${queryBuilder({
       identifier: "com.plexapp.plugins.library",
@@ -16,9 +29,28 @@ export async function setMediaRating(
     })}`,
     "GET",
     {
-      "X-Plex-Token": AuthStorage.getServerToken() ?? "",
+      "X-Plex-Token": token,
       accept: "application/json",
     },
+    undefined,
+    signal,
   );
-  return response.status === 200;
+  signal?.throwIfAborted();
+  const current = getActiveServerScope();
+  if (
+    useAuthSession.getState().revision !== revision ||
+    AuthStorage.getServerToken() !== token ||
+    current?.serverId !== scope?.serverId ||
+    current?.profileKey !== scope?.profileKey
+  )
+    throw new Error("The active Plex profile changed. Open this action again.");
+  const accepted = response.status >= 200 && response.status < 300;
+  if (accepted && scope)
+    publishMediaChange({
+      ...scope,
+      kind: "item",
+      effect: "unknown",
+      id: ratingKey,
+    });
+  return accepted;
 }

@@ -9,7 +9,12 @@ export interface PlexReview {
   message?: string | null;
   status?: string;
   hasSpoilers?: boolean;
-  userV2?: { username: string; displayName?: string; avatar?: string };
+  userV2?: {
+    id?: string;
+    username: string;
+    displayName?: string;
+    avatar?: string;
+  };
 }
 
 export interface PlexReviews {
@@ -37,7 +42,7 @@ const query = `
   fragment reviews on Activity {
     id
     date
-    userV2 { username displayName avatar }
+    userV2 { id username displayName avatar }
     ... on ActivityRating { rating }
     ... on ActivityWatchRating { rating }
     ... on ActivityReview { reviewRating: rating hasSpoilers message status }
@@ -114,7 +119,7 @@ export async function savePlexReview(
     `${query}
     fragment savedReview on ActivityReview {
       id date reviewRating: rating message hasSpoilers status
-      userV2 { username displayName avatar }
+      userV2 { id username displayName avatar }
     }
   `,
     { input, ...(reviewID ? { id: reviewID } : {}) },

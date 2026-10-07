@@ -1,16 +1,26 @@
 import { Box, Typography, useTheme } from "@mui/material";
 import { durationToText } from "shared/lib/duration";
-import { getTranscodeImageURL } from "entities/media/model";
+import {
+  formatMediaRating,
+  getPrimaryMediaRating,
+  getTranscodeImageURL,
+  mediaRatingLabel,
+} from "entities/media/model";
 
 function MediaFacts({ metadata }: { metadata: Plex.Metadata }) {
+  const rating = getPrimaryMediaRating(metadata);
   const facts = [
     metadata.year,
-    metadata.rating,
+    rating
+      ? `${mediaRatingLabel(rating)} ${formatMediaRating(rating.value)}`
+      : null,
     metadata.duration ? durationToText(metadata.duration) : null,
   ].filter((value) => value !== undefined && value !== null && value !== "");
 
   return (
-    <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 2 }}>
+    <Box
+      sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 2 }}
+    >
       {facts.map((fact, index) => (
         <Typography
           key={`${fact}:${index}`}
@@ -96,19 +106,21 @@ export default function PlaybackInfoOverlay({
           transitionDelay: "0.1s",
         }}
       >
-        {isEpisode && showMetadata?.childCount && showMetadata.childCount > 1 && (
-          <Typography
-            sx={{
-              fontSize: "0.9vw",
-              color: theme.palette.primary.main,
-              fontWeight: 500,
-              textTransform: "uppercase",
-              mb: 0.5,
-            }}
-          >
-            Season {metadata.parentIndex}
-          </Typography>
-        )}
+        {isEpisode &&
+          showMetadata?.childCount &&
+          showMetadata.childCount > 1 && (
+            <Typography
+              sx={{
+                fontSize: "0.9vw",
+                color: theme.palette.primary.main,
+                fontWeight: 500,
+                textTransform: "uppercase",
+                mb: 0.5,
+              }}
+            >
+              Season {metadata.parentIndex}
+            </Typography>
+          )}
 
         <Typography
           sx={{

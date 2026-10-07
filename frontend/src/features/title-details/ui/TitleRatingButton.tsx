@@ -11,44 +11,84 @@ import {
   IconButton,
   Popover,
   Rating,
+  Typography,
 } from "@mui/material";
-import React, { useImperativeHandle, useState } from "react";
+import React, { useEffect, useImperativeHandle, useRef, useState } from "react";
+import { formatMediaRating, validMediaRating } from "entities/media/model";
+import {
+  getActiveServerScope,
+  useActiveServerScope,
+  useAuthSession,
+} from "features/session/model";
+import { serverQueryClient } from "shared/api/queryClient";
+import { titleReviewsQueryOptions } from "../model/titleReviewsQuery";
 import { setMediaRating } from "../api/rating";
 
-export default function TitleRatingButton({
+interface RatingButtonProps {
+  item: Plex.Metadata;
+  onChanged: (rating: number | undefined) => void;
+  menuRef?: React.Ref<{ open: (anchor: HTMLElement) => void }>;
+  onWriteReview?: () => void;
+}
+
+export default function TitleRatingButton(props: RatingButtonProps) {
+  const revision = useAuthSession((state) => state.revision);
+  const { serverId } = useActiveServerScope();
+  return (
+    <RatingControls
+      key={`${serverId}:${revision}:${props.item.ratingKey}`}
+      {...props}
+    />
+  );
+}
+
+function RatingControls({
   item,
   onChanged,
   menuRef,
   onWriteReview,
-}: {
-  item: Plex.Metadata;
-  onChanged: (item: Plex.Metadata) => void;
-  menuRef?: React.Ref<{ open: (anchor: HTMLElement) => void }>;
-  onWriteReview?: () => void;
-}) {
-  const rating = item.userRating ? item.userRating / 2 : null;
+}: RatingButtonProps) {
+  const rating =
+    validMediaRating(item.userRating) && item.userRating > 0
+      ? item.userRating / 2
+      : null;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => () => request.current?.abort(), []);
   useImperativeHandle(menuRef, () => ({ open: setAnchor }), []);
 
   const saveRating = async (value: number | null) => {
-    if (saving) return;
+    if (request.current || (value === null && rating === null)) return;
+    const controller = new AbortController();
+    request.current = controller;
+    const scope = getActiveServerScope();
     setSaving(true);
     setError(null);
     try {
       if (
-        !(await setMediaRating(value === null ? -1 : value * 2, item.ratingKey))
+        !(await setMediaRating(
+          value === null ? -1 : value * 2,
+          item.ratingKey,
+          controller.signal,
+        ))
       )
         throw new Error("Plex could not save your rating.");
-      onChanged({
-        ...item,
-        userRating: value === null ? undefined : value * 2,
-      });
+      if (controller.signal.aborted) return;
+      onChanged(value === null ? undefined : value * 2);
+      if (scope)
+        void serverQueryClient.invalidateQueries({
+          queryKey: titleReviewsQueryOptions(scope.profileKey, item.guid)
+            .queryKey,
+          exact: true,
+        });
     } catch {
-      setError("Plex could not save your rating. Try again.");
+      if (!controller.signal.aborted)
+        setError("Plex could not save your rating. Try again.");
     } finally {
-      setSaving(false);
+      request.current = null;
+      if (!controller.signal.aborted) setSaving(false);
     }
   };
 
@@ -72,11 +112,17 @@ export default function TitleRatingButton({
           },
         }}
       >
+        <Typography variant="body2" color="text.secondary">
+          {rating === null
+            ? "Your rating"
+            : `Your rating: ${formatMediaRating(rating * 2)}`}
+        </Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Rating
             value={rating}
             precision={0.5}
             size="large"
+            getLabelText={(value) => formatMediaRating(value * 2)}
             disabled={saving}
             onChange={(_, value) => void saveRating(value)}
             onClick={(event) => event.stopPropagation()}
@@ -99,6 +145,7 @@ export default function TitleRatingButton({
         {onWriteReview && (
           <Button
             fullWidth
+            disabled={saving}
             onClick={() => {
               setAnchor(null);
               onWriteReview();
@@ -110,7 +157,11 @@ export default function TitleRatingButton({
       </Popover>
       <Button
         variant="contained"
-        aria-label={rating ? `Your rating: ${rating} stars` : "Rate this title"}
+        aria-label={
+          rating
+            ? `Your rating: ${formatMediaRating(rating * 2)}`
+            : "Rate this title"
+        }
         sx={{ height: 38, minWidth: 38, px: 1 }}
         onClick={(event) => setAnchor(event.currentTarget)}
         onContextMenu={(event) => {

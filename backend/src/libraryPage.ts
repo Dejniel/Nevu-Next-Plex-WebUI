@@ -65,7 +65,9 @@ const cardFields = [
     'thumb',
     'art',
     'audienceRating',
+    'audienceRatingImage',
     'rating',
+    'ratingImage',
     'viewCount',
     'viewOffset',
     'viewedLeafCount',
@@ -75,8 +77,6 @@ const excludedFields = [
     'summary',
     'tagline',
     'originalTitle',
-    'ratingImage',
-    'audienceRatingImage',
 ].join(',');
 const excludedElements = [
     'Guid',

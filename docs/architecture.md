@@ -61,6 +61,11 @@ features/library/
 `features/title-details` follows the same boundary for title metadata, extra selection,
 reviews, downloads, and the details dialog. Review entry points share one Plex
 editor and a profile-scoped Query resource; confirmed saves update its readers.
+`entities/media` owns the pure rating model and shared score display. Provider
+values keep Plex's 0–10 scale; friend scores remain individual ratings. Library
+cards carry score values and provider identifiers, without extra reads.
+Personal title ratings come from the active server; community review ratings
+remain attached to their Plex activity.
 `features/playback` owns stream
 selection, timeline reporting, subtitle search, queue controls, and the routed
 player screen. `features/watch-together` owns the cross-session connection,
