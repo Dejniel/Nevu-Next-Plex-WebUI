@@ -14,3 +14,5 @@ export { LibraryPageError } from "./api/libraryPage";
 export { default as LibraryViewToolbar } from "./ui/LibraryViewToolbar";
 export { default as LibraryBrowseFrame } from "./ui/LibraryBrowseFrame";
 export { getLibraryCardWidth, useLibraryCardView } from "./ui/LibraryCardViewControls";
+
+export { default as CatalogItemScreen } from "./ui/CatalogItemScreen";

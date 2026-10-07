@@ -7,6 +7,7 @@ export const libraryItemTypeNumbers = Object.freeze({
   artist: 8,
   album: 9,
   track: 10,
+  clip: 12,
   photo: 13,
   photoalbum: 14,
 });
@@ -28,4 +29,13 @@ export function isLibraryContainerType(value) {
     value === "album" ||
     value === "photoalbum"
   );
+}
+
+export function normalizeLibraryRecord(item, directory = false, requestedType) {
+  return item.type === "photo" &&
+    (directory ||
+      requestedType === "photoalbum" ||
+      (typeof item.key === "string" && /\/children(?:\?|$)/.test(item.key)))
+    ? { ...item, type: "photoalbum" }
+    : item;
 }

@@ -13,6 +13,8 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
+import { TrackList } from "features/music/public";
+import { PhotoGallery } from "features/photos/public";
 import { motion } from "motion/react";
 import React, { useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
@@ -116,15 +118,16 @@ function BrowseLibraryContent({
     const candidates = [
       requestedSort,
       localStorage.getItem(sortStorageKey),
-      localStorage.getItem("sortBy"),
+      video ? localStorage.getItem("sortBy") : null,
     ];
     return (
       candidates
         .filter(isValidLibrarySort)
         .find((candidate) => sortOptions.some((option) => option.value === candidate)) ||
+      (activeItemType === "photo" && sortOptions.find(option => option.value === "originallyAvailableAt:desc")?.value) ||
       defaultLibrarySort(activeType?.Sort)
     );
-  }, [activeType, requestedSort, sortOptions, sortStorageKey]);
+  }, [activeItemType, activeType, requestedSort, sortOptions, sortStorageKey, video]);
 
   useEffect(() => {
     if (!activeItemType) return;
@@ -389,6 +392,10 @@ function BrowseLibraryContent({
             </Alert>
           ) : unsupportedLibrary ? (
             <Alert severity="info">This library type is not supported yet.</Alert>
+          ) : activeItemType === "track" ? (
+            <TrackList query={query} />
+          ) : activeItemType === "photo" ? (
+            <PhotoGallery query={query} cardSize={cardView.size} />
           ) : (
             <WindowLibraryCollectionGrid
               query={query}

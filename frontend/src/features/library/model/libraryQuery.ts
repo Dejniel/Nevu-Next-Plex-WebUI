@@ -11,6 +11,7 @@ export const LIBRARY_RANGE_SIZE = 64;
 export interface LibraryQuery {
   profileKey: string;
   sectionId: number;
+  parentId?: string;
   source?: LibrarySource;
   type?: LibraryItemType;
   sort: LibrarySort;
@@ -26,6 +27,7 @@ export function libraryResultQueryKey(serverId: string, query: LibraryQuery) {
     query.profileKey,
     {
       sectionId: query.sectionId,
+      ...(query.parentId && { parentId: query.parentId }),
       source: query.source || "all",
       type: query.type || "any",
       sort: query.sort,

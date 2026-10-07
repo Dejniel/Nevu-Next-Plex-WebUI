@@ -57,6 +57,17 @@ selects artwork and captions by type. Video actions and previews stay restricted
 to video. Parent synchronization includes artists, albums and photo albums;
 all types retain the existing Query windows, virtualization and cached jumps.
 
+Artist, album and photo-album pages use canonical metadata and the same paged
+catalog with a `children` source and parent identity. History scroll positions
+are UI state, kept separately from server data. `features/music` owns playback
+identity and a profile-scoped Query resource for Plex's native queue; queue entry
+IDs distinguish repeated songs. Its persistent controls reuse the shared
+native/Shaka player, with original audio and one Plex conversion after a format
+failure. Sources retain the credentials captured when playback starts.
+`features/photos` keeps preview identity in the URL and reads nearby catalog
+pages in the current filter/sort order. Neither workflow adds a second catalog
+cache. Video clips in photo albums use the existing video playback screen.
+
 The library module is the reference implementation:
 
 ```text

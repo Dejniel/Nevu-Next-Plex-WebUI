@@ -52,7 +52,7 @@ declare namespace Plex {
         voiceSearch: boolean;
     }
 
-    type LibaryType = 'movie' | 'show' | 'artist' | 'photo' | 'photoalbum' | 'episode' | 'track' | 'season' | 'album' | 'secondary';
+    type LibaryType = 'movie' | 'show' | 'artist' | 'photo' | 'photoalbum' | 'clip' | 'episode' | 'track' | 'season' | 'album' | 'secondary';
 
     interface LibarySection {
         allowSync: boolean;
@@ -175,6 +175,7 @@ declare namespace Plex {
 
     interface Metadata {
         ratingKey: string;
+        playQueueItemID?: number;
         key: string;
         skipChildren?: boolean; // true if hide seasons
         parentRatingKey?: string;
@@ -304,6 +305,12 @@ declare namespace Plex {
     }
 
     interface Media {
+        aperture?: string;
+        exposure?: string;
+        iso?: number;
+        lens?: string;
+        make?: string;
+        model?: string;
         id: number;
         duration: number;
         bitrate: number;

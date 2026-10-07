@@ -6,7 +6,8 @@ export type LibraryPhotoType = "photoalbum" | "photo";
 export type LibraryItemType =
   | LibraryVideoType
   | LibraryMusicType
-  | LibraryPhotoType;
+  | LibraryPhotoType
+  | "clip";
 export const libraryItemTypeNumbers: Readonly<Record<LibraryItemType, number>>;
 export function isLibraryItemType(value: unknown): value is LibraryItemType;
 export function isVideoLibraryItemType(
@@ -18,7 +19,7 @@ export function isLibraryContainerType(
 
 export type LibrarySort = string;
 
-export type LibrarySource = "all" | "onDeck";
+export type LibrarySource = "all" | "onDeck" | "children";
 
 export type LibraryFilterMode = "and" | "or";
 
@@ -132,10 +133,19 @@ export interface LibraryPhotoCardDto extends LibraryCardBase {
   Media?: { width?: number; height?: number; container?: string }[];
 }
 
+/** Video clips may occur alongside photos in a Plex photo album. */
+export interface LibraryClipCardDto extends LibraryCardBase {
+  type: "clip";
+  duration?: number;
+  viewOffset?: number;
+  Media?: LibraryVideoMediaDto[];
+}
+
 export type LibraryCardDto =
   | LibraryVideoCardDto
   | LibraryMusicCardDto
-  | LibraryPhotoCardDto;
+  | LibraryPhotoCardDto
+  | LibraryClipCardDto;
 
 export function libraryFieldsUnaffected(
   field: string,
@@ -160,6 +170,7 @@ export const mediaMetadataIncludes: Readonly<Record<string, 1>>;
 
 export interface LibraryPageRequest {
   sectionId: number;
+  parentId?: string;
   source?: LibrarySource;
   type?: LibraryItemType;
   sort: LibrarySort;
@@ -177,3 +188,7 @@ export interface LibraryPageDto {
   generationId?: string;
   items: LibraryCardDto[];
 }
+
+export function normalizeLibraryRecord<
+  T extends { type?: string; key?: string },
+>(item: T, directory?: boolean, requestedType?: LibraryItemType): T;

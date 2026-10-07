@@ -103,3 +103,11 @@ test("keeps Watchlist filters when opening details and switching library views",
   expect(new URLSearchParams(String(browse.search)).get("sort")).toBe("titleSort:asc");
   expect(new URLSearchParams(String(libraryViewTo(current, "watchlist").search)).get("view")).toBe("watchlist");
 });
+
+it("opens catalog pages independently of video dialogs and preserves the library identity", async () => {
+  const { catalogItemTo } = await import("./navigation");
+  const location = { pathname: "/browse/3", search: "?type=album&sort=year:desc&genre=rock" };
+  expect(catalogItemTo(location, { ratingKey: "300", type: "album" })).toEqual({ pathname: "/browse/3/item/300" });
+  expect(catalogItemTo(location, { ratingKey: "401", type: "track", grandparentRatingKey: "200" })).toEqual({ pathname: "/browse/3/item/200" });
+  expect(catalogItemTo(location, { ratingKey: "300", type: "photo" })).toBeNull();
+});

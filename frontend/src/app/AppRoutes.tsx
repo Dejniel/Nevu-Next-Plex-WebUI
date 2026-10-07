@@ -2,6 +2,8 @@ import { Box } from "@mui/material";
 import { Route, Routes } from "react-router-dom";
 import AppBar from "./shell/AppBar";
 import { HomeScreen } from "features/home/public";
+import { CatalogItemScreen } from "features/library/public";
+import { MusicPlayer } from "features/music/public";
 import LibraryBrowse from "./library/LibraryBrowse";
 import { WatchlistView } from "features/watchlist/routes";
 import { MediaListsView } from "features/media-lists/routes";
@@ -22,6 +24,7 @@ export default function AppRoutes() {
       <Box sx={{ width: "100%", height: "auto" }}>
         <Routes>
           <Route path="/" element={<HomeScreen />} />
+          <Route path="/browse/:libraryID/item/:itemID" element={<CatalogItemScreen />} />
           <Route path="/browse/:libraryID" element={<LibraryBrowse />} />
           <Route path="/watchlist" element={<WatchlistView />} />
           <Route path="/playlists" element={<MediaListsView kind="playlist" />} />
@@ -31,6 +34,7 @@ export default function AppRoutes() {
           <Route path="/settings/*" element={<SettingsScreen />} />
         </Routes>
       </Box>
+      <MusicPlayer />
       <MediaListActionDialog />
     </>
   );

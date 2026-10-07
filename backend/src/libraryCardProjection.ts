@@ -1,4 +1,4 @@
-import { isLibraryItemType, isVideoLibraryItemType } from '@nevu/contracts';
+import { isLibraryItemType, isVideoLibraryItemType, normalizeLibraryRecord } from '@nevu/contracts';
 import type { LibraryCardDto, LibraryItemType, LibraryPageDto } from '@nevu/contracts';
 
 type JsonObject = Record<string, unknown>;
@@ -51,10 +51,7 @@ export function readLibraryMetadata(container: unknown, requestedType?: LibraryI
             if (!candidate || typeof candidate !== 'object')
                 throw new InvalidLibraryPageError(`Invalid library item at index ${index}`);
             const item = candidate as JsonObject;
-            const photoAlbum = item.type === 'photo' && (key === 'Directory' ||
-                requestedType === 'photoalbum' ||
-                (typeof item.key === 'string' && /\/children(?:\?|$)/.test(item.key)));
-            return photoAlbum ? { ...item, type: 'photoalbum' } : item;
+            return normalizeLibraryRecord(item, key === 'Directory', requestedType);
         });
     });
 }
@@ -66,7 +63,7 @@ export function projectLibraryCard(item: JsonObject): LibraryCardDto {
         (isVideoLibraryItemType(item.type) && typeof item.guid !== 'string'))
         throw new InvalidLibraryPageError('Incomplete library item');
 
-    const family = isVideoLibraryItemType(item.type) ? 'video'
+    const family = isVideoLibraryItemType(item.type) || item.type === 'clip' ? 'video'
         : item.type === 'photo' || item.type === 'photoalbum' ? 'photo' : 'music';
     const Genre = projectArray(item.Genre, ['id', 'tag'])?.filter(tag => typeof tag.tag === 'string');
     const Collection = projectArray(item.Collection, ['id', 'tag'])?.filter(tag => typeof tag.tag === 'string');

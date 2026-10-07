@@ -9,6 +9,8 @@ import {
   useAuthSession,
   useServerSession,
 } from "features/session/public";
+import { MusicProvider } from "features/music/public";
+import { useCatalogScrollRestoration } from "./useCatalogScrollRestoration";
 import Startup, { useStartupState } from "./startup/Startup";
 import AppRoutes from "./AppRoutes";
 import { useBrowseSynchronization } from "./useBrowseSynchronization";
@@ -52,6 +54,7 @@ function AppManager() {
 }
 
 function App() {
+  useCatalogScrollRestoration();
   const sessionRevision = useAuthSession((state) => state.revision);
   useBrowseSynchronization(sessionRevision);
 
@@ -66,7 +69,7 @@ function App() {
       <LibraryScreen />
       <TitleDetailsScreen />
       <ConfirmModal />
-      <AppRoutes />
+      <MusicProvider><AppRoutes /></MusicProvider>
     </>
   );
 }

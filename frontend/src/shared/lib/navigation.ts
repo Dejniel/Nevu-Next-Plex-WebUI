@@ -112,3 +112,12 @@ export function recommendationShelfTo(
     params.set("shelf", shelfId);
   });
 }
+
+/** Catalog containers are pages; photo preview stays in the current result. */
+export function catalogItemTo(location: AppLocation, item: NavigableMedia & { librarySectionID?: number }): To | null {
+  const section = item.librarySectionID || location.pathname.match(/^\/browse\/(\d+)/)?.[1];
+  if (!section) return null;
+  const id = item.type === "track" ? item.grandparentRatingKey : item.ratingKey;
+  if (!id || !["artist", "album", "track", "photoalbum"].includes(item.type ?? "")) return null;
+  return { pathname: `/browse/${section}/item/${id}` };
+}

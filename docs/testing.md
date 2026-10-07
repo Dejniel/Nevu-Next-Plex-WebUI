@@ -33,6 +33,14 @@ before the first start. Add sample media to the directory and create libraries
 under `/data`. Include movies, episodes, versions, audio tracks, or subtitles
 needed by the scenario. Open Nevu at `http://localhost:3101` and sign in.
 
+For music/photo libraries, check artist → album → tracks, disc order, playback
+during navigation, queue add/remove/reorder and repeated songs. Include native
+audio and a format requiring Plex conversion. Check nested photo albums, mixed
+photo/video albums, date sorting, arrows/swipes, zoom/pan, slideshow and return
+to the same gallery position. Queue/profile lifecycle and request contracts also
+have mocked tests; browser playback with synthetic audio does not verify PMS
+conversion or device codec support.
+
 Ports are configurable through `PLEX_TEST_PORT` and `NEVU_TEST_PORT`.
 For a remote host, forward the localhost ports through an SSH tunnel.
 Use `PLEX_TEST_IMAGE` to select a Plex version and record it with test results.

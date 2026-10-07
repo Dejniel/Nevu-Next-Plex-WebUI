@@ -12,7 +12,7 @@ it.each(["artist", "photo"])("exposes catalog browsing for %s libraries", type =
 });
 
 it("separates supported media items from root libraries and rejects unknown types", () => {
-  for (const type of ["artist", "album", "track", "photoalbum", "photo"])
+  for (const type of ["artist", "album", "track", "photoalbum", "photo", "clip"])
     expect(isLibraryItemType(type)).toBe(true);
   for (const type of ["constructor", "__proto__", "directory", "unsupported", null])
     expect(isLibraryItemType(type)).toBe(false);

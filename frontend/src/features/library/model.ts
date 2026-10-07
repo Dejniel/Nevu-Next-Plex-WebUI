@@ -9,3 +9,6 @@ export {
   librarySectionQueryOptions,
   applyLibraryDirectoryChanges,
 } from "./model/libraryDirectories";
+
+export type { LibraryQuery } from "./model/libraryQuery";
+export { useLibraryWindow, useLibraryPages } from "./model/useLibraryPages";

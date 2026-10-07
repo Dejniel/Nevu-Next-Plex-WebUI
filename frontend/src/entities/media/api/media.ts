@@ -1,3 +1,4 @@
+import { normalizeLibraryRecord } from "@nevu/contracts";
 import { publishMediaChange } from "../model/mediaChanges";
 import { authedGetStrict, getActiveServerScope, getXPlexProps } from "features/session/model";
 import { queryBuilder } from "shared/lib/query";
@@ -12,7 +13,10 @@ export async function getMediaMetadata(id: string, signal?: AbortSignal): Promis
     })}`,
     signal,
   );
-  return response.MediaContainer.Metadata[0];
+  const container = response.MediaContainer;
+  const item = container.Metadata?.[0] ?? container.Directory?.[0];
+  if (!item) throw new Error("This item is no longer available in Plex.");
+  return normalizeLibraryRecord(item, !container.Metadata?.length);
 }
 
 export async function getMediaChildren(id: string, signal?: AbortSignal): Promise<Plex.Metadata[]> {
@@ -23,7 +27,11 @@ export async function getMediaChildren(id: string, signal?: AbortSignal): Promis
     })}`,
     signal,
   );
-  return response.MediaContainer.Metadata ?? [];
+  const container = response.MediaContainer;
+  return [
+    ...(container.Metadata ?? []).map((item: Plex.Metadata) => normalizeLibraryRecord(item)),
+    ...(container.Directory ?? []).map((item: Plex.Metadata) => normalizeLibraryRecord(item, true)),
+  ];
 }
 
 export async function getMediaByGuid(

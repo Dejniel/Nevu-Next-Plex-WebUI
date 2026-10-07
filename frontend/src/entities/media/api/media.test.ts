@@ -49,3 +49,11 @@ it("publishes a scoped item effect after confirming watched state", async () => 
   expect(authedGetStrict).toHaveBeenCalledWith("/:/scrobble?query");
   expect(publishMediaChange).toHaveBeenCalledWith({ serverId: "server", profileKey: "owner", kind: "item", effect: "unknown", id: "12" });
 });
+
+it("normalizes photo album Directory records without retyping ordinary photos", async () => {
+  (authedGetStrict as Mock)
+    .mockResolvedValueOnce({ MediaContainer: { Directory: [{ ratingKey: "10", type: "photo", title: "Album" }] } })
+    .mockResolvedValueOnce({ MediaContainer: { Metadata: [{ ratingKey: "11", type: "photo", title: "Photo" }], Directory: [{ ratingKey: "12", type: "photo", title: "Subalbum" }] } });
+  await expect(getMediaMetadata("10")).resolves.toMatchObject({ type: "photoalbum" });
+  await expect(getMediaChildren("10")).resolves.toMatchObject([{ type: "photo" }, { type: "photoalbum" }]);
+});

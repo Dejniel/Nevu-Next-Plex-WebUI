@@ -140,3 +140,11 @@ it("canonicalizes filters and isolates result/page identities", () => {
   ])
     expect(libraryPageQueryKey("server", { ...left, ...overrides }, 1, 9984)).not.toEqual(key);
 });
+
+it("isolates child windows and refreshes parent moves without borrowing another parent's pages", () => {
+  const children = { ...query, source: "children" as const, parentId: "50", type: "track" as const };
+  expect(libraryResultQueryKey("server", children)).not.toEqual(libraryResultQueryKey("server", { ...children, parentId: "51" }));
+  expect(decideLibrarySynchronization("server", children, { ...change(["thumb"]), parentIds: ["51"] })).toBe("ignore");
+  expect(decideLibrarySynchronization("server", children, { ...change(["thumb"]), parentIds: ["50"] })).toBe("patch");
+  expect(decideLibrarySynchronization("server", children, { ...change(["parentRatingKey"]), parentIds: ["51"] })).toBe("refresh");
+});

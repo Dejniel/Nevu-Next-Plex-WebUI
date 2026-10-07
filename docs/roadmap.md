@@ -25,16 +25,6 @@ the README and release notes; implementation-only cleanup belongs in the
 
 ## Later
 
-### Music and detailed lists
-
-Extend catalog browsing with artist/album navigation, detailed track lists,
-persistent audio playback, and queues.
-
-### Photo libraries
-
-Extend catalog browsing with album navigation and a full photo viewer with
-zoom and slideshows.
-
 ### Experience improvements
 
 - Extend Plex Home editing with profile pictures and custom rating/label restrictions;

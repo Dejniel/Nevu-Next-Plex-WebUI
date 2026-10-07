@@ -38,7 +38,7 @@ import {
 import { mediaCardText } from "../model/mediaCardText";
 import { isMediaWatched } from "../model/mediaWatchedState";
 import { alpha, keyframes } from "@mui/material/styles";
-import { mediaDetailsTo } from "shared/lib/navigation";
+import { catalogItemTo, mediaDetailsTo, mediaWatchTo } from "shared/lib/navigation";
 import type { MediaItemData } from "../model/media";
 import {
   formatMediaRating,
@@ -114,7 +114,8 @@ function MediaCard({
     : artworkResult?.url === artworkUrl
       ? artworkResult.status
       : "loading";
-  const detailsTarget = video ? mediaDetailsTo(location, item, PlexTvSource) : null;
+  const detailsTarget = video ? mediaDetailsTo(location, item, PlexTvSource)
+    : item.type === "clip" ? mediaWatchTo(item) : catalogItemTo(location, item);
 
   return (
     <Box
@@ -181,6 +182,7 @@ function MediaCard({
         <StretchedLink
           className="movie-item-link"
           to={detailsTarget}
+          state={video ? undefined : { catalogNavigation: true }}
           label={`Open details for ${cardTitle}`}
           zIndex={20}
         />

@@ -7,18 +7,21 @@ export default function StretchedLink({
   label,
   className,
   onClick,
+  state,
   zIndex = 1,
 }: {
   to: To;
   label: string;
   className?: string;
   onClick?: React.MouseEventHandler<HTMLAnchorElement>;
+  state?: unknown;
   zIndex?: number;
 }) {
   return (
     <Box
       component={Link}
       to={to}
+      state={state}
       className={className}
       aria-label={label}
       onClick={onClick}

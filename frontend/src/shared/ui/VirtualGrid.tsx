@@ -35,7 +35,7 @@ export function useVirtualGrid({
 }: VirtualGridOptions) {
   const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null);
   const [geometry, setGeometry] = useState({ width: 0, top: 0 });
-  const [activeKey, setActiveKey] = useState<string | null | undefined>(undefined);
+  const [activeKey, setActiveKey] = useState<string | null | undefined>(resetKey);
   const positioned = !resetKey || activeKey === resetKey;
 
   useLayoutEffect(() => {
@@ -155,9 +155,11 @@ export default function VirtualGrid({
   grid,
   itemKey,
   renderItem,
+  columnWeights,
 }: {
   grid: ReturnType<typeof useVirtualGrid>;
   itemKey?: (index: number) => React.Key;
+  columnWeights?: (start: number, columns: number) => readonly number[];
   renderItem: (index: number, imageSizes: string) => React.ReactNode;
 }) {
   const { rows, columns, rowHeight, displayCount, cardWidth, itemWidth, top } = grid;
@@ -184,7 +186,9 @@ export default function VirtualGrid({
             height: rowHeight,
             transform: `translateY(${row.start - top}px)`,
             display: "grid",
-            gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+            gridTemplateColumns: columnWeights
+              ? columnWeights(row.index * columns, columns).map(weight => `minmax(0, ${weight}fr)`).join(" ")
+              : `repeat(${columns}, minmax(0, 1fr))`,
             gap: `${GAP}px`,
             alignItems: "start",
           }}
@@ -197,7 +201,7 @@ export default function VirtualGrid({
               <Box
                 key={itemKey?.(index) ?? index}
                 sx={{
-                  width: `min(100%, ${itemWidth}px)`,
+                  width: columnWeights ? "100%" : `min(100%, ${itemWidth}px)`,
                   justifySelf: "center",
                 }}
               >

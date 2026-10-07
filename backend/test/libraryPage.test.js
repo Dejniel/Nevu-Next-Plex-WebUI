@@ -76,6 +76,17 @@ test("normalizes photo albums without confusing an ordinary photo with an album"
   assert.throws(() => projectLibraryPage({ Metadata: [{ ratingKey: "1", type: "movie", title: "No GUID" }] }), InvalidLibraryPageError);
 });
 
+test("keeps video clips in mixed photo albums without requiring a movie GUID", () => {
+  const result = projectLibraryPage({ size: 2, Metadata: [
+    { ratingKey: "1", type: "photo", title: "Photo" },
+    { ratingKey: "2", type: "clip", title: "Clip", duration: 12000,
+      Media: [{ width: 1920, height: 1080, Part: [{ file: "/private/file" }] }] },
+  ] });
+  assert.deepEqual(result.items.map(item => item.type), ["photo", "clip"]);
+  assert.equal(result.items[1].duration, 12000);
+  assert.deepEqual(result.items[1].Media, [{ width: 1920, height: 1080 }]);
+});
+
 test("music changes patch track artwork but revalidate artist and album aggregates in random catalogs", async () => {
   const original = axios.get;
   let changed = false;
@@ -757,4 +768,39 @@ test("request limiter never exceeds its configured concurrency", async () => {
   release();
   await Promise.all(tasks);
   assert.equal(active, 0);
+});
+
+test("children use bounded native paging, parent identity and the active token", async () => {
+  const original = axios.get;
+  axios.get = async (url, config) => {
+    assert.equal(url, "http://plex/library/metadata/300/children");
+    assert.equal(config.headers["X-Plex-Token"], "profile-token");
+    assert.equal(config.params.get("X-Plex-Container-Start"), "64");
+    assert.equal(config.params.get("X-Plex-Container-Size"), "64");
+    assert.equal(config.params.get("type"), "10");
+    return { data: { MediaContainer: { offset: 64, totalSize: 65, librarySectionID: 3,
+      Metadata: [{ ratingKey: "400", title: "Track", type: "track", parentRatingKey: "300" }] } } };
+  };
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex" });
+    const response = await callRouter(router, { sectionId: "3", parentId: "300", source: "children", type: "track", sort: "parentIndex,index", offset: "64", size: "64" }, "profile-token");
+    assert.equal(response.status, 200);
+    assert.equal(response.body.items[0].parentRatingKey, "300");
+    assert.equal(response.body.hasMore, false);
+  } finally { axios.get = original; }
+});
+
+test("invalid or misplaced child contexts fail before any Plex request", async () => {
+  const original = axios.get;
+  axios.get = async () => { assert.fail("Invalid contexts must not contact Plex"); };
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex" });
+    const base = { sectionId: "3", source: "children", sort: "titleSort", offset: "0", size: "64" };
+    for (const parentId of [undefined, "0", "../3", "3?token=oops", ["1", "2"]]) {
+      const response = await callRouter(router, { ...base, parentId });
+      assert.equal(response.status, 400);
+    }
+    assert.equal((await callRouter(router, { ...base, parentId: "3", source: "all" })).status, 400);
+    assert.equal((await callRouter(router, { ...base, parentId: "3", sort: "random", seed: "stable" })).status, 400);
+  } finally { axios.get = original; }
 });

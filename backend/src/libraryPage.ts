@@ -25,7 +25,7 @@ interface LibraryPageRouterOptions {
     maxConcurrentRequests?: number;
 }
 
-const librarySources = new Set<LibrarySource>(['all', 'onDeck']);
+const librarySources = new Set<LibrarySource>(['all', 'onDeck', 'children']);
 const filterModes = new Set<LibraryFilterMode>(['and', 'or']);
 const filterOperators = new Set<LibraryFilterOperator>([
     '=', '!=', '==', '!==', '<=', '>=', '<<=', '>>=',
@@ -108,6 +108,7 @@ export function stableRandomOrder<T extends { ratingKey: string }>(
 
 interface ParsedRequest {
     sectionId: number;
+    parentId?: string;
     source: LibrarySource;
     type?: LibraryItemType;
     sort: LibrarySort;
@@ -245,6 +246,7 @@ function parseRequest(query: express.Request['query']): ParsedRequest | null {
     const sourceValue = single(query.source);
     const source = (sourceValue || 'all') as LibrarySource;
     const seed = single(query.seed);
+    const parentId = single(query.parentId);
     const filterExpression = parseFilterExpression(query.filterExpression);
 
     if (
@@ -254,6 +256,7 @@ function parseRequest(query: express.Request['query']): ParsedRequest | null {
         !isValidPlexSort(sort) ||
         filterExpression === null ||
         !librarySources.has(source) ||
+        (source === 'children' ? !parentId || !/^[1-9][0-9]*$/.test(parentId) : parentId !== undefined) ||
         (type && !isLibraryItemType(type)) ||
         (isRandomSort(sort) && (
             source !== 'all' || !seed || !/^[a-zA-Z0-9_-]{1,64}$/.test(seed)
@@ -262,6 +265,7 @@ function parseRequest(query: express.Request['query']): ParsedRequest | null {
 
     return {
         sectionId,
+        ...(parentId && { parentId }),
         source,
         offset,
         size,
@@ -338,7 +342,9 @@ export function createLibraryPageRouter({
         size: number,
     ) => limiter.run(async () => {
         const response = await axios.get(
-            `${plexServer}/library/sections/${request.sectionId}/${request.source}`,
+            request.source === 'children'
+                ? `${plexServer}/library/metadata/${request.parentId}/children`
+                : `${plexServer}/library/sections/${request.sectionId}/${request.source}`,
             {
                 params: plexParams(request, sort, offset, size),
                 headers: { Accept: 'application/json', 'X-Plex-Token': token },

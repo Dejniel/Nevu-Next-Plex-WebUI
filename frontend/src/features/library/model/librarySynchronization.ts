@@ -26,6 +26,11 @@ export function decideLibrarySynchronization(
   // The new section alone does not identify the old section of a moved item.
   if (change.sectionId && change.sectionId !== String(query.sectionId) && !movedSection)
     return "ignore";
+  if (query.parentId && change.kind === "item" && change.effect === "metadata" &&
+      change.id !== query.parentId && change.parentIds !== undefined &&
+      !change.parentIds.includes(query.parentId) && !movedSection &&
+      !change.fields.some(field => field === "parentRatingKey" || field === "grandparentRatingKey"))
+    return "ignore";
   if (change.kind === "recovery") return "refresh";
   if (change.kind === "list") return change.listKind === "collection" ? "refresh" : "ignore";
   if (change.effect !== "metadata") return "refresh";

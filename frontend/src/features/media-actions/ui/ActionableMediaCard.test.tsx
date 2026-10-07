@@ -36,6 +36,8 @@ it.each(["artist", "album", "track", "photoalbum", "photo"] as const)(
       type,
       title: "Catalog item",
       thumb: "/thumb",
+      librarySectionID: 3,
+      grandparentRatingKey: "20",
     };
     await act(async () =>
       root.render(
@@ -48,7 +50,7 @@ it.each(["artist", "album", "track", "photoalbum", "photo"] as const)(
       ),
     );
     expect(element.textContent).toContain("Catalog item");
-    expect(element.querySelector("a")).toBeNull();
+    expect(element.querySelector("a")?.getAttribute("href")).toBe(type === "photo" ? undefined : `/browse/3/item/${type === "track" ? "20" : "10"}`);
     expect(element.querySelector("button")).toBeNull();
     const image = element.querySelector("img")!;
     const imageUrl = new URL(image.src);

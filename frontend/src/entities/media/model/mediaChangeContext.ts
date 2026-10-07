@@ -58,7 +58,7 @@ export function mediaChangeContext(
   const known = typed.length > 0 && typed.every((item) =>
     item.type === "movie" || item.type === "show" || item.type === "artist" ||
     ((item.type === "season" || item.type === "album") && item.parentRatingKey) ||
-    ((item.type === "photo" || item.type === "photoalbum") && item.parentRatingKey) ||
+    ((item.type === "photo" || item.type === "photoalbum" || item.type === "clip") && item.parentRatingKey) ||
     ((item.type === "episode" || item.type === "track") && item.parentRatingKey && (
       item.grandparentRatingKey || matches.some((other) =>
         other.parentRatingKey === item.parentRatingKey && other.grandparentRatingKey,

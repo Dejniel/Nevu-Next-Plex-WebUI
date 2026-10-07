@@ -8,3 +8,8 @@ export function durationToText(duration: number) {
 export function durationInMinutes(duration: number) {
   return Math.floor(duration / 60000);
 }
+
+export function durationToClock(milliseconds: number | undefined) {
+  const seconds = Math.floor((milliseconds ?? 0) / 1000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}

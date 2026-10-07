@@ -19,7 +19,7 @@ export function mediaArtworkPath(
   },
   layout: MediaArtworkLayout,
 ) {
-  if (["artist", "album", "track", "photo", "photoalbum"].includes(item.type))
+  if (["artist", "album", "track", "photo", "photoalbum", "clip"].includes(item.type))
     return firstPath(
       item.thumb,
       item.parentThumb,
