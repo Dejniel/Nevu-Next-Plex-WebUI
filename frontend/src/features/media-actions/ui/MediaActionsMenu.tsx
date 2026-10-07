@@ -56,6 +56,7 @@ export default function MediaActionsMenu({
   onSetWatched,
   onUnmatch,
   canPlay = true,
+  extraItems,
 }: {
   anchor: MediaMenuAnchor | null;
   capabilities: MediaActionCapabilities;
@@ -72,6 +73,7 @@ export default function MediaActionsMenu({
   onSetWatched: (watched: boolean) => void;
   onUnmatch: () => void;
   canPlay?: boolean;
+  extraItems?: React.ReactNode;
 }) {
   const watched = isMediaWatched(item);
   const { similarRatingKey } = capabilities;
@@ -104,6 +106,7 @@ export default function MediaActionsMenu({
           onAddToList(kind);
         },
       })}
+      {extraItems}
 
       {capabilities.canSetWatched && (
         <MenuItem

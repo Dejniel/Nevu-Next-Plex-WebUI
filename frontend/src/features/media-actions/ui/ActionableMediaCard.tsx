@@ -45,6 +45,7 @@ export type ActionableMediaCardProps = Omit<
 > & Pick<MediaCardProps, "item"> & {
   canPlay?: boolean;
   playbackTo?: string;
+  renderMenuItems?: (onClose: () => void) => React.ReactNode;
 };
 
 function ActionableMediaCard({
@@ -52,6 +53,7 @@ function ActionableMediaCard({
   PlexTvSource = false,
   canPlay = true,
   playbackTo,
+  renderMenuItems,
   ...cardProps
 }: ActionableMediaCardProps) {
   const location = useLocation();
@@ -257,6 +259,7 @@ function ActionableMediaCard({
           item={displayItem}
           location={location}
           onClose={() => setAnchor(null)}
+          extraItems={renderMenuItems?.(() => setAnchor(null))}
           onAddToList={(kind) => void addToList(kind)}
           onEditMetadata={() => void editMetadata()}
           onMatch={() => setMatchOpen(true)}

@@ -22,8 +22,8 @@ import {
   useLibraryCardView,
 } from "features/library/public";
 import { ActionableMediaCard } from "features/media-actions/public";
-import React, { useRef } from "react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import VirtualGrid, { useVirtualGrid } from "shared/ui/VirtualGrid";
 import {
   playlistWatchPath,
@@ -32,6 +32,8 @@ import {
 } from "../model/mediaLists";
 import { useMediaList, useMediaListWindow } from "../model/useMediaList";
 import MediaListCard from "./MediaListCard";
+import PlaylistEntryCard from "./PlaylistEntryCard";
+import PlaylistEditor, { type PlaylistAction } from "./PlaylistEditor";
 
 export default function MediaListsView({
   kind,
@@ -43,6 +45,7 @@ export default function MediaListsView({
   pageNavigation?: React.ReactNode;
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const id = params.get("list") || undefined;
   const search = params.get("listSearch") ?? "";
@@ -61,6 +64,16 @@ export default function MediaListsView({
   const cardView = useLibraryCardView();
   const toolbarRef = useRef<HTMLDivElement>(null);
   const list = useMediaListWindow(query);
+  const [selection, setSelection] = useState<{
+    key: string;
+    action: PlaylistAction;
+  } | null>(null);
+  const editorKey = `${list.scope.serverId}:${list.scope.profileKey}:${id}`;
+  useEffect(() => setSelection(null), [editorKey]);
+  const selectPlaylistAction = useCallback(
+    (action: PlaylistAction) => setSelection({ key: editorKey, action }),
+    [editorKey],
+  );
   const grid = useVirtualGrid({
     count: list.total,
     minimumCount: list.knownSize + (list.total === null ? 1 : 0),
@@ -146,6 +159,18 @@ export default function MediaListsView({
                 {kind === "playlist" ? "Playlist order" : "Collection order"}
                 {data.summary?.smart ? " · Smart" : ""}
               </Typography>
+              {kind === "playlist" && data.summary && (
+                <PlaylistEditor
+                  key={editorKey}
+                  playlist={data.summary}
+                  total={data.total ?? data.summary.count}
+                  scope={list.scope}
+                  selected={selection?.key === editorKey ? selection.action : null}
+                  onSelect={selectPlaylistAction}
+                  onClose={() => setSelection(null)}
+                  onDeleted={() => navigate(listTarget(), { replace: true })}
+                />
+              )}
             </>
           ) : (
             <>
@@ -190,7 +215,10 @@ export default function MediaListsView({
             </Typography>
           )}
           {data.summary?.summary && (
-            <Typography sx={{ color: "text.secondary", px: { xs: 1, md: 6 }, py: 1 }}>
+            <Typography sx={{
+              color: "text.secondary", px: { xs: 1, md: 6 }, py: 1,
+              whiteSpace: "pre-line", overflowWrap: "anywhere",
+            }}>
               {data.summary.summary}
             </Typography>
           )}
@@ -283,6 +311,23 @@ export default function MediaListsView({
                     imageSizes={imageSizes}
                   />
                 );
+              if (kind === "playlist" && id)
+                return (
+                  <PlaylistEntryCard
+                    entry={record}
+                    layout={cardView.layout}
+                    imageSizes={imageSizes}
+                    editable={data.summary?.smart === false}
+                    onEdit={selectPlaylistAction}
+                    playbackTo={
+                      ["movie", "episode"].includes(record.item.type)
+                        ? playlistWatchPath(record.item, {
+                            id, index: record.position, libraryID,
+                          })
+                        : undefined
+                    }
+                  />
+                );
               if (!record.supported)
                 return (
                   <Box sx={{ p: 2, bgcolor: "action.hover", borderRadius: 1 }}>
@@ -293,30 +338,12 @@ export default function MediaListsView({
                   </Box>
                 );
               return (
-                <>
-                  <ActionableMediaCard
-                    item={record.item}
-                    layout={cardView.layout}
-                    imageSizes={imageSizes}
-                    imageLoading="eager"
-                    playbackTo={
-                      kind === "playlist" &&
-                      id &&
-                      ["movie", "episode"].includes(record.item.type)
-                        ? playlistWatchPath(record.item, {
-                            id,
-                            index: record.position,
-                            libraryID,
-                          })
-                        : undefined
-                    }
-                  />
-                  {kind === "playlist" && (
-                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                      {index + 1}
-                    </Typography>
-                  )}
-                </>
+                <ActionableMediaCard
+                  item={record.item}
+                  layout={cardView.layout}
+                  imageSizes={imageSizes}
+                  imageLoading="eager"
+                />
               );
             }}
           />

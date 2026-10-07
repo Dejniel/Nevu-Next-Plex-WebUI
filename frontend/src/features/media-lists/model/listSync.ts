@@ -1,6 +1,6 @@
-import type { QueryClient } from "@tanstack/react-query";
+import type { Query, QueryClient } from "@tanstack/react-query";
 import { changedMediaFields } from "@nevu/contracts";
-import { affectedMediaParents, type MediaChange, type MediaScope, type ReconciledMediaChange } from "entities/media/model";
+import { affectedMediaParents, matchesMediaScope, type MediaChange, type MediaScope, type ReconciledMediaChange } from "entities/media/model";
 import { isQueryWindowKey, queryPageLocation, type QueryWindow } from "shared/lib/queryWindow";
 import { mediaListResultFromKey, type ListPage } from "./listPages";
 import { decideMediaListSynchronization } from "./listSynchronization";
@@ -22,6 +22,23 @@ export async function applyMediaListChanges(
 ) {
   if (!changes.length) return;
   const scope = changes[0].change;
+  const removed = changes.flatMap(({ change }) =>
+    matchesMediaScope(scope, change) && change.kind === "list" &&
+      change.effect === "removed" && change.id ? [change] : [],
+  );
+  if (removed.length) {
+    const deleted = {
+      queryKey: ["media-lists", scope.serverId, scope.profileKey],
+      predicate: (cached: Query) => {
+        const result = mediaListResultFromKey(cached.queryKey);
+        return Boolean(result && removed.some((change) =>
+          change.listKind === result.query.kind && change.id === result.query.id,
+        ));
+      },
+    };
+    await client.cancelQueries(deleted);
+    client.removeQueries(deleted);
+  }
   const windows = client
     .getQueryCache()
     .findAll({ queryKey: ["media-lists", scope.serverId, scope.profileKey] })

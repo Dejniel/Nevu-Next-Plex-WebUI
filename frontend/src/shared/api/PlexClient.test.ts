@@ -37,3 +37,11 @@ it("passes request cancellation through to the HTTP transport", async () => {
   await client.get("/library/all", controller.signal);
   expect(transport.mock.calls[0][4]).toBe(controller.signal);
 });
+
+it.each([200, 201, 204])("accepts successful writes (%s), including empty DELETE responses", async (status) => {
+  transport.mockResolvedValue({ status, data: "" });
+  const signal = new AbortController().signal;
+  await expect(client.delete("/playlists/20", signal)).resolves.toBe("");
+  expect(transport.mock.calls[0].slice(0, 2)).toEqual(["/playlists/20", "DELETE"]);
+  expect(transport.mock.calls[0][4]).toBe(signal);
+});

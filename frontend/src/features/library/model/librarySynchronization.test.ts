@@ -87,8 +87,10 @@ it("keeps server/profile/section and list scopes separate", () => {
     expect(decide({ ...change(["summary"]), ...overrides })).toBe("ignore");
   expect(decide({ ...change(["librarySectionID"]), sectionId: "3" })).toBe("refresh");
   expect(decide({ ...change([]), kind: "recovery" })).toBe("refresh");
-  expect(decide({ ...change([]), kind: "list", listKind: "playlist", id: "9" })).toBe("ignore");
-  expect(decide({ ...change([]), kind: "list", listKind: "collection", id: "7" })).toBe("refresh");
+  const { serverId, profileKey, sectionId } = change([]);
+  const scope = { serverId, profileKey, sectionId };
+  expect(decide({ ...scope, kind: "list", listKind: "playlist", id: "9" })).toBe("ignore");
+  expect(decide({ ...scope, kind: "list", listKind: "collection", id: "7" })).toBe("refresh");
 });
 
 it("canonicalizes filters and isolates result/page identities", () => {

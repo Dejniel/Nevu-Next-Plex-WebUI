@@ -1,6 +1,4 @@
-import { ProxiedRequest } from "./backend";
-
-export type PlexHttpMethod = "GET" | "POST" | "PUT";
+import { ProxiedRequest, type PlexHttpMethod } from "./backend";
 
 type PlexTransport = (
   url: string,
@@ -43,7 +41,7 @@ export class PlexClient {
       signal,
     );
 
-    if (response.status === 200) return response.data as T;
+    if (response.status >= 200 && response.status < 300) return response.data as T;
     throw new PlexRequestError(response.status, response.data);
   }
 
@@ -55,7 +53,11 @@ export class PlexClient {
     return this.request<T>(url, "POST", body);
   }
 
-  put<T = any>(url: string, body: unknown) {
-    return this.request<T>(url, "PUT", body);
+  put<T = any>(url: string, body?: unknown, signal?: AbortSignal) {
+    return this.request<T>(url, "PUT", body, signal);
+  }
+
+  delete<T = void>(url: string, signal?: AbortSignal) {
+    return this.request<T>(url, "DELETE", undefined, signal);
   }
 }

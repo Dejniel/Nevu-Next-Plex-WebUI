@@ -1,12 +1,14 @@
 import axios from "axios";
 
+export type PlexHttpMethod = "GET" | "POST" | "PUT" | "DELETE";
+
 export function getBackendURL() {
   return "";
 }
 
 export function ProxiedRequest(
   url: string,
-  method: "GET" | "POST" | "PUT",
+  method: PlexHttpMethod,
   headers?: Record<string, string>,
   data?: any,
   signal?: AbortSignal,

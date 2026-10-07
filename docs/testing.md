@@ -84,6 +84,10 @@ empty frame or another page read. Check poster crossfades (500 ms), reduced moti
 window/contained scrolling, resizing and lists with an initially unknown total.
 Check adding from cards and title details to existing and new lists, preserving
 their contents, and action availability for users without management permission.
+Edit playlist name/description, move entries to arbitrary positions and First/Last,
+remove individual occurrences, and confirm deletion. Check mobile/keyboard input,
+profile changes during saves, empty results, and retained scroll after edits.
+For smart playlists, check metadata/deletion and disabled manual item editing.
 Change titles and list contents in Plex while browsing Nevu; check background
 updates, retained scroll/filters, hidden-tab return, connection recovery and Retry
 after a failed refresh. Include a scrolled multi-page list and profile switches.

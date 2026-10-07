@@ -5,7 +5,7 @@ import { useServerSession } from "features/session/model";
 import { useUserSettings } from "features/settings/model";
 import { serverQueryClient as client } from "shared/api/queryClient";
 import { createMediaListSource } from "../api/mediaLists";
-import { listPageOptions, mediaListWindowKey } from "./listPages";
+import { listPageOptions, mediaListResultKey, mediaListWindowKey } from "./listPages";
 import { applyMediaListChanges } from "./listSync";
 import { useMediaList, useMediaListWindow } from "./useMediaList";
 import type { MediaListPage, MediaListQuery } from "./mediaLists";
@@ -299,6 +299,32 @@ it("refreshes the requested list without touching another list or profile", asyn
     await changed();
   });
   expect(page).toHaveBeenCalledTimes(2);
+});
+
+it("deletes a playlist's cached windows while refreshing listings without reading the deleted playlist", async () => {
+  await render();
+  await demand(300);
+  const deletedQuery = query;
+  await act(async () => root.unmount());
+  root = createRoot(document.createElement("div"));
+  query = { kind: "playlist" };
+  range = { start: 0, end: 0, visibleStart: 0, visibleEnd: 0 };
+  await render();
+  const otherProfile = { ...scope, profileKey: "other" };
+  const otherPlaylist = { ...deletedQuery, id: "21" };
+  client.setQueryData(listPageOptions(otherProfile, deletedQuery, 0, 0).queryKey, { ...response(0), summary: null });
+  client.setQueryData(listPageOptions(scope, otherPlaylist, 0, 0).queryKey, { ...response(0), summary: null });
+  // The descriptor can be evicted before its inactive pages. Deletion must
+  // clear these pages too, without needing to recreate their window.
+  client.removeQueries({ queryKey: mediaListWindowKey(scope, deletedQuery), exact: true });
+  page.mockClear();
+  source.mockClear();
+  await act(async () => { await changed({ effect: "removed" }); });
+  expect(client.getQueryCache().findAll({ queryKey: mediaListResultKey(scope, deletedQuery) })).toHaveLength(0);
+  expect(client.getQueryData(listPageOptions(otherProfile, deletedQuery, 0, 0).queryKey)).toBeDefined();
+  expect(client.getQueryData(listPageOptions(scope, otherPlaylist, 0, 0).queryKey)).toBeDefined();
+  expect(page).toHaveBeenCalledTimes(1);
+  expect(source.mock.calls.every(([request]) => request.id === undefined)).toBe(true);
 });
 
 it("patches all repeated positions and inactive pages without changing playlist item IDs", async () => {

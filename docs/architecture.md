@@ -84,6 +84,11 @@ views reuse the card toolbar and `shared/ui/VirtualGrid`.
 adapters, mutations, profile-scoped paging, and the shared add-to-list dialog;
 playlist positions remain distinct even when titles repeat. Its headless model
 supplies playlist playback, return links, and list-action capabilities.
+Playlist editing uses the active profile's token and Plex entry IDs. Reordering
+reads only the source and destination entries, checking their current positions.
+Native Query mutations reuse list synchronization before closing the editor;
+deletion removes the matching detail cache and refreshes playlist listings.
+Card menus accept additional items without owning playlist-editing rules.
 `entities/media` resolves accessible local copies by GUID; Watchlist retains its
 account API and profile-scoped Query resource, separate from library paging.
 

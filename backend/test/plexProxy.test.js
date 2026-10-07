@@ -128,12 +128,14 @@ test('all proxy routes require a Plex token before contacting a possibly trusted
     for (const path of ['/dynproxy/file.mkv', '/proxy?url=%2Ffile.mkv&method=GET']) {
       assert.equal((await fetch(url + path, { headers })).status, 401);
     }
-    const response = await fetch(url + '/proxy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: '/library/metadata/3', method: 'GET', headers }),
-    });
-    assert.equal(response.status, 401);
+    for (const method of ['GET', 'DELETE']) {
+      const response = await fetch(url + '/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: '/library/metadata/3', method, headers }),
+      });
+      assert.equal(response.status, 401);
+    }
   }
   assert.equal(requests, 0);
   for (const path of ['/dynproxy/file.mkv?X-Plex-Token=fixture', '/proxy?url=%2Ffile.mkv&method=GET&X-Plex-Token=fixture']) {
@@ -303,6 +305,24 @@ test('metadata proxy preserves JSON scalars and original response bytes', async 
     assert.equal(response.status, 200);
     assert.equal(await response.text(), body);
   }
+});
+
+test('playlist DELETE reaches Plex with the active token and preserves empty success responses', async t => {
+  const { url } = await setup(t, (req, res) => {
+    assert.equal(req.url, '/playlists/20/items/101');
+    assert.equal(req.method, 'DELETE');
+    assert.equal(req.headers['x-plex-token'], 'profile-token');
+    assert.equal(req.headers.cookie, undefined);
+    assert.equal(req.headers['x-forwarded-for'], undefined);
+    res.writeHead(204);
+    res.end();
+  });
+  const response = await post(url, {
+    url: '/playlists/20/items/101', method: 'DELETE',
+    headers: { 'X-Plex-Token': 'profile-token', Cookie: 'private=fixture', 'X-Forwarded-For': '203.0.113.25' },
+  });
+  assert.equal(response.status, 204);
+  assert.equal(await response.text(), '');
 });
 
 test('invalid POST bodies and ambiguous GET parameters fail before contacting Plex', async t => {

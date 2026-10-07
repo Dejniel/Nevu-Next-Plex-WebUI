@@ -54,8 +54,8 @@ function validPath(value: unknown): value is string {
     return typeof value === 'string' && value.startsWith('/') && !value.includes('..');
 }
 
-function validMethod(value: unknown): value is 'GET' | 'POST' | 'PUT' {
-    return typeof value === 'string' && ['GET', 'POST', 'PUT'].includes(value);
+function validMethod(value: unknown): value is 'GET' | 'POST' | 'PUT' | 'DELETE' {
+    return typeof value === 'string' && ['GET', 'POST', 'PUT', 'DELETE'].includes(value);
 }
 
 export function createPlexProxyRouter({

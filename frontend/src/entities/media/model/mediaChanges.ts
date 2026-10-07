@@ -16,7 +16,7 @@ export type MediaChange = MediaScope & { sectionId?: string } & (
         parentIds?: readonly string[];
       }
     | { kind: "item"; effect: "membership" | "unknown"; id?: string }
-    | { kind: "list"; listKind: "collection" | "playlist"; id?: string }
+    | { kind: "list"; listKind: "collection" | "playlist"; id?: string; effect?: "removed" }
     | { kind: "recovery" }
   );
 
