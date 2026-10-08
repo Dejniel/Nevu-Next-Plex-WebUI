@@ -144,8 +144,9 @@ test('all proxy routes require a Plex token before contacting a possibly trusted
   assert.equal(requests, 2);
 });
 
-test('Plex session media uses its session URL credential and retains Range and upstream rejection', async t => {
-  const sessionPath = '/video/:/transcode/universal/session/12345678-1234-1234-1234-123456789abc';
+for (const kind of ['audio', 'video']) test(`${kind} session media uses its session URL credential and retains Range and upstream rejection`, async t => {
+  const transcodePath = `/${kind}/:/transcode/universal`;
+  const sessionPath = transcodePath + '/session/12345678-1234-1234-1234-123456789abc';
   let requests = 0;
   const { url } = await setup(t, (req, res) => {
     requests++;
@@ -174,7 +175,13 @@ test('Plex session media uses its session URL credential and retains Range and u
   assert.equal(expired.status, 404);
   assert.equal(await expired.text(), 'Expired Plex session');
   const forwarded = requests;
-  for (const path of ['/dynproxy/video/:/transcode/universal/start.mpd', '/dynproxy/video/:/transcode/universal/session/invalid/init.m4s', '/dynproxy' + sessionPath + '/../start.mpd'])
+  for (const path of [
+    '/dynproxy' + transcodePath + '/start.mpd',
+    '/dynproxy' + transcodePath + '/ping?session=12345678-1234-1234-1234-123456789abc',
+    '/dynproxy' + transcodePath + '/stop?session=12345678-1234-1234-1234-123456789abc',
+    '/dynproxy' + transcodePath + '/session/invalid/init.m4s',
+    '/dynproxy' + sessionPath + '/../start.mpd',
+  ])
     assert.equal((await fetch(url + path)).status, 401);
   assert.equal((await fetch(url + '/dynproxy' + sessionPath + '/init.m4s', { method: 'PUT' })).status, 401);
   assert.equal(requests, forwarded);
