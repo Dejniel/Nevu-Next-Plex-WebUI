@@ -1,4 +1,15 @@
 import { libraryRootQueryType, libraryResultQueryKey } from "./libraryQuery";
+import { libraryEntryKey } from "@nevu/contracts";
+
+it("isolates filesystem folders from metadata parents and keeps their identities separate", () => {
+  const query = { profileKey: "owner", sectionId: 4, source: "folders" as const, sort: "titleSort" };
+  expect(libraryResultQueryKey("server", { ...query, folderId: "8" }))
+    .not.toEqual(libraryResultQueryKey("server", { ...query, folderId: "9" }));
+  expect(libraryResultQueryKey("server", { ...query, folderId: "8" }))
+    .not.toEqual(libraryResultQueryKey("server", { ...query, source: "children", parentId: "8" }));
+  expect(libraryEntryKey({ type: "folder", id: "8", title: "Music" })).toBe("folder:8");
+  expect(libraryEntryKey({ type: "track", ratingKey: "8", title: "Song" })).toBe("8");
+});
 
 it("reads the hierarchical photo root without excluding albums and keeps its cache identity", () => {
   const query = { profileKey: "owner", sectionId: 5, sort: "titleSort", type: libraryRootQueryType("photo") };

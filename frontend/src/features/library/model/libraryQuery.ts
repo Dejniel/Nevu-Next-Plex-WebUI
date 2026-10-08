@@ -12,6 +12,7 @@ export interface LibraryQuery {
   profileKey: string;
   sectionId: number;
   parentId?: string;
+  folderId?: string;
   source?: LibrarySource;
   type?: LibraryItemType;
   sort: LibrarySort;
@@ -33,6 +34,7 @@ export function libraryResultQueryKey(serverId: string, query: LibraryQuery) {
     {
       sectionId: query.sectionId,
       ...(query.parentId && { parentId: query.parentId }),
+      ...(query.folderId && { folderId: query.folderId }),
       source: query.source || "all",
       type: query.type || "any",
       sort: query.sort,

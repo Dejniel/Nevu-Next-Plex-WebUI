@@ -26,7 +26,7 @@ export function getMediaActionCapabilities(
   item: MediaItemData,
   { localItem, canManageServer, allowDownloads }: MediaActionContext,
 ): MediaActionCapabilities {
-  const video = isVideoLibraryItemType(item.type) || item.type === "season";
+  const video = isVideoLibraryItemType(item.type);
   const canEditMetadata = localItem && canManageServer && video;
   const canMatch = canEditMetadata && ["movie", "show"].includes(item.type);
   const similarRatingKey =

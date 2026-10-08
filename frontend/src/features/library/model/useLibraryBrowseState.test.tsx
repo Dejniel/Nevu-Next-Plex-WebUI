@@ -120,6 +120,27 @@ it("selects photo-only chronological browsing separately from the hierarchical r
   expect(new URLSearchParams(location.search).get("type")).toBe("photo");
 });
 
+it("separates folder navigation from media types and preserves its parent trail in history", async () => {
+  const library = { ...photoLibrary, Type: [{ type: "artist", key: "artist", title: "Artists", active: true }, { type: "track", key: "track", title: "Tracks", active: false }] } as Plex.MediaContainer;
+  await render(<Harness library={library} />);
+  await act(async () => latest.setView("folders"));
+  expect(latest.activeView).toMatchObject({ id: "folders", presentation: "list" });
+  expect(latest.activeItemType).toBeUndefined();
+  expect(latest.query).toEqual({ profileKey: "owner", sectionId: 5, source: "folders", sort: "titleSort" });
+  await act(async () => latest.setFolderPath([{ id: "8", title: "Artist" }, { id: "10", title: "Album" }]));
+  expect(latest.query?.folderId).toBe("10");
+  expect(latest.folderPath.map(folder => folder.title)).toEqual(["Artist", "Album"]);
+  await act(async () => latest.setFolderPath(latest.folderPath.slice(0, -1)));
+  expect(latest.query?.folderId).toBe("8");
+  await act(async () => navigate(-1));
+  expect(latest.query?.folderId).toBe("10");
+  await act(async () => latest.setView("track"));
+  expect(latest.activeView?.presentation).toBe("list");
+  expect(latest.query).toMatchObject({ type: "track" });
+  expect(latest.query?.folderId).toBeUndefined();
+  expect(new URLSearchParams(location.search).has("folderPath")).toBe(false);
+});
+
 it("uses the native album default, retains mixed children and rejects random sorting", async () => {
   localStorage.setItem("librarySort:5:photo", "addedAt:desc");
   localStorage.setItem("librarySort:5:photo:photos", "originallyAvailableAt");
@@ -272,7 +293,7 @@ it("continues to use declared video types and their existing preferences", async
   await render(<Harness library={library} />);
   expect(latest.query).toMatchObject({ type: "episode", sort: "addedAt" });
   expect(latest.video).toBe(true);
-  await act(async () => latest.setType("show"));
+  await act(async () => latest.setView("show"));
   expect(latest.query).toMatchObject({ type: "show", sort: "titleSort" });
   expect(localStorage.getItem("typeFilter:5")).toBe("show");
 });

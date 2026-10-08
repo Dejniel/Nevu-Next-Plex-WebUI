@@ -26,3 +26,5 @@ export type {
 export { getLibraries } from "./api/libraries";
 export { isBrowsableLibraryType, libraryViews } from "./model/libraryBrowsing";
 export type { LibraryView } from "./model/libraryBrowsing";
+export { libraryBrowseViews } from "./model/libraryBrowseViews";
+export type { LibraryBrowseView, LibraryBrowseViewId } from "./model/libraryBrowseViews";

@@ -87,6 +87,15 @@ one URL/filter/sort model and the same controls; albums use native `children`
 paging without a type restriction, retaining subalbums and video clips. These
 contexts use existing Query identities and separate sort preferences.
 
+The browse selector binds source, media type and presentation: cards use grids,
+tracks and folders use detailed lists, and photos use the specialized gallery.
+`useLibraryViewport` shares paging and geometry; `CollectionViewport` renders common
+loading, empty and error states. Folder entries have filesystem IDs separate from
+media metadata IDs. Their URL trail keeps breadcrumbs/history, while only the final
+folder ID keys the existing page cache. Plex's folder endpoint supplies native order
+and ignores filters/sorting, so those controls are hidden. Video and track rows reuse
+their existing action owners.
+
 `features/media-actions` owns the shared rating control, rating writes and personal
 menus for music/photos. Menus lazily read canonical metadata to list every original
 file, using the same permission model and download entries as video. Accepted

@@ -1,5 +1,5 @@
 import { isLibraryItemType, isVideoLibraryItemType, normalizeLibraryRecord } from '@nevu/contracts';
-import type { LibraryCardDto, LibraryItemType, LibraryPageDto } from '@nevu/contracts';
+import type { LibraryCardDto, LibraryFolderDto, LibraryItemType, LibraryPageDto } from '@nevu/contracts';
 
 type JsonObject = Record<string, unknown>;
 
@@ -79,9 +79,13 @@ export function projectLibraryPage(
     requestedOffset = 0,
     requestedSize = 0,
     requestedType?: LibraryItemType,
+    folderSectionId?: number,
 ): LibraryPageDto {
     const source = container && typeof container === 'object' ? container as JsonObject : {};
-    const items = readLibraryMetadata(container, requestedType).map(projectLibraryCard).map(item => ({
+    const items = readLibraryMetadata(container, requestedType).map(item =>
+        folderSectionId !== undefined && item.ratingKey === undefined
+            ? projectLibraryFolder(item, folderSectionId) : projectLibraryCard(item),
+    ).map(item => item.type === 'folder' ? item : ({
         ...item,
         ...(item.librarySectionID === undefined && source.librarySectionID !== undefined && {
             librarySectionID: Number(source.librarySectionID),
@@ -99,4 +103,16 @@ export function projectLibraryPage(
             : requestedSize > 0 && items.length >= requestedSize,
         items,
     };
+}
+
+function projectLibraryFolder(item: JsonObject, sectionId: number): LibraryFolderDto {
+    if (typeof item.title !== 'string' || typeof item.key !== 'string')
+        throw new InvalidLibraryPageError('Incomplete library folder');
+    const url = new URL(item.key, 'http://plex.local');
+    const id = url.searchParams.get('parent');
+    if (url.origin !== 'http://plex.local' ||
+        url.pathname !== `/library/sections/${sectionId}/folder` ||
+        !id || !/^[0-9]{1,20}$/.test(id))
+        throw new InvalidLibraryPageError('Invalid library folder key');
+    return { type: 'folder', id, title: item.title };
 }

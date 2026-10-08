@@ -40,6 +40,7 @@ import { isMediaWatched } from "../model/mediaWatchedState";
 import { alpha, keyframes } from "@mui/material/styles";
 import { catalogItemTo, mediaDetailsTo, mediaWatchTo } from "shared/lib/navigation";
 import type { MediaItemData } from "../model/media";
+import { MediaRow } from "./MediaRow";
 import {
   formatMediaRating,
   getPrimaryMediaRating,
@@ -58,9 +59,14 @@ export interface MediaCardProps {
   imageLoading?: "eager" | "lazy";
   overlayActions?: React.ReactNode;
   onContextMenu?: React.MouseEventHandler<HTMLDivElement>;
+  presentation?: "grid" | "list";
 }
 
-function MediaCard({
+function MediaCard(props: MediaCardProps) {
+  return props.presentation === "list" ? <MediaRow {...props} /> : <GridMediaCard {...props} />;
+}
+
+function GridMediaCard({
   item,
   itemsPerPage,
   index,
@@ -75,7 +81,7 @@ function MediaCard({
   const { muted } = usePreviewAudio();
 
   const [hovered, setHovered] = React.useState(false);
-  const video = isVideoLibraryItemType(item.type) || item.type === "season";
+  const video = isVideoLibraryItemType(item.type);
   const previewEnabled = video && layout === "landscape";
   const preview = useMediaPreview(
     item,

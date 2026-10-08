@@ -830,3 +830,62 @@ test("invalid or misplaced child contexts fail before any Plex request", async (
     assert.equal((await callRouter(router, { ...base, parentId: "3", sort: "random", seed: "stable" })).status, 400);
   } finally { axios.get = original; }
 });
+
+test("folders retain bounded native pages and distinct IDs alongside media", async () => {
+  const original = axios.get;
+  axios.get = async (url, config) => {
+    assert.equal(url, "http://plex/library/sections/3/folder");
+    assert.equal(config.params.get("parent"), "8");
+    assert.equal(config.params.get("sort"), null);
+    assert.equal(config.params.get("type"), null);
+    assert.equal(config.params.get("X-Plex-Container-Start"), "64");
+    assert.equal(config.headers["X-Plex-Token"], "profile-token");
+    return { data: { MediaContainer: { offset: 64, totalSize: 66, size: 2, librarySectionID: 3, Metadata: [
+      { key: "/library/sections/3/folder?parent=10", title: "Album", path: "/private/path" },
+      { ratingKey: "10", title: "Song", type: "track", Media: [{ Part: [{ key: "private" }] }] },
+    ] } } };
+  };
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex" });
+    const result = await callRouter(router, { sectionId: "3", source: "folders", folderId: "8", sort: "titleSort", offset: "64", size: "64" }, "profile-token");
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.body.items[0], { type: "folder", id: "10", title: "Album" });
+    assert.equal(result.body.items[1].ratingKey, "10");
+    assert.equal(result.body.items[1].Media[0].Part, undefined);
+    assert.equal(result.body.hasMore, false);
+  } finally { axios.get = original; }
+});
+
+test("invalid folder contexts and unsupported filters fail before contacting Plex", async () => {
+  const original = axios.get;
+  axios.get = async () => { assert.fail("Invalid folders must not contact Plex"); };
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex" });
+    const base = { sectionId: "3", source: "folders", sort: "titleSort", offset: "0", size: "64" };
+    for (const change of [{ folderId: "../8" }, { folderId: ["8", "9"] }, { parentId: "8" }, { type: "track" },
+      { sort: "titleSort:desc" }, { seed: "unused" }, { folderId: "8", source: "all" },
+      { filterExpression: JSON.stringify({ kind: "clause", field: "title", operator: "=", value: "Song" }) }])
+      assert.equal((await callRouter(router, { ...base, ...change })).status, 400);
+  } finally { axios.get = original; }
+});
+
+test("folder projections reject foreign section keys without treating folders as metadata", () => {
+  for (const key of ["/library/sections/4/folder?parent=8", "https://foreign/library/sections/3/folder?parent=8", "/library/sections/3/folder?parent=../8"])
+    assert.throws(() => projectLibraryPage({ Metadata: [{ key, title: "Folder" }] }, 0, 64, undefined, 3), InvalidLibraryPageError);
+});
+
+test("seasons use Plex type 3 and retain show identity and episode counts", async () => {
+  const original = axios.get;
+  axios.get = async (url, config) => {
+    assert.equal(config.params.get("type"), "3");
+    return { data: { MediaContainer: { totalSize: 1, Metadata: [{ ...card(12, "Season 1"), type: "season",
+      parentTitle: "Series", parentRatingKey: "10", leafCount: 3, viewedLeafCount: 1 }] } } };
+  };
+  try {
+    const result = await callRouter(createLibraryPageRouter({ plexServer: "http://plex" }),
+      { sectionId: "3", type: "season", sort: "titleSort", offset: "0", size: "64" });
+    assert.equal(result.status, 200);
+    assert.equal(result.body.items[0].parentTitle, "Series");
+    assert.equal(result.body.items[0].leafCount, 3);
+  } finally { axios.get = original; }
+});

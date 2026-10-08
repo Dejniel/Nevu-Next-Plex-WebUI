@@ -50,7 +50,7 @@ export type ActionableMediaCardProps = Omit<
 };
 
 function ActionableMediaCard(props: ActionableMediaCardProps) {
-  if (!isVideoLibraryItemType(props.item.type) && props.item.type !== "season")
+  if (!isVideoLibraryItemType(props.item.type))
     return <MediaCard {...props} />;
   return <VideoMediaCard {...props} />;
 }

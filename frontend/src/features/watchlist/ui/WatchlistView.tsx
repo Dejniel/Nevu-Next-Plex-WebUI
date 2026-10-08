@@ -23,7 +23,8 @@ import { ActionableMediaCard } from "features/media-actions/public";
 import { useUserSettings } from "features/settings/model";
 import React, { useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import VirtualGrid, { useVirtualGrid } from "shared/ui/VirtualGrid";
+import VirtualGrid from "shared/ui/VirtualGrid";
+import { useVirtualGrid } from "shared/lib/useVirtualGrid";
 import {
   selectWatchlistItems,
   type WatchlistSort,

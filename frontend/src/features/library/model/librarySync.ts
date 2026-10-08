@@ -17,7 +17,7 @@ export function getCachedLibraryItems(client: QueryClient, scope: MediaScope) {
     ...client.getQueriesData<LibraryPageDto>({
       queryKey: ["library", scope.serverId, scope.profileKey],
       predicate: (query) => queryPageLocation(query.queryKey) !== null,
-    }).flatMap(([, page]) => page?.items ?? []),
+    }).flatMap(([, page]) => page?.items.filter(item => item.type !== "folder") ?? []),
     ...client.getQueriesData<Plex.MediaContainer>({
       queryKey: ["library-directory", scope.serverId, scope.profileKey],
     }).flatMap(([, container]) => container?.Metadata ?? []),
@@ -43,7 +43,7 @@ export async function applyLibraryChanges(
     const published = (window.state.data as QueryWindow).revision;
     const beforeItems = pages
       .filter((page) => queryPageLocation(page.queryKey)?.revision === published)
-      .flatMap((page) => (page.state.data as LibraryPageDto | undefined)?.items ?? []);
+      .flatMap((page) => (page.state.data as LibraryPageDto | undefined)?.items.filter(item => item.type !== "folder") ?? []);
     const patches = new Map<string, NonNullable<LibraryItemUpdateDto["item"]>>();
     let refresh = false;
     for (const entry of changes) {
@@ -92,7 +92,7 @@ export async function applyLibraryChanges(
           ? page
           : {
               ...page,
-              items: page.items.map((item) => patches.get(item.ratingKey) ?? item),
+              items: page.items.map((item) => item.type === "folder" ? item : patches.get(item.ratingKey) ?? item),
             },
       );
     }

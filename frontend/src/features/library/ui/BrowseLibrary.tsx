@@ -1,4 +1,4 @@
-import type { LibraryItemType } from "@nevu/contracts";
+import type { LibraryBrowseViewId } from "entities/library/model";
 import {
   Alert,
   Box,
@@ -23,6 +23,7 @@ import LibraryViewToolbar from "./LibraryViewToolbar";
 import { librarySectionQueryOptions } from "../model/libraryDirectories";
 import { useLibraryWindow } from "../model/useLibraryPages";
 import { useLibraryBrowseState } from "../model/useLibraryBrowseState";
+import { FolderBrowse } from "./FolderBrowse";
 
 interface BrowseLibraryProps {
   pageNavigation: React.ReactNode;
@@ -59,7 +60,8 @@ function BrowseLibraryContent({
     activeItemType,
     video,
     unsupportedLibrary,
-    supportedTypes,
+    supportedViews,
+    activeView,
     query,
     activeFilters,
     updateFilters,
@@ -67,25 +69,28 @@ function BrowseLibraryContent({
   const cardView = useLibraryCardView();
   const compactBrowse = useMediaQuery(useTheme().breakpoints.down("sm"));
   const toolbarRef = React.useRef<HTMLDivElement>(null);
-  const layout = video
-    ? cardView.layout
-    : activeItemType === "photo" || activeItemType === "photoalbum"
-      ? "landscape"
-      : "square";
+  const layout =
+    activeView?.gridLayout === "video"
+      ? cardView.layout
+      : activeView?.gridLayout === "photo"
+        ? "landscape"
+        : "square";
   const range = useLibraryWindow(query);
   const itemCount = range.totalSize?.toLocaleString();
   const typeSelector = (
     <Select
-      value={activeItemType || ""}
-      onChange={(event) => state.setType(event.target.value as LibraryItemType)}
+      value={activeView?.id || ""}
+      onChange={(event) =>
+        state.setView(event.target.value as LibraryBrowseViewId)
+      }
       size="small"
-      disabled={!activeItemType}
-      inputProps={{ "aria-label": "Media type" }}
+      disabled={!activeView}
+      inputProps={{ "aria-label": "Browse by" }}
       sx={compactBrowse ? { width: "100%" } : undefined}
     >
-      {supportedTypes.map((type) => (
-        <MenuItem key={type.key} value={type.type}>
-          {type.title}
+      {supportedViews.map((view) => (
+        <MenuItem key={view.id} value={view.id}>
+          {view.title}
         </MenuItem>
       ))}
     </Select>
@@ -111,6 +116,7 @@ function BrowseLibraryContent({
         <LibraryViewToolbar
           cardView={cardView}
           showOrientation={video}
+          showCardControls={activeView?.presentation !== "list"}
           showLeadingOnMobile
           compactTypeNavigation={compactBrowse ? typeSelector : undefined}
           leading={
@@ -144,10 +150,16 @@ function BrowseLibraryContent({
             <Alert severity="info">
               This library type is not supported yet.
             </Alert>
+          ) : state.folders ? (
+            <FolderBrowse key={range.queryKey} state={state} />
           ) : activeItemType === "track" ? (
-            <TrackList query={query} />
+            <TrackList key={range.queryKey} query={query} />
           ) : activeItemType === "photo" ? (
-            <PhotoGallery query={query} cardSize={cardView.size} />
+            <PhotoGallery
+              key={range.queryKey}
+              query={query}
+              cardSize={cardView.size}
+            />
           ) : (
             <WindowLibraryCollectionGrid
               query={query}

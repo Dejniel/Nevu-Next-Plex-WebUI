@@ -33,6 +33,12 @@ before the first start. Add sample media to the directory and create libraries
 under `/data`. Include movies, episodes, versions, audio tracks, or subtitles
 needed by the scenario. Open Nevu at `http://localhost:3101` and sign in.
 
+Check TV `Seasons` across shows and `Folders` in movie, TV and music libraries.
+Use nested folders with mixed files; verify breadcrumbs, Up, browser history,
+reload and media actions. Switching type should select its grid/list presentation
+and preserve preferences. Check mobile fit, empty/error recovery and cached range
+jumps in grids, track lists and galleries.
+
 For music/photo libraries, check artist → album → tracks, disc order, playback
 during navigation, queue add/remove/reorder and repeated songs. Include native
 audio and a format requiring Plex conversion. Verify HLS and DASH audio decisions,

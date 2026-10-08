@@ -19,14 +19,9 @@ the README and release notes; implementation-only cleanup belongs in the
 
 ### Music and photo workflows
 
+- Add user-created photo albums through Plex photo playlists, reusing list management.
 - Extend photo zoom with pinch/actual size, slideshow settings and multiple selection.
 - Extend metadata/artwork editing to music and photos through existing workflows.
-
-### Library view types
-
-- Add `Seasons` to the TV library type selector, showing seasons across the library.
-- Add `Folders` to movie and TV libraries, browsing nested folders and their media
-  within the selected library.
 
 ## Later
 

@@ -22,7 +22,7 @@ Nevu Next is a modified fork of [Ipmake/NevuForPlex](https://github.com/Ipmake/N
 - **Plex-native authentication** with Plex Home profile selection, protected-profile PIN entry, and optional profile remembering.
 - **Plex Home management** with managed-user names and age restrictions, PINs, household invitations, guest access, member removal, and library permissions, governed by the active profile's Plex permissions.
 - **Movie and TV discovery** with search, Continue Watching, watchlists, recommendations, recently added media, new releases, and related-title rows.
-- **Configurable library browsing** with watched-state and type filters, multiple sort orders, adjustable card sizes, and landscape or poster layouts saved per Plex Home profile.
+- **Configurable library browsing** with watched-state and type filters, multiple sort orders, adjustable card sizes, and landscape or poster layouts saved per Plex Home profile. The type selector includes TV seasons and folder browsing for movie, TV and music libraries; tracks and folders use detailed lists.
 - **Plex Watchlist** inside libraries with an optional library filter, search, sorting, and local availability labels; the same view opens the full list from Home.
 - **Collections and video/music playlists** alongside library views, with search, sorting, paged contents, and playlist playback in Plex order. Card and title menus add media to existing or new lists. Own playlists support name/description editing, moving and removing individual entries, and deletion; collection editing follows library management permissions. Library menus provide direct links to lists and Watchlist.
 - **Personalized navigation** with library pinning, unpinning, and ordering for each profile.

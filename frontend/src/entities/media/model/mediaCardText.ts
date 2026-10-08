@@ -3,6 +3,19 @@ import type { MediaItemData } from "./media";
 import type { MediaArtworkLayout } from "./mediaArtwork";
 
 export function mediaCardText(item: MediaItemData, layout: MediaArtworkLayout) {
+  if (item.type === "season")
+    return {
+      title: item.parentTitle || item.title,
+      subtitle: [
+        item.title,
+        item.leafCount
+          ? `${item.leafCount} ${item.leafCount === 1 ? "Episode" : "Episodes"}`
+          : null,
+        item.year,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    };
   if (item.type === "episode") {
     const title = item.grandparentTitle || item.parentTitle || item.title;
     const code = [

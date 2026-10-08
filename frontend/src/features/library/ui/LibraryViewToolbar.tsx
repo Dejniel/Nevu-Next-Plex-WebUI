@@ -12,6 +12,7 @@ interface LibraryViewToolbarProps {
   showLeadingOnMobile?: boolean;
   compactTypeNavigation?: React.ReactNode;
   showOrientation?: boolean;
+  showCardControls?: boolean;
 }
 
 export default function LibraryViewToolbar({
@@ -21,6 +22,7 @@ export default function LibraryViewToolbar({
   showLeadingOnMobile = false,
   compactTypeNavigation,
   showOrientation = true,
+  showCardControls = true,
 }: LibraryViewToolbarProps) {
   const compact = Boolean(compactTypeNavigation);
   return (
@@ -35,17 +37,21 @@ export default function LibraryViewToolbar({
         display: "grid",
         gridTemplateAreas: {
           xs: compact
-            ? '"controls controls" "pages types" "leading leading"'
+            ? showCardControls
+              ? '"controls controls" "pages types" "leading leading"'
+              : '"pages types" "leading leading"'
             : showLeadingOnMobile
               ? '"actions" "leading"'
               : '"actions"',
           sm: showLeadingOnMobile ? '"actions" "leading"' : '"actions"',
-          lg: '"leading controls pages"',
+          lg: showCardControls ? '"leading controls pages"' : '"leading pages"',
         },
         gridTemplateColumns: {
           xs: compact ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)",
           sm: "minmax(0, 1fr)",
-          lg: "max-content minmax(0, 1fr) max-content",
+          lg: showCardControls
+            ? "max-content minmax(0, 1fr) max-content"
+            : "minmax(0, 1fr) max-content",
         },
         alignItems: "center",
         gap: { xs: 1.25, lg: 1 },
@@ -79,27 +85,29 @@ export default function LibraryViewToolbar({
           minWidth: 0,
         }}
       >
-        <Box
-          sx={{
-            gridArea: {
-              xs: compact ? "controls" : "auto",
-              sm: "auto",
-              lg: "controls",
-            },
-            minWidth: 0,
-            flex: { xs: "1 1 auto", lg: "initial" },
-          }}
-        >
-          <LibraryCardViewControls
-            layout={cardView.layout}
-            size={cardView.size}
-            onSizeChange={cardView.setSize}
-            onSizeCommit={cardView.saveSize}
-            onLayoutChange={cardView.setLayout}
-            fullWidthOnSmallScreens={compact}
-            showOrientation={showOrientation}
-          />
-        </Box>
+        {showCardControls && (
+          <Box
+            sx={{
+              gridArea: {
+                xs: compact ? "controls" : "auto",
+                sm: "auto",
+                lg: "controls",
+              },
+              minWidth: 0,
+              flex: { xs: "1 1 auto", lg: "initial" },
+            }}
+          >
+            <LibraryCardViewControls
+              layout={cardView.layout}
+              size={cardView.size}
+              onSizeChange={cardView.setSize}
+              onSizeCommit={cardView.saveSize}
+              onLayoutChange={cardView.setLayout}
+              fullWidthOnSmallScreens={compact}
+              showOrientation={showOrientation}
+            />
+          </Box>
+        )}
 
         <Box
           sx={{

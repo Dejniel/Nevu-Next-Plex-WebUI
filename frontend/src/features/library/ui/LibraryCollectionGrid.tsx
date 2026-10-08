@@ -1,13 +1,20 @@
 import { hashKey } from "@tanstack/react-query";
-import { Alert, Box, Button, Skeleton } from "@mui/material";
+import { libraryEntryKey } from "@nevu/contracts";
+import { Box, Skeleton } from "@mui/material";
 import React from "react";
-import VirtualGrid, { useVirtualGrid } from "shared/ui/VirtualGrid";
+import { CollectionViewport } from "shared/ui/CollectionViewport";
 import { ActionableMediaCard } from "features/media-actions/public";
 import { MusicMediaCard } from "features/music/public";
 import { mediaCardAspectRatio } from "entities/media/model";
-import { useLibraryPages, useLibraryWindow } from "../model/useLibraryPages";
-import { LIBRARY_RANGE_SIZE, libraryResultQueryKey, type LibraryQuery } from "../model/libraryQuery";
-import { getLibraryCardWidth, LibraryCardLayout } from "./LibraryCardViewControls";
+import { useLibraryViewport } from "../model/useLibraryViewport";
+import {
+  libraryResultQueryKey,
+  type LibraryQuery,
+} from "../model/libraryQuery";
+import {
+  getLibraryCardWidth,
+  LibraryCardLayout,
+} from "./LibraryCardViewControls";
 
 interface LibraryCollectionGridProps {
   query: LibraryQuery | null;
@@ -23,7 +30,9 @@ interface LibraryCollectionGridProps {
 export function WindowLibraryCollectionGrid(props: LibraryCollectionGridProps) {
   return (
     <LibraryCollectionGrid
-      key={props.query ? hashKey(libraryResultQueryKey("", props.query)) : "empty"}
+      key={
+        props.query ? hashKey(libraryResultQueryKey("", props.query)) : "empty"
+      }
       {...props}
     />
   );
@@ -36,7 +45,9 @@ export function ContainedLibraryCollectionGrid(
 ) {
   return (
     <LibraryCollectionGrid
-      key={props.query ? hashKey(libraryResultQueryKey("", props.query)) : "empty"}
+      key={
+        props.query ? hashKey(libraryResultQueryKey("", props.query)) : "empty"
+      }
       {...props}
     />
   );
@@ -51,92 +62,36 @@ function LibraryCollectionGrid({
   emptyAction,
   ...gridProps
 }: LibraryCollectionGridProps) {
-  const collection = useLibraryWindow(query);
-  const grid = useVirtualGrid({
+  const { grid, range, hasData } = useLibraryViewport(query, {
     ...gridProps,
-    count: query ? collection.totalSize : loading ? null : 0,
-    minimumCount: collection.knownSize + (collection.totalSize === null ? 1 : 0),
+    loading,
     itemWidth: getLibraryCardWidth(layout, cardSize),
     imageAspectRatio: mediaCardAspectRatio(layout),
-    resetKey: collection.queryKey,
   });
-  const range = useLibraryPages(collection, grid.range);
-  const { queryKey } = range;
-  const initialError = range.errors.get(0);
-  if (initialError && !collection.first.data && queryKey)
-    return (
-      <Alert
-        severity="error"
-        action={
-          initialError.retryable ? (
-            <Button color="inherit" onClick={() => range.retry(0)}>
-              Retry
-            </Button>
-          ) : undefined
-        }
-      >
-        {initialError.message}
-      </Alert>
-    );
-  if (query && range.totalSize === 0)
-    return (
-      <Box
-        sx={{
-          minHeight: 180,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 1,
-          color: "text.secondary",
-        }}
-      >
-        {emptyMessage}
-        {emptyAction}
-      </Box>
-    );
-
   return (
-    <>
-      {initialError && collection.first.data && queryKey && (
-        <Alert
-          severity="warning"
-          sx={{ mb: 2 }}
-          action={
-            <Button color="inherit" onClick={() => range.retry(0)}>
-              Retry
-            </Button>
-          }
-        >
-          {initialError.message}
-        </Alert>
-      )}
-      <VirtualGrid
-        grid={grid}
-        itemKey={(index) => range.items.get(index)?.ratingKey ?? index}
-        renderItem={(index, imageSizes) => {
-          const item = range.items.get(index);
-          const Card = item && ["artist", "album"].includes(item.type) ? MusicMediaCard : ActionableMediaCard;
-          const offset = Math.floor(index / LIBRARY_RANGE_SIZE) * LIBRARY_RANGE_SIZE;
-          const error = range.errors.get(offset);
-          return item ? (
-            <Card
-              item={item}
-              layout={layout}
-              imageSizes={imageSizes}
-              imageLoading="eager"
-            />
-          ) : error && queryKey ? (
-            <RangeErrorCard
-              layout={layout}
-              onRetry={error.retryable ? () => range.retry(offset) : undefined}
-            />
-          ) : (
-            <CardSkeleton layout={layout} />
-          );
-        }}
-      />
-    </>
+    <CollectionViewport
+      grid={grid}
+      range={range}
+      hasData={hasData}
+      itemKey={libraryEntryKey}
+      emptyMessage={emptyMessage}
+      emptyAction={emptyAction}
+      renderPlaceholder={() => <CardSkeleton layout={layout} />}
+      renderItem={(item, _, imageSizes) => {
+        if (item.type === "folder") return null;
+        const Card = ["artist", "album"].includes(item.type)
+          ? MusicMediaCard
+          : ActionableMediaCard;
+        return (
+          <Card
+            item={item}
+            layout={layout}
+            imageSizes={imageSizes}
+            imageLoading="eager"
+          />
+        );
+      }}
+    />
   );
 }
 
@@ -203,39 +158,6 @@ function CardSkeleton({ layout }: { layout: LibraryCardLayout }) {
           sx={{ backgroundColor: "rgba(255,255,255,0.065)" }}
         />
       </Box>
-    </Box>
-  );
-}
-
-function RangeErrorCard({
-  layout,
-  onRetry,
-}: {
-  layout: LibraryCardLayout;
-  onRetry?: () => void;
-}) {
-  return (
-    <Box
-      sx={{
-        aspectRatio: mediaCardAspectRatio(layout),
-        minHeight: 90,
-        border: "1px solid",
-        borderColor: "divider",
-        borderRadius: "8px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      {onRetry ? (
-        <Button size="small" onClick={onRetry}>
-          Retry
-        </Button>
-      ) : (
-        <Box sx={{ color: "text.secondary", fontSize: "0.75rem" }}>
-          Unavailable
-        </Box>
-      )}
     </Box>
   );
 }

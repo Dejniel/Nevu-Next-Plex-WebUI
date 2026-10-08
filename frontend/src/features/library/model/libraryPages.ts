@@ -1,5 +1,5 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
-import type { LibraryPageDto } from "@nevu/contracts";
+import { libraryEntryKey, type LibraryPageDto } from "@nevu/contracts";
 import { runPageRequest } from "shared/lib/requestLimiter";
 import { pageOffsets, queryWindowKey, queryWindowOptions } from "shared/lib/queryWindow";
 import { getLibraryPage, LibraryPageError } from "../api/libraryPage";
@@ -47,9 +47,9 @@ export function validateLibraryWindow(pages: readonly LibraryPageDto[]) {
     )
       throw new LibraryPageError("The library changed while loading. Please try again.", true);
     for (const item of page.items) {
-      if (ids.has(item.ratingKey))
+      if (ids.has(libraryEntryKey(item)))
         throw new LibraryPageError("The library changed while loading. Please try again.", true);
-      ids.add(item.ratingKey);
+      ids.add(libraryEntryKey(item));
     }
   }
 }

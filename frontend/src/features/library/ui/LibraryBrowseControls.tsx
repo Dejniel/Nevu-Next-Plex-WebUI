@@ -82,16 +82,18 @@ export function LibraryBrowseControls({
           },
         }}
       >
-        <LibraryFilterSelect
-          filters={activeFilters}
-          mode={filterMode}
-          fields={fields}
-          types={filterTypes}
-          fieldTypes={fieldTypes}
-          disabled={!activeItemType}
-          onChange={(filter) => updateFilters(filter ? [filter] : [], "and")}
-          onAdvanced={() => setAdvancedFiltersOpen(true)}
-        />
+        {!state.folders && (
+          <LibraryFilterSelect
+            filters={activeFilters}
+            mode={filterMode}
+            fields={fields}
+            types={filterTypes}
+            fieldTypes={fieldTypes}
+            disabled={!activeItemType}
+            onChange={(filter) => updateFilters(filter ? [filter] : [], "and")}
+            onAdvanced={() => setAdvancedFiltersOpen(true)}
+          />
+        )}
 
         {children}
 
@@ -104,20 +106,22 @@ export function LibraryBrowseControls({
             flex: { xs: "2 1 0", sm: "0 1 auto" },
           }}
         >
-          <Select
-            value={effectiveSort}
-            onChange={(event) => setSort(event.target.value as LibrarySort)}
-            size="small"
-            disabled={unsupportedLibrary}
-            inputProps={{ "aria-label": "Sort library" }}
-            sx={{ minWidth: 0, flex: { xs: "1 1 0", sm: "0 1 auto" } }}
-          >
-            {sortOptions.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </Select>
+          {!state.folders && (
+            <Select
+              value={effectiveSort}
+              onChange={(event) => setSort(event.target.value as LibrarySort)}
+              size="small"
+              disabled={unsupportedLibrary}
+              inputProps={{ "aria-label": "Sort library" }}
+              sx={{ minWidth: 0, flex: { xs: "1 1 0", sm: "0 1 auto" } }}
+            >
+              {sortOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+          )}
           {isRandomLibrarySort(effectiveSort) && query && (
             <Tooltip title="Reshuffle">
               <IconButton

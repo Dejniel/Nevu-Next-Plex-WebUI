@@ -258,6 +258,7 @@ function MovieItemSlider({
           }}
         >
           {displayedItems.slice(0, itemsPerPage * 5).map((item, i) => {
+            if (item.type === "folder") return null;
             const start = currPage * itemsPerPage - itemsPerPage;
             const end = currPage * itemsPerPage + itemsPerPage * 2;
 

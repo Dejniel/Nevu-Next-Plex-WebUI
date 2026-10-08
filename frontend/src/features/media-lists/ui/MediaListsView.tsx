@@ -32,7 +32,8 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
-import VirtualGrid, { useVirtualGrid } from "shared/ui/VirtualGrid";
+import VirtualGrid from "shared/ui/VirtualGrid";
+import { useVirtualGrid } from "shared/lib/useVirtualGrid";
 import {
   playlistWatchPath,
   type MediaListKind,

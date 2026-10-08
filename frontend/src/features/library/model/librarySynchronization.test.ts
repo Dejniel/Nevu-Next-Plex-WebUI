@@ -16,8 +16,15 @@ const change = (fields: readonly string[]): Extract<MediaChange, { effect: "meta
 const decide = (event: MediaChange, overrides: Partial<LibraryQuery> = {}) =>
   decideLibrarySynchronization("server", { ...query, ...overrides }, event);
 
-it.each(["artist", "album", "photoalbum"] as const)("revalidates %s aggregates after a child changes", type => {
+it.each(["season", "artist", "album", "photoalbum"] as const)("revalidates %s aggregates after a child changes", type => {
   expect(decide({ ...change(["thumb"]), parentIds: ["20"] }, { type })).toBe("refresh");
+});
+
+it("patches file artwork in folders but refreshes when file placement may have changed", () => {
+  const folders = { source: "folders" as const, folderId: "8", type: undefined };
+  expect(decide({ ...change(["thumb"]), parentIds: ["50"] }, folders)).toBe("patch");
+  expect(decide(change(["Media"]), folders)).toBe("refresh");
+  expect(decide({ ...change(["librarySectionID"]), sectionId: "3" }, folders)).toBe("refresh");
 });
 
 it.each(["track", "photo"] as const)("patches %s artwork in an unaffected title-sorted result", type => {

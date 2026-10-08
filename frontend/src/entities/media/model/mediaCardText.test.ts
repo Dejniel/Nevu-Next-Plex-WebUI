@@ -22,3 +22,8 @@ it("describes photos and albums with their own ancestry and dates", () => {
 it("does not invent album names, counts or durations when Plex omits them", () => {
   expect(mediaCardText(music, "square")).toEqual({ title: "Title", subtitle: "" });
 });
+
+it("identifies seasons by their show and season rather than repeating indistinguishable Season 1 cards", () => {
+  expect(mediaCardText({ ratingKey: "3", guid: "local://3", type: "season", title: "Season 1", parentTitle: "Show", leafCount: 1 }, "poster"))
+    .toEqual({ title: "Show", subtitle: "Season 1 · 1 Episode" });
+});

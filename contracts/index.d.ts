@@ -1,6 +1,6 @@
 export * from "./preferences.js";
 
-export type LibraryVideoType = "movie" | "show" | "episode";
+export type LibraryVideoType = "movie" | "show" | "season" | "episode";
 export type LibraryMusicType = "artist" | "album" | "track";
 export type LibraryPhotoType = "photoalbum" | "photo";
 export type LibraryItemType =
@@ -15,11 +15,11 @@ export function isVideoLibraryItemType(
 ): value is LibraryVideoType;
 export function isLibraryContainerType(
   value: unknown,
-): value is "show" | "artist" | "album" | "photoalbum";
+): value is "show" | "season" | "artist" | "album" | "photoalbum";
 
 export type LibrarySort = string;
 
-export type LibrarySource = "all" | "onDeck" | "children";
+export type LibrarySource = "all" | "onDeck" | "children" | "folders";
 
 export type LibraryFilterMode = "and" | "or";
 
@@ -147,6 +147,14 @@ export type LibraryCardDto =
   | LibraryPhotoCardDto
   | LibraryClipCardDto;
 
+export interface LibraryFolderDto {
+  type: "folder";
+  id: string;
+  title: string;
+}
+export type LibraryEntryDto = LibraryCardDto | LibraryFolderDto;
+export function libraryEntryKey(item: LibraryEntryDto): string;
+
 export function libraryFieldsUnaffected(
   field: string,
   changed: readonly string[],
@@ -171,6 +179,7 @@ export const mediaMetadataIncludes: Readonly<Record<string, 1>>;
 export interface LibraryPageRequest {
   sectionId: number;
   parentId?: string;
+  folderId?: string;
   source?: LibrarySource;
   type?: LibraryItemType;
   sort: LibrarySort;
@@ -186,7 +195,7 @@ export interface LibraryPageDto {
   totalSize: number | null;
   hasMore: boolean;
   generationId?: string;
-  items: LibraryCardDto[];
+  items: LibraryEntryDto[];
 }
 
 export function normalizeLibraryRecord<

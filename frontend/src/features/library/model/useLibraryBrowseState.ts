@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
-import type {
-  LibraryFilterClause,
-  LibraryItemType,
-  LibrarySort,
-} from "@nevu/contracts";
+import type { LibraryFilterClause, LibrarySort } from "@nevu/contracts";
 import { isLibraryItemType, isVideoLibraryItemType } from "@nevu/contracts";
 import { useActiveServerScope } from "features/session/model";
+import {
+  libraryBrowseViews,
+  type LibraryBrowseViewId,
+} from "entities/library/model";
+import {
+  readFolderPath,
+  writeFolderPath,
+  type FolderPath,
+} from "./libraryFolders";
 import { createLibraryFilterExpression } from "./libraryFilterExpression";
 import {
   LIBRARY_FILTER_MODE_PARAM,
@@ -46,25 +51,30 @@ export function useLibraryBrowseState(
     context: string;
     value: string;
   } | null>(null);
-  const supportedTypes = useMemo(
-    () => library?.Type?.filter((entry) => isLibraryItemType(entry.type)) || [],
-    [library],
-  );
+  const supportedViews = useMemo(() => libraryBrowseViews(library), [library]);
   const requestedType = params.get("type");
   const storedType = localStorage.getItem(`typeFilter:${libraryID}`);
-  const activeType =
+  const activeView =
     (parentId || allPhotos
-      ? supportedTypes.find((entry) => entry.type === "photo")
+      ? supportedViews.find((entry) => entry.id === "photo")
       : undefined) ||
-    supportedTypes.find((entry) => entry.type === requestedType) ||
-    supportedTypes.find((entry) => entry.type === storedType) ||
-    supportedTypes.find((entry) => entry.active) ||
-    supportedTypes[0];
+    supportedViews.find((entry) => entry.id === requestedType) ||
+    supportedViews.find((entry) => entry.id === storedType) ||
+    supportedViews.find((entry) => entry.descriptor?.active) ||
+    supportedViews[0];
+  const activeType = activeView?.descriptor;
+  const folders = activeView?.source === "folders";
+  const rawFolderPath = params.get("folderPath");
+  const folderPath = useMemo(
+    () => (folders ? readFolderPath(rawFolderPath) : []),
+    [folders, rawFolderPath],
+  );
+  const folderId = folderPath.at(-1)?.id;
   const activeItemType = isLibraryItemType(activeType?.type)
     ? activeType.type
     : undefined;
   const video = isVideoLibraryItemType(activeItemType);
-  const unsupportedLibrary = Boolean(library && supportedTypes.length === 0);
+  const unsupportedLibrary = Boolean(library && supportedViews.length === 0);
   const filterTypes = useMemo(
     () => (activeType?.Field?.length ? [activeType] : []),
     [activeType],
@@ -82,14 +92,15 @@ export function useLibraryBrowseState(
   const filterMode = readLibraryFilterMode(params);
   const sortOptions = useMemo(
     () =>
-      librarySortOptions(activeType?.Sort).filter(
-        (option) => !parentId || !option.random,
+      librarySortOptions(folders ? [] : activeType?.Sort).filter(
+        (option) => (!parentId && !folders) || !option.random,
       ),
-    [activeType, parentId],
+    [activeType, parentId, folders],
   );
-  const sortStorageKey = `librarySort:${libraryID}:${activeItemType || "default"}${parentId ? ":children" : allPhotos ? ":photos" : ""}`;
+  const sortStorageKey = `librarySort:${libraryID}:${activeView?.id || "default"}${parentId ? ":children" : allPhotos ? ":photos" : ""}`;
   const requestedSort = params.get("sort");
   const effectiveSort = useMemo(() => {
+    if (folders) return "titleSort";
     const candidates = [
       requestedSort,
       localStorage.getItem(sortStorageKey),
@@ -116,23 +127,26 @@ export function useLibraryBrowseState(
     parentId,
     activeItemType,
     activeType,
+    folders,
   ]);
 
   useEffect(() => {
-    if (!activeItemType) return;
+    if (!activeView) return;
     const next = new URLSearchParams(serialized);
-    next.set("type", activeItemType);
+    next.set("type", activeView.id);
+    writeFolderPath(next, folderPath);
     next.set("sort", effectiveSort);
     if (activeFilters.length) writeLibraryFilterMode(next, filterMode);
     else next.delete(LIBRARY_FILTER_MODE_PARAM);
     writeLibraryFilters(next, activeFilters);
     if (!parentId)
-      localStorage.setItem(`typeFilter:${libraryID}`, activeItemType);
+      localStorage.setItem(`typeFilter:${libraryID}`, activeView.id);
     localStorage.setItem(sortStorageKey, effectiveSort);
     if (next.toString() !== serialized)
       setParams(next, { replace: true, state: location.state });
   }, [
-    activeItemType,
+    activeView,
+    folderPath,
     effectiveSort,
     activeFilters,
     filterMode,
@@ -172,13 +186,25 @@ export function useLibraryBrowseState(
       next.set("sort", sort);
       localStorage.setItem(sortStorageKey, sort);
     });
-  const setType = (type: LibraryItemType) =>
+  const setView = (view: LibraryBrowseViewId) =>
     navigate((next) => {
-      next.set("type", type);
-      localStorage.setItem(`typeFilter:${libraryID}`, type);
+      next.set("type", view);
+      next.delete("sort");
+      next.delete("folderPath");
+      localStorage.setItem(`typeFilter:${libraryID}`, view);
     });
+  const setFolderPath = (path: FolderPath) =>
+    navigate((next) => writeFolderPath(next, path));
   const baseQuery = useMemo<Omit<LibraryQuery, "sort" | "seed"> | null>(() => {
-    if (!library || !activeItemType || !scope.profileKey) return null;
+    if (!library || !activeView || !scope.profileKey) return null;
+    if (folders)
+      return {
+        profileKey: scope.profileKey,
+        sectionId: Number(libraryID),
+        source: "folders",
+        ...(folderId && { folderId }),
+      };
+    if (!activeItemType) return null;
     const filterExpression = createLibraryFilterExpression(
       filterMode,
       activeFilters,
@@ -194,6 +220,9 @@ export function useLibraryBrowseState(
   }, [
     library,
     activeItemType,
+    activeView,
+    folders,
+    folderId,
     scope.profileKey,
     libraryID,
     parentId,
@@ -238,7 +267,10 @@ export function useLibraryBrowseState(
       });
   };
   return {
-    supportedTypes,
+    supportedViews,
+    activeView,
+    folders,
+    folderPath,
     activeItemType,
     video,
     unsupportedLibrary,
@@ -252,7 +284,8 @@ export function useLibraryBrowseState(
     query,
     updateFilters,
     setSort,
-    setType,
+    setView,
+    setFolderPath,
     reshuffle,
   };
 }

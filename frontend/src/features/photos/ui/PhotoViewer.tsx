@@ -439,6 +439,7 @@ export function PhotoViewer({ query }: { query: LibraryQuery | null }) {
                   photo.type === "photo" && Math.abs(offset - position) <= 3,
               )
               .map(([offset, photo]) => {
+                if (photo.type !== "photo") return null;
                 const thumb = mediaArtworkPath(photo, "landscape");
                 return (
                   thumb && (

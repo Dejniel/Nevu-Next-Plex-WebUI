@@ -25,7 +25,7 @@ interface LibraryPageRouterOptions {
     maxConcurrentRequests?: number;
 }
 
-const librarySources = new Set<LibrarySource>(['all', 'onDeck', 'children']);
+const librarySources = new Set<LibrarySource>(['all', 'onDeck', 'children', 'folders']);
 const filterModes = new Set<LibraryFilterMode>(['and', 'or']);
 const filterOperators = new Set<LibraryFilterOperator>([
     '=', '!=', '==', '!==', '<=', '>=', '<<=', '>>=',
@@ -109,6 +109,7 @@ export function stableRandomOrder<T extends { ratingKey: string }>(
 interface ParsedRequest {
     sectionId: number;
     parentId?: string;
+    folderId?: string;
     source: LibrarySource;
     type?: LibraryItemType;
     sort: LibrarySort;
@@ -238,6 +239,9 @@ function parseFilterExpression(value: unknown): LibraryFilterExpression | null |
 }
 
 function parseRequest(query: express.Request['query']): ParsedRequest | null {
+    if (['sort', 'type', 'source', 'seed', 'parentId', 'folderId'].some(
+        (key) => query[key] !== undefined && typeof query[key] !== 'string',
+    )) return null;
     const sectionId = parseInteger(query.sectionId);
     const offset = parseInteger(query.offset);
     const size = parseInteger(query.size);
@@ -247,6 +251,7 @@ function parseRequest(query: express.Request['query']): ParsedRequest | null {
     const source = (sourceValue || 'all') as LibrarySource;
     const seed = single(query.seed);
     const parentId = single(query.parentId);
+    const folderId = single(query.folderId);
     const filterExpression = parseFilterExpression(query.filterExpression);
 
     if (
@@ -257,6 +262,10 @@ function parseRequest(query: express.Request['query']): ParsedRequest | null {
         filterExpression === null ||
         !librarySources.has(source) ||
         (source === 'children' ? !parentId || !/^[1-9][0-9]*$/.test(parentId) : parentId !== undefined) ||
+        (source === 'folders'
+            ? (folderId !== undefined && !/^[0-9]{1,20}$/.test(folderId)) ||
+                type !== undefined || filterExpression !== undefined || sort !== 'titleSort' || seed !== undefined
+            : folderId !== undefined) ||
         (type && !isLibraryItemType(type)) ||
         (isRandomSort(sort) && (
             source !== 'all' || !seed || !/^[a-zA-Z0-9_-]{1,64}$/.test(seed)
@@ -266,6 +275,7 @@ function parseRequest(query: express.Request['query']): ParsedRequest | null {
     return {
         sectionId,
         ...(parentId && { parentId }),
+        ...(folderId && { folderId }),
         source,
         offset,
         size,
@@ -285,13 +295,15 @@ function plexSort(sort: LibrarySort) {
 }
 
 function plexParams(
-    request: Pick<ParsedRequest, 'filterExpression' | 'type' | 'source'>,
+    request: Pick<ParsedRequest, 'filterExpression' | 'type' | 'source' | 'folderId'>,
     sort: string,
     offset: number,
     size: number,
 ) {
     const params = new URLSearchParams();
-    params.set('sort', sort);
+    if (request.source === 'folders') {
+        if (request.folderId) params.set('parent', request.folderId);
+    } else params.set('sort', sort);
     if (request.type) params.set('type', String(libraryItemTypeNumbers[request.type]));
     // Flatten Plex's photo catalog across nested albums without changing child pages.
     if (request.type === 'photo' && request.source === 'all')
@@ -347,7 +359,7 @@ export function createLibraryPageRouter({
         const response = await axios.get(
             request.source === 'children'
                 ? `${plexServer}/library/metadata/${request.parentId}/children`
-                : `${plexServer}/library/sections/${request.sectionId}/${request.source}`,
+                : `${plexServer}/library/sections/${request.sectionId}/${request.source === 'folders' ? 'folder' : request.source}`,
             {
                 params: plexParams(request, sort, offset, size),
                 headers: { Accept: 'application/json', 'X-Plex-Token': token },
@@ -414,6 +426,8 @@ export function createLibraryPageRouter({
                 } else if (page.totalSize !== totalSize)
                     throw new InvalidLibraryPageError('Plex changed the library during pagination');
                 for (const item of page.items) {
+                    if (item.type === 'folder')
+                        throw new InvalidLibraryPageError('Unexpected folder in a media catalog');
                     if (ratingKeys.has(item.ratingKey)) {
                         duplicateFound = true;
                         break;
@@ -604,7 +618,8 @@ export function createLibraryPageRouter({
                     request.offset,
                     request.size,
                 );
-                page = projectLibraryPage(container, request.offset, request.size, request.type);
+                page = projectLibraryPage(container, request.offset, request.size, request.type,
+                    request.source === 'folders' ? request.sectionId : undefined);
             }
             res.send(page);
         } catch (error) {

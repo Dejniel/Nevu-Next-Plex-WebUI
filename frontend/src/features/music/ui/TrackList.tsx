@@ -1,10 +1,7 @@
-import { Alert, Box, Button, Skeleton, Typography } from "@mui/material";
-import {
-  useLibraryPages,
-  useLibraryWindow,
-  type LibraryQuery,
-} from "features/library/model";
-import VirtualGrid, { useVirtualGrid } from "shared/ui/VirtualGrid";
+import { Box } from "@mui/material";
+import { libraryEntryKey } from "@nevu/contracts";
+import { useLibraryViewport, type LibraryQuery } from "features/library/model";
+import { CollectionViewport } from "shared/ui/CollectionViewport";
 import { TrackRow } from "./TrackRow";
 
 export function TrackList({
@@ -14,45 +11,24 @@ export function TrackList({
   query: LibraryQuery | null;
   album?: boolean;
 }) {
-  const collection = useLibraryWindow(query);
-  const grid = useVirtualGrid({
-    count: collection.totalSize,
-    minimumCount: collection.knownSize + 1,
+  const { grid, range, hasData } = useLibraryViewport(query, {
     itemWidth: 1_000_000,
     imageAspectRatio: Infinity,
     footerHeight: album ? 60 : 68,
-    resetKey: collection.queryKey,
   });
-  const range = useLibraryPages(collection, grid.range);
-  const error = range.errors.get(0);
-  if (error && !collection.first.data)
-    return (
-      <Alert
-        severity="error"
-        action={<Button onClick={() => range.retry(0)}>Retry</Button>}
-      >
-        {error.message}
-      </Alert>
-    );
-  if (range.totalSize === 0)
-    return (
-      <Typography sx={{ py: 5 }} color="text.secondary">
-        No tracks found.
-      </Typography>
-    );
   return (
     <Box role="list" aria-label={album ? "Album tracks" : "Tracks"}>
-      <VirtualGrid
+      <CollectionViewport
         grid={grid}
-        itemKey={(index) => range.items.get(index)?.ratingKey ?? index}
-        renderItem={(index) => {
-          const item = range.items.get(index);
-          return item ? (
+        range={range}
+        hasData={hasData}
+        itemKey={libraryEntryKey}
+        emptyMessage="No tracks found."
+        renderItem={(item, index) =>
+          item.type === "folder" ? null : (
             <TrackRow item={item} index={index} album={album} />
-          ) : (
-            <Skeleton variant="rounded" height={64} />
-          );
-        }}
+          )
+        }
       />
     </Box>
   );

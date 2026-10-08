@@ -1,15 +1,15 @@
 import { hashKey, useQueries, useQuery } from "@tanstack/react-query";
-import type { LibraryCardDto, LibraryPageDto } from "@nevu/contracts";
+import type { LibraryEntryDto, LibraryPageDto } from "@nevu/contracts";
 import { useServerSession } from "features/session/model";
 import { serverQueryClient } from "shared/api/queryClient";
-import type { GridRange } from "shared/ui/VirtualGrid";
+import type { GridRange } from "shared/lib/useVirtualGrid";
 import {
   libraryPageOptions,
   libraryRangeOffsets,
   libraryWindowOptions,
   validateLibraryWindow,
 } from "./libraryPages";
-import { libraryResultQueryKey, type LibraryQuery } from "./libraryQuery";
+import { LIBRARY_RANGE_SIZE, libraryResultQueryKey, type LibraryQuery } from "./libraryQuery";
 import { LibraryPageError } from "../api/libraryPage";
 
 const initialRange: GridRange = { start: 0, end: 0, visibleStart: 0, visibleEnd: 0 };
@@ -88,7 +88,7 @@ export function useLibraryPages(
       consistencyError = error as LibraryPageError;
     }
   }
-  const items = new Map<number, LibraryCardDto>();
+  const items = new Map<number, LibraryEntryDto>();
   if (!consistencyError)
     pages.forEach((page) =>
       page.items.forEach((item, index) => items.set(page.offset + index, item)),
@@ -98,6 +98,7 @@ export function useLibraryPages(
   return {
     queryKey: collection.queryKey,
     items,
+    pageSize: LIBRARY_RANGE_SIZE,
     errors,
     knownSize: Math.max(collection.knownSize, ...pages.map((page) => page.offset + page.size)),
     totalSize: total,

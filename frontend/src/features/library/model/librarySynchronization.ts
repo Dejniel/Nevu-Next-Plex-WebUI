@@ -35,6 +35,8 @@ export function decideLibrarySynchronization(
   if (change.kind === "list") return change.listKind === "collection" ? "refresh" : "ignore";
   if (change.effect !== "metadata") return "refresh";
   if (!change.fields.length) return "ignore";
+  if (query.source === "folders" && change.fields.some(field => ["Media", "Part", "key"].includes(field)))
+    return "refresh";
   if (
     change.fields.some((field) =>
       [
@@ -49,7 +51,7 @@ export function decideLibrarySynchronization(
     return "refresh";
   if (
     query.source === "onDeck" ||
-    ((!query.type || isLibraryContainerType(query.type)) && change.parentIds?.length)
+    (query.source !== "folders" && (!query.type || isLibraryContainerType(query.type)) && change.parentIds?.length)
   )
     return "refresh";
   return libraryDependenciesUnaffected(query, change.fields) ? "patch" : "refresh";

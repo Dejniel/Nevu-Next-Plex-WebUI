@@ -1,6 +1,6 @@
 import React, { act, Profiler } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { getLibraryPage } from "../api/libraryPage";
+import { getLibraryPage, LibraryPageError } from "../api/libraryPage";
 import { serverQueryClient as client } from "shared/api/queryClient";
 import { useServerSession } from "features/session/model";
 import type { LibraryQuery } from "../model/libraryQuery";
@@ -90,6 +90,26 @@ it("loads the grid and replaces its query without retaining the previous section
   await settle();
   expect(request).toHaveBeenCalledTimes(2);
   expect(element.textContent).toContain("Library 2 film 0");
+});
+
+it.each([false, true])("shows a failed initial page without endless placeholders, and allows retry only when permitted (%s)", async retryable => {
+  request.mockRejectedValue(new LibraryPageError("Cannot read library", retryable));
+  await render();
+  await settle();
+  expect(element.querySelector('[role="alert"]')?.textContent).toContain("Cannot read library");
+  expect(element.querySelectorAll('[data-index]')).toHaveLength(0);
+  expect(element.querySelectorAll('button')).toHaveLength(retryable ? 1 : 0);
+});
+
+it("recovers from an initial failure into an empty result", async () => {
+  request.mockRejectedValueOnce(new LibraryPageError("Cannot read library", true));
+  await render();
+  await settle();
+  request.mockResolvedValue({ offset: 0, size: 0, totalSize: 0, hasMore: false, items: [] });
+  await act(async () => element.querySelector<HTMLButtonElement>('button')!.click());
+  await settle();
+  expect(element.textContent).toContain("This collection is empty.");
+  expect(element.querySelector('[role="alert"]')).toBeNull();
 });
 
 it.each(["artist", "album", "track", "photoalbum", "photo"] as const)(

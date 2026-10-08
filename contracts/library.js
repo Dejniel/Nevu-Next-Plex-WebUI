@@ -3,6 +3,7 @@
 export const libraryItemTypeNumbers = Object.freeze({
   movie: 1,
   show: 2,
+  season: 3,
   episode: 4,
   artist: 8,
   album: 9,
@@ -19,16 +20,22 @@ export function isLibraryItemType(value) {
 }
 
 export function isVideoLibraryItemType(value) {
-  return value === "movie" || value === "show" || value === "episode";
+  return value === "movie" || value === "show" || value === "season" || value === "episode";
 }
 
 export function isLibraryContainerType(value) {
   return (
     value === "show" ||
+    value === "season" ||
     value === "artist" ||
     value === "album" ||
     value === "photoalbum"
   );
+}
+
+/** Folder IDs belong to the filesystem catalog, never to media metadata. */
+export function libraryEntryKey(item) {
+  return item.type === "folder" ? `folder:${item.id}` : item.ratingKey;
 }
 
 export function normalizeLibraryRecord(item, directory = false, requestedType) {

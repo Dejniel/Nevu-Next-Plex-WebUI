@@ -8,7 +8,7 @@ import { getLibraryPage, LibraryPageError } from "../api/libraryPage";
 import { useLibraryPages, useLibraryWindow } from "./useLibraryPages";
 import { libraryWindowKey } from "./libraryPages";
 import { libraryPageQueryKey, type LibraryQuery } from "./libraryQuery";
-import { applyLibraryChanges } from "./librarySync";
+import { applyLibraryChanges, getCachedLibraryItems } from "./librarySync";
 
 vi.mock("../api/libraryPage", async (original) => ({
   ...(await original<typeof import("../api/libraryPage")>()),
@@ -110,6 +110,33 @@ it("stores real pages, jumps without intermediate reads and reuses a cached retu
   await render(<Harness />);
   expect(fetch).toHaveBeenCalledTimes(2);
   expect(latest.items.get(0)?.title).toBe("old 0");
+});
+
+it("reuses folder jumps without treating folder identities as media or replacing them during a patch", async () => {
+  const folders: LibraryQuery = { ...query, type: undefined, source: "folders", folderId: "8" };
+  fetch.mockImplementation(async (request) => {
+    const page = response(request);
+    return { ...page, items: page.items.map((item, index) => index % 2 === 0
+      ? { type: "folder" as const, id: item.ratingKey, title: item.title } : item) };
+  });
+  await render(<Harness value={folders} />);
+  const folder = latest.items.get(0);
+  await render(<Harness value={folders} start={10_000} />);
+  await render(<Harness value={folders} />);
+  expect(fetch.mock.calls.map(([request]) => request.offset)).toEqual([0, 9984]);
+  expect(latest.items.get(0)).toBe(folder);
+  const media = getCachedLibraryItems(client, scope);
+  expect(media.some(item => item.ratingKey === "0")).toBe(false);
+  const before = latest.items.get(1)!;
+  if (before.type === "folder") throw new Error("Expected a media entry");
+  await act(async () => applyLibraryChanges(client, [{
+    change: { ...scope, kind: "item", effect: "unknown", id: "1", sectionId: "1" },
+    update: { item: { ...before, thumb: "new-poster" }, sectionId: "1", parentIds: ["50"] },
+  }]));
+  await settle();
+  expect(latest.items.get(0)).toBe(folder);
+  expect(latest.items.get(1)).toMatchObject({ ratingKey: "1", thumb: "new-poster" });
+  expect(fetch).toHaveBeenCalledTimes(2);
 });
 
 it("shares a request across consumers and cancels only when the last one leaves", async () => {
@@ -221,7 +248,7 @@ it("patches safe metadata in active and inactive pages without a page read", asy
   await render(<Harness start={128} />);
   const before = client
     .getQueriesData<LibraryPageDto>({ queryKey: ["library", "server", "owner"] })
-    .flatMap(([, data]) => data?.items ?? [])
+    .flatMap(([, data]) => data?.items?.filter(item => item.type !== "folder") ?? [])
     .find((item) => item.ratingKey === "0")!;
   const calls = fetch.mock.calls.length;
   await act(async () =>
@@ -233,7 +260,8 @@ it("patches safe metadata in active and inactive pages without a page read", asy
     ]),
   );
   await render(<Harness />);
-  expect(latest.items.get(0)?.thumb).toBe("new-poster");
+  const updated = latest.items.get(0)!;
+  expect(updated.type !== "folder" && updated.thumb).toBe("new-poster");
   expect(fetch).toHaveBeenCalledTimes(calls);
 });
 
@@ -348,6 +376,7 @@ it("revalidates an opaque predicate even when the displayed projection is unchan
     />,
   );
   const before = latest.items.get(0)!;
+  if (before.type === "folder") throw new Error("Expected media");
   await act(async () =>
     applyLibraryChanges(client, [
       {

@@ -12,3 +12,4 @@ export {
 
 export type { LibraryQuery } from "./model/libraryQuery";
 export { useLibraryWindow, useLibraryPages } from "./model/useLibraryPages";
+export { useLibraryViewport } from "./model/useLibraryViewport";

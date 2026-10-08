@@ -2,7 +2,7 @@ import { hashKey, useQueries, useQuery } from "@tanstack/react-query";
 import { useServerSession } from "features/session/model";
 import { useUserSettings } from "features/settings/model";
 import { serverQueryClient } from "shared/api/queryClient";
-import type { GridRange } from "shared/ui/VirtualGrid";
+import type { GridRange } from "shared/lib/useVirtualGrid";
 import {
   type ListPage,
   listPageOptions,
