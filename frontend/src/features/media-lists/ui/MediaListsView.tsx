@@ -2,6 +2,7 @@ import {
   ArrowBackRounded,
   CollectionsBookmarkRounded,
   PlayArrowRounded,
+  ShuffleRounded,
   PlaylistPlayRounded,
 } from "@mui/icons-material";
 import {
@@ -22,13 +23,21 @@ import {
   useLibraryCardView,
 } from "features/library/public";
 import { ActionableMediaCard } from "features/media-actions/public";
+import { mediaCardAspectRatio } from "entities/media/model";
+import { useMusic } from "features/music/model";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import VirtualGrid, { useVirtualGrid } from "shared/ui/VirtualGrid";
 import {
   playlistWatchPath,
   type MediaListKind,
   type MediaListQuery,
+  type PlaylistType,
 } from "../model/mediaLists";
 import { useMediaList, useMediaListWindow } from "../model/useMediaList";
 import MediaListCard from "./MediaListCard";
@@ -39,15 +48,21 @@ export default function MediaListsView({
   kind,
   libraryID,
   pageNavigation,
+  playlistType: libraryPlaylistType,
 }: {
   kind: MediaListKind;
   libraryID?: string;
   pageNavigation?: React.ReactNode;
+  playlistType?: PlaylistType;
 }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const id = params.get("list") || undefined;
+  const playlistType =
+    libraryPlaylistType ??
+    (params.get("playlistType") === "audio" ? "audio" : "video");
+  const { busy: musicBusy, playPlaylist } = useMusic();
   const search = params.get("listSearch") ?? "";
   const requestedSort = params.get("listSort");
   const sort: MediaListQuery["sort"] =
@@ -60,10 +75,21 @@ export default function MediaListsView({
     id,
     search: id ? undefined : search,
     sort: id ? undefined : sort,
+    playlistType,
   };
-  const cardView = useLibraryCardView();
+  const savedCardView = useLibraryCardView();
   const toolbarRef = useRef<HTMLDivElement>(null);
   const list = useMediaListWindow(query);
+  const audio =
+    kind === "playlist" &&
+    (id
+      ? list.first.data?.summary?.playlistType === "audio"
+      : playlistType === "audio");
+  const trackRows = audio && Boolean(id);
+  const cardView = {
+    ...savedCardView,
+    layout: audio ? ("square" as const) : savedCardView.layout,
+  };
   const [selection, setSelection] = useState<{
     key: string;
     action: PlaylistAction;
@@ -77,9 +103,13 @@ export default function MediaListsView({
   const grid = useVirtualGrid({
     count: list.total,
     minimumCount: list.knownSize + (list.total === null ? 1 : 0),
-    itemWidth: getLibraryCardWidth(cardView.layout, cardView.size),
-    imageAspectRatio: cardView.layout === "poster" ? 2 / 3 : 16 / 9,
-    footerHeight: 94,
+    itemWidth: trackRows
+      ? 1_000_000
+      : getLibraryCardWidth(cardView.layout, cardView.size),
+    imageAspectRatio: trackRows
+      ? Infinity
+      : mediaCardAspectRatio(cardView.layout),
+    footerHeight: trackRows ? 68 : 94,
     observeRef: toolbarRef,
     resetKey: list.key,
   });
@@ -107,11 +137,36 @@ export default function MediaListsView({
     ["movie", "episode"].includes(first.item.type)
       ? playlistWatchPath(first.item, { id, index: 0, libraryID }, true)
       : null;
+  const audioStart =
+    kind === "playlist" &&
+    id &&
+    first?.kind === "media" &&
+    first.supported &&
+    first.item.type === "track"
+      ? first
+      : null;
+  const playAudio = useCallback(
+    (entry: NonNullable<typeof audioStart>, shuffle = false) => {
+      if (id)
+        void playPlaylist(
+          {
+            id,
+            index: entry.position,
+            libraryID,
+            itemID: entry.playlistItemID,
+          },
+          entry.item,
+          shuffle,
+        );
+    },
+    [id, libraryID, playPlaylist],
+  );
 
   return (
     <LibraryBrowseFrame
       toolbarRef={toolbarRef}
       cardView={cardView}
+      showOrientation={!audio}
       leading={
         <Box
           sx={{
@@ -155,6 +210,25 @@ export default function MediaListsView({
                   Play playlist
                 </Button>
               )}
+              {audioStart && (
+                <>
+                  <Button
+                    onClick={() => playAudio(audioStart)}
+                    disabled={musicBusy}
+                    startIcon={<PlayArrowRounded />}
+                    variant="contained"
+                  >
+                    Play playlist
+                  </Button>
+                  <Button
+                    onClick={() => playAudio(audioStart, true)}
+                    disabled={musicBusy}
+                    startIcon={<ShuffleRounded />}
+                  >
+                    Shuffle
+                  </Button>
+                </>
+              )}
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {kind === "playlist" ? "Playlist order" : "Collection order"}
                 {data.summary?.smart ? " · Smart" : ""}
@@ -165,7 +239,9 @@ export default function MediaListsView({
                   playlist={data.summary}
                   total={data.total ?? data.summary.count}
                   scope={list.scope}
-                  selected={selection?.key === editorKey ? selection.action : null}
+                  selected={
+                    selection?.key === editorKey ? selection.action : null
+                  }
                   onSelect={selectPlaylistAction}
                   onClose={() => setSelection(null)}
                   onDeleted={() => navigate(listTarget(), { replace: true })}
@@ -174,6 +250,19 @@ export default function MediaListsView({
             </>
           ) : (
             <>
+              {kind === "playlist" && !libraryPlaylistType && (
+                <Select
+                  size="small"
+                  value={playlistType}
+                  inputProps={{ "aria-label": "Playlist type" }}
+                  onChange={(event) =>
+                    setParam("playlistType", event.target.value)
+                  }
+                >
+                  <MenuItem value="video">Video playlists</MenuItem>
+                  <MenuItem value="audio">Music playlists</MenuItem>
+                </Select>
+              )}
               <TextField
                 size="small"
                 label={`Search ${title.toLowerCase()}`}
@@ -194,7 +283,11 @@ export default function MediaListsView({
               </Select>
             </>
           )}
-          <Typography variant="body2" role="status" sx={{ color: "text.secondary", ml: "auto" }}>
+          <Typography
+            variant="body2"
+            role="status"
+            sx={{ color: "text.secondary", ml: "auto" }}
+          >
             {data.total === null
               ? data.loading
                 ? "Loading…"
@@ -210,15 +303,20 @@ export default function MediaListsView({
               variant="body2"
               sx={{ color: "text.secondary", px: { xs: 1, md: 6 }, pb: 1 }}
             >
-              Video playlists for the active profile. They can contain titles
-              from several libraries.
+              {audio ? "Music" : "Video"} playlists for the active profile. They
+              can contain titles from several libraries.
             </Typography>
           )}
           {data.summary?.summary && (
-            <Typography sx={{
-              color: "text.secondary", px: { xs: 1, md: 6 }, py: 1,
-              whiteSpace: "pre-line", overflowWrap: "anywhere",
-            }}>
+            <Typography
+              sx={{
+                color: "text.secondary",
+                px: { xs: 1, md: 6 },
+                py: 1,
+                whiteSpace: "pre-line",
+                overflowWrap: "anywhere",
+              }}
+            >
               {data.summary.summary}
             </Typography>
           )}
@@ -277,7 +375,7 @@ export default function MediaListsView({
                 ? "Items added in Plex will appear here."
                 : kind === "collection"
                   ? "Collections created in this Plex library will appear here."
-                  : "Your Plex video playlists will appear here."}
+                  : `Your Plex ${audio ? "music" : "video"} playlists will appear here. Add an item to a playlist from its menu.`}
           </Typography>
         </Box>
       ) : (
@@ -297,8 +395,10 @@ export default function MediaListsView({
                   <Skeleton
                     variant="rounded"
                     sx={{
-                      aspectRatio:
-                        cardView.layout === "poster" ? "2/3" : "16/9",
+                      aspectRatio: trackRows
+                        ? undefined
+                        : mediaCardAspectRatio(cardView.layout),
+                      height: trackRows ? 68 : undefined,
                     }}
                   />
                 );
@@ -319,10 +419,15 @@ export default function MediaListsView({
                     imageSizes={imageSizes}
                     editable={data.summary?.smart === false}
                     onEdit={selectPlaylistAction}
+                    onPlay={
+                      record.item.type === "track" ? playAudio : undefined
+                    }
                     playbackTo={
                       ["movie", "episode"].includes(record.item.type)
                         ? playlistWatchPath(record.item, {
-                            id, index: record.position, libraryID,
+                            id,
+                            index: record.position,
+                            libraryID,
                           })
                         : undefined
                     }
@@ -332,7 +437,10 @@ export default function MediaListsView({
                 return (
                   <Box sx={{ p: 2, bgcolor: "action.hover", borderRadius: 1 }}>
                     <Typography>{record.item.title}</Typography>
-                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: "text.secondary" }}
+                    >
                       This item cannot be opened on this server.
                     </Typography>
                   </Box>

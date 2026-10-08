@@ -14,6 +14,9 @@ vi.mock("features/media-actions/public", () => ({
     <div data-media-card>{item.title}</div>
   ),
 }));
+vi.mock("features/music/public", () => ({
+  MusicMediaCard: ({ item }: { item: Plex.Metadata }) => <div data-media-card>{item.title}</div>,
+}));
 const viewport = vi.hoisted(() => ({ row: 0 }));
 vi.mock("@tanstack/react-virtual", () => {
   const create = (options: { enabled: boolean; estimateSize: () => number; count: number }) => ({

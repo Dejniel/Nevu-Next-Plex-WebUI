@@ -164,6 +164,6 @@ it.each(["artist", "album", "track", "photoalbum", "photo"] as const)(
     expect(getMediaActionCapabilities(item, manager))
       .toEqual({ canEditMetadata: false, canMatch: false, canUnmatch: false,
         canDownload: false, canSetWatched: false, similarRatingKey: null,
-        canAddToCollection: false, canAddToPlaylist: false });
+        canAddToCollection: false, canAddToPlaylist: ["artist", "album", "track"].includes(type) });
   },
 );

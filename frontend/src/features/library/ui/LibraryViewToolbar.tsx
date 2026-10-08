@@ -2,11 +2,11 @@ import { Box } from "@mui/material";
 import React from "react";
 import {
   LibraryCardViewControls,
-  useLibraryCardView,
+  type LibraryCardView,
 } from "./LibraryCardViewControls";
 
 interface LibraryViewToolbarProps {
-  cardView: ReturnType<typeof useLibraryCardView>;
+  cardView: LibraryCardView;
   leading: React.ReactNode;
   pageNavigation: React.ReactNode;
   showLeadingOnMobile?: boolean;

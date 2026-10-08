@@ -101,7 +101,7 @@ refresh, partial Home edits, inline errors/retry, and profile changes during bot
 the write and subsequent revalidation. Verify that Home membership changes also
 refresh library access, while PINs stay outside storage and the mutation cache.
 
-For list browsing, create a collection and a video playlist in test Plex using
+For list browsing, create a collection and video/audio playlists in test Plex using
 the samples. Check their library views, search, empty states, and back links.
 Verify playlist order with Next, playback completion, and returning to the list;
 include repeated titles, episodes, and another profile when available. For large
@@ -115,6 +115,10 @@ Edit playlist name/description, move entries to arbitrary positions and First/La
 remove individual occurrences, and confirm deletion. Check mobile/keyboard input,
 profile changes during saves, empty results, and retained scroll after edits.
 For smart playlists, check metadata/deletion and disabled manual item editing.
+For music playlists, add tracks and complete albums/artists from their menus,
+verify audio/video separation, and start playback at a selected track or shuffled.
+Edit saved contents while the native playback queue continues independently.
+Check music playlist rows, album/artist links and the same editing dialogs on mobile.
 Change titles and list contents in Plex while browsing Nevu; check background
 updates, retained scroll/filters, hidden-tab return, connection recovery and Retry
 after a failed refresh. Include a scrolled multi-page list and profile switches.

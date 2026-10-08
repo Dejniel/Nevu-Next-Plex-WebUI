@@ -203,6 +203,7 @@ function LibraryBrowse() {
             key={page}
             kind={page === "collections" ? "collection" : "playlist"}
             libraryID={libraryID}
+            playlistType={library?.type === "artist" ? "audio" : "video"}
             pageNavigation={pageSelector}
           />
         )}

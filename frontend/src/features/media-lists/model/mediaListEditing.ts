@@ -1,5 +1,5 @@
 import type { MediaItemData } from "entities/media/model";
-import type { MediaListKind } from "./mediaLists";
+import type { MediaListKind, PlaylistType } from "./mediaLists";
 
 export type MediaListItem = Pick<
   MediaItemData,
@@ -14,18 +14,23 @@ export interface MediaListCapabilities {
   canAddToPlaylist: boolean;
 }
 
+export function playlistTypeForItem(type: string): PlaylistType | null {
+  if (["artist", "album", "track"].includes(type)) return "audio";
+  if (["movie", "show", "season", "episode"].includes(type)) return "video";
+  return null;
+}
+
 export function getMediaListCapabilities(
   item: MediaListItem,
   context: { localItem: boolean; canManageServer: boolean },
 ): MediaListCapabilities {
-  const localVideo = context.localItem && /^\d+$/.test(item.ratingKey);
+  const localItem = context.localItem && /^\d+$/.test(item.ratingKey);
   return {
     canAddToCollection:
-      localVideo &&
+      localItem &&
       context.canManageServer &&
       ["movie", "show"].includes(item.type),
-    canAddToPlaylist:
-      localVideo && ["movie", "show", "season", "episode"].includes(item.type),
+    canAddToPlaylist: localItem && playlistTypeForItem(item.type) !== null,
   };
 }
 

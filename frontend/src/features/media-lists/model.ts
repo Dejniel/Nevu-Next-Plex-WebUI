@@ -1,4 +1,4 @@
-export { getPlaylistQueue } from "./api/mediaLists";
+export { getPlaylistQueue, getPlaylistEntry } from "./api/mediaLists";
 export {
   parsePlaylistContext,
   playlistWatchPath,

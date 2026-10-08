@@ -1,7 +1,7 @@
 import type { Mock } from "vitest";
 import { AuthStorage, useServerSession } from "features/session/model";
 import { ProxiedRequest } from "shared/api/backend";
-import { createMediaListSource, getPlaylistQueue } from "./mediaLists";
+import { createMediaListSource, getPlaylistQueue, getPlaylistEntry } from "./mediaLists";
 
 vi.mock("shared/api/backend", () => ({ ProxiedRequest: vi.fn() }));
 const transport = ProxiedRequest as Mock;
@@ -226,4 +226,33 @@ it("does not start another subrequest after cancelling a partial window", async 
     ).page(0, 100),
   ).rejects.toMatchObject({ name: "AbortError" });
   expect(transport).toHaveBeenCalledTimes(1);
+});
+
+it("reads audio summaries and index filters while preserving playlist entry identities", async () => {
+  transport.mockResolvedValueOnce(response([{
+    type: "playlist", playlistType: "audio", ratingKey: "20", title: "Music", leafCount: 2,
+  }])).mockResolvedValueOnce(response([
+    { ...movie("42", 80), type: "track" },
+    { ...movie("42", 81), type: "track" },
+  ], { totalSize: 2 }));
+  const index = await createMediaListSource({ kind: "playlist", playlistType: "audio" }).page(0, 100);
+  expect(index.items[0]).toMatchObject({ playlistType: "audio", count: 2 });
+  expect(transport.mock.calls[0][0]).toContain("playlistType=audio");
+  const details = await createMediaListSource({ kind: "playlist", id: "20" }).page(0, 100);
+  expect(details.items).toMatchObject([
+    { position: 0, playlistItemID: "80", supported: true },
+    { position: 1, playlistItemID: "81", supported: true },
+  ]);
+});
+
+it("validates one selected audio occurrence without downloading the playlist", async () => {
+  transport.mockResolvedValue(response([{ ...movie("42", 81), type: "track" }], { offset: 10000, totalSize: 20000 }));
+  const context = { id: "20", index: 10000, itemID: "81" };
+  await expect(getPlaylistEntry(context, "42")).resolves.toMatchObject({ ratingKey: "42", type: "track" });
+  const params = new URL(transport.mock.calls[0][0], "http://plex").searchParams;
+  expect(params.get("X-Plex-Container-Start")).toBe("10000");
+  expect(params.get("X-Plex-Container-Size")).toBe("1");
+  await expect(getPlaylistEntry({ ...context, itemID: "80" }, "42")).rejects.toThrow("changed");
+  transport.mockResolvedValue(response([{ ...movie("42", 81), type: "track", sourceURI: "server://other/library/metadata/42" }], { offset: 10000 }));
+  await expect(getPlaylistEntry(context, "42")).rejects.toThrow("cannot be played");
 });

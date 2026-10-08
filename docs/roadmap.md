@@ -17,6 +17,14 @@ the README and release notes; implementation-only cleanup belongs in the
 
 ## Next
 
+### Music and photo workflows
+
+- Add music repeat modes, current-queue shuffle and restoration after page reload.
+- Extend personal ratings and permitted original-file downloads to tracks/photos.
+- Add chronological browsing across photo albums and filtering/sorting within albums.
+- Extend photo zoom with pinch/actual size, slideshow settings and multiple selection.
+- Extend metadata/artwork editing to music and photos through existing workflows.
+
 ### Library view types
 
 - Add `Seasons` to the TV library type selector, showing seasons across the library.
@@ -26,6 +34,8 @@ the README and release notes; implementation-only cleanup belongs in the
 ## Later
 
 ### Experience improvements
+
+- Consider gapless music playback, lyrics and music recommendations as separate extensions.
 
 - Extend Plex Home editing with profile pictures and custom rating/label restrictions;
   preserve existing restrictions when changing library access.

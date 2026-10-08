@@ -1,16 +1,41 @@
 import React, { useState } from "react";
-import { Button, IconButton, Menu, MenuItem, Stack } from "@mui/material";
+import {
+  Button,
+  Divider,
+  IconButton,
+  Menu,
+  MenuItem,
+  Stack,
+} from "@mui/material";
 import {
   MoreVertRounded,
   PlayArrowRounded,
   ShuffleRounded,
 } from "@mui/icons-material";
 import type { MediaItemData } from "entities/media/model";
+import { getMediaListCapabilities } from "features/media-lists/model";
+import {
+  openMediaListDialog,
+  renderMediaListMenuItems,
+} from "features/media-lists/public";
 import { useMusic } from "../model/MusicProvider";
 
-export function MusicMenu({ item }: { item: MediaItemData }) {
+export function MusicMenu({
+  item,
+  onPlay,
+  renderMenuItems,
+}: {
+  item: MediaItemData;
+  onPlay?: () => void;
+  renderMenuItems?: (onClose: () => void) => React.ReactNode;
+}) {
   const music = useMusic();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const close = () => setAnchor(null);
+  const capabilities = getMediaListCapabilities(item, {
+    localItem: true,
+    canManageServer: false,
+  });
   const action = (next: boolean) => {
     setAnchor(null);
     void music.add(item, next);
@@ -32,7 +57,8 @@ export function MusicMenu({ item }: { item: MediaItemData }) {
           disabled={music.busy}
           onClick={() => {
             setAnchor(null);
-            void music.play(item);
+            if (onPlay) onPlay();
+            else void music.play(item);
           }}
         >
           Play
@@ -43,6 +69,16 @@ export function MusicMenu({ item }: { item: MediaItemData }) {
         <MenuItem disabled={music.busy} onClick={() => action(false)}>
           Add to queue
         </MenuItem>
+        {capabilities.canAddToPlaylist && <Divider />}
+        {renderMediaListMenuItems({
+          capabilities,
+          onSelect: (kind) => {
+            close();
+            openMediaListDialog(kind, item);
+          },
+        })}
+        {renderMenuItems && <Divider />}
+        {renderMenuItems?.(close)}
       </Menu>
     </>
   );

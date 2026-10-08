@@ -1,9 +1,21 @@
-import { queryOptions, type QueryClient, type QueryKey } from "@tanstack/react-query";
+import {
+  queryOptions,
+  type QueryClient,
+  type QueryKey,
+} from "@tanstack/react-query";
 import type { MediaScope } from "entities/media/model";
-import { pageOffsets, queryWindowKey, queryWindowOptions } from "shared/lib/queryWindow";
+import {
+  pageOffsets,
+  queryWindowKey,
+  queryWindowOptions,
+} from "shared/lib/queryWindow";
 import { runPageRequest } from "shared/lib/requestLimiter";
 import { createMediaListSource } from "../api/mediaLists";
-import type { MediaListPage, MediaListQuery, MediaListSummary } from "./mediaLists";
+import type {
+  MediaListPage,
+  MediaListQuery,
+  MediaListSummary,
+} from "./mediaLists";
 
 export const LIST_PAGE_SIZE = 100;
 export interface ListPage extends MediaListPage {
@@ -18,6 +30,10 @@ export function mediaListResultKey(scope: MediaScope, query: MediaListQuery) {
       kind: query.kind,
       libraryID: query.kind === "collection" ? (query.libraryID ?? null) : null,
       id: query.id ?? null,
+      playlistType:
+        query.kind === "playlist" && !query.id
+          ? (query.playlistType ?? "video")
+          : null,
       search: query.id ? "" : (query.search ?? ""),
       sort: query.id ? "" : (query.sort ?? "titleSort:asc"),
     },
@@ -47,7 +63,8 @@ export function listPageOptions(
           source.page(offset, LIST_PAGE_SIZE),
           offset === 0 ? source.summary() : null,
         ]);
-        if (page.offset !== offset) throw new Error("Plex returned a mismatched list page.");
+        if (page.offset !== offset)
+          throw new Error("Plex returned a mismatched list page.");
         return { ...page, summary };
       }),
     staleTime: Infinity,
@@ -56,7 +73,10 @@ export function listPageOptions(
     refetchOnReconnect: false,
   });
 }
-export function validateListWindow(pages: readonly ListPage[], kind: MediaListQuery["kind"]) {
+export function validateListWindow(
+  pages: readonly ListPage[],
+  kind: MediaListQuery["kind"],
+) {
   const total = pages.find((page) => page.total !== null)?.total;
   const ids = new Set<string>();
   for (const page of pages) {
@@ -77,7 +97,11 @@ export function validateListWindow(pages: readonly ListPage[], kind: MediaListQu
     });
   }
 }
-export function listWindowOptions(client: QueryClient, scope: MediaScope, query: MediaListQuery) {
+export function listWindowOptions(
+  client: QueryClient,
+  scope: MediaScope,
+  query: MediaListQuery,
+) {
   return queryWindowOptions(
     client,
     mediaListResultKey(scope, query),
@@ -86,11 +110,16 @@ export function listWindowOptions(client: QueryClient, scope: MediaScope, query:
     (pages) => validateListWindow(pages, query.kind),
   );
 }
-export const listRangeOffsets = (start: number, end: number, total: number | null) =>
-  pageOffsets(start, end, total, LIST_PAGE_SIZE);
+export const listRangeOffsets = (
+  start: number,
+  end: number,
+  total: number | null,
+) => pageOffsets(start, end, total, LIST_PAGE_SIZE);
 
 export function mediaListResultFromKey(key: QueryKey) {
-  const [kind, serverId, profileKey, parameters] = key as ReturnType<typeof mediaListResultKey>;
+  const [kind, serverId, profileKey, parameters] = key as ReturnType<
+    typeof mediaListResultKey
+  >;
   if (
     kind !== "media-lists" ||
     !parameters ||
@@ -103,6 +132,7 @@ export function mediaListResultFromKey(key: QueryKey) {
     id: parameters.id ?? undefined,
     libraryID: parameters.libraryID ?? undefined,
     sort: parameters.sort || undefined,
+    playlistType: parameters.playlistType ?? undefined,
   };
   const scope = { serverId, profileKey };
   return { scope, query, prefix: mediaListResultKey(scope, query) };

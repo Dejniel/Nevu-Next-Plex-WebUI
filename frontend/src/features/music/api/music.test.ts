@@ -50,7 +50,7 @@ it("keeps duplicate songs distinct by native queue entry IDs", () => {
 });
 it("creates an album queue at a selected track and reads bounded windows", async () => {
   const api = musicAPI({ "X-Plex-Token": "test-token" }, "server");
-  await api.create("10", "12");
+  await api.create({ kind: "library", id: "10" }, "12");
   const create = new URL(transport.post.mock.calls[0][0], "http://plex");
   expect(create.searchParams.get("type")).toBe("audio");
   expect(create.searchParams.get("uri")).toBe(
@@ -66,10 +66,25 @@ it("creates an album queue at a selected track and reads bounded windows", async
 });
 it("uses entry IDs for removal and ordering and native next semantics", async () => {
   const api = musicAPI({}, "server");
-  await api.add(3, "12", true);
+  await api.add(3, { kind: "library", id: "12" }, true);
   await api.move(3, 101, 100);
   await api.remove(3, 101);
   expect(transport.put.mock.calls[0][0]).toContain("next=1");
   expect(transport.put.mock.calls[1][0]).toContain("/items/101/move?after=100");
   expect(transport.delete.mock.calls[0][0]).toContain("/items/101");
+});
+
+it("plays a saved playlist at the selected song using Plex's native playlist source", async () => {
+  const api = musicAPI({ "X-Plex-Token": "test-token" }, "server");
+  await api.create({ kind: "playlist", id: "20" }, "12");
+  const params = new URL(transport.post.mock.calls[0][0], "http://plex").searchParams;
+  expect(params.get("playlistID")).toBe("20");
+  expect(params.get("key")).toBe("/library/metadata/12");
+  expect(params.get("uri")).toBeNull();
+  expect(params.get("window")).toBe("50");
+  await api.add(3, { kind: "playlist", id: "20" }, true);
+  const add = new URL(transport.put.mock.calls[0][0], "http://plex").searchParams;
+  expect(add.get("playlistID")).toBe("20");
+  expect(add.get("next")).toBe("1");
+  expect(add.get("uri")).toBeNull();
 });

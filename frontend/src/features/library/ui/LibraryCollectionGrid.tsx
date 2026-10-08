@@ -3,6 +3,7 @@ import { Alert, Box, Button, Skeleton } from "@mui/material";
 import React from "react";
 import VirtualGrid, { useVirtualGrid } from "shared/ui/VirtualGrid";
 import { ActionableMediaCard } from "features/media-actions/public";
+import { MusicMediaCard } from "features/music/public";
 import { mediaCardAspectRatio } from "entities/media/model";
 import { useLibraryPages, useLibraryWindow } from "../model/useLibraryPages";
 import { LIBRARY_RANGE_SIZE, libraryResultQueryKey, type LibraryQuery } from "../model/libraryQuery";
@@ -115,10 +116,11 @@ function LibraryCollectionGrid({
         itemKey={(index) => range.items.get(index)?.ratingKey ?? index}
         renderItem={(index, imageSizes) => {
           const item = range.items.get(index);
+          const Card = item && ["artist", "album"].includes(item.type) ? MusicMediaCard : ActionableMediaCard;
           const offset = Math.floor(index / LIBRARY_RANGE_SIZE) * LIBRARY_RANGE_SIZE;
           const error = range.errors.get(offset);
           return item ? (
-            <ActionableMediaCard
+            <Card
               item={item}
               layout={layout}
               imageSizes={imageSizes}

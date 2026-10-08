@@ -14,6 +14,7 @@ const HEADLESS_FEATURE_ENTRYPOINTS = new Set([
   "watch-together",
   "watchlist",
   "media-lists",
+  "music",
 ]);
 const SOURCE_EXTENSION = /\.(ts|tsx)$/;
 

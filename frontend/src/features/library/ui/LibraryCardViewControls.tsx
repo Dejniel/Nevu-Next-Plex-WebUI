@@ -15,6 +15,9 @@ import { useUserSettings } from "features/settings/model";
 import type { MediaArtworkLayout } from "entities/media/model";
 
 export type LibraryCardLayout = MediaArtworkLayout;
+export type LibraryCardView = Omit<ReturnType<typeof useLibraryCardView>, "layout"> & {
+  layout: LibraryCardLayout;
+};
 
 export const DEFAULT_CARD_SIZE = 40;
 

@@ -13,23 +13,27 @@ import {
   Typography,
 } from "@mui/material";
 import { ActionableMediaCard } from "features/media-actions/public";
+import { TrackRow } from "features/music/public";
+import type { MediaArtworkLayout } from "entities/media/model";
 import { memo, useCallback, useState } from "react";
 import type { MediaListEntry } from "../model/mediaLists";
 import type { PlaylistAction } from "./PlaylistEditor";
 
 interface PlaylistEntryCardProps {
   entry: MediaListEntry;
-  layout: "poster" | "landscape";
+  layout: MediaArtworkLayout;
   imageSizes: string;
   playbackTo?: string;
   editable: boolean;
   onEdit: (action: PlaylistAction) => void;
+  onPlay?: (entry: MediaListEntry) => void;
 }
 
 function PlaylistEntryCard({
   entry,
   editable,
   onEdit,
+  onPlay,
   ...cardProps
 }: PlaylistEntryCardProps) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -63,9 +67,18 @@ function PlaylistEntryCard({
     [entry, onEdit],
   );
   const canEdit = editable && Boolean(entry.playlistItemID);
+  const play = useCallback(() => onPlay?.(entry), [entry, onPlay]);
   return (
     <>
-      {entry.supported ? (
+      {entry.supported && entry.item.type === "track" ? (
+        <TrackRow
+          item={entry.item}
+          index={entry.position}
+          numbered
+          onPlay={onPlay ? play : undefined}
+          renderMenuItems={canEdit ? renderMenuItems : undefined}
+        />
+      ) : entry.supported ? (
         <ActionableMediaCard
           {...cardProps}
           item={entry.item}
@@ -95,9 +108,11 @@ function PlaylistEntryCard({
           </Menu>
         </Box>
       )}
-      <Typography variant="caption" color="text.secondary">
-        {entry.position + 1}
-      </Typography>
+      {entry.item.type !== "track" && (
+        <Typography variant="caption" color="text.secondary">
+          {entry.position + 1}
+        </Typography>
+      )}
     </>
   );
 }

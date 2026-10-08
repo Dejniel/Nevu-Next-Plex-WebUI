@@ -1,9 +1,14 @@
-import { AuthStorage, useServerSession } from "features/session/model";
+import {
+  AuthStorage,
+  useAuthSession,
+  useServerSession,
+} from "features/session/model";
 import { PlexClient } from "shared/api/PlexClient";
 import { useUserSettings } from "features/settings/model";
 import { publishMediaChange } from "entities/media/model";
 import {
   assertMediaListItem,
+  playlistTypeForItem,
   type MediaListItem,
   type MediaListDestination,
 } from "../model/mediaListEditing";
@@ -64,7 +69,10 @@ async function readWindow<T>(
     const remaining = size - items.length;
     params.set("X-Plex-Container-Start", String(start));
     params.set("X-Plex-Container-Size", String(remaining));
-    const response = await client.get<Container<T>>(`${path}?${params}`, signal);
+    const response = await client.get<Container<T>>(
+      `${path}?${params}`,
+      signal,
+    );
     const container = response.MediaContainer;
     if (!container) throw new Error("Plex returned invalid media list data.");
     const page = container.Metadata ?? [];
@@ -103,7 +111,8 @@ function listSummary(
     item.type !== kind ||
     !item.ratingKey ||
     !item.title ||
-    (kind === "playlist" && item.playlistType !== "video")
+    (kind === "playlist" &&
+      !["video", "audio"].includes(item.playlistType ?? ""))
   )
     throw new Error("Plex returned an unsupported media list.");
   return {
@@ -119,6 +128,9 @@ function listSummary(
         ? undefined
         : String(item.librarySectionID),
     itemType: item.subtype,
+    ...(kind === "playlist" && {
+      playlistType: item.playlistType as "video" | "audio",
+    }),
   };
 }
 
@@ -127,6 +139,7 @@ function itemEntry(
   position: number,
   section?: number,
   localServer?: string,
+  kind: MediaListQuery["kind"] = "collection",
 ): MediaListEntry {
   const sourceServer = item.sourceURI?.match(/^server:\/\/([^/]+)/)?.[1];
   return {
@@ -138,8 +151,11 @@ function itemEntry(
         : String(item.playlistItemID),
     item: { ...item, librarySectionID: item.librarySectionID ?? section ?? 0 },
     supported:
-      ["movie", "show", "episode"].includes(item.type) &&
-      Boolean(item.ratingKey) &&
+      (kind === "playlist"
+        ? ["movie", "show", "episode", "track"]
+        : ["movie", "show", "episode"]
+      ).includes(item.type) &&
+      /^\d+$/.test(item.ratingKey) &&
       (!sourceServer || sourceServer === localServer),
   };
 }
@@ -179,7 +195,8 @@ export function createMediaListSource(
       if (!query.id) {
         params.set("sort", query.sort ?? "titleSort:asc");
         if (query.search) params.set("title", query.search);
-        if (query.kind === "playlist") params.set("playlistType", "video");
+        if (query.kind === "playlist")
+          params.set("playlistType", query.playlistType ?? "video");
       }
       const suffix = query.id
         ? query.kind === "playlist"
@@ -199,7 +216,13 @@ export function createMediaListSource(
           offset,
           total: page.total,
           items: page.items.map((item, index) =>
-            itemEntry(item, offset + index, page.section, localServer),
+            itemEntry(
+              item,
+              offset + index,
+              page.section,
+              localServer,
+              query.kind,
+            ),
           ),
         };
       }
@@ -220,14 +243,15 @@ export function createMediaListSource(
   };
 }
 
-export async function getPlaylistQueue(
+async function readPlaylistSelection(
   context: PlaylistPlaybackContext,
   currentID: string,
-): Promise<Plex.Metadata[]> {
+  size: number,
+) {
   const page = await createMediaListSource({
     kind: "playlist",
     id: context.id,
-  }).page(context.index, 2);
+  }).page(context.index, size);
   const entries = page.items.filter(
     (item): item is MediaListEntry => item.kind === "media",
   );
@@ -238,12 +262,24 @@ export async function getPlaylistQueue(
     throw new Error(
       "This playlist has changed. Open it again to continue in its current order.",
     );
-  if (
-    entries.some(
-      (entry) =>
-        !entry.supported || !["movie", "episode"].includes(entry.item.type),
-    )
-  )
+  if (entries.some((entry) => !entry.supported))
+    throw new Error("The next playlist item cannot be played on this server.");
+  return entries;
+}
+
+export async function getPlaylistEntry(
+  context: PlaylistPlaybackContext,
+  currentID: string,
+) {
+  return (await readPlaylistSelection(context, currentID, 1))[0].item;
+}
+
+export async function getPlaylistQueue(
+  context: PlaylistPlaybackContext,
+  currentID: string,
+): Promise<Plex.Metadata[]> {
+  const entries = await readPlaylistSelection(context, currentID, 2);
+  if (entries.some((entry) => !["movie", "episode"].includes(entry.item.type)))
     throw new Error("The next playlist item cannot be played on this server.");
   return entries.map((entry) => entry.item);
 }
@@ -255,7 +291,11 @@ export async function getMediaListChoices(
 ) {
   assertMediaListItem(kind, item);
   const source = createMediaListSource(
-    { kind, libraryID: String(item.librarySectionID) },
+    {
+      kind,
+      libraryID: String(item.librarySectionID),
+      playlistType: playlistTypeForItem(item.type) ?? undefined,
+    },
     signal,
   );
   const lists: MediaListSummary[] = [];
@@ -264,7 +304,9 @@ export async function getMediaListChoices(
     page.items.forEach((entry) => {
       if (
         entry.kind !== "media" &&
-        (kind === "playlist" || !entry.itemType || entry.itemType === item.type)
+        (kind === "playlist"
+          ? entry.playlistType === playlistTypeForItem(item.type)
+          : !entry.itemType || entry.itemType === item.type)
       )
         lists.push(entry);
     });
@@ -295,6 +337,16 @@ export async function saveMediaListItem(
   const server = useServerSession.getState().server?.machineIdentifier;
   if (!server)
     throw new Error("The active Plex server is unavailable. Please try again.");
+  const revision = useAuthSession.getState().revision;
+  const assertCurrent = () => {
+    if (
+      AuthStorage.getServerToken() !== token ||
+      useUserSettings.getState().profileKey !== profileKey ||
+      useServerSession.getState().server?.machineIdentifier !== server ||
+      useAuthSession.getState().revision !== revision
+    )
+      throw new Error("The active profile changed. Open this action again.");
+  };
   const uri = `server://${server}/com.plexapp.plugins.library/library/metadata/${item.ratingKey}`;
   const params = new URLSearchParams({ uri });
   let result: MediaListSummary;
@@ -306,6 +358,11 @@ export async function saveMediaListItem(
     const existing = response.MediaContainer?.Metadata?.[0];
     if (!existing) throw new Error("This list is no longer available.");
     result = listSummary(existing, kind);
+    if (
+      kind === "playlist" &&
+      result.playlistType !== playlistTypeForItem(item.type)
+    )
+      throw new Error("Choose a playlist of the same media type.");
     if (result.smart)
       throw new Error(
         "Smart lists add items automatically from their filters.",
@@ -318,11 +375,7 @@ export async function saveMediaListItem(
       throw new Error(
         "Choose a collection of this media type in the same library.",
       );
-    if (
-      AuthStorage.getServerToken() !== token ||
-      useUserSettings.getState().profileKey !== profileKey
-    )
-      throw new Error("The active profile changed. Open this action again.");
+    assertCurrent();
     const itemsPath =
       kind === "playlist"
         ? `${path}/items`
@@ -335,7 +388,11 @@ export async function saveMediaListItem(
     params.set("smart", "0");
     params.set(
       "type",
-      kind === "playlist" ? "video" : item.type === "movie" ? "1" : "2",
+      kind === "playlist"
+        ? playlistTypeForItem(item.type)!
+        : item.type === "movie"
+          ? "1"
+          : "2",
     );
     if (kind === "collection")
       params.set("sectionId", String(item.librarySectionID));
@@ -350,6 +407,7 @@ export async function saveMediaListItem(
     result = listSummary(created, kind);
     if (kind === "collection") result.libraryID = String(item.librarySectionID);
   }
+  assertCurrent();
   const scope = { serverId: server, profileKey };
   publishMediaChange({
     ...scope,

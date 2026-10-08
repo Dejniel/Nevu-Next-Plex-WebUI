@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   add: vi.fn(),
   remove: vi.fn(),
   move: vi.fn(),
+  playlistEntry: vi.fn(),
 }));
 vi.mock("features/session/model", () => ({
   useActiveServerScope: () => mocks.scope,
@@ -20,6 +21,7 @@ vi.mock("entities/library/model", () => ({
   useLibraries: () => ({ data: [{ key: "3", uuid: "library-uuid" }] }),
 }));
 vi.mock("../api/music", () => ({ musicAPI: () => mocks }));
+vi.mock("features/media-lists/model", () => ({ getPlaylistEntry: mocks.playlistEntry }));
 vi.mock("entities/media/model", () => ({
   mediaMetadataQueryOptions: (scope: unknown, id: string) => ({
     queryKey: ["test-metadata", scope, id],
@@ -57,6 +59,8 @@ beforeEach(() => {
   mocks.create.mockResolvedValue(queue);
   mocks.get.mockReset();
   mocks.get.mockResolvedValue(queue);
+  mocks.playlistEntry.mockReset();
+  mocks.playlistEntry.mockResolvedValue(track(1, 100));
   serverQueryClient.clear();
   host = document.createElement("div");
   root = createRoot(host);
@@ -123,4 +127,39 @@ it("does not publish a late queue after a profile switch", async () => {
   expect(
     serverQueryClient.getQueryData(["music-queue", "server", "owner", 10]),
   ).toBeUndefined();
+});
+
+it("validates the selected playlist occurrence and creates an audio queue from the playlist instead of the album", async () => {
+  await act(async () => root.render(<MusicProvider><Probe /></MusicProvider>));
+  const context = { id: "20", index: 8, itemID: "81" };
+  await act(async () => controller.playPlaylist(context, track(1, 100)));
+  expect(mocks.playlistEntry).toHaveBeenCalledWith(context, "1");
+  expect(mocks.create).toHaveBeenCalledWith({ kind: "playlist", id: "20" }, "1", false);
+  expect(controller.session?.queueID).toBe(10);
+  await act(async () => controller.playPlaylist(context, track(1, 100), true));
+  expect(mocks.create).toHaveBeenLastCalledWith({ kind: "playlist", id: "20" }, undefined, true);
+});
+
+it("keeps the playing queue when the saved playlist selection changed", async () => {
+  await act(async () => root.render(<MusicProvider><Probe /></MusicProvider>));
+  await act(async () => controller.play(track(1, 100)));
+  mocks.create.mockClear();
+  mocks.playlistEntry.mockRejectedValue(new Error("This playlist has changed."));
+  await act(async () => controller.playPlaylist({ id: "20", index: 8 }, track(1, 100)));
+  expect(mocks.create).not.toHaveBeenCalled();
+  expect(controller.session?.entryID).toBe(100);
+  expect(controller.error).toContain("playlist has changed");
+});
+
+it("does not create an old profile's queue after a late playlist validation", async () => {
+  let resolve!: (item: Plex.Metadata) => void;
+  mocks.playlistEntry.mockReturnValue(new Promise<Plex.Metadata>((done) => { resolve = done; }));
+  await act(async () => root.render(<MusicProvider><Probe /></MusicProvider>));
+  let pending!: Promise<void>;
+  await act(async () => { pending = controller.playPlaylist({ id: "20", index: 0 }, track(1, 100)); });
+  mocks.scope = { serverId: "server", profileKey: "managed" };
+  await act(async () => root.render(<MusicProvider><Probe /></MusicProvider>));
+  await act(async () => { resolve(track(1, 100)); await pending; });
+  expect(mocks.create).not.toHaveBeenCalled();
+  expect(controller.session).toBeNull();
 });

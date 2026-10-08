@@ -7,6 +7,8 @@ import {
   getResponsiveTranscodeImageProps,
   LANDSCAPE_IMAGE_WIDTHS,
   POSTER_IMAGE_WIDTHS,
+  mediaCardAspectRatio,
+  type MediaArtworkLayout,
 } from "entities/media/model";
 import type { To } from "react-router-dom";
 import { StretchedLink } from "shared/ui";
@@ -20,7 +22,7 @@ export default function MediaListCard({
 }: {
   list: MediaListSummary;
   to: To;
-  layout: "poster" | "landscape";
+  layout: MediaArtworkLayout;
   imageSizes: string;
 }) {
   const icon =
@@ -41,7 +43,7 @@ export default function MediaListCard({
       <StretchedLink to={to} label={`Open ${list.title}`} />
       <Box
         sx={{
-          aspectRatio: layout === "poster" ? "2/3" : "16/9",
+          aspectRatio: mediaCardAspectRatio(layout),
           borderRadius: 1,
           overflow: "hidden",
           bgcolor: "action.hover",
@@ -60,7 +62,7 @@ export default function MediaListCard({
                 layout === "poster"
                   ? POSTER_IMAGE_WIDTHS
                   : LANDSCAPE_IMAGE_WIDTHS,
-              aspectRatio: layout === "poster" ? 2 / 3 : 16 / 9,
+              aspectRatio: mediaCardAspectRatio(layout),
               sizes: imageSizes,
               fallbackWidth: 480,
             })}

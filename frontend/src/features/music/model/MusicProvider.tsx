@@ -18,6 +18,10 @@ import {
   type MediaItemData,
 } from "entities/media/model";
 import { useLibraries } from "entities/library/model";
+import {
+  getPlaylistEntry,
+  type PlaylistPlaybackContext,
+} from "features/media-lists/model";
 import { musicAPI, type MusicQueue } from "../api/music";
 
 interface MusicSession {
@@ -125,12 +129,31 @@ function useMusicController() {
     return perform(
       () =>
         api.create(
-          source,
+          { kind: "library", id: source },
           item.type === "track" ? item.ratingKey : undefined,
           shuffle,
         ),
       true,
     );
+  }
+  function playPlaylist(
+    context: PlaylistPlaybackContext,
+    item: Plex.Metadata,
+    shuffle = false,
+  ) {
+    return perform(async () => {
+      const revision = generation.current;
+      const entry = await getPlaylistEntry(context, item.ratingKey);
+      if (generation.current !== revision)
+        throw new DOMException("The music selection changed.", "AbortError");
+      if (entry.type !== "track")
+        throw new Error("This is not a music playlist.");
+      return api.create(
+        { kind: "playlist", id: context.id },
+        shuffle ? undefined : entry.ratingKey,
+        shuffle,
+      );
+    }, true);
   }
   async function select(entryID: number) {
     if (!session || pending.current) return;
@@ -205,6 +228,7 @@ function useMusicController() {
     error: error || queue.error?.message || metadata.error?.message,
     setError,
     play,
+    playPlaylist,
     select,
     step,
     stop,
@@ -219,11 +243,14 @@ function useMusicController() {
         ? perform(() =>
             api.add(
               session.queueID,
-              item.ratingKey,
+              {
+                kind: "library",
+                id: item.ratingKey,
+                libraryUUID: libraries.data?.find(
+                  (library) => Number(library.key) === item.librarySectionID,
+                )?.uuid,
+              },
               next,
-              libraries.data?.find(
-                (library) => Number(library.key) === item.librarySectionID,
-              )?.uuid,
             ),
           )
         : play(item),

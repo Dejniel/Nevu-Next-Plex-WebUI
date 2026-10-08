@@ -126,6 +126,26 @@ it("stores actual pages and jumps to item 10,000 without intermediate requests",
   expect(page).toHaveBeenCalledTimes(2);
 });
 
+it("keeps audio/video indexes separate and reuses audio pages across library navigation contexts", async () => {
+  page.mockImplementation(async () => ({ offset: 0, total: 1, items: [{
+    kind: "playlist", id: query.playlistType === "audio" ? "30" : "20", title: "Playlist", summary: "", smart: false, count: 2,
+  }] }));
+  query = { kind: "playlist", libraryID: "1", playlistType: "video" };
+  await render();
+  expect(state.items.get(0)).toMatchObject({ id: "20" });
+  query = { ...query, playlistType: "audio" };
+  await render();
+  expect(state.items.get(0)).toMatchObject({ id: "30" });
+  query = { ...query, libraryID: "2" };
+  await render();
+  expect(state.items.get(0)).toMatchObject({ id: "30" });
+  expect(page).toHaveBeenCalledTimes(2);
+  query = { ...query, playlistType: "video" };
+  await render();
+  expect(state.items.get(0)).toMatchObject({ id: "20" });
+  expect(page).toHaveBeenCalledTimes(2);
+});
+
 it("shares the first page across consumers and ignores playlist navigation library context", async () => {
   const pending = deferred<MediaListPage>();
   page.mockReturnValueOnce(pending.promise);

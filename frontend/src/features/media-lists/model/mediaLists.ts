@@ -1,4 +1,5 @@
 export type MediaListKind = "collection" | "playlist";
+export type PlaylistType = "video" | "audio";
 
 export interface MediaListSummary {
   kind: MediaListKind;
@@ -10,6 +11,7 @@ export interface MediaListSummary {
   smart: boolean;
   libraryID?: string;
   itemType?: string;
+  playlistType?: PlaylistType;
 }
 
 export function mediaListPath(list: MediaListSummary, libraryID?: string) {
@@ -34,6 +36,7 @@ export interface MediaListQuery {
   id?: string;
   search?: string;
   sort?: "titleSort:asc" | "titleSort:desc" | "addedAt:desc";
+  playlistType?: PlaylistType;
 }
 
 export interface MediaListPage {

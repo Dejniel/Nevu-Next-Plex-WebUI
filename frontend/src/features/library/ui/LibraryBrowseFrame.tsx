@@ -1,6 +1,6 @@
 import { Box } from "@mui/material";
 import React from "react";
-import type { useLibraryCardView } from "./LibraryCardViewControls";
+import type { LibraryCardView } from "./LibraryCardViewControls";
 import LibraryViewToolbar from "./LibraryViewToolbar";
 
 export default function LibraryBrowseFrame({
@@ -10,14 +10,16 @@ export default function LibraryBrowseFrame({
   pageNavigation,
   filters,
   description,
+  showOrientation = true,
   children,
 }: {
   toolbarRef: React.RefObject<HTMLDivElement | null>;
-  cardView: ReturnType<typeof useLibraryCardView>;
+  cardView: LibraryCardView;
   leading: React.ReactNode;
   pageNavigation?: React.ReactNode;
   filters: React.ReactNode;
   description?: React.ReactNode;
+  showOrientation?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -28,6 +30,7 @@ export default function LibraryBrowseFrame({
           leading={leading}
           pageNavigation={pageNavigation}
           showLeadingOnMobile
+          showOrientation={showOrientation}
         />
         <Box
           sx={{

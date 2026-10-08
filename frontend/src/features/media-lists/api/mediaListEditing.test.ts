@@ -212,3 +212,26 @@ it("rejects invalid local items, names and collection library IDs before mutatio
   ).rejects.toThrow("Plex library");
   expect(transport).not.toHaveBeenCalled();
 });
+
+it.each(["track", "album", "artist"] as const)("creates audio playlists from a %s and reads only compatible choices", async (type) => {
+  const item = { ...movie, type };
+  transport.mockResolvedValue(response([list("playlist", { playlistType: "audio" })]));
+  await expect(saveMediaListItem("playlist", item, { title: "Music" })).resolves.toMatchObject({ playlistType: "audio" });
+  expect(params(0).get("type")).toBe("audio");
+  transport.mockResolvedValue(response([
+    list("playlist", { playlistType: "video", ratingKey: "21" }),
+    list("playlist", { playlistType: "audio", ratingKey: "22" }),
+  ]));
+  const choices = await getMediaListChoices("playlist", item, new AbortController().signal);
+  expect(params(1).get("playlistType")).toBe("audio");
+  expect(choices.map((choice) => choice.id)).toEqual(["22"]);
+});
+
+it.each([
+  { type: "track", playlistType: "video" },
+  { type: "movie", playlistType: "audio" },
+] as const)("rejects mixing $type with a $playlistType playlist before writing", async ({ type, playlistType }) => {
+  transport.mockResolvedValue(response([list("playlist", { playlistType })]));
+  await expect(saveMediaListItem("playlist", { ...movie, type }, { id: "20" })).rejects.toThrow("same media type");
+  expect(transport.mock.calls.map((call) => call[1])).toEqual(["GET"]);
+});

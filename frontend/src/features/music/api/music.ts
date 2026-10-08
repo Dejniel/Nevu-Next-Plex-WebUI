@@ -10,6 +10,10 @@ export interface MusicQueue {
   items: Plex.Metadata[];
 }
 
+export type MusicQueueSource =
+  | { kind: "library"; id: string; libraryUUID?: string }
+  | { kind: "playlist"; id: string };
+
 export function readMusicQueue(response: {
   MediaContainer?: {
     playQueueID: number;
@@ -52,13 +56,21 @@ export function musicAPI(context: Record<string, unknown>, serverID: string) {
     `server://${serverID}/com.plexapp.plugins.library/library/metadata/${id}`;
   const params = (values: Record<string, unknown>) =>
     queryBuilder({ ...context, ...values });
+  const sourceParams = (source: MusicQueueSource) =>
+    source.kind === "playlist"
+      ? { playlistID: source.id }
+      : {
+          uri: source.libraryUUID
+            ? `library://${source.libraryUUID}/item/library/metadata/${source.id}`
+            : uri(source.id),
+        };
   return {
-    async create(id: string, startID?: string, shuffle = false) {
+    async create(source: MusicQueueSource, startID?: string, shuffle = false) {
       return readMusicQueue(
         await client.post(
           `/playQueues?${params({
             type: "audio",
-            uri: uri(id),
+            ...sourceParams(source),
             ...(startID && { key: `/library/metadata/${startID}` }),
             shuffle: Number(shuffle),
             continuous: 0,
@@ -81,10 +93,10 @@ export function musicAPI(context: Record<string, unknown>, serverID: string) {
         ),
       );
     },
-    async add(id: number, itemID: string, next: boolean, libraryUUID?: string) {
+    async add(id: number, source: MusicQueueSource, next: boolean) {
       return readMusicQueue(
         await client.put(
-          `/playQueues/${id}?${params({ uri: libraryUUID ? `library://${libraryUUID}/item/library/metadata/${itemID}` : uri(itemID), next: Number(next) })}`,
+          `/playQueues/${id}?${params({ ...sourceParams(source), next: Number(next) })}`,
         ),
       );
     },

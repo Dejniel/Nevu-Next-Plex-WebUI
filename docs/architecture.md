@@ -137,6 +137,10 @@ views reuse the card toolbar and `shared/ui/VirtualGrid`.
 adapters, mutations, profile-scoped paging, and the shared add-to-list dialog;
 playlist positions remain distinct even when titles repeat. Its headless model
 supplies playlist playback, return links, and list-action capabilities.
+Video and audio playlists share paging, editing and synchronization; index keys
+include their media type. Music uses native Plex playlist sources for its queue,
+validating the selected saved entry before playback. Track rows are shared with
+album browsing; playlist entries add their position and editing actions.
 Playlist editing uses the active profile's token and Plex entry IDs. Reordering
 reads only the source and destination entries, checking their current positions.
 Native Query mutations reuse list synchronization before closing the editor;
