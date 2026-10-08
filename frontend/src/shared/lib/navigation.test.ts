@@ -111,3 +111,22 @@ it("opens catalog pages independently of video dialogs and preserves the library
   expect(catalogItemTo(location, { ratingKey: "401", type: "track", grandparentRatingKey: "200" })).toEqual({ pathname: "/browse/3/item/200" });
   expect(catalogItemTo(location, { ratingKey: "300", type: "photo" })).toBeNull();
 });
+
+it("retains photo filters but resets view-specific sorting and preview identity", () => {
+  const filter = JSON.stringify(["make", "=", "Canon"]);
+  const current = {
+    pathname: "/browse/5",
+    search: `?view=browse&type=photo&sort=photo.titleSort&filter=${encodeURIComponent(filter)}&photo=54&photoIndex=0`,
+  };
+  const all = libraryViewTo(current, "photos");
+  const params = new URLSearchParams(String(all.search));
+  expect(params.get("view")).toBe("photos");
+  expect(params.get("filter")).toBe(filter);
+  for (const key of ["sort", "type", "photo", "photoIndex"])
+    expect(params.has(key)).toBe(false);
+  const back = libraryViewTo(
+    { ...current, search: `${all.search}&sort=originallyAvailableAt:desc` },
+    "browse",
+  );
+  expect(new URLSearchParams(String(back.search)).has("sort")).toBe(false);
+});

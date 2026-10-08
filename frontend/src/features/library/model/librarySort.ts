@@ -29,7 +29,7 @@ export function isRandomLibrarySort(value: LibrarySort) {
 
 function directionLabels(title: string): [string, string] {
   const normalized = title.toLowerCase();
-  if (normalized === "title" || normalized.includes("artist") || normalized === "show")
+  if (normalized === "title" || normalized === "name" || normalized.includes("artist") || normalized === "show")
     return ["A-Z", "Z-A"];
   if (normalized.includes("date")) return ["Oldest", "Newest"];
   if (normalized === "duration") return ["Shortest", "Longest"];
@@ -65,7 +65,7 @@ export function librarySortOptions(sorts?: Plex.Sort[]): LibrarySortOption[] {
 
 export function defaultLibrarySort(sorts?: Plex.Sort[]): LibrarySort {
   const source = sorts?.length ? sorts : FALLBACK_SORTS;
-  const declared = source.find((sort) => sort.default || sort.defaultDirection);
+  const declared = source.find((sort) => sort.default) || source.find((sort) => sort.defaultDirection);
   if (!declared) return librarySortOptions(source)[0]?.value || DEFAULT_LIBRARY_SORT;
   const direction = declared.defaultDirection || declared.default;
   return direction === "desc" && isValidLibrarySort(declared.descKey)

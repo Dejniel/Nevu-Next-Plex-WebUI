@@ -94,12 +94,18 @@ export function mediaWatchTo(item: NavigableMedia): string {
 
 export function libraryViewTo(
   location: AppLocation,
-  view: "recommendations" | "browse" | "watchlist" | "collections" | "playlists"
+  view: "recommendations" | "browse" | "photos" | "watchlist" | "collections" | "playlists"
 ): To {
   return withQuery(location, (params) => {
+    if ((params.get("view") === "photos") !== (view === "photos")) {
+      params.delete("sort");
+      params.delete("type");
+    }
     params.set("view", view);
     params.delete("shelf");
     params.delete("list");
+    params.delete("photo");
+    params.delete("photoIndex");
   });
 }
 

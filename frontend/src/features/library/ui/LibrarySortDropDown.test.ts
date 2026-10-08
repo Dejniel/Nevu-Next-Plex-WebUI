@@ -49,6 +49,37 @@ describe("Plex library sort capabilities", () => {
     expect(defaultLibrarySort(sorts)).toBe("titleSort");
   });
 
+  it("distinguishes the default sort from each field's preferred direction", () => {
+    const name = {
+      key: "photo.titleSort,photo.originallyAvailableAt,photo.id",
+      descKey: "photo.titleSort:desc,photo.originallyAvailableAt,photo.id",
+      title: "Name",
+      default: "asc",
+      defaultDirection: "asc",
+    };
+    const photoSorts: Plex.Sort[] = [
+      {
+        key: "addedAt",
+        descKey: "addedAt:desc",
+        title: "Date Added",
+        defaultDirection: "desc",
+      },
+      {
+        key: "originallyAvailableAt",
+        descKey: "originallyAvailableAt:desc",
+        title: "Date Taken",
+        defaultDirection: "desc",
+      },
+      name,
+    ];
+    expect(defaultLibrarySort(photoSorts)).toBe(name.key);
+    expect(
+      librarySortOptions(photoSorts)
+        .slice(-2)
+        .map((option) => option.label),
+    ).toEqual(["Name (A-Z)", "Name (Z-A)"]);
+  });
+
   it("does not advertise undeclared Plex sorts in the fallback", () => {
     expect(librarySortOptions()).toEqual([
       { value: "titleSort", label: "Title (A-Z)", random: false },

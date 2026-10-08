@@ -11,6 +11,7 @@ import {
   BookmarkRounded,
   CollectionsBookmarkRounded,
   PlaylistPlayRounded,
+  PhotoLibraryRounded,
 } from "@mui/icons-material";
 import {
   Divider,
@@ -88,6 +89,7 @@ export default function LibraryActionsMenu({ anchorEl, library, libraries, onClo
     <>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl && library)} onClose={onClose}>
         {library && [
+          { view: "photos", label: "All photos", icon: <PhotoLibraryRounded /> },
           { view: "watchlist", label: "Watchlist", icon: <BookmarkRounded /> },
           { view: "collections", label: "Collections", icon: <CollectionsBookmarkRounded /> },
           { view: "playlists", label: "Playlists", icon: <PlaylistPlayRounded /> },

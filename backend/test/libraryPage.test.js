@@ -23,6 +23,7 @@ for (const [type, number] of [["artist", 8], ["album", 9], ["track", 10], ["phot
     axios.get = async (url, config) => {
       assert.equal(url, "http://plex/library/sections/3/all");
       assert.equal(config.params.get("type"), String(number));
+      assert.equal(config.params.get("clusterZoomLevel"), type === "photo" ? "1" : null);
       assert.equal(config.params.get("X-Plex-Container-Start"), "64");
       assert.equal(config.params.get("sort"), "titleSort");
       const entry = {
@@ -787,6 +788,31 @@ test("children use bounded native paging, parent identity and the active token",
     assert.equal(response.status, 200);
     assert.equal(response.body.items[0].parentRatingKey, "300");
     assert.equal(response.body.hasMore, false);
+  } finally { axios.get = original; }
+});
+
+test("photo album filters and sorts stay bounded and retain mixed child types", async () => {
+  const original = axios.get;
+  axios.get = async (url, config) => {
+    assert.equal(url, "http://plex/library/metadata/60/children");
+    assert.equal(config.params.get("clusterZoomLevel"), null);
+    assert.equal(config.params.get("type"), null);
+    assert.equal(config.params.get("sort"), "originallyAvailableAt:desc");
+    assert.equal(config.params.get("originallyAvailableAt>>"), "2026-08-01");
+    assert.equal(config.params.get("X-Plex-Container-Start"), "64");
+    assert.equal(config.params.get("X-Plex-Container-Size"), "64");
+    return { data: { MediaContainer: { offset: 64, totalSize: 67, librarySectionID: 5,
+      Directory: [{ ratingKey: "61", title: "Coast", type: "photo" }],
+      Metadata: [{ ratingKey: "62", title: "Sea", type: "photo" }, { ratingKey: "65", title: "Waves", type: "clip" }],
+    } } };
+  };
+  try {
+    const router = createLibraryPageRouter({ plexServer: "http://plex" });
+    const result = await callRouter(router, { sectionId: "5", parentId: "60", source: "children", sort: "originallyAvailableAt:desc", offset: "64", size: "64",
+      filterExpression: JSON.stringify({ kind: "clause", field: "originallyAvailableAt", operator: ">>=", value: "2026-08-01" }),
+    });
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.body.items.map(item => item.type).sort(), ["clip", "photo", "photoalbum"]);
   } finally { axios.get = original; }
 });
 

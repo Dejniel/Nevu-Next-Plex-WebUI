@@ -22,7 +22,7 @@ import { serverQueryClient } from "shared/api/queryClient";
 import { durationToText } from "shared/lib/duration";
 import { catalogItemTo } from "shared/lib/navigation";
 import { MusicActions, TrackList } from "features/music/public";
-import { PhotoGallery } from "features/photos/public";
+import { PhotoAlbumBrowse } from "./PhotoAlbumBrowse";
 import { WindowLibraryCollectionGrid } from "./LibraryCollectionGrid";
 import { useLibraryCardView } from "./LibraryCardViewControls";
 import type { LibraryQuery } from "../model/libraryQuery";
@@ -41,25 +41,18 @@ export default function CatalogItemScreen() {
   const [description, setDescription] = useState(false);
   const cardView = useLibraryCardView();
   const item = metadata.data;
-  const query: LibraryQuery | null = item
-    ? {
-        profileKey: scope.profileKey,
-        sectionId: Number(libraryID),
-        source: "children",
-        parentId: itemID,
-        ...(item.type === "artist"
-          ? { type: "album" as const }
-          : item.type === "album"
-            ? { type: "track" as const }
-            : {}),
-        sort:
-          item.type === "album"
-            ? "parentIndex,index"
-            : item.type === "artist"
-              ? "year:desc,titleSort"
-              : "titleSort",
-      }
-    : null;
+  const query: LibraryQuery | null =
+    item && (item.type === "artist" || item.type === "album")
+      ? {
+          profileKey: scope.profileKey,
+          sectionId: Number(libraryID),
+          source: "children",
+          parentId: itemID,
+          type: item.type === "artist" ? "album" : "track",
+          sort:
+            item.type === "album" ? "parentIndex,index" : "year:desc,titleSort",
+        }
+      : null;
   const count =
     item?.type === "artist"
       ? item.childCount
@@ -185,7 +178,12 @@ export default function CatalogItemScreen() {
           {item.type === "album" ? (
             <TrackList query={query} album />
           ) : item.type === "photoalbum" ? (
-            <PhotoGallery query={query} cardSize={cardView.size} />
+            <PhotoAlbumBrowse
+              key={itemID}
+              libraryID={libraryID}
+              parentId={itemID}
+              cardView={cardView}
+            />
           ) : (
             <WindowLibraryCollectionGrid
               query={query}

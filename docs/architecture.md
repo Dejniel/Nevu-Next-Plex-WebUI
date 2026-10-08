@@ -81,6 +81,11 @@ pages in the current filter/sort order. Neither workflow adds a second catalog
 cache. Video clips in photo albums use the existing video playback screen.
 Root photo browsing retains Plex's mixed album/photo catalog; its presentation
 type is separate from the photo-only search filter used by Plex.
+The `All photos` view requests `type=13&clusterZoomLevel=1` for photos across
+nested albums, initially sorted by date taken. Section and album browsing share
+one URL/filter/sort model and the same controls; albums use native `children`
+paging without a type restriction, retaining subalbums and video clips. These
+contexts use existing Query identities and separate sort preferences.
 
 The library module is the reference implementation:
 

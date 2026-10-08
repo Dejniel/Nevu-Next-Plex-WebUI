@@ -20,7 +20,6 @@ the README and release notes; implementation-only cleanup belongs in the
 ### Music and photo workflows
 
 - Extend personal ratings and permitted original-file downloads to tracks/photos.
-- Add chronological browsing across photo albums and filtering/sorting within albums.
 - Extend photo zoom with pinch/actual size, slideshow settings and multiple selection.
 - Extend metadata/artwork editing to music and photos through existing workflows.
 

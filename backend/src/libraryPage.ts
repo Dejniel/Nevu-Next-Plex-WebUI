@@ -285,7 +285,7 @@ function plexSort(sort: LibrarySort) {
 }
 
 function plexParams(
-    request: Pick<ParsedRequest, 'filterExpression' | 'type'>,
+    request: Pick<ParsedRequest, 'filterExpression' | 'type' | 'source'>,
     sort: string,
     offset: number,
     size: number,
@@ -293,6 +293,9 @@ function plexParams(
     const params = new URLSearchParams();
     params.set('sort', sort);
     if (request.type) params.set('type', String(libraryItemTypeNumbers[request.type]));
+    // Flatten Plex's photo catalog across nested albums without changing child pages.
+    if (request.type === 'photo' && request.source === 'all')
+        params.set('clusterZoomLevel', '1');
     params.set('excludeFields', excludedFields);
     params.set('excludeElements', excludedElements);
     params.set('X-Plex-Container-Start', String(offset));

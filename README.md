@@ -47,8 +47,10 @@ Nevu Next supports movie and TV workflows, music artist/album pages and track li
 and photo libraries. Music keeps playing during navigation, with a persistent player
 and an editable Plex queue with shuffle and repeat. Reload restores the selected
 queue entry and position paused. Artist, album and track menus create or extend music
-playlists; saved playlists play from a selected song or shuffled. Photo albums open into a gallery with fullscreen viewing,
-zoom, slideshows, and photo information. It is not an official Plex product and is
+playlists; saved playlists play from a selected song or shuffled. Photo libraries
+offer album browsing and a chronological `All photos` view, with shared filters
+and sorting. Their gallery supports fullscreen viewing, zoom, slideshows and
+photo information. It is not an official Plex product and is
 not affiliated with Plex, Inc.
 
 Supported browsers: Chrome 117+, Edge 121+, Firefox 121+, and Safari 17+

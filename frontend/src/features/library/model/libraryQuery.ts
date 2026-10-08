@@ -20,8 +20,8 @@ export interface LibraryQuery {
 }
 
 /** Plex's root photo catalog includes albums; a photo-only search hides them. */
-export function libraryRootQueryType(type: LibraryItemType): LibraryItemType | undefined {
-  return type === "photo" ? undefined : type;
+export function libraryRootQueryType(type: LibraryItemType, allPhotos = false): LibraryItemType | undefined {
+  return type === "photo" && !allPhotos ? undefined : type;
 }
 
 /** Canonical result prefix and page identity; revision is local. */

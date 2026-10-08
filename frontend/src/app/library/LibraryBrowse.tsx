@@ -12,6 +12,7 @@ import { AnimatePresence } from "motion/react";
 import {
   Link,
   useLocation,
+  useNavigate,
   useParams,
   useSearchParams,
 } from "react-router-dom";
@@ -28,6 +29,7 @@ import {
 const views = [
   { id: "recommendations", label: "Recommended" },
   { id: "browse", label: "Browse" },
+  { id: "photos", label: "All photos" },
   { id: "watchlist", label: "Watchlist" },
   { id: "collections", label: "Collections" },
   { id: "playlists", label: "Playlists" },
@@ -118,6 +120,8 @@ function BrowsePageSelector({
 }
 
 function LibraryBrowse() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { libraryID } = useParams<{ libraryID: string }>();
   const libraries = useLibraries();
@@ -132,11 +136,7 @@ function LibraryBrowse() {
   const setPage = (nextPage: BrowsePages) => {
     if (nextPage === "recommendations" || nextPage === "browse")
       localStorage.setItem("browsePage", nextPage);
-    const next = new URLSearchParams(searchParams);
-    next.set("view", nextPage);
-    next.delete("shelf");
-    next.delete("list");
-    setSearchParams(next);
+    navigate(libraryViewTo(location, nextPage));
   };
   React.useEffect(() => {
     if (
@@ -197,7 +197,12 @@ function LibraryBrowse() {
         {page === "recommendations" && (
           <BrowseRecommendations pageNavigation={pageSelector} />
         )}
-        {page === "browse" && <BrowseLibrary pageNavigation={pageSelector} />}
+        {(page === "browse" || page === "photos") && (
+          <BrowseLibrary
+            pageNavigation={pageSelector}
+            allPhotos={page === "photos"}
+          />
+        )}
         {(page === "collections" || page === "playlists") && (
           <MediaListsView
             key={page}
