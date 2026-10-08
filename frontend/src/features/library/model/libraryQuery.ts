@@ -19,6 +19,11 @@ export interface LibraryQuery {
   seed?: string;
 }
 
+/** Plex's root photo catalog includes albums; a photo-only search hides them. */
+export function libraryRootQueryType(type: LibraryItemType): LibraryItemType | undefined {
+  return type === "photo" ? undefined : type;
+}
+
 /** Canonical result prefix and page identity; revision is local. */
 export function libraryResultQueryKey(serverId: string, query: LibraryQuery) {
   return [

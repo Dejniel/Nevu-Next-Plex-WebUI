@@ -4,6 +4,7 @@
 **/build
 **/dist
 **/coverage
+.test-media
 **/*.log
 backend/data
 TODO.md

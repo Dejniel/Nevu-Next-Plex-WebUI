@@ -67,6 +67,8 @@ failure. Sources retain the credentials captured when playback starts.
 `features/photos` keeps preview identity in the URL and reads nearby catalog
 pages in the current filter/sort order. Neither workflow adds a second catalog
 cache. Video clips in photo albums use the existing video playback screen.
+Root photo browsing retains Plex's mixed album/photo catalog; its presentation
+type is separate from the photo-only search filter used by Plex.
 
 The library module is the reference implementation:
 

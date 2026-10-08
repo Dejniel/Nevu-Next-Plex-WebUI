@@ -45,7 +45,7 @@ import {
 } from "../model/librarySort";
 import { getLibraryRandomSeed, replaceLibraryRandomSeed } from "../model/libraryRandom";
 import { useLibraryWindow } from "../model/useLibraryPages";
-import type { LibraryQuery } from "../model/libraryQuery";
+import { libraryRootQueryType, type LibraryQuery } from "../model/libraryQuery";
 
 export default function BrowseLibrary({ pageNavigation }: { pageNavigation: React.ReactNode }) {
   const { libraryID } = useParams<{ libraryID: string }>();
@@ -168,7 +168,7 @@ function BrowseLibraryContent({
     return {
       profileKey,
       sectionId: Number(libraryID),
-      type: activeItemType,
+      type: libraryRootQueryType(activeItemType),
       ...(filterExpression && { filterExpression }),
     };
   }, [activeFilters, activeItemType, filterMode, library, libraryID, profileKey]);

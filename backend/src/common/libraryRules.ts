@@ -2,7 +2,7 @@ export const LIBRARY_PRESETS = {
     movie: { plexType: 1, scanner: 'Plex Movie', agent: 'tv.plex.agents.movie' },
     show: { plexType: 2, scanner: 'Plex TV Series', agent: 'tv.plex.agents.series' },
     artist: { plexType: 8, scanner: 'Plex Music', agent: 'tv.plex.agents.music' },
-    photo: { plexType: 13, scanner: 'Plex Photo Scanner', agent: 'com.plexapp.agents.none' },
+    photo: { plexType: 13, scanner: 'Plex Photo Scanner', agent: 'tv.plex.agents.none' },
     video: { plexType: 1, scanner: 'Plex Video Files Scanner', agent: 'com.plexapp.agents.none' },
 } as const;
 
