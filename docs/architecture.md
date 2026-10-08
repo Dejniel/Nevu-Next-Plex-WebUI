@@ -87,6 +87,13 @@ one URL/filter/sort model and the same controls; albums use native `children`
 paging without a type restriction, retaining subalbums and video clips. These
 contexts use existing Query identities and separate sort preferences.
 
+`features/media-actions` owns the shared rating control, rating writes and personal
+menus for music/photos. Menus lazily read canonical metadata to list every original
+file, using the same permission model and download entries as video. Accepted
+ratings update existing metadata and publish a `userRating` synchronization hint;
+title details retain their review invalidation and optional review-writing action.
+Menus reset with item/server/session changes and use the common fullscreen portal host.
+
 The library module is the reference implementation:
 
 ```text

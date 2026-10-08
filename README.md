@@ -38,7 +38,7 @@ Nevu Next is a modified fork of [Ipmake/NevuForPlex](https://github.com/Ipmake/N
 - **Plex library administration** for server managers: create, edit, and delete libraries; browse server folders; scan files; refresh metadata; analyze media; and empty library trash.
 - **Plex server preferences** generated from the connected server, with grouped sections, search, advanced options, individual defaults, and saving only edited values. Library preferences use the same fields and validation.
 - **Library sharing management** for granting, updating, and removing another Plex user's access without leaving Nevu Next.
-- **Original-file downloads** when the active Plex account is allowed to download media.
+- **Original-file downloads** for video, tracks and photos when the active Plex account is allowed, with a choice of available files and versions.
 - **Watch Together through Nevu Sync**, which can be disabled for a simpler local installation.
 - **Optional native HTTPS** with mounted PEM files or a persistent self-signed certificate.
 - **Self-hosted Docker deployment** with reproducible multi-platform images built from lockfiles and published to GHCR.
@@ -50,7 +50,8 @@ queue entry and position paused. Artist, album and track menus create or extend 
 playlists; saved playlists play from a selected song or shuffled. Photo libraries
 offer album browsing and a chronological `All photos` view, with shared filters
 and sorting. Their gallery supports fullscreen viewing, zoom, slideshows and
-photo information. It is not an official Plex product and is
+photo information. Music and photos also support personal ratings stored on Plex
+for the active profile. It is not an official Plex product and is
 not affiliated with Plex, Inc.
 
 Supported browsers: Chrome 117+, Edge 121+, Firefox 121+, and Safari 17+

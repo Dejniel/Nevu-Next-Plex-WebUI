@@ -41,6 +41,10 @@ Check repeat off/queue/one, manual skips, shuffle/unshuffle without restarting t
 current track, and removing the current entry. Reload after seeking in original and
 converted audio: the same queue occurrence and position should return paused.
 An expired/deleted Plex queue should disappear; Stop should clear the saved selection.
+Rate/clear tracks, artists/albums and photos/photo albums; verify the active profile
+and rating-dependent filters. Check permitted original-file downloads and version
+selection, including WMA/ALAC and photos. Compare downloaded bytes with originals,
+and verify actions in the expanded music player and fullscreen photo viewer.
 Check nested and mixed photo/video albums, their filters and sorting, and the
 chronological `All photos` view, including photos from nested albums. Verify
 arrows/swipes across albums, zoom/pan, slideshow, empty-filter recovery and return

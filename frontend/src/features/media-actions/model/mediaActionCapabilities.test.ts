@@ -20,6 +20,7 @@ it("allows a manager to edit, match, unmatch, download and mark a local movie", 
     canMatch: true,
     canUnmatch: true,
     canDownload: true,
+    canRate: true,
     canSetWatched: true,
     similarRatingKey: "1",
     canAddToCollection: true,
@@ -47,6 +48,7 @@ it("allows managing a show but downloads only individual video files", () => {
     canMatch: true,
     canUnmatch: true,
     canDownload: false,
+    canRate: true,
     canSetWatched: true,
     similarRatingKey: "1",
     canAddToCollection: true,
@@ -70,6 +72,7 @@ it("allows editing and downloading an episode and uses its show for similar titl
     canMatch: false,
     canUnmatch: false,
     canDownload: true,
+    canRate: true,
     canSetWatched: true,
     similarRatingKey: "show",
     canAddToCollection: false,
@@ -92,6 +95,7 @@ it("keeps watched, similar and permitted download actions available to a non-man
     canMatch: false,
     canUnmatch: false,
     canDownload: true,
+    canRate: true,
     canSetWatched: true,
     similarRatingKey: "1",
     canAddToCollection: false,
@@ -114,6 +118,7 @@ it.each(["movie", "show", "episode"])(
       canMatch: false,
       canUnmatch: false,
       canDownload: false,
+      canRate: false,
       canSetWatched: false,
       similarRatingKey: null,
       canAddToCollection: false,
@@ -159,11 +164,22 @@ it("leaves its item and request context untouched", () => {
 });
 
 it.each(["artist", "album", "track", "photoalbum", "photo"] as const)(
-  "does not expose video workflows for a %s", type => {
+  "keeps personal actions separate from video workflows for a %s", type => {
     const item: LibraryCardDto = { ratingKey: "10", type, title: "Catalog item" };
     expect(getMediaActionCapabilities(item, manager))
       .toEqual({ canEditMetadata: false, canMatch: false, canUnmatch: false,
-        canDownload: false, canSetWatched: false, similarRatingKey: null,
+        canDownload: ["track", "photo"].includes(type), canRate: true, canSetWatched: false, similarRatingKey: null,
         canAddToCollection: false, canAddToPlaylist: ["artist", "album", "track"].includes(type) });
+  },
+);
+
+it.each(["artist", "album", "track", "photoalbum", "photo", "clip"] as const)(
+  "respects the active profile and download permissions for %s", type => {
+    const item = { ratingKey: "10", type, title: "Item" } as MediaItemData;
+    expect(getMediaActionCapabilities(item, {
+      ...manager, canManageServer: false, allowDownloads: false,
+    })).toMatchObject({ canRate: true, canDownload: false, canEditMetadata: false });
+    expect(getMediaActionCapabilities(item, { ...manager, localItem: false }))
+      .toMatchObject({ canRate: false, canDownload: false });
   },
 );

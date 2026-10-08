@@ -17,6 +17,7 @@ export interface MediaActionCapabilities extends MediaListCapabilities {
   canMatch: boolean;
   canUnmatch: boolean;
   canDownload: boolean;
+  canRate: boolean;
   canSetWatched: boolean;
   similarRatingKey: string | null;
 }
@@ -37,8 +38,20 @@ export function getMediaActionCapabilities(
     canMatch,
     canUnmatch: canMatch && isMatchedMetadata(item),
     canDownload:
-      localItem && allowDownloads && ["movie", "episode"].includes(item.type),
+      localItem &&
+      allowDownloads &&
+      ["movie", "episode", "track", "photo", "clip"].includes(item.type),
+    canRate:
+      localItem &&
+      Boolean(item.ratingKey) &&
+      (video ||
+        ["artist", "album", "track", "photoalbum", "photo", "clip"].includes(
+          item.type,
+        )),
     canSetWatched: localItem && video,
-    similarRatingKey: localItem && isVideoLibraryItemType(item.type) && similarRatingKey ? similarRatingKey : null,
+    similarRatingKey:
+      localItem && isVideoLibraryItemType(item.type) && similarRatingKey
+        ? similarRatingKey
+        : null,
   };
 }

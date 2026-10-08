@@ -1,17 +1,8 @@
 import { DownloadRounded } from "@mui/icons-material";
-import {
-  Box,
-  IconButton,
-  Menu,
-  MenuItem,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import { IconButton, Menu, Tooltip } from "@mui/material";
 import React, { useImperativeHandle, useState } from "react";
-import {
-  formatDownloadDetails,
-  getOriginalDownloads,
-} from "../model/downloads";
+import { getOriginalDownloads } from "../model/downloads";
+import { renderOriginalDownloadMenuItems } from "./OriginalDownloadMenuItems";
 
 const buttonStyle = {
   width: 38,
@@ -71,24 +62,10 @@ export default function OriginalDownloadButton({
         open={Boolean(anchor)}
         onClose={() => setAnchor(null)}
       >
-        {downloads.map((download) => (
-          <MenuItem
-            key={`${download.media.id}:${download.part.id}`}
-            component="a"
-            href={download.href}
-            download={download.filename}
-            onClick={() => setAnchor(null)}
-            sx={{ minWidth: 280, maxWidth: "min(440px, 90vw)" }}
-          >
-            <DownloadRounded fontSize="small" sx={{ mr: 1.5, flexShrink: 0 }} />
-            <Box sx={{ minWidth: 0 }}>
-              <Typography noWrap>{download.filename}</Typography>
-              <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                {formatDownloadDetails(download)}
-              </Typography>
-            </Box>
-          </MenuItem>
-        ))}
+        {renderOriginalDownloadMenuItems({
+          downloads,
+          onClose: () => setAnchor(null),
+        })}
       </Menu>
     </>
   );

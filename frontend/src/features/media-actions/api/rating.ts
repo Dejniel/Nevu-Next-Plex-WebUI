@@ -52,7 +52,8 @@ export async function setMediaRating(
     publishMediaChange({
       ...scope,
       kind: "item",
-      effect: "unknown",
+      effect: "metadata",
+      fields: ["userRating"],
       id: ratingKey,
     });
   return accepted;

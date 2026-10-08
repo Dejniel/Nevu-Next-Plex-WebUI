@@ -21,6 +21,7 @@ import {
 import { serverQueryClient } from "shared/api/queryClient";
 import { durationToText } from "shared/lib/duration";
 import { catalogItemTo } from "shared/lib/navigation";
+import { MediaItemMenu } from "features/media-actions/public";
 import { MusicActions, TrackList } from "features/music/public";
 import { PhotoAlbumBrowse } from "./PhotoAlbumBrowse";
 import { WindowLibraryCollectionGrid } from "./LibraryCollectionGrid";
@@ -147,7 +148,11 @@ export default function CatalogItemScreen() {
                   .filter(Boolean)
                   .join(" · ")}
               </Typography>
-              {item.type !== "photoalbum" && <MusicActions item={item} />}
+              {item.type === "photoalbum" ? (
+                <MediaItemMenu item={item} />
+              ) : (
+                <MusicActions item={item} />
+              )}
               {item.summary && (
                 <Box sx={{ mt: 2, maxWidth: 800 }}>
                   <Typography

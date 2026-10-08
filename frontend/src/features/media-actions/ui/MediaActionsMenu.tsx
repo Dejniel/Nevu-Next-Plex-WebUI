@@ -2,7 +2,6 @@ import {
   AutoFixHighRounded,
   CheckCircleOutlineRounded,
   CheckCircleRounded,
-  DownloadRounded,
   EditRounded,
   InfoOutlined,
   LinkOffRounded,
@@ -28,10 +27,8 @@ import { Link } from "react-router-dom";
 import type { To } from "react-router-dom";
 import { libraryBrowseTo } from "shared/lib/navigation";
 import type { AppLocation } from "shared/lib/navigation";
-import {
-  formatDownloadDetails,
-  type OriginalDownload,
-} from "../model/downloads";
+import type { OriginalDownload } from "../model/downloads";
+import { renderOriginalDownloadMenuItems } from "./OriginalDownloadMenuItems";
 import { matchActionLabel } from "../model/matching";
 import type { MediaActionCapabilities } from "../model/mediaActionCapabilities";
 
@@ -146,22 +143,12 @@ export default function MediaActionsMenu({
           <ListItemText>Loading original file…</ListItemText>
         </MenuItem>
       )}
-      {capabilities.canDownload && !downloadsLoading && downloads.map((download) => (
-        <MenuItem
-          key={`${download.media.id}:${download.part.id}`}
-          component="a"
-          href={download.href}
-          download={download.filename}
-          onClick={onClose}
-        >
-          <ListItemIcon><DownloadRounded fontSize="small" /></ListItemIcon>
-          <ListItemText
-            primary={downloads.length === 1 ? "Save File" : download.filename}
-            secondary={formatDownloadDetails(download)}
-            slotProps={{ secondary: { noWrap: true } }}
-          />
-        </MenuItem>
-      ))}
+      {capabilities.canDownload && !downloadsLoading &&
+        renderOriginalDownloadMenuItems({
+          downloads,
+          onClose,
+          singleLabel: "Save File",
+        })}
 
       {(capabilities.canSetWatched || capabilities.canEditMetadata) && <Divider />}
 

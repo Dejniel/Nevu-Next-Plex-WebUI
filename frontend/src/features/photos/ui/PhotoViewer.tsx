@@ -34,6 +34,7 @@ import {
   mediaMetadataQueryOptions,
 } from "entities/media/model";
 import { serverQueryClient } from "shared/api/queryClient";
+import { MediaItemMenu } from "features/media-actions/public";
 import { overlayContainer } from "shared/lib/overlayContainer";
 
 export function PhotoViewer({ query }: { query: LibraryQuery | null }) {
@@ -242,6 +243,7 @@ export function PhotoViewer({ query }: { query: LibraryQuery | null }) {
           >
             <FullscreenRounded />
           </IconButton>
+          {item && <MediaItemMenu item={item} onOpen={() => setSlideshow(false)} />}
           <IconButton aria-label="Close photo" onClick={close}>
             <CloseRounded />
           </IconButton>

@@ -30,6 +30,7 @@ import { catalogItemTo } from "shared/lib/navigation";
 import { getTranscodeImageURL, mediaArtworkPath } from "entities/media/model";
 import { useMusicPlayback } from "../model/useMusicPlayback";
 import { useMusic } from "../model/MusicProvider";
+import { MusicMenu } from "./MusicActions";
 import { durationToClock } from "shared/lib/duration";
 
 export function MusicPlayer() {
@@ -333,7 +334,15 @@ export function MusicPlayer() {
                       }}
                     />
                   )}
-                  <Typography variant="h5">{track?.title}</Typography>
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                    <Typography
+                      variant="h5"
+                      sx={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}
+                    >
+                      {track?.title}
+                    </Typography>
+                    {track && <MusicMenu item={track} />}
+                  </Stack>
                   {track && (
                     <Button
                       component={Link}

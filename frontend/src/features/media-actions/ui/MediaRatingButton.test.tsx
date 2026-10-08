@@ -1,6 +1,6 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import TitleRatingButton from "./TitleRatingButton";
+import MediaRatingButton from "./MediaRatingButton";
 import { setMediaRating } from "../api/rating";
 import { useAuthSession } from "features/session/model";
 
@@ -28,7 +28,7 @@ async function clearRating(
   onChanged: (rating: number | undefined) => void,
 ) {
   await act(async () =>
-    root.render(<TitleRatingButton item={item} onChanged={onChanged} />),
+    root.render(<MediaRatingButton item={item} onChanged={onChanged} />),
   );
   const trigger = host.querySelector<HTMLButtonElement>(
     'button[aria-label="Your rating: 8.0/10"]',
@@ -54,6 +54,48 @@ it("clears a rating only after Plex accepts the change, without mutating the ite
   expect(item.userRating).toBe(8);
 });
 
+it("keeps focus in the rating dialog while saving so Escape still closes it", async () => {
+  let finish!: (saved: boolean) => void;
+  save.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  await act(async () =>
+    root.render(
+      <MediaRatingButton
+        item={{ ratingKey: "12", userRating: 8 }}
+        onChanged={vi.fn()}
+      />,
+    ),
+  );
+  const trigger = host.querySelector<HTMLButtonElement>("button")!;
+  vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue(
+    new DOMRect(0, 0, 38, 38),
+  );
+  await act(async () => trigger.click());
+  const clear = document.querySelector<HTMLButtonElement>(
+    '[aria-label="Clear rating"]',
+  )!;
+  await act(async () => {
+    clear.focus();
+    clear.click();
+  });
+  expect(clear.disabled).toBe(true);
+  const paper = document.querySelector<HTMLDivElement>(".MuiPopover-paper")!;
+  expect(document.activeElement).toBe(paper);
+  await act(async () =>
+    paper.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    ),
+  );
+  await vi.waitFor(() =>
+    expect(document.querySelector(".MuiPopover-paper")).toBeNull(),
+  );
+  await act(async () => finish(true));
+});
+
 it.each([false, new Error("offline")])(
   "keeps the rating and offers retry after a failed save",
   async (result) => {
@@ -74,7 +116,7 @@ it("disables the clear icon without a rating and opens reviews independently", a
   const onWriteReview = vi.fn();
   await act(async () =>
     root.render(
-      <TitleRatingButton
+      <MediaRatingButton
         item={{ ratingKey: "12" } as Plex.Metadata}
         onChanged={vi.fn()}
         onWriteReview={onWriteReview}
@@ -119,7 +161,7 @@ it.each(["title", "profile"])(
       if (change === "profile") useAuthSession.setState({ revision: 2 });
       else
         root.render(
-          <TitleRatingButton
+          <MediaRatingButton
             item={{ ratingKey: "13" } as Plex.Metadata}
             onChanged={onChanged}
           />,

@@ -1,17 +1,7 @@
-import React, { useState } from "react";
-import {
-  Button,
-  Divider,
-  IconButton,
-  Menu,
-  MenuItem,
-  Stack,
-} from "@mui/material";
-import {
-  MoreVertRounded,
-  PlayArrowRounded,
-  ShuffleRounded,
-} from "@mui/icons-material";
+import React from "react";
+import { MediaItemMenu } from "features/media-actions/public";
+import { Button, Divider, MenuItem, Stack } from "@mui/material";
+import { PlayArrowRounded, ShuffleRounded } from "@mui/icons-material";
 import type { MediaItemData } from "entities/media/model";
 import { getMediaListCapabilities } from "features/media-lists/model";
 import {
@@ -30,59 +20,60 @@ export function MusicMenu({
   renderMenuItems?: (onClose: () => void) => React.ReactNode;
 }) {
   const music = useMusic();
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const close = () => setAnchor(null);
   const capabilities = getMediaListCapabilities(item, {
     localItem: true,
     canManageServer: false,
   });
-  const action = (next: boolean) => {
-    setAnchor(null);
-    void music.add(item, next);
-  };
   return (
-    <>
-      <IconButton
-        aria-label={`Actions for ${item.title}`}
-        onClick={(event) => setAnchor(event.currentTarget)}
-      >
-        <MoreVertRounded />
-      </IconButton>
-      <Menu
-        anchorEl={anchor}
-        open={Boolean(anchor)}
-        onClose={() => setAnchor(null)}
-      >
+    <MediaItemMenu
+      item={item}
+      renderMenuItems={(close) => [
         <MenuItem
+          key="play"
           disabled={music.busy}
           onClick={() => {
-            setAnchor(null);
+            close();
             if (onPlay) onPlay();
             else void music.play(item);
           }}
         >
           Play
-        </MenuItem>
-        <MenuItem disabled={music.busy} onClick={() => action(true)}>
+        </MenuItem>,
+        <MenuItem
+          key="next"
+          disabled={music.busy}
+          onClick={() => {
+            close();
+            void music.add(item, true);
+          }}
+        >
           Play next
-        </MenuItem>
-        <MenuItem disabled={music.busy} onClick={() => action(false)}>
+        </MenuItem>,
+        <MenuItem
+          key="queue"
+          disabled={music.busy}
+          onClick={() => {
+            close();
+            void music.add(item, false);
+          }}
+        >
           Add to queue
-        </MenuItem>
-        {capabilities.canAddToPlaylist && <Divider />}
-        {renderMediaListMenuItems({
+        </MenuItem>,
+        capabilities.canAddToPlaylist && <Divider key="lists" />,
+        ...renderMediaListMenuItems({
           capabilities,
           onSelect: (kind) => {
             close();
             openMediaListDialog(kind, item);
           },
-        })}
-        {renderMenuItems && <Divider />}
-        {renderMenuItems?.(close)}
-      </Menu>
-    </>
+        }),
+        renderMenuItems && <Divider key="custom" />,
+        renderMenuItems?.(close),
+      ]}
+    />
   );
 }
+
 export function MusicActions({ item }: { item: MediaItemData }) {
   const music = useMusic();
   return (

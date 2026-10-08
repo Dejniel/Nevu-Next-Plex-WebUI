@@ -29,6 +29,7 @@ import {
   matchActionLabel,
   getOriginalDownloads,
   OriginalDownloadButton,
+  MediaRatingButton,
   resolvePlaybackTarget,
   type MediaActionCapabilities,
 } from "features/media-actions/public";
@@ -43,7 +44,9 @@ import {
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBigReader, useConfirmModal } from "shared/ui";
-import TitleRatingButton from "./TitleRatingButton";
+import { useActiveServerScope } from "features/session/model";
+import { serverQueryClient } from "shared/api/queryClient";
+import { titleReviewsQueryOptions } from "../model/titleReviewsQuery";
 import { useTitleActionOverflow } from "../model/useTitleActionOverflow";
 import type { TitleActionID } from "../model/titleActionOverflow";
 
@@ -107,6 +110,7 @@ export default function TitlePrimaryActions({
   onWriteReview?: () => void;
 }) {
   const navigate = useNavigate();
+  const scope = useActiveServerScope();
   const [playLoading, setPlayLoading] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const downloadMenuRef = useRef<{ open: (anchor: HTMLElement) => void }>(null);
@@ -240,11 +244,20 @@ export default function TitlePrimaryActions({
       </ActionSlot>
 
       <ActionSlot id="rating" hidden={hidden("rating")}>
-        <TitleRatingButton
+        <MediaRatingButton
           item={data}
-          onChanged={(userRating) =>
-            onDataChanged((current) => current && { ...current, userRating })
-          }
+          onChanged={(userRating) => {
+            onDataChanged((current) => current && { ...current, userRating });
+            const reviews = titleReviewsQueryOptions(
+              scope.profileKey,
+              data.guid,
+            );
+            if (reviews.enabled)
+              void serverQueryClient.invalidateQueries({
+                queryKey: reviews.queryKey,
+                exact: true,
+              });
+          }}
           menuRef={ratingMenuRef}
           onWriteReview={onWriteReview}
         />

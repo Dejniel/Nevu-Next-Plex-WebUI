@@ -84,7 +84,8 @@ it("publishes an item-scoped synchronization hint only after a successful write"
       serverId: "server",
       profileKey: "1:1",
       kind: "item",
-      effect: "unknown",
+      effect: "metadata",
+      fields: ["userRating"],
       id: "12",
     });
   } finally {
