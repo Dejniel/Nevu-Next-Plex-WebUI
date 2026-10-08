@@ -30,6 +30,7 @@ export interface VideoPlayerProps {
   muted?: boolean;
   volume?: number;
   controls?: boolean;
+  loop?: boolean;
   poster?: string;
   startTime?: number | null;
   objectFit?: React.CSSProperties["objectFit"];
@@ -291,6 +292,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
         playsInline
         muted={props.muted}
         controls={props.controls}
+        loop={props.loop}
         poster={props.poster}
         preload="metadata"
         controlsList="nodownload"

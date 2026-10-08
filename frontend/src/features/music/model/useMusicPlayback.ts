@@ -14,9 +14,17 @@ export function useMusicPlayback() {
   const music = useMusic();
   const location = useLocation();
   const player = useRef<VideoPlayerHandle | null>(null);
-  const [position, setPosition] = useState(0);
-  const playbackID = music.session ? `${music.session.queueID}/${music.session.entryID}` : null;
-  const playback = useAudioPlaybackSource(music.track, music.context, playbackID);
+  const [position, setPosition] = useState(music.session?.startTime ?? 0);
+  const [endedFor, setEndedFor] = useState<string | null>(null);
+  const playbackID = music.session
+    ? `${music.session.queueID}/${music.session.entryID}`
+    : null;
+  const playback = useAudioPlaybackSource(
+    music.track,
+    music.context,
+    playbackID,
+    music.session?.startTime,
+  );
   const { source } = playback;
   const musicRef = useRef(music);
   musicRef.current = music;
@@ -27,16 +35,36 @@ export function useMusicPlayback() {
     }
   }, [playback.error]);
   const track = music.track;
-  const progressRef = useRef({ playbackID, time: 0, duration: 0 });
+  const progressRef = useRef({
+    playbackID,
+    time: music.session?.startTime ?? 0,
+    duration: 0,
+  });
   if (progressRef.current.playbackID !== playbackID)
-    progressRef.current = { playbackID, time: 0, duration: 0 };
+    progressRef.current = {
+      playbackID,
+      time: music.session?.startTime ?? 0,
+      duration: 0,
+    };
   useEffect(() => {
     if (location.pathname.startsWith("/watch/")) music.pause();
     // oxlint-disable-next-line react/exhaustive-deps
   }, [location.pathname]);
   useEffect(() => {
-    setPosition(0);
-  }, [playbackID]);
+    setPosition(music.session?.startTime ?? 0);
+  }, [playbackID, music.session?.startTime]);
+  useEffect(() => {
+    if (!endedFor) return;
+    if (endedFor !== playbackID) {
+      setEndedFor(null);
+      return;
+    }
+    if (music.busy) return;
+    setEndedFor(null);
+    void music.step(1);
+    // Advance once after queue editing finishes, only for the ended occurrence.
+    // oxlint-disable-next-line react/exhaustive-deps
+  }, [endedFor, playbackID, music.busy]);
   useEffect(() => {
     const session = music.session;
     if (!track || !session) return;
@@ -83,15 +111,13 @@ export function useMusicPlayback() {
       Record<MediaSessionAction, MediaSessionActionHandler>
     > = {
       play: () => {
-        if (!musicRef.current.session?.playing)
-          musicRef.current.toggle();
+        if (!musicRef.current.session?.playing) musicRef.current.toggle();
       },
       pause: () => musicRef.current.pause(),
       nexttrack: () => void musicRef.current.step(1),
       previoustrack: () => void musicRef.current.step(-1),
       seekto: (event) => {
-        if (event.seekTime !== undefined)
-          player.current?.seekTo(event.seekTime);
+        if (event.seekTime !== undefined) seek(event.seekTime);
       },
     };
     const registered: MediaSessionAction[] = [];
@@ -119,19 +145,33 @@ export function useMusicPlayback() {
         : "paused";
   }, [music.session?.playing]);
 
+  function remember(seconds: number) {
+    const entryID = musicRef.current.session?.entryID;
+    if (entryID !== undefined)
+      musicRef.current.rememberPosition(entryID, seconds);
+    progressRef.current.time = seconds;
+    setPosition(seconds);
+  }
+  function seek(seconds: number) {
+    player.current?.seekTo(seconds);
+    remember(seconds);
+  }
   return {
     player,
     source,
     position,
-    setPosition,
+    seek,
     startTime: playback.startTime,
+    onEnded: () => setEndedFor(playbackID),
     onProgress: (progress: VideoProgress) => {
-      progressRef.current.time = progress.playedSeconds;
       progressRef.current.duration = player.current?.getDuration() ?? 0;
-      setPosition(progress.playedSeconds);
+      remember(progress.playedSeconds);
     },
     onError: (failure: VideoPlaybackFailure) => {
-      playback.reportError({ ...failure, position: failure.position ?? position });
+      playback.reportError({
+        ...failure,
+        position: failure.position ?? position,
+      });
     },
   };
 }

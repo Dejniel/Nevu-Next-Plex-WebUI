@@ -37,6 +37,10 @@ For music/photo libraries, check artist → album → tracks, disc order, playba
 during navigation, queue add/remove/reorder and repeated songs. Include native
 audio and a format requiring Plex conversion. Verify HLS and DASH audio decisions,
 relative session segments, seeking and cancellation while switching tracks/profiles.
+Check repeat off/queue/one, manual skips, shuffle/unshuffle without restarting the
+current track, and removing the current entry. Reload after seeking in original and
+converted audio: the same queue occurrence and position should return paused.
+An expired/deleted Plex queue should disappear; Stop should clear the saved selection.
 Check nested photo albums, mixed photo/video albums, date sorting, arrows/swipes,
 zoom/pan, slideshow and return
 to the same gallery position. Queue/profile lifecycle and request contracts also

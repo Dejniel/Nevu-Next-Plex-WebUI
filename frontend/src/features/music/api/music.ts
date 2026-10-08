@@ -1,4 +1,4 @@
-import { PlexClient } from "shared/api/PlexClient";
+import { PlexClient, PlexRequestError } from "shared/api/PlexClient";
 import { queryBuilder } from "shared/lib/query";
 
 export interface MusicQueue {
@@ -7,6 +7,7 @@ export interface MusicQueue {
   total: number;
   selected: number;
   selectedOffset: number;
+  shuffled: boolean;
   items: Plex.Metadata[];
 }
 
@@ -21,6 +22,7 @@ export function readMusicQueue(response: {
     playQueueTotalCount: number;
     playQueueSelectedItemID: number;
     playQueueSelectedItemOffset: number;
+    playQueueShuffled?: boolean | number;
     Metadata?: Plex.Metadata[];
   };
 }): MusicQueue {
@@ -46,6 +48,7 @@ export function readMusicQueue(response: {
     total: data.playQueueTotalCount,
     selected: data.playQueueSelectedItemID,
     selectedOffset: data.playQueueSelectedItemOffset,
+    shuffled: Boolean(data.playQueueShuffled),
     items,
   };
 }
@@ -64,6 +67,31 @@ export function musicAPI(context: Record<string, unknown>, serverID: string) {
             ? `library://${source.libraryUUID}/item/library/metadata/${source.id}`
             : uri(source.id),
         };
+  const get = async (id: number, center?: number, signal?: AbortSignal) =>
+    readMusicQueue(
+      await client.get(
+        `/playQueues/${id}?${params({ window: 50, ...(center && { center }), includeBefore: 1, includeAfter: 1 })}`,
+        signal,
+      ),
+    );
+  // Mutation responses can acknowledge an edit before materializing its window.
+  const change = async (
+    id: number,
+    path: string,
+    method: "PUT" | "DELETE",
+    values: Record<string, unknown>,
+    signal?: AbortSignal,
+  ) => {
+    signal?.throwIfAborted();
+    await client.request(
+      `/playQueues/${id}${path}?${params(values)}`,
+      method,
+      undefined,
+      signal,
+    );
+    signal?.throwIfAborted();
+    return get(id, undefined, signal);
+  };
   return {
     async create(source: MusicQueueSource, startID?: string, shuffle = false) {
       return readMusicQueue(
@@ -80,40 +108,53 @@ export function musicAPI(context: Record<string, unknown>, serverID: string) {
         ),
       );
     },
-    async get(id: number, center?: number, signal?: AbortSignal) {
-      return readMusicQueue(
-        await client.get(
-          `/playQueues/${id}?${params({
-            window: 50,
-            ...(center && { center }),
-            includeBefore: 1,
-            includeAfter: 1,
-          })}`,
+    get,
+    add(
+      id: number,
+      source: MusicQueueSource,
+      next: boolean,
+      signal?: AbortSignal,
+    ) {
+      return change(
+        id,
+        "",
+        "PUT",
+        { ...sourceParams(source), next: Number(next) },
+        signal,
+      );
+    },
+    remove(id: number, entryID: number, signal?: AbortSignal) {
+      return change(id, `/items/${entryID}`, "DELETE", {}, signal);
+    },
+    move(id: number, entryID: number, after?: number, signal?: AbortSignal) {
+      return change(id, `/items/${entryID}/move`, "PUT", { after }, signal);
+    },
+    async shuffle(id: number, enabled: boolean, signal?: AbortSignal) {
+      try {
+        return await change(
+          id,
+          enabled ? "/shuffle" : "/unshuffle",
+          "PUT",
+          {},
           signal,
-        ),
-      );
+        );
+      } catch (reason) {
+        if (
+          !signal?.aborted &&
+          reason instanceof PlexRequestError &&
+          [400, 404].includes(reason.status)
+        )
+          throw new Error(
+            "Plex could not change shuffle for this queue. Start a new shuffled selection from an album or playlist.",
+          );
+        throw reason;
+      }
     },
-    async add(id: number, source: MusicQueueSource, next: boolean) {
-      return readMusicQueue(
-        await client.put(
-          `/playQueues/${id}?${params({ ...sourceParams(source), next: Number(next) })}`,
-        ),
-      );
-    },
-    async remove(id: number, entryID: number) {
-      return readMusicQueue(
-        await client.delete(`/playQueues/${id}/items/${entryID}?${params({})}`),
-      );
-    },
-    async move(id: number, entryID: number, after?: number) {
-      return readMusicQueue(
-        await client.put(
-          `/playQueues/${id}/items/${entryID}/move?${params({ after })}`,
-        ),
-      );
+    reset(id: number, signal?: AbortSignal) {
+      return change(id, "/reset", "PUT", {}, signal);
     },
     async timeline(
-      item: Plex.Metadata,
+      item: Pick<Plex.Metadata, "ratingKey" | "playQueueItemID">,
       queueID: number,
       state: string,
       time: number,

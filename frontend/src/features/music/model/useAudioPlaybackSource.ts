@@ -11,12 +11,18 @@ export function useAudioPlaybackSource(
   metadata: Plex.Metadata | null,
   context: Record<string, unknown>,
   playbackID: string | null,
+  startTime = 0,
 ) {
+  const ratingKey = metadata?.ratingKey;
+  const fileKey = metadata?.Media?.[0]?.Part?.[0]?.key;
   const run = useMemo(
-    () => metadata && playbackID ? { metadata, context, playbackID } : null,
+    () =>
+      metadata && playbackID
+        ? { metadata, context, playbackID, startTime }
+        : null,
     // Playback owns the file and credentials, not subsequent metadata refreshes.
     // oxlint-disable-next-line react/exhaustive-deps
-    [metadata?.ratingKey, metadata?.Media?.[0]?.Part?.[0]?.key, context, playbackID],
+    [ratingKey, fileKey, context, playbackID, startTime],
   );
   type Attempt = {
     run: NonNullable<typeof run>;
@@ -25,7 +31,7 @@ export function useAudioPlaybackSource(
     error?: string;
   };
   const initial = useMemo<Attempt | null>(
-    () => run ? { run, converted: false, position: 0 } : null,
+    () => (run ? { run, converted: false, position: run.startTime } : null),
     [run],
   );
   const [stored, setStored] = useState<Attempt | null>(null);
@@ -47,12 +53,15 @@ export function useAudioPlaybackSource(
     const controller = new AbortController();
     let owned: AudioSource | null = null;
     let timer: number | undefined;
-    const isCurrent = () => !controller.signal.aborted && current.current.attempt === attempt;
+    const isCurrent = () =>
+      !controller.signal.aborted && current.current.attempt === attempt;
     const release = (keepalive = false) => {
       window.clearInterval(timer);
       const source = owned;
       owned = null;
-      return source ? releaseAudioPlayback(source, keepalive) : releasing.current;
+      return source
+        ? releaseAudioPlayback(source, keepalive)
+        : releasing.current;
     };
     const onPageHide = (event: PageTransitionEvent) => {
       if (event.persisted) return;
@@ -94,7 +103,10 @@ export function useAudioPlaybackSource(
         if (isCurrent())
           setStored({
             ...attempt,
-            error: reason instanceof Error ? reason.message : "Plex could not prepare audio playback.",
+            error:
+              reason instanceof Error
+                ? reason.message
+                : "Plex could not prepare audio playback.",
           });
       }
     })();
@@ -107,11 +119,18 @@ export function useAudioPlaybackSource(
 
   const reportError = useCallback((failure: VideoPlaybackFailure) => {
     const { attempt, source } = current.current;
-    if (!attempt || !source || failure.sourceId !== source.id || failure.kind === "subtitle")
+    if (
+      !attempt ||
+      !source ||
+      failure.sourceId !== source.id ||
+      failure.kind === "subtitle"
+    )
       return false;
     current.current.source = null;
     const convert =
-      !attempt.converted && !failure.httpStatus && ["media", "unsupported"].includes(failure.kind);
+      !attempt.converted &&
+      !failure.httpStatus &&
+      ["media", "unsupported"].includes(failure.kind);
     setStored(
       convert
         ? { run: attempt.run, converted: true, position: failure.position ?? 0 }

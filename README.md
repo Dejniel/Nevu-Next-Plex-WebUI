@@ -45,7 +45,8 @@ Nevu Next is a modified fork of [Ipmake/NevuForPlex](https://github.com/Ipmake/N
 
 Nevu Next supports movie and TV workflows, music artist/album pages and track lists,
 and photo libraries. Music keeps playing during navigation, with a persistent player
-and an editable Plex queue. Artist, album and track menus create or extend music
+and an editable Plex queue with shuffle and repeat. Reload restores the selected
+queue entry and position paused. Artist, album and track menus create or extend music
 playlists; saved playlists play from a selected song or shuffled. Photo albums open into a gallery with fullscreen viewing,
 zoom, slideshows, and photo information. It is not an official Plex product and is
 not affiliated with Plex, Inc.

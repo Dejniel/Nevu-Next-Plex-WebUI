@@ -13,6 +13,7 @@ import {
   useAuthSession,
 } from "features/session/model";
 import { serverQueryClient } from "shared/api/queryClient";
+import { PlexRequestError } from "shared/api/PlexClient";
 import {
   mediaMetadataQueryOptions,
   type MediaItemData,
@@ -23,12 +24,18 @@ import {
   type PlaylistPlaybackContext,
 } from "features/media-lists/model";
 import { musicAPI, type MusicQueue } from "../api/music";
+import {
+  musicSessionKey,
+  readMusicSession,
+  saveMusicSession,
+} from "./musicSession";
 
 interface MusicSession {
   queueID: number;
   entryID: number;
   ratingKey: string;
   playing: boolean;
+  startTime: number;
 }
 function useMusicController() {
   const scope = useActiveServerScope();
@@ -38,25 +45,25 @@ function useMusicController() {
     () => musicAPI(context, scope.serverId),
     [context, scope.serverId],
   );
+  const storageKey = musicSessionKey(scope);
+  const [saved] = useState(() => readMusicSession(storageKey));
   const [session, setSession] = useState<MusicSession | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [volume, setVolume] = useState(1);
-  const generation = useRef(0);
-  const pending = useRef(false);
-  const current = useRef(session);
-  current.current = session;
-  const key = [
-    "music-queue",
-    scope.serverId,
-    scope.profileKey,
-    session?.queueID,
-  ] as const;
+  const [volume, setVolume] = useState(saved.volume);
+  const [repeat, setRepeat] = useState(saved.repeat);
+  const operation = useRef<AbortController | null>(null);
+  const restoring = useRef(Boolean(saved.selection));
+  const position = useRef(0);
+  const current = useRef({ session, volume, repeat });
+  current.current = { session, volume, repeat };
+  const queueKey = (id?: number) =>
+    ["music-queue", scope.serverId, scope.profileKey, id] as const;
   const queue = useQuery(
     {
-      queryKey: key,
+      queryKey: queueKey(session?.queueID),
       queryFn: ({ signal }) =>
-        api.get(session!.queueID, current.current?.entryID, signal),
+        api.get(session!.queueID, current.current.session?.entryID, signal),
       enabled: Boolean(session),
       staleTime: 60_000,
       refetchInterval: session ? 60_000 : false,
@@ -71,62 +78,143 @@ function useMusicController() {
     serverQueryClient,
   );
   const track = metadata.data ?? null;
-  useEffect(
-    () => () => {
-      ++generation.current;
-    },
-    [],
-  );
 
-  async function perform(operation: () => Promise<MusicQueue>, select = false) {
-    if (pending.current) return;
-    pending.current = true;
-    const revision = ++generation.current;
+  // All queue work has one owner, including restoration and navigation.
+  async function perform(work: (signal: AbortSignal) => Promise<void>) {
+    if (operation.current) return;
+    const controller = new AbortController();
+    operation.current = controller;
     setBusy(true);
     setError(null);
     try {
-      const result = await operation();
-      if (generation.current !== revision) return;
-      const resultKey = [
-        "music-queue",
-        scope.serverId,
-        scope.profileKey,
-        result.id,
-      ];
-      await serverQueryClient.cancelQueries({ queryKey: resultKey });
-      if (generation.current !== revision) return;
-      serverQueryClient.setQueryData(resultKey, result);
-      if (select) {
-        const item =
-          result.items.find(
-            (item) => item.playQueueItemID === result.selected,
-          ) ?? result.items[0];
-        if (!item) throw new Error("This music selection is empty.");
-        setSession({
-          queueID: result.id,
-          entryID: item.playQueueItemID!,
-          ratingKey: item.ratingKey,
-          playing: true,
-        });
-      }
+      await work(controller.signal);
     } catch (reason) {
-      if (generation.current === revision)
+      if (!controller.signal.aborted)
         setError(
           reason instanceof Error
             ? reason.message
             : "Plex could not update the music queue.",
         );
     } finally {
-      pending.current = false;
-      if (generation.current === revision) setBusy(false);
+      if (operation.current === controller) {
+        operation.current = null;
+        setBusy(false);
+      }
     }
   }
+  async function publish(result: MusicQueue, signal: AbortSignal) {
+    signal.throwIfAborted();
+    const key = queueKey(result.id);
+    await serverQueryClient.cancelQueries({ queryKey: key });
+    signal.throwIfAborted();
+    serverQueryClient.setQueryData(key, result);
+  }
+  function choose(
+    result: MusicQueue,
+    item: Plex.Metadata,
+    playing = true,
+    startTime = 0,
+  ) {
+    position.current = startTime;
+    setSession({
+      queueID: result.id,
+      entryID: item.playQueueItemID!,
+      ratingKey: item.ratingKey,
+      playing,
+      startTime,
+    });
+  }
+  function chooseSelected(result: MusicQueue) {
+    const item =
+      result.items.find((item) => item.playQueueItemID === result.selected) ??
+      result.items[0];
+    if (!item) throw new Error("This music selection is empty.");
+    choose(result, item);
+  }
+  function update(
+    work: (signal: AbortSignal) => Promise<MusicQueue>,
+    select = false,
+  ) {
+    return perform(async (signal) => {
+      const result = await work(signal);
+      await publish(result, signal);
+      if (select) chooseSelected(result);
+    });
+  }
+  function persist() {
+    if (restoring.current || !scope.serverId || !scope.profileKey) return;
+    const { session, repeat, volume } = current.current;
+    saveMusicSession(storageKey, {
+      selection: session
+        ? {
+            queueID: session.queueID,
+            entryID: session.entryID,
+            ratingKey: session.ratingKey,
+            position: position.current,
+          }
+        : null,
+      repeat,
+      volume,
+    });
+  }
+  useEffect(() => {
+    if (saved.selection) {
+      const selection = saved.selection;
+      void perform(async (signal) => {
+        try {
+          const result = await api.get(
+            selection.queueID,
+            selection.entryID,
+            signal,
+          );
+          await publish(result, signal);
+          const item = result.items.find(
+            (item) =>
+              item.playQueueItemID === selection.entryID &&
+              item.ratingKey === selection.ratingKey,
+          );
+          if (item) choose(result, item, false, selection.position);
+        } catch (reason) {
+          if (!(reason instanceof PlexRequestError && reason.status === 404))
+            throw reason;
+        } finally {
+          if (!signal.aborted) restoring.current = false;
+        }
+      });
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") persist();
+    };
+    const timer = window.setInterval(persist, 5000);
+    window.addEventListener("pagehide", persist);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      persist();
+      operation.current?.abort();
+      operation.current = null;
+      window.clearInterval(timer);
+      window.removeEventListener("pagehide", persist);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+    // The provider remounts for every server, profile or credential change.
+    // oxlint-disable-next-line react/exhaustive-deps
+  }, []);
+  useEffect(persist, [
+    session,
+    repeat,
+    volume,
+    busy,
+    storageKey,
+    scope.serverId,
+    scope.profileKey,
+  ]);
+
   function play(item: MediaItemData, shuffle = false) {
     const source =
       item.type === "track" && item.parentRatingKey
         ? item.parentRatingKey
         : item.ratingKey;
-    return perform(
+    return update(
       () =>
         api.create(
           { kind: "library", id: source },
@@ -141,11 +229,9 @@ function useMusicController() {
     item: Plex.Metadata,
     shuffle = false,
   ) {
-    return perform(async () => {
-      const revision = generation.current;
+    return update(async (signal) => {
       const entry = await getPlaylistEntry(context, item.ratingKey);
-      if (generation.current !== revision)
-        throw new DOMException("The music selection changed.", "AbortError");
+      signal.throwIfAborted();
       if (entry.type !== "track")
         throw new Error("This is not a music playlist.");
       return api.create(
@@ -156,65 +242,65 @@ function useMusicController() {
     }, true);
   }
   async function select(entryID: number) {
-    if (!session || pending.current) return;
-    const item = queue.data?.items.find(
+    if (!session || operation.current || !queue.data) return;
+    const item = queue.data.items.find(
       (item) => item.playQueueItemID === entryID,
     );
-    if (item)
-      setSession(
-        (value) =>
-          value && {
-            ...value,
-            entryID,
-            ratingKey: item.ratingKey,
-            playing: true,
-          },
-      );
+    if (item && entryID !== session.entryID) choose(queue.data, item);
+    else if (item) setSession((value) => value && { ...value, playing: true });
   }
-  async function step(direction: number) {
-    if (!session || pending.current) return;
-    const revision = ++generation.current;
-    pending.current = true;
-    setBusy(true);
-    try {
+  function step(direction: 1 | -1) {
+    if (!session) return Promise.resolve();
+    return perform(async (signal) => {
       let data = queue.data;
-      let index =
-        data?.items.findIndex(
-          (item) => item.playQueueItemID === session.entryID,
-        ) ?? -1;
-      if (!data?.items[index + direction]) {
-        data = await api.get(session.queueID, session.entryID);
-        if (generation.current !== revision) return;
-        serverQueryClient.setQueryData(key, data);
-        index = data.items.findIndex(
-          (item) => item.playQueueItemID === session.entryID,
-        );
+      const neighbor = (data: MusicQueue | undefined) => {
+        const index =
+          data?.items.findIndex(
+            (item) => item.playQueueItemID === session.entryID,
+          ) ?? -1;
+        return index < 0 ? undefined : data?.items[index + direction];
+      };
+      if (!neighbor(data)) {
+        data = await api.get(session.queueID, session.entryID, signal);
+        await publish(data, signal);
       }
-      const next = data?.items[index + direction];
-      if (next?.playQueueItemID)
-        setSession(
-          (value) =>
-            value && {
-              ...value,
-              entryID: next.playQueueItemID!,
-              ratingKey: next.ratingKey,
-              playing: true,
-            },
-        );
-      else setSession((value) => value && { ...value, playing: false });
-    } catch {
-      if (generation.current === revision)
-        setError("Plex could not load the next track.");
-    } finally {
-      pending.current = false;
-      if (generation.current === revision) setBusy(false);
-    }
+      const next = neighbor(data);
+      if (next && data) choose(data, next);
+      else if (direction === 1 && repeat === "all" && data?.total) {
+        // Plex owns the beginning of a potentially much larger queue than this window.
+        const reset = await api.reset(session.queueID, signal);
+        await publish(reset, signal);
+        chooseSelected(reset);
+      } else if (direction === 1) {
+        setSession((value) => value && { ...value, playing: false });
+      }
+    });
   }
   function stop() {
-    ++generation.current;
+    operation.current?.abort();
+    operation.current = null;
+    restoring.current = false;
+    position.current = 0;
     setSession(null);
     setError(null);
     setBusy(false);
+  }
+  async function reportCurrent() {
+    const active = current.current.session;
+    if (!active) return;
+    const item =
+      track?.ratingKey === active.ratingKey
+        ? track
+        : queue.data?.items.find(
+            (item) => item.playQueueItemID === active.entryID,
+          );
+    await api.timeline(
+      { ratingKey: active.ratingKey, playQueueItemID: active.entryID },
+      active.queueID,
+      active.playing ? "playing" : "paused",
+      position.current,
+      (item?.duration ?? 0) / 1000,
+    );
   }
   return {
     session,
@@ -224,6 +310,8 @@ function useMusicController() {
     context,
     volume,
     setVolume,
+    repeat,
+    setRepeat,
     busy,
     error: error || queue.error?.message || metadata.error?.message,
     setError,
@@ -232,16 +320,34 @@ function useMusicController() {
     select,
     step,
     stop,
+    rememberPosition: (entryID: number, seconds: number) => {
+      if (
+        current.current.session?.entryID === entryID &&
+        Number.isFinite(seconds) &&
+        seconds >= 0
+      )
+        position.current = seconds;
+    },
     toggle: () =>
       setSession((value) => value && { ...value, playing: !value.playing }),
     pause: () =>
       setSession((value) =>
         value?.playing ? { ...value, playing: false } : value,
       ),
+    shuffle: () =>
+      session && queue.data
+        ? update(async (signal) => {
+            await reportCurrent();
+            signal.throwIfAborted();
+            return api.shuffle(session.queueID, !queue.data!.shuffled, signal);
+          })
+        : Promise.resolve(),
     add: (item: MediaItemData, next: boolean) =>
       session
-        ? perform(() =>
-            api.add(
+        ? update(async (signal) => {
+            await reportCurrent();
+            signal.throwIfAborted();
+            return api.add(
               session.queueID,
               {
                 kind: "library",
@@ -251,20 +357,36 @@ function useMusicController() {
                 )?.uuid,
               },
               next,
-            ),
-          )
+              signal,
+            );
+          })
         : play(item),
     loadWindow: (center: number) =>
       session
-        ? perform(() => api.get(session.queueID, center))
+        ? update((signal) => api.get(session.queueID, center, signal))
         : Promise.resolve(),
     remove: (entryID: number) =>
       session
-        ? perform(() => api.remove(session.queueID, entryID))
+        ? perform(async (signal) => {
+            if (entryID === session.entryID) {
+              await reportCurrent();
+              signal.throwIfAborted();
+            }
+            const result = await api.remove(session.queueID, entryID, signal);
+            await publish(result, signal);
+            if (!result.total) setSession(null);
+            else if (entryID === session.entryID) {
+              const next =
+                result.items.find(
+                  (item) => item.playQueueItemID === result.selected,
+                ) ?? result.items[0];
+              if (next) choose(result, next, session.playing);
+            }
+          })
         : Promise.resolve(),
     move: (entryID: number, after?: number) =>
       session
-        ? perform(() => api.move(session.queueID, entryID, after))
+        ? update((signal) => api.move(session.queueID, entryID, after, signal))
         : Promise.resolve(),
   };
 }

@@ -64,6 +64,16 @@ identity and a profile-scoped Query resource for Plex's native queue; queue entr
 IDs distinguish repeated songs. Its persistent controls reuse the shared
 native/Shaka player, with original audio and one Plex conversion after a format
 failure. Its source model owns cancellation, late responses and session cleanup.
+Repeat uses the shared player's native loop or Plex's queue reset; queue mutations
+share one cancellation owner and read a fresh bounded window after acknowledgement.
+Song-end events wait for edits before advancing. Shuffle first reports the current
+entry to Plex and preserves its playback source. A browser checkpoint scoped by
+server/profile stores only selection IDs, position, repeat and volume. Restoration
+validates the native queue and resumes paused; it does not persist queue contents
+or credentials.
+Plex's [native shuffle API](https://developer.plex.tv/pms/#tag/Play-Queue/operation/playQueueQueuePutItemsShuffle)
+does not support queues with an Up Next area; a rejected change leaves playback
+intact and suggests starting a shuffled album/playlist selection.
 Audio conversions and video share `shared/api/plexPlayback`: decision validation,
 identical preparation/start parameters and captured credentials for session control.
 `features/photos` keeps preview identity in the URL and reads nearby catalog

@@ -17,6 +17,9 @@ import {
   PauseRounded,
   PlayArrowRounded,
   QueueMusicRounded,
+  RepeatRounded,
+  RepeatOneRounded,
+  ShuffleRounded,
   SkipNextRounded,
   SkipPreviousRounded,
   VolumeUpRounded,
@@ -38,9 +41,10 @@ export function MusicPlayer() {
     player,
     source,
     position,
-    setPosition,
+    seek: seekTo,
     startTime,
     onProgress,
+    onEnded,
     onError,
   } = useMusicPlayback();
   const entry = music.session?.entryID;
@@ -56,11 +60,18 @@ export function MusicPlayer() {
       sx={{ alignItems: "center", justifyContent: "center" }}
     >
       <IconButton
+        aria-label="Shuffle music queue"
+        aria-pressed={music.queue?.shuffled ?? false}
+        color={music.queue?.shuffled ? "primary" : "default"}
+        disabled={music.busy || !music.queue || music.queue.total < 2}
+        onClick={() => void music.shuffle()}
+      >
+        <ShuffleRounded />
+      </IconButton>
+      <IconButton
         aria-label="Previous track"
         disabled={music.busy}
-        onClick={() =>
-          position > 3 ? player.current?.seekTo(0) : void music.step(-1)
-        }
+        onClick={() => (position > 3 ? seekTo(0) : void music.step(-1))}
       >
         <SkipPreviousRounded />
       </IconButton>
@@ -83,6 +94,22 @@ export function MusicPlayer() {
       >
         <SkipNextRounded />
       </IconButton>
+      <IconButton
+        aria-label={`Repeat music: ${music.repeat === "off" ? "off" : music.repeat === "all" ? "queue" : "one track"}`}
+        aria-pressed={music.repeat !== "off"}
+        color={music.repeat !== "off" ? "primary" : "default"}
+        onClick={() =>
+          music.setRepeat(
+            music.repeat === "off"
+              ? "all"
+              : music.repeat === "all"
+                ? "one"
+                : "off",
+          )
+        }
+      >
+        {music.repeat === "one" ? <RepeatOneRounded /> : <RepeatRounded />}
+      </IconButton>
     </Stack>
   );
   const seek = (
@@ -98,8 +125,7 @@ export function MusicPlayer() {
         value={Math.min(position, duration)}
         onChange={(_, value) => {
           const seconds = value as number;
-          setPosition(seconds);
-          player.current?.seekTo(seconds);
+          seekTo(seconds);
         }}
       />
       <Typography variant="caption">
@@ -132,11 +158,15 @@ export function MusicPlayer() {
               ref={player}
               source={source}
               playing={music.session.playing}
+              loop={
+                music.repeat === "one" ||
+                (music.repeat === "all" && music.queue?.total === 1)
+              }
               volume={music.volume}
               startTime={startTime}
               onPlayRejected={music.pause}
               onProgress={onProgress}
-              onEnded={() => void music.step(1)}
+              onEnded={onEnded}
               onError={onError}
             />
           </Box>
@@ -165,7 +195,7 @@ export function MusicPlayer() {
                     display: "grid",
                     gridTemplateColumns: {
                       xs: "minmax(0,1fr) auto auto",
-                      sm: "minmax(0,1fr) minmax(180px,1fr) minmax(0,1fr)",
+                      sm: "minmax(0,1fr) minmax(240px,1fr) minmax(0,1fr)",
                     },
                     gap: 1,
                     alignItems: "center",
