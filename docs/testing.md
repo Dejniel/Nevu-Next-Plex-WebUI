@@ -35,8 +35,10 @@ needed by the scenario. Open Nevu at `http://localhost:3101` and sign in.
 
 For music/photo libraries, check artist → album → tracks, disc order, playback
 during navigation, queue add/remove/reorder and repeated songs. Include native
-audio and a format requiring Plex conversion. Check nested photo albums, mixed
-photo/video albums, date sorting, arrows/swipes, zoom/pan, slideshow and return
+audio and a format requiring Plex conversion. Verify HLS and DASH audio decisions,
+relative session segments, seeking and cancellation while switching tracks/profiles.
+Check nested photo albums, mixed photo/video albums, date sorting, arrows/swipes,
+zoom/pan, slideshow and return
 to the same gallery position. Queue/profile lifecycle and request contracts also
 have mocked tests; browser playback with synthetic audio does not verify PMS
 conversion or device codec support.

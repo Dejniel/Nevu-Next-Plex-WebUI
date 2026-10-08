@@ -1,4 +1,4 @@
-import { audioSource, musicAPI, readMusicQueue } from "./music";
+import { musicAPI, readMusicQueue } from "./music";
 const transport = vi.hoisted(() => ({
   post: vi.fn(),
   get: vi.fn(),
@@ -72,19 +72,4 @@ it("uses entry IDs for removal and ordering and native next semantics", async ()
   expect(transport.put.mock.calls[0][0]).toContain("next=1");
   expect(transport.put.mock.calls[1][0]).toContain("/items/101/move?after=100");
   expect(transport.delete.mock.calls[0][0]).toContain("/items/101");
-});
-it("retains captured authentication for originals and negotiates an audio-only Plex fallback", () => {
-  const context = { "X-Plex-Token": "captured" };
-  const original = audioSource(entry, context, false);
-  expect(original.type).toBe("file");
-  expect(original.url).toContain("/library/parts/12/file.flac");
-  expect(
-    new URL(original.url, "http://test").searchParams.get("X-Plex-Token"),
-  ).toBe("captured");
-  const fallback = audioSource(entry, context, true);
-  expect(fallback.type).toBe("hls");
-  expect(fallback.url).toContain("/audio/:/transcode/universal/start.m3u8");
-  expect(
-    new URL(fallback.url, "http://test").searchParams.get("directStreamAudio"),
-  ).toBe("0");
 });

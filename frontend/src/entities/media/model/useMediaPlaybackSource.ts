@@ -7,7 +7,8 @@ import {
   useAuthSession,
 } from "features/session/model";
 import { prepareMediaPlayback, releaseMediaPlayback } from "../api/mediaPlayback";
-import { planMediaPlayback, playbackPlanKey, PlexPlaybackRefusal } from "./mediaPlayback";
+import { planMediaPlayback, playbackPlanKey } from "./mediaPlayback";
+import { PlexPlaybackRefusal } from "shared/api/plexPlayback";
 import type { MediaPlaybackQuality, PlexPlaybackSource } from "./mediaPlayback";
 import { getMediaVersions } from "./mediaVersions";
 import type { MediaVersion } from "./mediaVersions";

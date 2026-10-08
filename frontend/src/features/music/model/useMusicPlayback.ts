@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import type {
   VideoPlaybackFailure,
@@ -6,8 +6,8 @@ import type {
   VideoProgress,
 } from "shared/lib/video/types";
 import { getTranscodeImageURL, mediaArtworkPath } from "entities/media/model";
-import { audioSource, releaseAudioSource, pingAudioSource } from "../api/music";
 import { useMusic } from "./MusicProvider";
+import { useAudioPlaybackSource } from "./useAudioPlaybackSource";
 
 /** One playback attempt owns its source, reporting and browser media controls. */
 export function useMusicPlayback() {
@@ -15,72 +15,28 @@ export function useMusicPlayback() {
   const location = useLocation();
   const player = useRef<VideoPlayerHandle | null>(null);
   const [position, setPosition] = useState(0);
-  const [attempt, setAttempt] = useState<{
-    entry: number;
-    position: number;
-  } | null>(null);
-  const entry = music.session?.entryID;
-  const converted = attempt?.entry === entry;
-  const prepared = useMemo(() => {
-    if (!music.track) return { source: null, error: null };
-    try {
-      return {
-        source: audioSource(music.track, music.context, converted),
-        error: null,
-      };
-    } catch (error) {
-      return {
-        source: null,
-        error:
-          error instanceof Error
-            ? error.message
-            : "This track could not be loaded.",
-      };
-    }
-    // Source owns its credentials; player events do not recreate it.
-    // oxlint-disable-next-line react/exhaustive-deps
-  }, [music.track?.ratingKey, music.track?.Media, entry, converted]);
-  const source = prepared.source;
+  const playbackID = music.session ? `${music.session.queueID}/${music.session.entryID}` : null;
+  const playback = useAudioPlaybackSource(music.track, music.context, playbackID);
+  const { source } = playback;
   const musicRef = useRef(music);
   musicRef.current = music;
   useEffect(() => {
-    if (prepared.error) {
+    if (playback.error) {
       musicRef.current.pause();
-      musicRef.current.setError(prepared.error);
+      musicRef.current.setError(playback.error);
     }
-  }, [prepared.error]);
+  }, [playback.error]);
   const track = music.track;
-  const progressRef = useRef({ entry, time: 0, duration: 0 });
-  if (progressRef.current.entry !== entry)
-    progressRef.current = { entry, time: 0, duration: 0 };
-  const stateRef = useRef({ music, source });
-  stateRef.current = { music, source };
+  const progressRef = useRef({ playbackID, time: 0, duration: 0 });
+  if (progressRef.current.playbackID !== playbackID)
+    progressRef.current = { playbackID, time: 0, duration: 0 };
   useEffect(() => {
     if (location.pathname.startsWith("/watch/")) music.pause();
     // oxlint-disable-next-line react/exhaustive-deps
   }, [location.pathname]);
   useEffect(() => {
     setPosition(0);
-  }, [entry]);
-  useEffect(() => {
-    if (!source) return;
-    let pending = false;
-    const timer = window.setInterval(async () => {
-      if (pending) return;
-      pending = true;
-      try {
-        await pingAudioSource(source);
-      } catch {
-        /* Retain local playback after a reporting failure. */
-      } finally {
-        pending = false;
-      }
-    }, 10000);
-    return () => {
-      window.clearInterval(timer);
-      void releaseAudioSource(source);
-    };
-  }, [source]);
+  }, [playbackID]);
   useEffect(() => {
     const session = music.session;
     if (!track || !session) return;
@@ -90,7 +46,7 @@ export function useMusicPlayback() {
       if (pending) return;
       pending = true;
       try {
-        const current = stateRef.current.music;
+        const current = musicRef.current;
         await music.api.timeline(
           { ...track, playQueueItemID: session.entryID },
           session.queueID,
@@ -110,7 +66,7 @@ export function useMusicPlayback() {
       void report(true);
     };
     // oxlint-disable-next-line react/exhaustive-deps
-  }, [entry, track?.ratingKey]);
+  }, [playbackID, track?.ratingKey]);
   useEffect(() => {
     if (!track || !navigator.mediaSession) return;
     const session = navigator.mediaSession;
@@ -127,12 +83,12 @@ export function useMusicPlayback() {
       Record<MediaSessionAction, MediaSessionActionHandler>
     > = {
       play: () => {
-        if (!stateRef.current.music.session?.playing)
-          stateRef.current.music.toggle();
+        if (!musicRef.current.session?.playing)
+          musicRef.current.toggle();
       },
-      pause: () => stateRef.current.music.pause(),
-      nexttrack: () => void stateRef.current.music.step(1),
-      previoustrack: () => void stateRef.current.music.step(-1),
+      pause: () => musicRef.current.pause(),
+      nexttrack: () => void musicRef.current.step(1),
+      previoustrack: () => void musicRef.current.step(-1),
       seekto: (event) => {
         if (event.seekTime !== undefined)
           player.current?.seekTo(event.seekTime);
@@ -168,20 +124,14 @@ export function useMusicPlayback() {
     source,
     position,
     setPosition,
-    startTime: converted ? attempt?.position : 0,
+    startTime: playback.startTime,
     onProgress: (progress: VideoProgress) => {
       progressRef.current.time = progress.playedSeconds;
       progressRef.current.duration = player.current?.getDuration() ?? 0;
       setPosition(progress.playedSeconds);
     },
     onError: (failure: VideoPlaybackFailure) => {
-      if (failure.sourceId !== source?.id) return;
-      if (!converted && ["media", "unsupported"].includes(failure.kind))
-        setAttempt({ entry: entry!, position: failure.position ?? position });
-      else {
-        music.pause();
-        music.setError(failure.message);
-      }
+      playback.reportError({ ...failure, position: failure.position ?? position });
     },
   };
 }

@@ -29,9 +29,10 @@ interface MusicSession {
 function useMusicController() {
   const scope = useActiveServerScope();
   const libraries = useLibraries();
+  const context = useMemo(() => getXPlexProps(), []);
   const api = useMemo(
-    () => musicAPI(getXPlexProps(), scope.serverId),
-    [scope.serverId],
+    () => musicAPI(context, scope.serverId),
+    [context, scope.serverId],
   );
   const [session, setSession] = useState<MusicSession | null>(null);
   const [busy, setBusy] = useState(false);
@@ -197,7 +198,7 @@ function useMusicController() {
     track,
     queue: queue.data,
     api,
-    context: getXPlexProps(),
+    context,
     volume,
     setVolume,
     busy,

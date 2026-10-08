@@ -8,21 +8,23 @@ const mocks = vi.hoisted(() => ({
   release: vi.fn(),
   source: vi.fn(),
   timeline: vi.fn(),
+  context: {},
+  track: { ratingKey: "10", type: "track", title: "Track", duration: 60000 },
 }));
 vi.mock("./MusicProvider", () => ({
   useMusic: () => ({
     session: { entryID: 100, queueID: 1, playing: true },
-    track: { ratingKey: "10", type: "track", title: "Track", duration: 60000 },
-    context: {},
+    track: mocks.track,
+    context: mocks.context,
     pause: mocks.pause,
     setError: mocks.error,
     api: { timeline: mocks.timeline },
   }),
 }));
-vi.mock("../api/music", () => ({
-  audioSource: mocks.source,
-  releaseAudioSource: mocks.release,
-  pingAudioSource: vi.fn(),
+vi.mock("../api/musicPlayback", () => ({
+  prepareAudioPlayback: mocks.source,
+  releaseAudioPlayback: mocks.release,
+  pingAudioPlayback: vi.fn(),
 }));
 let root: Root, runtime: ReturnType<typeof useMusicPlayback>;
 function Probe() {
@@ -33,12 +35,13 @@ beforeEach(async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   mocks.pause.mockClear();
   mocks.error.mockClear();
-  mocks.release.mockClear();
+  mocks.release.mockReset();
+  mocks.release.mockResolvedValue(undefined);
   mocks.source.mockClear();
-  mocks.source.mockImplementation((_item, _context, converted) => ({
+  mocks.source.mockImplementation(async (_item, _context, converted) => ({
     id: converted ? "converted" : "original",
     type: converted ? "dash" : "file",
-    context: {},
+    requestContext: {},
     url: "/test",
   }));
   root = createRoot(document.createElement("div"));
@@ -67,6 +70,7 @@ it("uses one Plex conversion after a decoder failure and retains the position", 
   expect(runtime.startTime).toBe(47);
   expect(mocks.release).toHaveBeenCalledWith(
     expect.objectContaining({ id: "original" }),
+    false,
   );
   await act(async () =>
     runtime.onError({ sourceId: "original", kind: "media", message: "Old" }),
@@ -91,11 +95,12 @@ it("reports an access or network failure without requesting conversion", async (
       httpStatus: 403,
     }),
   );
-  expect(runtime.source?.id).toBe("original");
+  expect(runtime.source).toBeNull();
   expect(mocks.error).toHaveBeenCalledWith("Forbidden");
 });
 
 it("keeps supported OS controls when the browser rejects an optional action", async () => {
+  await act(async () => root.render(null));
   const setActionHandler = vi.fn((action, handler) => {
     if (action === "seekto" && handler)
       throw new DOMException("Unsupported action", "NotSupportedError");

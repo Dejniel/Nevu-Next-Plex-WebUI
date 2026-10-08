@@ -1,4 +1,5 @@
-import { planMediaPlayback, playbackDecisionPlan, playbackProfile, PlexPlaybackRefusal } from "./mediaPlayback";
+import { planMediaPlayback, playbackDecisionPlan, playbackProfile } from "./mediaPlayback";
+import { PlexPlaybackRefusal } from "shared/api/plexPlayback";
 import type { MediaVersion } from "./mediaVersions";
 import type { VideoCapabilityProbe } from "shared/lib/video/capabilities";
 

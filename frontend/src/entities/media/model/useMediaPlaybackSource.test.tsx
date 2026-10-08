@@ -2,7 +2,8 @@ import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { prepareMediaPlayback, releaseMediaPlayback } from "../api/mediaPlayback";
-import { planMediaPlayback, PlexPlaybackRefusal } from "./mediaPlayback";
+import { planMediaPlayback } from "./mediaPlayback";
+import { PlexPlaybackRefusal } from "shared/api/plexPlayback";
 import { PlexRequestError } from "shared/api/PlexClient";
 import type {
   PlexPlaybackPlan,

@@ -1,5 +1,6 @@
 import type { MediaVersion } from "./mediaVersions";
-import type { VideoSource } from "shared/lib/video/types";
+import { playbackDecisionStreams } from "shared/api/plexPlayback";
+import type { PlexPlaybackDecision, PlexStreamSource } from "shared/api/plexPlayback";
 import { browserVideoCapabilities, canDecodeVideo } from "shared/lib/video/capabilities";
 import type {
   VideoCapabilityProbe,
@@ -9,13 +10,6 @@ import type {
 
 export interface MediaPlaybackQuality {
   bitrate?: number;
-}
-
-export class PlexPlaybackRefusal extends Error {
-  constructor(message: string, readonly conversionDenied: boolean) {
-    super(message);
-    this.name = "PlexPlaybackRefusal";
-  }
 }
 
 export interface PlexPlaybackPlan {
@@ -28,40 +22,8 @@ export interface PlexPlaybackPlan {
   subtitle?: Plex.Stream;
 }
 
-export interface PlexPlaybackSource extends VideoSource {
-  type: PlexPlaybackPlan["protocol"];
+export interface PlexPlaybackSource extends PlexStreamSource {
   subtitleSessionID?: string;
-  requestContext: Record<string, unknown>;
-}
-
-export interface PlexPlaybackDecision {
-  MediaContainer: {
-    generalDecisionCode?: number;
-    generalDecisionText?: string;
-    directPlayDecisionCode?: number;
-    directPlayDecisionText?: string;
-    transcodeDecisionCode?: number;
-    transcodeDecisionText?: string;
-    mdeDecisionCode?: number;
-    mdeDecisionText?: string;
-    Metadata?: Array<{
-      Media?: Array<{
-        selected?: boolean;
-        protocol?: string;
-        Part?: Array<{
-          selected?: boolean;
-          decision?: string;
-          Stream?: Array<{
-            streamType: number;
-            decision?: string;
-            selected?: boolean;
-            key?: string;
-            codec?: string;
-          }>;
-        }>;
-      }>;
-    }>;
-  };
 }
 
 function videoCodecString(stream: Plex.Stream | undefined, codec: string) {
@@ -205,29 +167,7 @@ export function playbackDecisionPlan(
   decision: PlexPlaybackDecision,
   plan: PlexPlaybackPlan,
 ): PlexPlaybackPlan {
-  const container = decision?.MediaContainer;
-  if (!container) throw new Error("Plex did not return a playback decision.");
-  const code = container.generalDecisionCode ?? container.mdeDecisionCode;
-  if (!code || !Number.isFinite(code) || code < 1000)
-    throw new Error("Plex did not return a playback decision.");
-  if (code >= 2000)
-    throw new PlexPlaybackRefusal(
-      [
-        container.generalDecisionText ?? container.mdeDecisionText,
-        container.transcodeDecisionCode && container.transcodeDecisionCode >= 2000
-          ? container.transcodeDecisionText
-          : undefined,
-      ]
-        .filter((text, index, values) => text && values.indexOf(text) === index)
-        .join(" ") || "Plex could not prepare this media for playback.",
-      (container.transcodeDecisionCode ?? 0) >= 2000,
-    );
-  const versions = container.Metadata?.[0]?.Media ?? [];
-  const media = versions.find((media) => media.selected) ?? versions[0];
-  const part = media?.Part?.find((part) => part.selected) ?? media?.Part?.[0];
-  if (part?.decision === "directplay" || code === 1000)
-    throw new Error("Plex did not prepare the requested segmented stream.");
-  const streams = part?.Stream ?? [];
+  const streams = playbackDecisionStreams(decision, plan.protocol);
   const video = streams.find((stream) => stream.streamType === 1);
   const audio =
     streams.find((stream) => stream.streamType === 2 && stream.selected) ??
@@ -239,7 +179,6 @@ export function playbackDecisionPlan(
   if (!video || (video.decision !== "copy" && video.decision !== "transcode"))
     throw new Error("Plex did not prepare a video track for playback.");
   if (
-    (media?.protocol && media.protocol !== plan.protocol) ||
     (video?.codec && video.codec !== plan.videoCodec) ||
     (audio?.codec && audio.codec !== plan.audioCodec)
   )

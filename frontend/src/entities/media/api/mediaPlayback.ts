@@ -1,12 +1,16 @@
 import { PlexClient, PlexRequestError } from "shared/api/PlexClient";
-import { getBackendURL } from "shared/api/backend";
+import {
+  preparePlexPlayback,
+  plexMediaURL,
+  releasePlexSessions,
+  pingPlexSession,
+} from "shared/api/plexPlayback";
 import { queryBuilder } from "shared/lib/query";
 import { uuidV4 } from "shared/lib/identifiers";
 import type { MediaVersion } from "../model/mediaVersions";
 import { playbackProfile, playbackDecisionPlan } from "../model/mediaPlayback";
 import type {
   MediaPlaybackQuality,
-  PlexPlaybackDecision,
   PlexPlaybackPlan,
   PlexPlaybackSource,
 } from "../model/mediaPlayback";
@@ -18,16 +22,10 @@ function playbackRequestParams(
   version: MediaVersion,
   plan: PlexPlaybackPlan,
   quality: MediaPlaybackQuality,
-  sessionID: string,
-  requestContext: Record<string, unknown>,
 ) {
   return {
-    ...requestContext,
     "X-Plex-Client-Profile-Name": "Generic",
     "X-Plex-Client-Profile-Extra": playbackProfile(plan),
-    "X-Plex-Session-Identifier": sessionID,
-    "X-Plex-Incomplete-Segments": 1,
-    session: sessionID,
     path: `/library/metadata/${metadata.ratingKey}`,
     mediaIndex: version.mediaIndex,
     partIndex: version.partIndex,
@@ -53,11 +51,6 @@ function playbackClient(context: Record<string, unknown>) {
   return new PlexClient(() => String(context["X-Plex-Token"] ?? ""));
 }
 
-function proxyMediaURL(path: string, params: Record<string, unknown>) {
-  const parsed = new URL(path, "http://plex.local");
-  return `${getBackendURL()}/dynproxy${parsed.pathname}?${queryBuilder({ ...Object.fromEntries(parsed.searchParams), ...params })}`;
-}
-
 export async function prepareMediaPlayback(
   metadata: Plex.Metadata,
   version: MediaVersion,
@@ -67,49 +60,24 @@ export async function prepareMediaPlayback(
   signal: AbortSignal,
 ): Promise<{ source: PlexPlaybackSource; plan: PlexPlaybackPlan }> {
   if (!version?.part.key) throw new Error("No playable media file is available.");
-  signal.throwIfAborted();
-  const sessionID = uuidV4();
-  const params = playbackRequestParams(
-    metadata,
-    version,
-    requestedPlan,
-    quality,
-    sessionID,
+  const prepared = await preparePlexPlayback(
+    "video",
+    playbackRequestParams(metadata, version, requestedPlan, quality),
     requestContext,
+    signal,
+    (decision) => playbackDecisionPlan(decision, requestedPlan),
   );
-  try {
-    const decision = await playbackClient(requestContext).get<PlexPlaybackDecision>(
-      `/video/:/transcode/universal/decision?${queryBuilder(params)}`,
-      signal,
-    );
-    signal.throwIfAborted();
-    const plan = playbackDecisionPlan(decision, requestedPlan);
-    const source: PlexPlaybackSource = {
-      id: sessionID,
-      requestContext,
-      type: plan.protocol,
-      url: proxyMediaURL(
-        `/video/:/transcode/universal/start.${plan.protocol === "hls" ? "m3u8" : "mpd"}`,
-        params,
-      ),
-      stripSegmentInitialization: plan.protocol === "dash",
-      // Copied fragments can begin between keyframes. Fetch preceding media on
-      // a seek so the decoder can reach the requested position without a gap jump.
-      seekPreRoll:
-        plan.protocol === "dash" && plan.copyVideo
-          ? 2 * DASH_SEGMENT_SECONDS
-          : undefined,
-    };
-    if (plan.subtitle && plan.subtitles === "sidecar") {
-      source.subtitleSessionID = uuidV4();
-      source.loadTextTracks = (signal) =>
-        loadSubtitleTracks(metadata, version, plan, source, signal);
-    }
-    return { source, plan };
-  } catch (reason) {
-    await stopSessions(requestContext, [sessionID]);
-    throw reason;
+  const { plan } = prepared;
+  const source: PlexPlaybackSource = {
+    ...prepared.source,
+    // Copied fragments can begin between keyframes. Read preceding media on seek.
+    seekPreRoll: plan.protocol === "dash" && plan.copyVideo ? 2 * DASH_SEGMENT_SECONDS : undefined,
+  };
+  if (plan.subtitle && plan.subtitles === "sidecar") {
+    source.subtitleSessionID = uuidV4();
+    source.loadTextTracks = (signal) => loadSubtitleTracks(metadata, version, plan, source, signal);
   }
+  return { source, plan };
 }
 
 async function loadSubtitleTracks(
@@ -154,7 +122,7 @@ async function loadSubtitleTracks(
   return {
     tracks: [
       {
-        url: proxyMediaURL("/subtitles/:/transcode/universal/start", {
+        url: plexMediaURL("/subtitles/:/transcode/universal/start", {
           ...params,
           directPlay: 0,
           format: "webvtt",
@@ -167,51 +135,16 @@ async function loadSubtitleTracks(
   };
 }
 
-function sessionURL(
-  requestContext: Record<string, unknown>,
-  sessionID: string,
-  action: "stop" | "ping",
-) {
-  return proxyMediaURL(`/video/:/transcode/universal/${action}`, {
-    ...requestContext,
-    "X-Plex-Session-Identifier": sessionID,
-    session: sessionID,
-  });
-}
-
 export async function releaseMediaPlayback(source: PlexPlaybackSource | null, keepalive = false) {
   if (!source) return;
-  await stopSessions(
+  await releasePlexSessions(
+    "video",
     source.requestContext,
     [source.id, source.subtitleSessionID].filter((id): id is string => Boolean(id)),
     keepalive,
   );
 }
 
-async function stopSessions(
-  requestContext: Record<string, unknown>,
-  sessions: string[],
-  keepalive = false,
-) {
-  await Promise.all(
-    sessions.map(async (sessionID) => {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 3000);
-      try {
-        await fetch(sessionURL(requestContext, sessionID, "stop"), {
-          keepalive,
-          signal: controller.signal,
-        });
-      } catch {
-        // Plex also expires sessions when a disconnected client cannot send stop.
-      } finally {
-        clearTimeout(timeout);
-      }
-    }),
-  );
-}
-
 export async function pingMediaPlayback(source: PlexPlaybackSource) {
-  const response = await fetch(sessionURL(source.requestContext, source.id, "ping"));
-  if (!response.ok) throw new Error("Plex could not keep the playback session alive.");
+  await pingPlexSession("video", source);
 }
