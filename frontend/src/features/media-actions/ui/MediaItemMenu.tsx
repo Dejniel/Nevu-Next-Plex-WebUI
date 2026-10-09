@@ -36,6 +36,7 @@ import { useLazyMediaMetadata } from "../model/useLazyMediaMetadata";
 import { openMetadataDialog } from "../model/metadataDialog";
 import MediaRatingButton from "./MediaRatingButton";
 import { renderOriginalDownloadMenuItems } from "./OriginalDownloadMenuItems";
+import { renderMetadataMatchingMenuItems } from "./MetadataMatchingMenuItems";
 
 interface Props {
   item: MediaItemData;
@@ -60,15 +61,15 @@ function ItemMenu({ item, onOpen, renderMenuItems }: Props) {
     (state) => state.server?.allowSync === true,
   );
   const canManageServer = useCanManageServer();
-  const capabilities = getMediaActionCapabilities(item, {
+  const metadata = useLazyMediaMetadata(item);
+  const data = metadata.data;
+  const capabilities = getMediaActionCapabilities(data ?? item, {
     localItem: true,
     canManageServer,
     allowDownloads,
   });
-  const metadata = useLazyMediaMetadata(item);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const rating = useRef<{ open: (anchor: HTMLElement) => void }>(null);
-  const data = metadata.data;
   const needsMetadata = capabilities.canEditMetadata || capabilities.canRate || capabilities.canDownload;
   const downloads = data
     ? getOriginalDownloads(data, capabilities.canDownload)
@@ -115,6 +116,7 @@ function ItemMenu({ item, onOpen, renderMenuItems }: Props) {
             <ListItemText>Edit metadata…</ListItemText>
           </MenuItem>
         )}
+        {renderMetadataMatchingMenuItems({ item: data ?? item, capabilities, onClose: close })}
         {capabilities.canEditMetadata && <Divider />}
         {renderMenuItems?.(close)}
         {renderMenuItems &&

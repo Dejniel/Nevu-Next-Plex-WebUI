@@ -1,10 +1,8 @@
 import {
-  AutoFixHighRounded,
   CheckCircleOutlineRounded,
   CheckCircleRounded,
   EditRounded,
   InfoOutlined,
-  LinkOffRounded,
   PlayArrowRounded,
   RecommendRounded,
 } from "@mui/icons-material";
@@ -29,7 +27,7 @@ import { libraryBrowseTo } from "shared/lib/navigation";
 import type { AppLocation } from "shared/lib/navigation";
 import type { OriginalDownload } from "../model/downloads";
 import { renderOriginalDownloadMenuItems } from "./OriginalDownloadMenuItems";
-import { matchActionLabel } from "../model/matching";
+import { renderMetadataMatchingMenuItems } from "./MetadataMatchingMenuItems";
 import type { MediaActionCapabilities } from "../model/mediaActionCapabilities";
 
 export interface MediaMenuAnchor {
@@ -48,10 +46,8 @@ export default function MediaActionsMenu({
   onClose,
   onAddToList,
   onEditMetadata,
-  onMatch,
   onPlay,
   onSetWatched,
-  onUnmatch,
   canPlay = true,
   extraItems,
 }: {
@@ -65,10 +61,8 @@ export default function MediaActionsMenu({
   onClose: () => void;
   onAddToList: (kind: MediaListKind) => void;
   onEditMetadata: () => void;
-  onMatch: () => void;
   onPlay: () => void;
   onSetWatched: (watched: boolean) => void;
-  onUnmatch: () => void;
   canPlay?: boolean;
   extraItems?: React.ReactNode;
 }) {
@@ -164,29 +158,7 @@ export default function MediaActionsMenu({
         </MenuItem>
       )}
 
-      {capabilities.canMatch && (
-        <MenuItem
-          onClick={() => {
-            onClose();
-            onMatch();
-          }}
-        >
-          <ListItemIcon><AutoFixHighRounded fontSize="small" /></ListItemIcon>
-          <ListItemText>{matchActionLabel(item)}…</ListItemText>
-        </MenuItem>
-      )}
-
-      {capabilities.canUnmatch && (
-        <MenuItem
-          onClick={() => {
-            onClose();
-            onUnmatch();
-          }}
-        >
-          <ListItemIcon><LinkOffRounded fontSize="small" /></ListItemIcon>
-          <ListItemText>Unmatch</ListItemText>
-        </MenuItem>
-      )}
+      {renderMetadataMatchingMenuItems({ item, capabilities, onClose })}
 
       <MenuItem component={Link} to={detailsTarget} onClick={onClose}>
         <ListItemIcon><InfoOutlined fontSize="small" /></ListItemIcon>

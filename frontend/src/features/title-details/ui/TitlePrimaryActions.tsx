@@ -32,6 +32,7 @@ import {
   MediaRatingButton,
   resolvePlaybackTarget,
   type MediaActionCapabilities,
+  renderMetadataMatchingMenuItems,
 } from "features/media-actions/public";
 import {
   HeroWatchlistButton,
@@ -116,7 +117,7 @@ export default function TitlePrimaryActions({
   const downloadMenuRef = useRef<{ open: (anchor: HTMLElement) => void }>(null);
   const ratingMenuRef = useRef<{ open: (anchor: HTMLElement) => void }>(null);
   const hasMenuActions =
-    capabilities.canAddToPlaylist || capabilities.canAddToCollection;
+    capabilities.canAddToPlaylist || capabilities.canAddToCollection || capabilities.canUnmatch;
   const { toolbarRef, overflow } = useTitleActionOverflow(hasMenuActions);
   const hidden = (id: TitleActionID) => overflow.includes(id);
   const downloads = getOriginalDownloads(data, capabilities.canDownload);
@@ -386,6 +387,7 @@ export default function TitlePrimaryActions({
           </MenuItem>
         )}
         {overflow.length > 0 && hasMenuActions && <Divider />}
+        {renderMetadataMatchingMenuItems({ item: data, capabilities, onClose: () => setMenuAnchor(null), showMatch: false })}
         {renderMediaListMenuItems({
           capabilities,
           onSelect: (kind) => {

@@ -1,6 +1,6 @@
 import type { MediaItemData } from "entities/media/model";
 import { isVideoLibraryItemType } from "@nevu/contracts";
-import { isMatchedMetadata } from "./matching";
+import { isMatchedMetadata, metadataMatchType } from "./matching";
 import { supportsMetadataEditing } from "./metadataEditing";
 import {
   getMediaListCapabilities,
@@ -29,7 +29,7 @@ export function getMediaActionCapabilities(
 ): MediaActionCapabilities {
   const video = isVideoLibraryItemType(item.type);
   const canEditMetadata = localItem && /^\d+$/.test(item.ratingKey) && canManageServer && supportsMetadataEditing(item.type);
-  const canMatch = canEditMetadata && ["movie", "show"].includes(item.type);
+  const canMatch = canEditMetadata && metadataMatchType(item.type) !== undefined;
   const similarRatingKey =
     item.type === "episode" ? item.grandparentRatingKey : item.ratingKey;
 

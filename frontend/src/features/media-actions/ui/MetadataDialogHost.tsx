@@ -12,8 +12,9 @@ import {
   type MetadataSelection,
 } from "../model/metadataDialog";
 import EditMetadataDialog from "./EditMetadataDialog";
+import MatchMetadataDialog from "./MatchMetadataDialog";
 
-/** The editor outlives virtualized cards and responsive grid regrouping. */
+/** Metadata workflows outlive virtualized cards and responsive grid regrouping. */
 export function MetadataDialogHost() {
   const selection = useMetadataDialog((state) => state.selection);
   const scope = useActiveServerScope();
@@ -33,13 +34,45 @@ export function MetadataDialogHost() {
   }, [selection, current]);
   return current && selection ? (
     <OpenedMetadataDialog
-      key={`${selection.scope.serverId}:${selection.scope.profileKey}:${selection.revision}:${selection.data.ratingKey}`}
+      key={`${selection.kind}:${selection.scope.serverId}:${selection.scope.profileKey}:${selection.revision}:${selection.data.ratingKey}`}
       selection={selection}
     />
   ) : null;
 }
 
 function OpenedMetadataDialog({ selection }: { selection: MetadataSelection }) {
+  const onClose = () => {
+    if (useMetadataDialog.getState().selection === selection)
+      useMetadataDialog.setState({ selection: null });
+  };
+  const onSaved = () => {
+    if (useMetadataDialog.getState().selection === selection)
+      selection.onSaved?.();
+  };
+  return selection.kind === "match" ? (
+    <MatchMetadataDialog
+      item={selection.data}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  ) : (
+    <OpenedMetadataEditor
+      selection={selection}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  );
+}
+
+function OpenedMetadataEditor({
+  selection,
+  onClose,
+  onSaved,
+}: {
+  selection: Extract<MetadataSelection, { kind: "edit" }>;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const query = useQuery(
     mediaMetadataQueryOptions(selection.scope, selection.data.ratingKey),
     serverQueryClient,
@@ -48,14 +81,8 @@ function OpenedMetadataDialog({ selection }: { selection: MetadataSelection }) {
     <EditMetadataDialog
       data={query.data ?? selection.data}
       open
-      onClose={() => {
-        if (useMetadataDialog.getState().selection === selection)
-          useMetadataDialog.setState({ selection: null });
-      }}
-      onSaved={() => {
-        if (useMetadataDialog.getState().selection === selection)
-          selection.onSaved?.();
-      }}
+      onClose={onClose}
+      onSaved={onSaved}
     />
   );
 }

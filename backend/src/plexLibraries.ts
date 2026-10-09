@@ -88,7 +88,7 @@ export function createPlexLibrariesRouter({
             scanner,
             agent,
         });
-        input.locations.forEach((location) => params.append('locations', location));
+        input.locations.forEach((location) => params.append('location', location));
         Object.entries(prefs).forEach(([key, value]) => params.set(`prefs[${key}]`, value));
         return params;
     }
@@ -164,7 +164,7 @@ export function createPlexLibrariesRouter({
         params.set('type', String(preset.plexType));
         try {
             await axios.post(
-                `${plexServer}/library/sections/all?${params.toString()}`,
+                `${plexServer}/library/sections?${params.toString()}`,
                 undefined,
                 requestConfig(token),
             );

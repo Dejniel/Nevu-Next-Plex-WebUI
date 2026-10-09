@@ -11,17 +11,13 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { MovieOutlined } from "@mui/icons-material";
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { MovieOutlined, MusicNoteOutlined } from "@mui/icons-material";
 import type { MediaItemData } from "entities/media/model";
-import { PlexRequestError } from "features/session/model";
 import { AppDialog } from "shared/ui";
-import { applyMetadataMatch, searchMetadataMatches } from "../api/matching";
+import { useMetadataMatch } from "../model/useMetadataMatch";
 import {
   matchActionLabel,
   matchSourceLabel,
-  MetadataMatchCandidate,
-  MetadataMatchCriteria,
 } from "../model/matching";
 
 const languages = [
@@ -35,129 +31,41 @@ const languages = [
   ["it-IT", "Italian"],
 ] as const;
 
-function requestError(error: unknown, operation: "search" | "apply") {
-  if (error instanceof PlexRequestError) {
-    if (error.status === 401 || error.status === 403)
-      return "Matching metadata requires Plex server administrator access.";
-    if (error.status === 404)
-      return "This item no longer exists in the Plex library.";
-  }
-  return operation === "search"
-    ? "Plex could not search for metadata matches."
-    : "Plex could not apply the selected metadata match.";
-}
-
 export default function MatchMetadataDialog({
   item,
-  open,
   onClose,
-  onMatched,
+  onSaved,
 }: {
   item: MediaItemData;
-  open: boolean;
   onClose: () => void;
-  onMatched?: (candidate: MetadataMatchCandidate) => void | Promise<void>;
+  onSaved?: () => void;
 }) {
-  const initialTitle =
-    "originalTitle" in item && item.originalTitle
-      ? item.originalTitle
-      : item.title;
-  const initialCriteria = (): MetadataMatchCriteria => ({
-    title: initialTitle,
-    year: item.year || undefined,
-    language: "",
-  });
-  const [criteria, setCriteria] = useState(initialCriteria);
-  const [candidates, setCandidates] = useState<MetadataMatchCandidate[]>([]);
-  const [selectedGuid, setSelectedGuid] = useState<string | null>(null);
-  const [searching, setSearching] = useState(false);
-  const [applying, setApplying] = useState(false);
-  const [searched, setSearched] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const searchGeneration = useRef(0);
-
-  const search = useCallback(
-    async (nextCriteria: MetadataMatchCriteria) => {
-      const generation = ++searchGeneration.current;
-      setSearching(true);
-      setSearched(false);
-      setError(null);
-      try {
-        const results = await searchMetadataMatches(item.ratingKey, nextCriteria);
-        if (generation !== searchGeneration.current) return;
-        setCandidates(results);
-        setSelectedGuid(
-          results.find((candidate) => candidate.guid !== item.guid)?.guid ??
-            results[0]?.guid ??
-            null,
-        );
-        setSearched(true);
-      } catch (error) {
-        if (generation !== searchGeneration.current) return;
-        setCandidates([]);
-        setSelectedGuid(null);
-        setSearched(true);
-        setError(requestError(error, "search"));
-      } finally {
-        if (generation === searchGeneration.current) setSearching(false);
-      }
-    },
-    [item.guid, item.ratingKey],
-  );
-
-  useEffect(() => {
-    if (!open) {
-      searchGeneration.current += 1;
-      return;
-    }
-    const nextCriteria = initialCriteria();
-    setCriteria(nextCriteria);
-    setCandidates([]);
-    setSelectedGuid(null);
-    setError(null);
-    void search(nextCriteria);
-    // The dialog is reset for a new item or each explicit open.
-    // oxlint-disable-next-line react/exhaustive-deps
-  }, [open, item.ratingKey, search]);
-
-  const submitSearch = (event: FormEvent) => {
-    event.preventDefault();
-    const title = criteria.title.trim();
-    if (!title || searching || applying) return;
-    void search({ ...criteria, title });
-  };
-
-  const selected = candidates.find((candidate) => candidate.guid === selectedGuid);
-  const invalidYear =
-    criteria.year !== undefined &&
-    (!Number.isInteger(criteria.year) || criteria.year < 1870 || criteria.year > 2200);
-
-  const apply = async () => {
-    if (!selected || selected.guid === item.guid) return;
-    setApplying(true);
-    setError(null);
-    try {
-      await applyMetadataMatch(item.ratingKey, selected);
-      await onMatched?.(selected);
-      onClose();
-    } catch (error) {
-      setError(requestError(error, "apply"));
-    } finally {
-      setApplying(false);
-    }
-  };
+  const model = useMetadataMatch(item, onClose, onSaved);
+  const {
+    criteria,
+    setCriteria,
+    candidates,
+    selected,
+    searching,
+    applying,
+    searched,
+    error,
+    errors,
+  } = model;
+  const selectedGuid = selected?.guid;
+  const music = item.type === "artist" || item.type === "album";
 
   return (
     <AppDialog
-      open={open}
+      open
       title={`${matchActionLabel(item)}: ${item.title}`}
       onClose={onClose}
       busy={applying}
       actions={
         <Button
           variant="contained"
-          disabled={!selected || selected.guid === item.guid || applying}
-          onClick={apply}
+          disabled={!model.canApply}
+          onClick={() => void model.apply()}
           startIcon={applying ? <CircularProgress size={16} /> : undefined}
         >
           {matchActionLabel(item)}
@@ -167,13 +75,19 @@ export default function MatchMetadataDialog({
     >
       <Box
         component="form"
-        onSubmit={submitSearch}
+        onSubmit={(event) => {
+          event.preventDefault();
+          model.search();
+        }}
         sx={{
           display: "grid",
           gridTemplateColumns: {
             xs: "1fr",
-            sm: "minmax(0, 1fr) 120px",
-            md: "minmax(0, 1fr) 120px 170px auto",
+            sm: "minmax(0, 1fr) minmax(0, 1fr)",
+            md:
+              item.type === "artist"
+                ? "minmax(0, 1fr) minmax(0, 1fr) auto"
+                : "120px minmax(0, 1fr) minmax(0, 1fr) auto",
           },
           gap: 1.5,
           alignItems: "start",
@@ -184,28 +98,52 @@ export default function MatchMetadataDialog({
           autoFocus
           required
           size="small"
-          label="Title"
-          value={criteria.title}
-          disabled={searching || applying}
-          onChange={(event) =>
-            setCriteria((current) => ({ ...current, title: event.target.value }))
+          label={
+            item.type === "artist"
+              ? "Artist or ID"
+              : item.type === "album"
+                ? "Album or ID"
+                : "Title or ID"
           }
-        />
-        <TextField
-          size="small"
-          type="number"
-          label="Year"
-          value={criteria.year ?? ""}
-          error={invalidYear}
+          value={criteria.title}
+          error={Boolean(errors.title)}
+          helperText={
+            errors.title ||
+            (music
+              ? "MusicBrainz ID or link; albums use the release ID."
+              : item.type === "show"
+                ? "IMDb, TMDB or TVDB ID/link, e.g. tvdb-110381."
+                : "IMDb or TMDB ID/link, e.g. imdb-tt1217209.")
+          }
+          sx={{ gridColumn: "1 / -1" }}
           disabled={searching || applying}
           onChange={(event) =>
             setCriteria((current) => ({
               ...current,
-              year: event.target.value ? Number(event.target.value) : undefined,
+              title: event.target.value,
             }))
           }
-          slotProps={{ htmlInput: { min: 1870, max: 2200 } }}
         />
+        {item.type !== "artist" && (
+          <TextField
+            size="small"
+            type="number"
+            label="Year"
+            value={criteria.year ?? ""}
+            error={Boolean(errors.year)}
+            helperText={errors.year}
+            disabled={searching || applying || Boolean(model.identifier)}
+            onChange={(event) =>
+              setCriteria((current) => ({
+                ...current,
+                year: event.target.value
+                  ? Number(event.target.value)
+                  : undefined,
+              }))
+            }
+            slotProps={{ htmlInput: { min: 1870, max: 2200 } }}
+          />
+        )}
         <TextField
           select
           size="small"
@@ -213,7 +151,10 @@ export default function MatchMetadataDialog({
           value={criteria.language ?? ""}
           disabled={searching || applying}
           onChange={(event) =>
-            setCriteria((current) => ({ ...current, language: event.target.value }))
+            setCriteria((current) => ({
+              ...current,
+              language: event.target.value,
+            }))
           }
           slotProps={{
             inputLabel: { shrink: true },
@@ -221,27 +162,74 @@ export default function MatchMetadataDialog({
           }}
         >
           {languages.map(([value, label]) => (
-            <MenuItem key={value} value={value}>{label}</MenuItem>
+            <MenuItem key={value} value={value}>
+              {label}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          size="small"
+          label="Metadata agent"
+          value={criteria.agent ?? ""}
+          disabled={searching || applying || model.agentsLoading}
+          onChange={(event) =>
+            setCriteria((current) => ({
+              ...current,
+              agent: event.target.value,
+            }))
+          }
+          slotProps={{
+            inputLabel: { shrink: true },
+            select: { displayEmpty: true },
+          }}
+        >
+          <MenuItem value="">Library default</MenuItem>
+          {model.agents.map((agent) => (
+            <MenuItem key={agent.identifier} value={agent.identifier}>
+              {agent.name}
+            </MenuItem>
           ))}
         </TextField>
         <Button
           type="submit"
           variant="outlined"
-          disabled={!criteria.title.trim() || invalidYear || searching || applying}
+          disabled={
+            Boolean(Object.keys(errors).length) || searching || applying
+          }
           sx={{ minHeight: 40 }}
         >
           {searching ? <CircularProgress size={18} /> : "Search"}
         </Button>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {model.agentsError && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" onClick={model.retryAgents}>
+              Retry
+            </Button>
+          }
+        >
+          {model.agentsError}
+        </Alert>
+      )}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
       {searching && candidates.length === 0 ? (
         <Box sx={{ minHeight: 220, display: "grid", placeItems: "center" }}>
           <CircularProgress />
         </Box>
       ) : searched && candidates.length === 0 && !error ? (
-        <Alert severity="info">No matches found. Adjust the search criteria and try again.</Alert>
+        <Alert severity="info">
+          No matches found. Adjust the search criteria and try again.
+        </Alert>
       ) : (
         <List disablePadding sx={{ display: "grid", gap: 1 }}>
           {candidates.map((candidate) => {
@@ -251,7 +239,7 @@ export default function MatchMetadataDialog({
               <ListItemButton
                 key={candidate.guid}
                 selected={selectedCandidate}
-                onClick={() => setSelectedGuid(candidate.guid)}
+                onClick={() => model.select(candidate.guid)}
                 sx={{
                   display: "grid",
                   gridTemplateColumns: "auto 64px minmax(0, 1fr)",
@@ -266,7 +254,7 @@ export default function MatchMetadataDialog({
                 <Box
                   sx={{
                     width: 64,
-                    aspectRatio: "2 / 3",
+                    aspectRatio: music ? "1" : "2 / 3",
                     bgcolor: "background.default",
                     display: "grid",
                     placeItems: "center",
@@ -282,18 +270,35 @@ export default function MatchMetadataDialog({
                       loading="lazy"
                       sx={{ width: "100%", height: "100%", objectFit: "cover" }}
                     />
+                  ) : music ? (
+                    <MusicNoteOutlined color="disabled" />
                   ) : (
                     <MovieOutlined color="disabled" />
                   )}
                 </Box>
                 <Box sx={{ minWidth: 0 }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                    <Typography noWrap sx={{ fontWeight: 700 }}>{candidate.name}</Typography>
-                    {candidate.year && <Typography sx={{ color: "text.secondary" }}>{candidate.year}</Typography>}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <Typography noWrap sx={{ fontWeight: 700 }}>
+                      {candidate.name}
+                    </Typography>
+                    {candidate.year && (
+                      <Typography sx={{ color: "text.secondary" }}>
+                        {candidate.year}
+                      </Typography>
+                    )}
                     {current && <Chip size="small" label="Current match" />}
                   </Box>
                   <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                    {matchSourceLabel(candidate.guid)} · {candidate.guid}
+                    {[candidate.parentName, matchSourceLabel(candidate.guid)]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </Typography>
                   {candidate.summary && (
                     <Typography

@@ -3,16 +3,10 @@ import {
   publishMediaChange,
   mediaMetadataQueryKey,
 } from "entities/media/model";
-import {
-  AuthStorage,
-  canManageServer,
-  getActiveServerScope,
-  useAuthSession,
-  useServerSession,
-} from "features/session/model";
 import { ProxiedRequest } from "shared/api/backend";
 import { PlexClient, PlexRequestError } from "shared/api/PlexClient";
 import { serverQueryClient } from "shared/api/queryClient";
+import { createMetadataSession } from "./metadataSession";
 import {
   metadataFields,
   metadataTagFields,
@@ -114,9 +108,8 @@ export function validArtworkURL(value: string) {
 
 /** One captured editing session for native metadata, artwork choices and binary uploads. */
 export function createMetadataEditor(data: Plex.Metadata) {
-  const scope = getActiveServerScope();
-  const token = AuthStorage.getServerToken();
-  const revision = useAuthSession.getState().revision;
+  const session = createMetadataSession();
+  const { scope, token, revision } = session;
   const client = new PlexClient(
     () => token,
     (url, method, headers, body, signal) =>
@@ -133,32 +126,7 @@ export function createMetadataEditor(data: Plex.Metadata) {
   );
   const path = `/library/metadata/${encodeURIComponent(data.ratingKey)}`;
   const assertCurrent = (signal?: AbortSignal) => {
-    signal?.throwIfAborted();
-    const current = getActiveServerScope();
-    if (
-      !token ||
-      !scope ||
-      current?.serverId !== scope.serverId ||
-      current?.profileKey !== scope.profileKey ||
-      AuthStorage.getServerToken() !== token ||
-      useAuthSession.getState().revision !== revision ||
-      useAuthSession.getState().status !== "ready"
-    )
-      throw new Error(
-        "The active Plex session changed. Open this editor again.",
-      );
-    if (
-      !canManageServer(
-        Boolean(
-          useAuthSession.getState().activeUser &&
-            !useAuthSession.getState().activeUser?.restricted,
-        ),
-        useServerSession.getState().canManageServer,
-      )
-    )
-      throw new Error(
-        "Editing metadata requires Plex server administrator access.",
-      );
+    session.assertCurrent(signal);
     if (
       !/^\d+$/.test(data.ratingKey) ||
       !/^\d+$/.test(String(data.librarySectionID)) ||

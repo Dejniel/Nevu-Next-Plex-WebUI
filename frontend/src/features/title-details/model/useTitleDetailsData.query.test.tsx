@@ -207,7 +207,7 @@ it("keeps cached title details visible when a background metadata refresh fails"
   await render(<Harness />);
   vi.mocked(getMediaMetadata).mockRejectedValue(new Error("Plex offline"));
   await act(async () => {
-    await state.refetchMetadata();
+    await client.invalidateQueries({ queryKey: mediaMetadataQueryOptions(scope, "show").queryKey, exact: true });
   });
   expect(state.data).toEqual(show);
   expect(state.loadError).toBeNull();

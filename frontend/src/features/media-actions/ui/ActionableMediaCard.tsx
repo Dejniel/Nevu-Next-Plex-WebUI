@@ -20,9 +20,7 @@ import {
   StaleMediaMetadataRequestError,
   useLazyMediaMetadata,
 } from "../model/useLazyMediaMetadata";
-import { unmatchMetadata } from "../api/matching";
 import { openMetadataDialog } from "../model/metadataDialog";
-import MatchMetadataDialog from "./MatchMetadataDialog";
 import MediaActionsMenu, {
   MediaMenuAnchor,
 } from "./MediaActionsMenu";
@@ -71,7 +69,6 @@ function VideoMediaCard({
   const [displayItem, setDisplayItem] = useState(item);
   const [anchor, setAnchor] = useState<MediaMenuAnchor | null>(null);
   const [playLoading, setPlayLoading] = useState(false);
-  const [matchOpen, setMatchOpen] = useState(false);
   const {
     data: fullMetadata,
     status: metadataStatus,
@@ -79,7 +76,7 @@ function VideoMediaCard({
     invalidate: invalidateMetadata,
     update: updateMetadata,
   } = useLazyMediaMetadata(item);
-  const capabilities = getMediaActionCapabilities(displayItem, {
+  const capabilities = getMediaActionCapabilities(fullMetadata ?? displayItem, {
     localItem: !PlexTvSource,
     canManageServer,
     allowDownloads,
@@ -88,9 +85,6 @@ function VideoMediaCard({
   useEffect(() => {
     setDisplayItem(item);
   }, [item]);
-  useEffect(() => {
-    setMatchOpen(false);
-  }, [item.ratingKey]);
 
   const menuOpen = anchor !== null;
   const openMenu = (nextAnchor: MediaMenuAnchor) => {
@@ -172,30 +166,6 @@ function VideoMediaCard({
       );
     }
   };
-
-  const unmatch = () => {
-    useConfirmModal.getState().setModal({
-      title: "Unmatch metadata",
-      message: `Remove the current metadata match from "${displayItem.title}"?`,
-      onConfirm: async () => {
-        try {
-          invalidateMetadata();
-          await unmatchMetadata(displayItem.ratingKey);
-          // Discard any metadata loaded while Plex was still unmatching.
-          invalidateMetadata();
-          const metadata = await loadFullMetadata();
-          setDisplayItem(metadata);
-        } catch (error) {
-          if (error instanceof StaleMediaMetadataRequestError) return;
-          useBigReader.getState().setBigReader(
-            "Plex could not unmatch this item.",
-          );
-        }
-      },
-      onCancel: () => undefined,
-    });
-  };
-
   const openContextMenu: React.MouseEventHandler<HTMLDivElement> = (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -262,34 +232,15 @@ function VideoMediaCard({
           downloadsLoading={
             capabilities.canDownload && metadataStatus === "loading"
           }
-          item={displayItem}
+          item={fullMetadata ?? displayItem}
           location={location}
           onClose={() => setAnchor(null)}
           extraItems={renderMenuItems?.(() => setAnchor(null))}
           onAddToList={(kind) => void addToList(kind)}
           onEditMetadata={() => void editMetadata()}
-          onMatch={() => setMatchOpen(true)}
           onPlay={() => void play()}
           canPlay={canPlay}
           onSetWatched={setWatched}
-          onUnmatch={unmatch}
-        />
-      )}
-
-      {capabilities.canMatch && matchOpen && (
-        <MatchMetadataDialog
-          item={displayItem}
-          open
-          onClose={() => setMatchOpen(false)}
-          onMatched={(candidate) => {
-            invalidateMetadata();
-            setDisplayItem((current) => ({
-              ...current,
-              guid: candidate.guid,
-              title: candidate.name,
-              ...(candidate.year !== undefined ? { year: candidate.year } : {}),
-            }));
-          }}
         />
       )}
     </>

@@ -17,8 +17,6 @@ It is not a second rewrite and should not drive file movement for its own sake.
 
 - Improve request-specific Plex types and gradually retire the global `Plex`
   namespace.
-- Revisit match state management when matching gains more criteria, providers,
-  or support for additional media types.
 
 ## Working approach
 
@@ -62,16 +60,13 @@ recognition and immutable updates, shared by cards, details, and episode rows.
 Tests cover media types, remote sources, management and download permissions,
 empty shows, and watched/unwatched transitions.
 
-### 3. Isolate matching state when the workflow expands
+### 3. Isolate matching state — complete
 
-The current dialog is acceptable for title, year, and language matching. Before
-adding identifier searches, provider selection, or episode matching:
-
-- move criteria, results, selection, loading, errors, and request generations
-  into a `useMetadataMatch` controller;
-- keep candidate normalization and request construction in the existing model
-  and API modules;
-- leave the dialog responsible only for rendering and user events.
+`useMetadataMatch` owns the draft and selection; Query owns reads, cancellation
+and mutation status. The dialog renders the model and user events. Edit and Match
+share the application-level dialog host and captured-session permission checks;
+matching menu actions are shared by video and music. Native identifier searches
+and PMS-provided agents cover movies, shows, artists and albums.
 
 ### 4. Reduce title-details composition
 

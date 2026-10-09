@@ -1,7 +1,6 @@
 export { default as ActionableMediaCard } from "./ui/ActionableMediaCard";
 export { MetadataDialogHost } from "./ui/MetadataDialogHost";
-export { openMetadataDialog } from "./model/metadataDialog";
-export { default as MatchMetadataDialog } from "./ui/MatchMetadataDialog";
+export { openMetadataDialog, openMetadataMatchDialog } from "./model/metadataDialog";
 export { default as OriginalDownloadButton } from "./ui/OriginalDownloadButton";
 export { default as MediaRatingButton } from "./ui/MediaRatingButton";
 export { MediaItemMenu } from "./ui/MediaItemMenu";
@@ -9,4 +8,5 @@ export { getOriginalDownloads } from "./model/downloads";
 export { matchActionLabel } from "./model/matching";
 export { resolvePlaybackTarget } from "./model/playbackTarget";
 export { getMediaActionCapabilities } from "./model/mediaActionCapabilities";
+export { renderMetadataMatchingMenuItems } from "./ui/MetadataMatchingMenuItems";
 export type { MediaActionCapabilities } from "./model/mediaActionCapabilities";

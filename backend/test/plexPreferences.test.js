@@ -59,7 +59,7 @@ test('partial library edits use fresh server values for unchanged general fields
     const query = new URL(writes[0][0]).searchParams;
     assert.equal(query.get('name'), 'Movies');
     assert.equal(query.get('language'), 'en-US');
-    assert.deepEqual(query.getAll('locations'), ['/data']);
+    assert.deepEqual(query.getAll('location'), ['/data']);
     const unchanged = await fetch(`${url}/libraries/1`, {
         method: 'PUT',
         headers,
@@ -69,11 +69,28 @@ test('partial library edits use fresh server values for unchanged general fields
     assert.equal(writes.length, 1);
 });
 
+test('library creation uses the native sections endpoint and the selected type agent', async (t) => {
+    const { url, writes } = await setup(t);
+    const response = await fetch(`${url}/libraries`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ name: 'Matching', type: 'movie', language: 'en-US', locations: ['/samples'] }),
+    });
+    assert.equal(response.status, 201);
+    const target = new URL(writes[0][0]);
+    assert.equal(target.pathname, '/library/sections');
+    assert.equal(target.searchParams.get('agent'), 'tv.plex.agents.movie');
+    assert.equal(target.searchParams.get('type'), '1');
+    assert.deepEqual(target.searchParams.getAll('location'), ['/samples']);
+    assert.equal(target.searchParams.has('locations'), false);
+    assert.equal(writes[0][2].headers['X-Plex-Pms-Api-Version'], '1.2.3');
+});
+
 async function setup(
     t,
     { restricted = false, manage = true, user = true } = {},
 ) {
-    const original = { get: axios.get, put: axios.put };
+    const original = { get: axios.get, put: axios.put, post: axios.post };
     const writes = [];
     axios.get = async (url, config) => {
         assert.equal(config.headers['X-Plex-Token'], 'manager-fixture');
@@ -106,6 +123,10 @@ async function setup(
         assert.fail(`Unexpected read: ${url}`);
     };
     axios.put = async (...args) => {
+        writes.push(args);
+        return { data: {} };
+    };
+    axios.post = async (...args) => {
         writes.push(args);
         return { data: {} };
     };

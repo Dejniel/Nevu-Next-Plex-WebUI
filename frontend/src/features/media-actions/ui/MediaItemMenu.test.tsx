@@ -16,6 +16,12 @@ import { MediaItemMenu } from "./MediaItemMenu";
 import { MetadataDialogHost } from "./MetadataDialogHost";
 import { useMetadataDialog } from "../model/metadataDialog";
 import { openMediaListDialog } from "features/media-lists/public";
+import { ProxiedRequest } from "shared/api/backend";
+
+vi.mock("shared/api/backend", async original => ({
+  ...(await original<typeof import("shared/api/backend")>()),
+  ProxiedRequest: vi.fn(),
+}));
 
 vi.mock("entities/media/api/media", async (original) => ({
   ...(await original<typeof import("entities/media/api/media")>()),
@@ -96,6 +102,7 @@ beforeEach(() => {
   });
   vi.mocked(getMediaMetadata).mockResolvedValue(metadata());
   vi.mocked(setMediaRating).mockResolvedValue(true);
+  vi.mocked(ProxiedRequest).mockResolvedValue({ status: 200, data: { MediaContainer: {} } });
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
@@ -269,4 +276,37 @@ it("opens the shared photo-album action from the personal photo menu", async () 
   expect(action).toBeDefined();
   await act(async () => (action as HTMLElement).click());
   expect(openMediaListDialog).toHaveBeenCalledWith("playlist", photo);
+});
+
+it.each(["artist", "album"] as const)(
+  "opens shared matching for a %s and retains it when its menu unmounts", async type => {
+    useServerSession.setState({ canManageServer: true });
+    const data = { ...metadata(type), guid: "local://42" } as Plex.Metadata;
+    vi.mocked(getMediaMetadata).mockResolvedValue(data);
+    await render(data);
+    await click(host.querySelector("button"));
+    await click(menuItem("Match…"));
+    expect(useMetadataDialog.getState().selection).toMatchObject({ kind: "match", data: { ratingKey: "42", type } });
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Match: Song");
+    await act(async () => root.render(<MetadataDialogHost />));
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Match: Song");
+    await act(async () => useAuthSession.setState({ revision: 2 }));
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(useMetadataDialog.getState().selection).toBeNull();
+  },
+);
+it("uses Fix Match and Unmatch for an already matched album", async () => {
+  useServerSession.setState({ canManageServer: true });
+  const data = { ...metadata("album"), guid: "mbid://release" } as Plex.Metadata;
+  vi.mocked(getMediaMetadata).mockResolvedValue(data);
+  await render(data); await click(host.querySelector("button"));
+  expect(menuItem("Fix Match…")).toBeTruthy(); expect(menuItem("Unmatch")).toBeTruthy();
+});
+
+it("uses loaded match identity when the original album card still has an unmatched GUID", async () => {
+  useServerSession.setState({ canManageServer: true });
+  vi.mocked(getMediaMetadata).mockResolvedValue({ ...metadata("album"), guid: "mbid://release" });
+  await render({ ...item, type: "album", guid: "local://42" } as MediaItemData);
+  await click(host.querySelector("button"));
+  expect(menuItem("Fix Match…")).toBeTruthy(); expect(menuItem("Unmatch")).toBeTruthy();
 });

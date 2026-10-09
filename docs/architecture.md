@@ -171,6 +171,11 @@ Accepted writes revalidate the existing metadata/artwork queries and publish the
 shared synchronization event, including partial failures; retries skip artwork
 already acknowledged by Plex.
 
+Match shares the editor's application-level host and session guards.
+`useMetadataMatch` owns criteria and selection; Query owns agent/result reads,
+cancellation and mutation status. Its API validates native responses and publishes
+scoped synchronization after Match/Unmatch. Video and music reuse the same actions.
+
 Plex Home membership and permissions come from Plex's Home API, using the active
 profile's account token. Settings observes one native Query resource and revalidates
 it after writes; safe profile fields update the session and profile picker. PINs

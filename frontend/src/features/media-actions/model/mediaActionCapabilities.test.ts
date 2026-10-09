@@ -28,7 +28,7 @@ it("allows a manager to edit, match, unmatch, download and mark a local movie", 
   });
 });
 
-it.each(["local://1", "com.plexapp.agents.none://1", ""])(
+it.each(["local://1", "com.plexapp.agents.none://1", "tv.plex.agents.none://1", ""])(
   "allows matching but not unmatching an unmatched GUID: %s",
   (guid) => {
     expect(
@@ -167,7 +167,7 @@ it.each(["artist", "album", "track", "photoalbum", "photo"] as const)(
   "keeps personal actions separate from video workflows for a %s", type => {
     const item: LibraryCardDto = { ratingKey: "10", type, title: "Catalog item" };
     expect(getMediaActionCapabilities(item, manager))
-      .toEqual({ canEditMetadata: true, canMatch: false, canUnmatch: false,
+      .toEqual({ canEditMetadata: true, canMatch: ["artist", "album"].includes(type), canUnmatch: false,
         canDownload: ["track", "photo"].includes(type), canRate: true, canSetWatched: false, similarRatingKey: null,
         canAddToCollection: false, canAddToPlaylist: ["artist", "album", "track", "photo"].includes(type) });
   },

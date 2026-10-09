@@ -11,7 +11,6 @@ the README and release notes; implementation-only cleanup belongs in the
 ### Complete metadata workflows
 
 - Add the remaining editable fields exposed by Plex for each media type.
-- Extend manual matching with external identifiers and provider selection.
 
 ## Next
 

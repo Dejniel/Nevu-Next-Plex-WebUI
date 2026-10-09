@@ -52,7 +52,7 @@ import TitleDetails from "./TitleDetails";
 import TitleMedia from "./TitleMedia";
 import {
   openMetadataDialog,
-  MatchMetadataDialog,
+  openMetadataMatchDialog,
   getMediaActionCapabilities,
 } from "features/media-actions/public";
 import { withoutExtra } from "entities/media/model";
@@ -91,7 +91,6 @@ function TitleDetailsScreen() {
   const posterRef = React.useRef<HTMLDivElement>(null);
 
   const [page, setPage] = useState<number>(0);
-  const [matchOpen, setMatchOpen] = useState(false);
   const [reviewTarget, setReviewTarget] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const sessionRevision = useAuthSession((state) => state.revision);
@@ -106,7 +105,6 @@ function TitleDetailsScreen() {
     loadError,
     loading,
     refetchEpisodes,
-    refetchMetadata,
     resolvedRatingKey,
     selectedSeason,
     setData,
@@ -156,7 +154,6 @@ function TitleDetailsScreen() {
   }, [mid, plexGuid, requestedPage]);
 
   useEffect(() => {
-    setMatchOpen(false);
     setReviewTarget(null);
     setNotice(null);
   }, [mid, plexGuid]);
@@ -505,7 +502,7 @@ function TitleDetailsScreen() {
                     onEditMetadata={() => {
                       if (data) openMetadataDialog(data, metadataWasSaved);
                     }}
-                    onMatch={() => setMatchOpen(true)}
+                    onMatch={() => openMetadataMatchDialog(data, () => setNotice("Match applied. Plex is refreshing metadata."))}
                     onWriteReview={writeReview}
                   />
                 )}
@@ -762,27 +759,6 @@ function TitleDetailsScreen() {
             key={reviewIdentity}
             item={data}
             onClose={() => setReviewTarget(null)}
-          />
-        )}
-        {data && capabilities?.canMatch && matchOpen && (
-          <MatchMetadataDialog
-            item={data}
-            open
-            onClose={() => setMatchOpen(false)}
-            onMatched={async (candidate) => {
-              setData((current) =>
-                current
-                  ? {
-                      ...current,
-                      guid: candidate.guid,
-                      title: candidate.name,
-                      year: candidate.year ?? current.year,
-                    }
-                  : current,
-              );
-              setNotice("Match applied. Plex is refreshing metadata.");
-              await refetchMetadata();
-            }}
           />
         )}
         <Snackbar

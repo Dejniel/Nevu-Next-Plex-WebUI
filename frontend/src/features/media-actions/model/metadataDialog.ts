@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import type { MediaScope } from "entities/media/model";
+import type { MediaScope, MediaItemData } from "entities/media/model";
+import { metadataMatchType } from "./matching";
 import {
   canManageServer,
   getActiveServerScope,
@@ -7,18 +8,28 @@ import {
   useServerSession,
 } from "features/session/model";
 
-export interface MetadataSelection {
-  data: Plex.Metadata;
+interface MetadataSelectionScope {
   scope: MediaScope;
   revision: number;
   onSaved?: () => void;
 }
+export type MetadataSelection = MetadataSelectionScope &
+  (
+    | { kind: "edit"; data: Plex.Metadata }
+    | { kind: "match"; data: MediaItemData }
+  );
 
 export const useMetadataDialog = create<{
   selection: MetadataSelection | null;
 }>(() => ({ selection: null }));
 
-export function openMetadataDialog(data: Plex.Metadata, onSaved?: () => void) {
+function openDialog(
+  selection: Pick<MetadataSelectionScope, "onSaved"> &
+    (
+      | { kind: "edit"; data: Plex.Metadata }
+      | { kind: "match"; data: MediaItemData }
+    ),
+) {
   const scope = getActiveServerScope();
   const { revision, status, activeUser } = useAuthSession.getState();
   if (
@@ -30,6 +41,21 @@ export function openMetadataDialog(data: Plex.Metadata, onSaved?: () => void) {
     )
   )
     useMetadataDialog.setState({
-      selection: { data, scope, revision, onSaved },
+      selection: { ...selection, scope, revision },
     });
+}
+
+export function openMetadataDialog(data: Plex.Metadata, onSaved?: () => void) {
+  openDialog({ kind: "edit", data, onSaved });
+}
+
+export function openMetadataMatchDialog(
+  data: MediaItemData,
+  onSaved?: () => void,
+) {
+  if (
+    /^\d+$/.test(data.ratingKey) &&
+    metadataMatchType(data.type) !== undefined
+  )
+    openDialog({ kind: "match", data, onSaved });
 }

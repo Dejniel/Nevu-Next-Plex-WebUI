@@ -158,5 +158,13 @@ stays unlocked. A background refresh must retain the draft; failed saves must ke
 edits and retry without repeating acknowledged uploads. Change profile/server
 during a save and check that stale completion cannot update the new session.
 
+Check **Match/Fix Match/Unmatch** for movies, shows, artists and albums. Search by
+title and [native external ID](https://support.plex.tv/articles/201018497-fix-match-match/),
+choose a PMS-provided agent, and distinguish album editions by artist. Exact IDs
+must ignore the prefilled year; albums require a MusicBrainz release ID. Match
+artists and albums separately, using compatible library agents. Check
+empty results, retry after a failed request, and that scrolling the source card
+away preserves the dialog. Closing or switching profiles must cancel stale work.
+
 Stop with `docker compose -f compose.test.yaml down`. Adding `-v` resets the
 test stack's volumes; sample media remains in the host directory.

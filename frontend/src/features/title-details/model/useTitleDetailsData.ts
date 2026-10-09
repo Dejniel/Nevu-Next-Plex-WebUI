@@ -136,6 +136,5 @@ export function useTitleDetailsData(mediaID: string | null, plexGuid: string | n
     refetchEpisodes: () => {
       void children.refetch();
     },
-    refetchMetadata: metadata.refetch,
   };
 }
