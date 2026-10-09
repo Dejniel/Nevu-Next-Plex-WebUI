@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 export type MediaListKind = "collection" | "playlist";
 export type PlaylistType = "video" | "audio" | "photo";
 
@@ -22,7 +23,7 @@ export function mediaListPath(list: MediaListSummary, libraryID?: string) {
 
 export interface MediaListEntry {
   kind: "media";
-  item: Plex.Metadata;
+  item: MediaMetadata;
   position: number;
   playlistItemID?: string;
   supported: boolean;
@@ -72,7 +73,7 @@ export function parsePlaylistContext(
 }
 
 export function playlistWatchPath(
-  item: Pick<Plex.Metadata, "ratingKey" | "viewOffset"> & {
+  item: Pick<MediaMetadata, "ratingKey" | "viewOffset"> & {
     playlistItemID?: number | string;
   },
   context: PlaylistPlaybackContext,

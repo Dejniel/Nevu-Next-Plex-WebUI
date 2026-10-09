@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { Avatar, Box, Tooltip, Typography } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -10,7 +11,7 @@ import { serverQueryClient } from "shared/api/queryClient";
 import { titleReviewsQueryOptions } from "../model/titleReviewsQuery";
 import { getFriendRatings, getReviewRating } from "../model/titleReviews";
 
-export default function TitleRatings({ item }: { item?: Plex.Metadata }) {
+export default function TitleRatings({ item }: { item?: MediaMetadata }) {
   const { profileKey } = useActiveServerScope();
   const reviews = useQuery(
     titleReviewsQueryOptions(profileKey, item?.guid),

@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { musicAPI, readMusicQueue } from "./music";
 import { PlexRequestError } from "shared/api/PlexClient";
 const transport = vi.hoisted(() => ({
@@ -26,7 +27,7 @@ const entry = {
   playQueueItemID: 100,
   title: "Track",
   Media: [{ Part: [{ key: "/library/parts/12/file.flac" }] }],
-} as Plex.Metadata;
+} as MediaMetadata;
 const response = {
   MediaContainer: {
     playQueueID: 3,

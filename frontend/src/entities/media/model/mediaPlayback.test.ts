@@ -1,4 +1,9 @@
-import { planMediaPlayback, playbackDecisionPlan, playbackProfile } from "./mediaPlayback";
+import type { MediaRendition, MediaPart, MediaStream } from "plex/media";
+import {
+  planMediaPlayback,
+  playbackDecisionPlan,
+  playbackProfile,
+} from "./mediaPlayback";
 import { PlexPlaybackRefusal } from "shared/api/plexPlayback";
 import type { MediaVersion } from "./mediaVersions";
 import type { VideoCapabilityProbe } from "shared/lib/video/capabilities";
@@ -14,7 +19,7 @@ function version(container = "mp4", videoCodec = "h264", audioCodec = "aac"): Me
       width: 1920,
       height: 1080,
       bitrate: 10000,
-    } as Plex.Media,
+    } as MediaRendition,
     part: {
       id: 20,
       key: "/library/parts/20/file",
@@ -36,7 +41,7 @@ function version(container = "mp4", videoCodec = "h264", audioCodec = "aac"): Me
           channels: 2,
         },
       ],
-    } as Plex.Part,
+    } as MediaPart & { key: string },
   };
 }
 const probe: VideoCapabilityProbe = {
@@ -110,23 +115,23 @@ it("copies supported video at Original quality without a bitrate comparison", as
 });
 it("preserves the selected alternate audio in a copied stream", async () => {
   const sample = version();
-  sample.part.Stream[1].selected = false;
-  sample.part.Stream.push({
+  sample.part.Stream![1].selected = false;
+  sample.part.Stream!.push({
     id: 3,
     streamType: 2,
     codec: "aac",
     selected: true,
-  } as Plex.Stream);
+  } as MediaStream);
   expect(await plan(sample)).toMatchObject({ copyVideo: true, copyAudio: true });
 });
 it.each(["pgs", "ass"])("requires video conversion for %s burn-in subtitles", async (codec) => {
   const sample = version();
-  sample.part.Stream.push({
+  sample.part.Stream!.push({
     id: 3,
     streamType: 3,
     codec,
     selected: true,
-  } as Plex.Stream);
+  } as MediaStream);
   expect(await plan(sample)).toMatchObject({
     subtitles: "burn", copyVideo: false,
   });
@@ -138,8 +143,8 @@ it("retains sidecar subtitles in both negotiated and compatible playback", async
     streamType: 3,
     codec: "srt",
     selected: true,
-  } as Plex.Stream;
-  sample.part.Stream.push(subtitle);
+  } as MediaStream;
+  sample.part.Stream!.push(subtitle);
   expect(await plan(sample)).toMatchObject({
     subtitles: "sidecar", subtitle,
   });
@@ -152,7 +157,7 @@ it("retains sidecar subtitles in both negotiated and compatible playback", async
 });
 it("probes the actual HEVC profile rather than assuming codec support", async () => {
   const sample = version("mkv", "hevc");
-  Object.assign(sample.part.Stream[0], {
+  Object.assign(sample.part.Stream![0], {
     profile: "main 10",
     bitDepth: 10,
     level: 153,

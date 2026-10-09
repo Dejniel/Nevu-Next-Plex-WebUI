@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import axios from "axios";
 import { AuthStorage } from "features/session/model";
 import { getWatchlistID } from "../model/watchlistItem";
@@ -41,10 +42,10 @@ export async function removeFromWatchlist(guid: string): Promise<void> {
 
 export async function getWatchlist(
   signal?: AbortSignal,
-): Promise<Plex.Metadata[]> {
+): Promise<MediaMetadata[]> {
   const token = accountToken();
   const pageSize = 100;
-  const items = new Map<string, Plex.Metadata>();
+  const items = new Map<string, MediaMetadata>();
   let offset = 0;
 
   while (true) {
@@ -63,7 +64,7 @@ export async function getWatchlist(
     );
     const container = response.data?.MediaContainer;
     if (!container) throw new Error("Plex returned an invalid watchlist.");
-    const page: Plex.Metadata[] = container.Metadata ?? [];
+    const page: MediaMetadata[] = container.Metadata ?? [];
     const previousSize = items.size;
     for (const item of page) {
       if (!item.guid)

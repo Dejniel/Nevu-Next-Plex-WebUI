@@ -1,4 +1,10 @@
 import type { LibraryItemUpdateDto } from "@nevu/contracts";
+import type { MediaMetadata } from "plex/media";
+
+/** Transport metadata is unknown until decoded at the synchronization API boundary. */
+export type MediaItemUpdate = Omit<LibraryItemUpdateDto, "metadata"> & {
+  metadata?: MediaMetadata;
+};
 
 export interface MediaScope {
   serverId: string;
@@ -16,7 +22,12 @@ export type MediaChange = MediaScope & { sectionId?: string } & (
         parentIds?: readonly string[];
       }
     | { kind: "item"; effect: "membership" | "unknown"; id?: string }
-    | { kind: "list"; listKind: "collection" | "playlist"; id?: string; effect?: "removed" }
+    | {
+        kind: "list";
+        listKind: "collection" | "playlist";
+        id?: string;
+        effect?: "removed";
+      }
     | { kind: "recovery" }
   );
 
@@ -24,29 +35,41 @@ export type SynchronizationDecision = "ignore" | "patch" | "refresh";
 
 export interface ReconciledMediaChange {
   change: MediaChange;
-  update?: LibraryItemUpdateDto;
+  update?: MediaItemUpdate;
   /** Prior and current relationships; retained even when the canonical read returns 404. */
   parentIds?: readonly string[];
   parentScopeUnknown?: boolean;
 }
 
-export function affectedMediaParents({ change, update, parentIds }: ReconciledMediaChange) {
-  return [...new Set([
-    ...(parentIds ?? []),
-    ...(update?.parentIds ?? []),
-    ...(change.kind === "item" && change.effect === "metadata" ? change.parentIds ?? [] : []),
-  ])];
+export function affectedMediaParents({
+  change,
+  update,
+  parentIds,
+}: ReconciledMediaChange) {
+  return [
+    ...new Set([
+      ...(parentIds ?? []),
+      ...(update?.parentIds ?? []),
+      ...(change.kind === "item" && change.effect === "metadata"
+        ? (change.parentIds ?? [])
+        : []),
+    ]),
+  ];
 }
 
 export function matchesMediaScope(scope: MediaScope, change: MediaScope) {
-  return scope.serverId === change.serverId && scope.profileKey === change.profileKey;
+  return (
+    scope.serverId === change.serverId && scope.profileKey === change.profileKey
+  );
 }
 
 const listeners = new Set<(change: MediaChange) => void>();
 export function publishMediaChange(change: MediaChange) {
   listeners.forEach((listener) => listener(change));
 }
-export function subscribeToMediaChanges(listener: (change: MediaChange) => void) {
+export function subscribeToMediaChanges(
+  listener: (change: MediaChange) => void,
+) {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);

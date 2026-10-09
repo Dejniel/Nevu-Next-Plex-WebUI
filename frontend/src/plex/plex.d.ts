@@ -166,110 +166,11 @@ declare namespace Plex {
         title2?: string;
         viewGroup: LibaryType;
 
-        Metadata?: Metadata[];
+        Metadata?: import("plex/media").MediaMetadata[];
         Directory?: Directory[];
 
         Type?: Type[];
         FieldType?: FieldType[];
-    }
-
-    interface Metadata {
-        ratingKey: string;
-        playQueueItemID?: number;
-        key: string;
-        skipChildren?: boolean; // true if hide seasons
-        parentRatingKey?: string;
-        grandparentRatingKey?: string;
-        guid: string;
-        Guid?: { id: string }[];
-        slug?: string;
-        studio: string;
-        type: LibaryType;
-        title: string;
-        titleSort?: string;
-        librarySectionTitle: string;
-        librarySectionID: number;
-        librarySectionKey: string;
-        grandparentKey?: string;
-        parentKey?: string;
-        grandparentTitle?: string;
-        parentTitle?: string;
-        parentThumb?: string;
-        grandparentThumb?: string;
-        composite?: string;
-        originalTitle?: string;
-        contentRating: string;
-        summary: string;
-        index?: number;
-        parentIndex?: number;
-        rating?: number;
-        audienceRating?: number;
-        userRating?: number;
-        Rating?: { value: number; image?: string; type?: string }[];
-        viewOffset?: number;
-        viewCount?: number;
-        lastViewedAt?: number;
-        year: number;
-        tagline: string;
-        thumb: string;
-        art: string;
-        theme?: string;
-        duration: number;
-        originallyAvailableAt: string;
-        leafCount?: number;
-        viewedLeafCount?: number;
-        childCount?: number;
-        seasonCount?: number;
-        addedAt: number;
-        updatedAt: number;
-        audienceRatingImage?: string;
-        chapterSource?: string;
-        primaryExtraKey?: string;
-        extraType?: number;
-        subtype?: string;
-        ratingImage?: string;
-        Media?: Media[];
-        Genre?: Tag[];
-        Collection?: Tag[];
-        Label?: Tag[];
-        Producer?: Tag[];
-        Style?: Tag[];
-        Mood?: Tag[];
-        Similar?: Tag[];
-        Tag?: Tag[];
-        Country?: Tag[];
-        Director?: Tag[];
-        Writer?: Tag[];
-        Role?: Role[];
-        Field?: MetadataField[];
-        Chapter?: Chapter[];
-        Marker?: Marker[];
-        OnDeck?: {
-            Metadata: Metadata;
-        }
-        Children?: {
-            size: number;
-            Metadata: Child[];
-        }
-        Extras?: {
-            size: number;
-            Metadata?: Metadata[];
-        }
-        Image?: {
-            alt: string;
-            type: string;
-            url: string;
-        }[]
-        UltraBlurColors?: {
-            topLeft: string;
-            topRight: string;
-            bottomLeft: string;
-            bottomRight: string;
-        }
-        Related?: {
-            Hub?: Hub[];
-        }
-        Review?: Review[];
     }
 
     interface Hub {
@@ -282,149 +183,12 @@ declare namespace Plex {
         size: number;
         more: boolean;
         style: "shelf";
-        Metadata: Metadata[];
-    }
-
-    interface Chapter {
-        id: number;
-        filter: string;
-        index: 1;
-        startTimeOffset: number;
-        endTimeOffset: number;
-        thumb: string;
-    }
-
-    interface Marker {
-        final: boolean;
-        id: number;
-        type: string;
-        startTimeOffset: number;
-        endTimeOffset: number;
-    }
-
-    interface Role {
-        id: number;
-        filter: string;
-        tag: string;
-        tagKey: string;
-        role: string;
-        thumb: string;
-    }
-
-    interface Media {
-        aperture?: string;
-        exposure?: string;
-        iso?: number;
-        lens?: string;
-        make?: string;
-        model?: string;
-        id: number;
-        duration: number;
-        bitrate: number;
-        width: number;
-        height: number;
-        aspectRatio: number;
-        audioChannels: number;
-        audioCodec: string;
-        videoCodec: string;
-        videoResolution: string;
-        container: string;
-        videoFrameRate: string;
-        audioProfile: string;
-        videoProfile: string;
-        videoDynamicRange?: string;
-        Part: Part[];
-    }
-
-    interface Part {
-        id: number;
-        key: string;
-        duration: number;
-        file: string;
-        size: number;
-        audioProfile: string;
-        container: string;
-        indexes: string;
-        videoProfile: string;
-        Stream: Stream[];
-    }
-
-    interface Stream {
-        id: number;
-        streamType: number;
-        default: boolean;
-        codec: string;
-        index: number;
-        bitrate: number;
-        language: string;
-        languageTag: string;
-        languageCode: string;
-        bitDepth?: number;
-        chromaLocation?: string;
-        chromaSubsampling?: string;
-        codedHeight?: number;
-        codedWidth?: number;
-        frameRate?: string;
-        height?: number;
-        level?: number;
-        profile?: string;
-        refFrames?: number;
-        scanType?: string;
-        title?: string;
-        width?: number;
-        displayTitle: string;
-        extendedDisplayTitle: string;
-        channels?: number;
-        audioChannelLayout?: string;
-        samplingRate?: number;
-        selected?: boolean;
-    }
-
-    interface Tag {
-        id: number;
-        filter: string;
-        tag: string;
-    }
-
-    interface Review {
-        id: number;
-        filter: string;
-        tag: string;
-        text: string;
-        image: string;
-        link: string;
-        source: string;
+        Metadata: import("plex/media").MediaMetadata[];
     }
 
     interface Location {
         id: number;
         path: string;
-    }
-
-    interface Child {
-        ratingKey: string;
-        key: string;
-        parentRatingKey: string;
-        guid: string;
-        parentGuid: string;
-        parentSlug: string;
-        parentStudio: string;
-        type: string;
-        title: string;
-        parentKey: string;
-        parentTitle: string;
-        summary: string;
-        index: number;
-        parentIndex: number;
-        parentYear: number;
-        thumb: string;
-        art: string;
-        parentThumb: string;
-        parentTheme: string;
-        leafCount: number;
-        viewedLeafCount: number;
-        addedAt: number;
-        updatedAt: number;
     }
 
     interface TokenData {
@@ -464,7 +228,7 @@ declare namespace Plex {
 
     interface SearchResult {
         score: number;
-        Metadata?: Metadata;
+        Metadata?: import("plex/media").MediaMetadata;
         Directory?: Directory;
     }
 

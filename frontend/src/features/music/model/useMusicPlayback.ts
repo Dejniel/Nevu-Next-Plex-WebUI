@@ -99,7 +99,7 @@ export function useMusicPlayback() {
           session.queueID,
           stopped ? "stopped" : current.session?.playing ? "playing" : "paused",
           progress.time,
-          progress.duration || track.duration / 1000,
+          progress.duration || (track.duration ?? 0) / 1000,
         );
       } catch {
         /* Reporting failures must not interrupt music. */

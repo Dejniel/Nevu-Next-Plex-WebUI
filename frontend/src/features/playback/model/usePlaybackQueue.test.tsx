@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import type { Mock } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -15,10 +16,10 @@ vi.mock("features/media-lists/model", () => ({
 vi.mock("../api/playback", () => ({ getPlaybackQueueForItem: vi.fn() }));
 const playlistLookup = getPlaylistQueue as Mock;
 const defaultLookup = getPlaybackQueueForItem as Mock;
-const movie = { ratingKey: "1", type: "movie" } as Plex.Metadata;
+const movie = { ratingKey: "1", type: "movie" } as MediaMetadata;
 let root: Root;
 let playlist: PlaylistPlaybackContext | undefined;
-let metadata: Plex.Metadata;
+let metadata: MediaMetadata;
 let state: ReturnType<typeof usePlaybackQueue>;
 function Harness() {
   state = usePlaybackQueue(metadata, playlist);
@@ -55,7 +56,7 @@ it("uses the playlist adapter and keeps regular episode queues unchanged", async
 });
 
 it("ignores a late queue for a different occurrence of the same movie", async () => {
-  let resolveOld!: (queue: Plex.Metadata[]) => void;
+  let resolveOld!: (queue: MediaMetadata[]) => void;
   playlistLookup.mockReturnValueOnce(
     new Promise((resolve) => {
       resolveOld = resolve;
@@ -63,11 +64,11 @@ it("ignores a late queue for a different occurrence of the same movie", async ()
   );
   await render();
   playlist = { id: "20", index: 3 };
-  const next = { ratingKey: "new" } as Plex.Metadata;
+  const next = { ratingKey: "new" } as MediaMetadata;
   playlistLookup.mockResolvedValueOnce([movie, next]);
   await render();
   await act(async () =>
-    resolveOld([movie, { ratingKey: "old" } as Plex.Metadata]),
+    resolveOld([movie, { ratingKey: "old" } as MediaMetadata]),
   );
   expect(state.playQueue?.[1]).toBe(next);
 });
@@ -84,7 +85,7 @@ it("surfaces a playlist failure and retries without falling back to the show's q
 });
 
 it("ignores the previous occurrence when its ID changes at the same position", async () => {
-  let resolveOld!: (queue: Plex.Metadata[]) => void;
+  let resolveOld!: (queue: MediaMetadata[]) => void;
   playlist = { id: "20", index: 0, itemID: "80" };
   playlistLookup.mockReturnValueOnce(
     new Promise((resolve) => {
@@ -93,7 +94,7 @@ it("ignores the previous occurrence when its ID changes at the same position", a
   );
   await render();
   playlist = { ...playlist, itemID: "81" };
-  const next = { ratingKey: "new" } as Plex.Metadata;
+  const next = { ratingKey: "new" } as MediaMetadata;
   playlistLookup.mockResolvedValueOnce([movie, next]);
   await render();
   await act(async () => resolveOld([movie]));
@@ -102,7 +103,7 @@ it("ignores the previous occurrence when its ID changes at the same position", a
 });
 
 it("clears playback queues when the profile disappears and ignores the late response", async () => {
-  let resolveOld!: (queue: Plex.Metadata[]) => void;
+  let resolveOld!: (queue: MediaMetadata[]) => void;
   playlistLookup.mockReturnValueOnce(
     new Promise((resolve) => {
       resolveOld = resolve;

@@ -1,7 +1,12 @@
 import type { Mock } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { getMediaMetadata, useMediaPlaybackSource } from "entities/media/model";
+import {
+  type MediaMetadata,
+  type MediaStream,
+  getMediaMetadata,
+  useMediaPlaybackSource,
+} from "entities/media/model";
 import { putAudioStream, putSubtitleStream } from "../api/playback";
 import { downloadSubtitle } from "../api/subtitles";
 import type { SubtitleSearchResult } from "./subtitles";
@@ -90,7 +95,7 @@ it("still saves an explicit quality selection after temporary Original recovery"
 it("keeps Original when an older quality selection finishes late", async () => {
   await render();
   const loaded = media.metadata;
-  let complete!: (metadata: Plex.Metadata | null) => void;
+  let complete!: (metadata: MediaMetadata | null) => void;
   (getMediaMetadata as Mock).mockReturnValueOnce(new Promise((resolve) => { complete = resolve; }));
   let changing!: Promise<void>;
   await act(async () => { changing = media.selectQuality({ bitrate: 8000 }); });
@@ -175,7 +180,7 @@ it("can download and select a subtitle after temporary Original recovery", async
   await render();
   await act(async () => { media.tryOriginal(); });
   const version = media.activeVersion!;
-  const stream: Plex.Stream = { ...subtitle, index: 2, default: false, bitrate: 0, language: "Polish", languageTag: "pl", displayTitle: subtitle.title, extendedDisplayTitle: subtitle.title };
+  const stream: MediaStream = { ...subtitle, index: 2, default: false, bitrate: 0, language: "Polish", languageTag: "pl", displayTitle: subtitle.title, extendedDisplayTitle: subtitle.title };
   const attached = { ...media.metadata!, Media: [{ ...version.media, Part: [{ ...version.part, Stream: [stream] }] }] };
   vi.mocked(getMediaMetadata).mockResolvedValue(attached);
   vi.mocked(downloadSubtitle).mockImplementation(async (_id, _mediaID, _subtitle, signal) => signal?.throwIfAborted());

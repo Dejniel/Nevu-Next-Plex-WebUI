@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { notifyManager } from "@tanstack/react-query";
-import { fetchDiscoverExtras } from "entities/media/model";
+import { type MediaMetadata, fetchDiscoverExtras } from "entities/media/model";
 import { serverQueryClient as client } from "shared/api/queryClient";
 import { useTitleExtras } from "./useTitleExtras";
 vi.mock("entities/media/api/mediaExtras", async (original) => ({
@@ -16,7 +16,7 @@ vi.mock("features/session/model", async (original) => ({
 beforeAll(() => notifyManager.setScheduler(queueMicrotask));
 afterAll(() => notifyManager.setScheduler((callback) => setTimeout(callback, 0)));
 let root: Root;
-let item: Plex.Metadata;
+let item: MediaMetadata;
 let state: ReturnType<typeof useTitleExtras>;
 function Harness() {
   state = useTitleExtras(item);
@@ -27,7 +27,7 @@ beforeEach(() => {
   client.clear();
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   root = createRoot(document.createElement("div"));
-  item = { ratingKey: "1", guid: "plex://movie/5d776824f617c900201df022" } as Plex.Metadata;
+  item = { ratingKey: "1", guid: "plex://movie/5d776824f617c900201df022" } as MediaMetadata;
   vi.mocked(fetchDiscoverExtras).mockResolvedValue([]);
 });
 afterEach(async () => {
@@ -38,10 +38,10 @@ it("shares Discover extras between hero and details and keeps the local trailer 
   item = {
     ...item,
     Extras: { Metadata: [{ ratingKey: "local-trailer", extraType: 1, title: "Local trailer" }] },
-  } as Plex.Metadata;
+  } as MediaMetadata;
   vi.mocked(fetchDiscoverExtras).mockResolvedValue([
     { ratingKey: "cloud-trailer", extraType: 1, title: "Cloud trailer" },
-  ] as Plex.Metadata[]);
+  ] as MediaMetadata[]);
   await act(async () =>
     root.render(
       <>
@@ -61,7 +61,7 @@ it("does not refetch extras for an unrelated metadata edit of the same title", a
   expect(fetchDiscoverExtras).toHaveBeenCalledTimes(1);
 });
 it("cancels an old match's extras without exposing them after a GUID change", async () => {
-  let finish!: (items: Plex.Metadata[]) => void;
+  let finish!: (items: MediaMetadata[]) => void;
   vi.mocked(fetchDiscoverExtras).mockImplementationOnce(
     () =>
       new Promise((resolve) => {
@@ -73,14 +73,14 @@ it("cancels an old match's extras without exposing them after a GUID change", as
   item = { ...item, guid: "plex://movie/5d776824f617c900201df023" };
   await act(async () => root.render(<Harness />));
   expect(signal.aborted).toBe(true);
-  await act(async () => finish([{ ratingKey: "old-trailer", extraType: 1 }] as Plex.Metadata[]));
+  await act(async () => finish([{ ratingKey: "old-trailer", extraType: 1 }] as MediaMetadata[]));
   expect(state.extras).toEqual([]);
 });
 it("keeps local extras usable after a failed Discover read", async () => {
   item = {
     ...item,
     Extras: { Metadata: [{ ratingKey: "local-trailer", extraType: 1 }] },
-  } as Plex.Metadata;
+  } as MediaMetadata;
   vi.mocked(fetchDiscoverExtras).mockRejectedValue(new Error("Unavailable"));
   await act(async () => root.render(<Harness />));
   expect(state.extras).toHaveLength(1);

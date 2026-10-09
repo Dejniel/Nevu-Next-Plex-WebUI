@@ -1,13 +1,15 @@
+import type { MediaMetadata } from "plex/media";
 import type { MediaItemData } from "./media";
 
 export interface MediaAvailability {
   guid: string;
-  localItems: readonly Plex.Metadata[];
+  localItems: readonly MediaMetadata[];
 }
 
-export function indexMediaAvailability(items: readonly Plex.Metadata[]) {
+export function indexMediaAvailability(items: readonly MediaMetadata[]) {
   const index = new Map<string, MediaAvailability>();
   for (const item of items) {
+    if (!item.guid) continue;
     const entry = index.get(item.guid) ?? { guid: item.guid, localItems: [] };
     if (!entry.localItems.some((copy) => copy.ratingKey === item.ratingKey))
       index.set(item.guid, {

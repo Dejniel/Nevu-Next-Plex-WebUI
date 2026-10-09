@@ -1,4 +1,3 @@
-import type { PlaybackQueueItem } from "entities/media/model";
 import { SkipNextRounded } from "@mui/icons-material";
 import {
   Box,
@@ -9,7 +8,10 @@ import {
   Typography,
 } from "@mui/material";
 import React from "react";
-import { getTranscodeImageURL } from "entities/media/model";
+import {
+  type PlaybackQueueItem,
+  getTranscodeImageURL,
+} from "entities/media/model";
 
 export default function NextQueueButton({
   queue,

@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import type { LibraryFilterExpression, LibraryItemType } from "@nevu/contracts";
 import { Box, CircularProgress, Typography } from "@mui/material";
 import { motion } from "motion/react";
@@ -14,7 +15,10 @@ import { useLibraryCardView } from "./LibraryCardViewControls";
 import LibraryCollectionDialog from "./LibraryCollectionDialog";
 import LibraryViewToolbar from "./LibraryViewToolbar";
 import MovieItemSlider from "./MovieItemSlider";
-import { matchRecommendationDirectory, pickPreferredTag } from "../model/libraryRecommendations";
+import {
+  matchRecommendationDirectory,
+  pickPreferredTag,
+} from "../model/libraryRecommendations";
 import type { LibraryQuery } from "../model/libraryQuery";
 import { recommendationShelfTo } from "shared/lib/navigation";
 
@@ -43,7 +47,7 @@ function buildRecommendationShelves(
   libraryID: string,
   library: Plex.MediaContainer,
   profileKey: string,
-  watchHistory: Plex.Metadata[],
+  watchHistory: MediaMetadata[],
   genres: Plex.Directory[],
   actors: Plex.Directory[],
 ) {

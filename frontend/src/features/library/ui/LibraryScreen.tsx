@@ -1,10 +1,14 @@
+import type { MediaMetadata } from "entities/media/model";
 import { Alert, Box, CircularProgress, Grid } from "@mui/material";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ActionableMediaCard } from "features/media-actions/public";
 import { useInView } from "react-intersection-observer";
 import type { LibrarySort } from "@nevu/contracts";
-import LibrarySortDropDown, { normalizeLibrarySort, sortMetadata } from "./LibrarySortDropDown";
+import LibrarySortDropDown, {
+  normalizeLibrarySort,
+  sortMetadata,
+} from "./LibrarySortDropDown";
 import { AppDialog } from "shared/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveServerScope } from "features/session/model";
@@ -144,7 +148,7 @@ function parseBrowseProps(value: string | null) {
   return undefined;
 }
 
-function Element({ item, plexTv }: { item: Plex.Metadata; plexTv?: boolean }) {
+function Element({ item, plexTv }: { item: MediaMetadata; plexTv?: boolean }) {
   const { inView, ref } = useInView({
     triggerOnce: true,
     rootMargin: "800px 0px",

@@ -2,7 +2,11 @@ import type { Mock, MockInstance } from "vitest";
 import { act } from "react";
 import { createRoot, Root } from "react-dom/client";
 import { notifyManager } from "@tanstack/react-query";
-import { getMediaMetadata, mediaMetadataQueryOptions } from "entities/media/model";
+import {
+  type MediaMetadata,
+  getMediaMetadata,
+  mediaMetadataQueryOptions,
+} from "entities/media/model";
 import { serverQueryClient } from "shared/api/queryClient";
 import { getLibraries } from "entities/library/model";
 import { getLibraryDirectory } from "features/library/model";
@@ -167,7 +171,7 @@ it("shares the hero metadata with title details and preserves it on a cached ret
     title: "Movie",
     type: "movie",
     art: "/art",
-  } as Plex.Metadata;
+  } as MediaMetadata;
   vi.mocked(getLibraries).mockResolvedValue([movies as Plex.LibarySection]);
   vi.mocked(getLibraryDirectory).mockResolvedValue({
     size: 1,

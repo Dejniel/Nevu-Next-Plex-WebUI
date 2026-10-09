@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "plex/media";
 import {
   getDiscoverID,
   mergeTitleExtras,
@@ -10,8 +11,8 @@ function extra(
   duration: number,
   key: string,
   extraType = 1,
-): Plex.Metadata {
-  return { title, duration, key, ratingKey: key, extraType } as Plex.Metadata;
+): MediaMetadata {
+  return { title, duration, key, ratingKey: key, extraType } as MediaMetadata;
 }
 
 describe("Plex Discover extras", () => {
@@ -19,7 +20,7 @@ describe("Plex Discover extras", () => {
     expect(
       getDiscoverID({
         guid: "plex://movie/5d7769cefb0d55001f530acd",
-      } as Plex.Metadata),
+      } as MediaMetadata),
     ).toBe("5d7769cefb0d55001f530acd");
   });
 

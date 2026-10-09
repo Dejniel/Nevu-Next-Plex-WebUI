@@ -1,5 +1,11 @@
+import type {
+  MediaMetadata,
+  MediaRendition,
+  MediaPart,
+  MediaStream,
+} from "plex/media";
 export interface TrackPreference {
-  index: number;
+  index?: number;
   title: string;
   languageCode?: string;
   codec?: string;
@@ -8,23 +14,29 @@ export interface TrackPreference {
 export interface MediaVersion {
   mediaIndex: number;
   partIndex: number;
-  media: Plex.Media;
-  part: Plex.Part;
+  media: MediaRendition;
+  part: MediaPart & { key: string };
 }
 
 export interface TrackChoice extends MediaVersion {
-  stream: Plex.Stream;
+  stream: MediaStream;
 }
 
-export function getMediaVersions(data: Plex.Metadata): MediaVersion[] {
+function hasFileKey(
+  part: MediaPart | undefined,
+): part is MediaPart & { key: string } {
+  return Boolean(part?.key);
+}
+
+export function getMediaVersions(data: MediaMetadata): MediaVersion[] {
   return (data.Media || []).flatMap((media, mediaIndex) => {
     const part = media.Part?.[0];
-    return part ? [{ mediaIndex, partIndex: 0, media, part }] : [];
+    return hasFileKey(part) ? [{ mediaIndex, partIndex: 0, media, part }] : [];
   });
 }
 
 export function getTrackChoices(
-  data: Plex.Metadata,
+  data: MediaMetadata,
   streamType: 2 | 3,
 ): TrackChoice[] {
   return getMediaVersions(data).flatMap((version) =>
@@ -39,8 +51,12 @@ export function parseTrackPreference(value?: string): TrackPreference | null {
   try {
     const preference = JSON.parse(value) as Partial<TrackPreference>;
     if (
-      typeof preference.index !== "number" ||
-      typeof preference.title !== "string"
+      (preference.index !== undefined &&
+        !Number.isSafeInteger(preference.index)) ||
+      typeof preference.title !== "string" ||
+      (preference.languageCode !== undefined &&
+        typeof preference.languageCode !== "string") ||
+      (preference.codec !== undefined && typeof preference.codec !== "string")
     )
       return null;
     return preference as TrackPreference;
@@ -49,7 +65,7 @@ export function parseTrackPreference(value?: string): TrackPreference | null {
   }
 }
 
-export function preferenceFromStream(stream: Plex.Stream): TrackPreference {
+export function preferenceFromStream(stream: MediaStream): TrackPreference {
   return {
     index: stream.index,
     title:
@@ -63,17 +79,17 @@ export function findPreferredStream(
   version: MediaVersion,
   streamType: 2 | 3,
   preference: TrackPreference | null,
-): Plex.Stream | undefined {
-  if (!preference || preference.index < 0) return undefined;
+): MediaStream | undefined {
+  if (!preference || (preference.index ?? 0) < 0) return undefined;
   const streams = (version.part.Stream || []).filter(
     (stream) => stream.streamType === streamType,
   );
-  const title = (stream: Plex.Stream) =>
+  const title = (stream: MediaStream) =>
     stream.extendedDisplayTitle || stream.displayTitle || stream.title || "";
 
-  const titleMatch = streams.find(
-    (stream) => title(stream) === preference.title,
-  );
+  const titleMatch =
+    preference.title &&
+    streams.find((stream) => title(stream) === preference.title);
   if (titleMatch) return titleMatch;
   if (preference.languageCode) {
     return (
@@ -87,12 +103,14 @@ export function findPreferredStream(
   }
   return preference.title
     ? undefined
-    : streams.find((stream) => stream.index === preference.index);
+    : preference.index !== undefined
+      ? streams.find((stream) => stream.index === preference.index)
+      : undefined;
 }
 
 type MediaQualityData = Partial<
   Pick<
-    Plex.Media,
+    MediaRendition,
     "bitrate" | "height" | "videoDynamicRange" | "videoResolution" | "width"
   >
 >;
@@ -146,7 +164,7 @@ export function mediaQualityBadge(data: {
 }
 
 export function chooseBestMediaVersion(
-  data: Plex.Metadata,
+  data: MediaMetadata,
   audioPreference: TrackPreference | null = null,
   subtitlePreference: TrackPreference | null = null,
 ): MediaVersion | null {

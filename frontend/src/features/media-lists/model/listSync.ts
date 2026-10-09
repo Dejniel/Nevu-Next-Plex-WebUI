@@ -1,7 +1,18 @@
 import type { Query, QueryClient } from "@tanstack/react-query";
 import { changedMediaFields } from "@nevu/contracts";
-import { affectedMediaParents, matchesMediaScope, type MediaChange, type MediaScope, type ReconciledMediaChange } from "entities/media/model";
-import { isQueryWindowKey, queryPageLocation, type QueryWindow } from "shared/lib/queryWindow";
+import {
+  type MediaMetadata,
+  affectedMediaParents,
+  matchesMediaScope,
+  type MediaChange,
+  type MediaScope,
+  type ReconciledMediaChange,
+} from "entities/media/model";
+import {
+  isQueryWindowKey,
+  queryPageLocation,
+  type QueryWindow,
+} from "shared/lib/queryWindow";
 import { mediaListResultFromKey, type ListPage } from "./listPages";
 import { decideMediaListSynchronization } from "./listSynchronization";
 
@@ -60,11 +71,11 @@ export async function applyMediaListChanges(
       published.find((page) => queryPageLocation(page.queryKey)?.offset === 0)?.state.data as
         ListPage | undefined
     )?.summary;
-    const patches = new Map<string, Plex.Metadata>();
+    const patches = new Map<string, MediaMetadata>();
     let refresh = false;
     for (const entry of changes) {
       const { change, update, parentScopeUnknown } = entry;
-      const metadata = update?.metadata as Plex.Metadata | undefined;
+      const metadata = update?.metadata;
       const before = records.find(
         (record) =>
           record.kind === "media" &&

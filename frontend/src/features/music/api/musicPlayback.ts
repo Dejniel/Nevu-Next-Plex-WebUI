@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import {
   playbackDecisionStreams,
   preparePlexPlayback,
@@ -16,7 +17,7 @@ export type AudioSource = PlexStreamSource | (VideoSource & {
 });
 
 export async function prepareAudioPlayback(
-  item: Plex.Metadata,
+  item: MediaMetadata,
   context: Record<string, unknown>,
   converted: boolean,
   signal: AbortSignal,

@@ -29,6 +29,13 @@ export type {
   TrackPreference,
 } from "./model/mediaVersions";
 export type { MediaItemData } from "./model/media";
+export type {
+  MediaMetadata,
+  MediaRendition,
+  MediaPart,
+  MediaStream,
+} from "plex/media";
+export { readMediaMetadata } from "./api/mediaMetadata";
 export type { PlaybackQueueItem } from "./model/mediaQueue";
 export { readPlaybackQueueItem } from "./api/mediaQueue";
 export {
@@ -60,6 +67,7 @@ export type {
   MediaChange,
   MediaScope,
   ReconciledMediaChange,
+  MediaItemUpdate,
   SynchronizationDecision,
 } from "./model/mediaChanges";
 export { isMediaWatched } from "./model/mediaWatchedState";

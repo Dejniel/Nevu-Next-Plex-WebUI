@@ -19,7 +19,11 @@ import {
   Typography,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
-import { getTranscodeImageURL, isMediaWatched } from "entities/media/model";
+import {
+  type MediaMetadata,
+  getTranscodeImageURL,
+  isMediaWatched,
+} from "entities/media/model";
 import { getMediaActionCapabilities } from "features/media-actions/public";
 import {
   openMediaListDialog,
@@ -42,7 +46,7 @@ export default function EpisodeRow({
   onCancelSelection,
   onSetWatched,
 }: {
-  item: Plex.Metadata;
+  item: MediaMetadata;
   selecting: boolean;
   selected: boolean;
   onToggle: () => void;
@@ -248,9 +252,9 @@ export default function EpisodeRow({
             <LinearProgress
               aria-label={`Watch progress for ${item.title}`}
               value={
-                item.viewOffset && item.duration > 0
+                item.viewOffset && item.duration && item.duration > 0
                   ? Math.min(100, (item.viewOffset / item.duration) * 100)
-                  : 100
+                  : isMediaWatched(item) ? 100 : 0
               }
               variant="determinate"
               sx={{
@@ -271,7 +275,7 @@ export default function EpisodeRow({
             {item.title}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            {durationInMinutes(item.duration)} Min
+            {item.duration !== undefined ? `${durationInMinutes(item.duration)} Min` : ""}
           </Typography>
           <Typography
             title={item.summary}

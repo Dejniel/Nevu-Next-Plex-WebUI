@@ -1,5 +1,9 @@
+import type { MediaMetadata } from "plex/media";
 import type { QueryClient } from "@tanstack/react-query";
-import { affectedMediaParents, type ReconciledMediaChange } from "./mediaChanges";
+import {
+  affectedMediaParents,
+  type ReconciledMediaChange,
+} from "./mediaChanges";
 import { readMediaQueryKey } from "./mediaMetadataQuery";
 
 export async function applyMediaDetailsChanges(
@@ -25,7 +29,7 @@ export async function applyMediaDetailsChanges(
       const key = readMediaQueryKey(query.queryKey)!;
       const items =
         key.kind === "media-children"
-          ? (query.state.data as Plex.Metadata[] | undefined)
+          ? (query.state.data as MediaMetadata[] | undefined)
           : undefined;
       const affected = changes.filter((entry) => {
         const { change, update, parentScopeUnknown } = entry;
@@ -60,7 +64,7 @@ export async function applyMediaDetailsChanges(
       });
       if (!affected.length) return;
       const replacements = affected.map(({ change, update }) => {
-        const metadata = update?.metadata as Plex.Metadata | undefined;
+        const metadata = update?.metadata;
         const before = items?.find((item) => item.ratingKey === metadata?.ratingKey);
         return change.kind === "item" &&
           change.effect !== "membership" &&
@@ -74,7 +78,7 @@ export async function applyMediaDetailsChanges(
       const patch = items && query.state.fetchStatus !== "fetching" && replacements.every(Boolean);
       await client.cancelQueries({ queryKey: query.queryKey, exact: true });
       if (patch) {
-        client.setQueryData<Plex.Metadata[]>(
+        client.setQueryData<MediaMetadata[]>(
           query.queryKey,
           items.map(
             (item) =>

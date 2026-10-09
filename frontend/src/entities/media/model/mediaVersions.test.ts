@@ -1,6 +1,9 @@
+import type { MediaMetadata, MediaRendition, MediaStream } from "plex/media";
 import {
   chooseBestMediaVersion,
   getTrackChoices,
+  getMediaVersions,
+  findPreferredStream,
   mediaQualityBadge,
   mediaVersionDetails,
   parseTrackPreference,
@@ -12,7 +15,7 @@ function stream(
   streamType: number,
   title: string,
   languageCode: string,
-): Plex.Stream {
+): MediaStream {
   return {
     id,
     streamType,
@@ -21,10 +24,10 @@ function stream(
     languageCode,
     extendedDisplayTitle: title,
     displayTitle: title,
-  } as Plex.Stream;
+  } as MediaStream;
 }
 
-function metadata(): Plex.Metadata {
+function metadata(): MediaMetadata {
   return {
     ratingKey: "1",
     Media: [
@@ -35,8 +38,14 @@ function metadata(): Plex.Metadata {
         bitrate: 8000,
         videoResolution: "1080",
         videoCodec: "h264",
-        Part: [{ id: 11, Stream: [stream(1, 2, "English AAC", "eng")] }],
-      } as Plex.Media,
+        Part: [
+          {
+            id: 11,
+            key: "/library/parts/11/file.mp4",
+            Stream: [stream(1, 2, "English AAC", "eng")],
+          },
+        ],
+      } as MediaRendition,
       {
         id: 20,
         width: 3840,
@@ -48,19 +57,39 @@ function metadata(): Plex.Metadata {
         Part: [
           {
             id: 21,
+            key: "/library/parts/21/file.mkv",
             Stream: [
               stream(2, 2, "Polish AAC", "pol"),
               stream(3, 3, "Polish SRT", "pol"),
             ],
           },
         ],
-      } as Plex.Media,
+      } as MediaRendition,
     ],
-  } as Plex.Metadata;
+  } as MediaMetadata;
 }
 
 it("chooses the highest quality version without track preferences", () => {
   expect(chooseBestMediaVersion(metadata())?.mediaIndex).toBe(1);
+});
+
+it("does not choose an unavailable rendition over an existing playable file", () => {
+  const data = metadata();
+  data.Media?.unshift({ height: 4320, bitrate: 50000, Part: [{ id: 30 }] });
+  expect(getMediaVersions(data).map((version) => version.mediaIndex)).toEqual([
+    1, 2,
+  ]);
+  expect(chooseBestMediaVersion(data)?.mediaIndex).toBe(2);
+});
+
+it("matches a named track without its optional index and avoids matching unnamed tracks by undefined index", () => {
+  const version = chooseBestMediaVersion(metadata())!;
+  const track = version.part.Stream![0];
+  delete track.index;
+  const preference = preferenceFromStream(track);
+  expect(parseTrackPreference(JSON.stringify(preference))).toEqual(preference);
+  expect(findPreferredStream(version, 2, preference)).toBe(track);
+  expect(findPreferredStream(version, 2, { title: "" })).toBeUndefined();
 });
 
 it("prefers a lower quality version when it is the only track match", () => {
@@ -74,8 +103,15 @@ it("prefers a lower quality version when it is the only track match", () => {
 });
 
 it("collects tracks from every media version", () => {
-  expect(getTrackChoices(metadata(), 2).map(({ mediaIndex, stream }) => [mediaIndex, stream.id]))
-    .toEqual([[0, 1], [1, 2]]);
+  expect(
+    getTrackChoices(metadata(), 2).map(({ mediaIndex, stream }) => [
+      mediaIndex,
+      stream.id,
+    ]),
+  ).toEqual([
+    [0, 1],
+    [1, 2],
+  ]);
 });
 
 it("round-trips a stored track preference", () => {
@@ -91,5 +127,5 @@ it("formats a concise version description", () => {
 
 it("formats a compact badge from the best available media version", () => {
   expect(mediaQualityBadge(metadata())).toBe("4K HDR10");
-  expect(mediaQualityBadge({ ratingKey: "2" } as Plex.Metadata)).toBeNull();
+  expect(mediaQualityBadge({ ratingKey: "2" } as MediaMetadata)).toBeNull();
 });

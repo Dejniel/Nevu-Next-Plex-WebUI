@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MusicProvider, useMusic } from "./MusicProvider";
@@ -45,7 +46,7 @@ const track = (id: number, entry: number) =>
     type: "track",
     title: String(id),
     playQueueItemID: entry,
-  }) as Plex.Metadata;
+  }) as MediaMetadata;
 const queue: MusicQueue = {
   id: 10,
   version: 1,
@@ -234,9 +235,9 @@ it("keeps the playing queue when the saved playlist selection changed", async ()
 });
 
 it("does not create an old profile's queue after a late playlist validation", async () => {
-  let resolve!: (item: Plex.Metadata) => void;
+  let resolve!: (item: MediaMetadata) => void;
   mocks.playlistEntry.mockReturnValue(
-    new Promise<Plex.Metadata>((done) => {
+    new Promise<MediaMetadata>((done) => {
       resolve = done;
     }),
   );

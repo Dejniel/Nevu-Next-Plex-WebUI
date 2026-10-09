@@ -3,12 +3,13 @@ import { useMemo } from "react";
 import { useActiveServerScope } from "features/session/model";
 import { serverQueryClient } from "shared/api/queryClient";
 import {
+  type MediaMetadata,
   mediaExtrasQueryOptions,
   mergeTitleExtras,
   selectPrimaryTrailer,
 } from "entities/media/model";
 
-export function useTitleExtras(item?: Plex.Metadata | null) {
+export function useTitleExtras(item?: MediaMetadata | null) {
   const { profileKey } = useActiveServerScope();
   const options = mediaExtrasQueryOptions(profileKey, item ?? {});
   const discover = useQuery(options, serverQueryClient);

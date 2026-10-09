@@ -3,7 +3,10 @@ import {
   useAuthSession,
   useServerSession,
 } from "features/session/model";
-import { subscribeToMediaChanges } from "entities/media/model";
+import {
+  type MediaMetadata,
+  subscribeToMediaChanges,
+} from "entities/media/model";
 import { ProxiedRequest } from "shared/api/backend";
 import { PlexRequestError } from "shared/api/PlexClient";
 import {
@@ -14,7 +17,7 @@ import {
 
 vi.mock("shared/api/backend", () => ({ ProxiedRequest: vi.fn() }));
 const transport = vi.mocked(ProxiedRequest);
-const item = { ratingKey: "42", type: "movie", title: "Film" } as Plex.Metadata;
+const item = { ratingKey: "42", type: "movie", title: "Film" } as MediaMetadata;
 const candidate = {
   guid: "plex://movie/1",
   name: "A title & more",

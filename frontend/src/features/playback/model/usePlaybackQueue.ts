@@ -1,4 +1,4 @@
-import type { PlaybackQueueItem } from "entities/media/model";
+import type { MediaMetadata, PlaybackQueueItem } from "entities/media/model";
 import { useEffect, useState } from "react";
 import {
   getPlaylistQueue,
@@ -8,7 +8,7 @@ import { useActiveServerScope } from "features/session/model";
 import { getPlaybackQueueForItem } from "../api/playback";
 
 export function usePlaybackQueue(
-  metadata: Plex.Metadata | null,
+  metadata: MediaMetadata | null,
   playlist?: PlaylistPlaybackContext,
 ) {
   const { serverId, profileKey } = useActiveServerScope();

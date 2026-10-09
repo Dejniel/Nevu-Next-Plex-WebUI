@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 function searchableResults(results: Plex.SearchResult[]) {
   return results.filter(
     (result) =>
@@ -24,7 +25,7 @@ export function searchSuggestions(
 }
 
 export function partitionSearchResults(results: Plex.SearchResult[]) {
-  const media: Plex.Metadata[] = [];
+  const media: MediaMetadata[] = [];
   const directories: Plex.Directory[] = [];
 
   searchableResults(results).forEach((result) => {

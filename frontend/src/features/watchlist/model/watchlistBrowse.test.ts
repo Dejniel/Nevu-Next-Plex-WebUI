@@ -1,15 +1,19 @@
-import { indexMediaAvailability, selectLocalMedia } from "entities/media/model";
+import {
+  type MediaMetadata,
+  indexMediaAvailability,
+  selectLocalMedia,
+} from "entities/media/model";
 import { selectWatchlistItems } from "./watchlistBrowse";
 
 const movie = (guid: string, title: string, year = 2020) =>
-  ({ guid, title, year }) as Plex.Metadata;
+  ({ guid, title, year }) as MediaMetadata;
 const items = [
   movie("one", "Zoo", 2024),
   movie("two", "Alpha"),
   movie("three", "Remote"),
 ];
 const local = (guid: string, ratingKey: string, librarySectionID: number) =>
-  ({ guid, ratingKey, librarySectionID }) as Plex.Metadata;
+  ({ guid, ratingKey, librarySectionID }) as MediaMetadata;
 const copies = [
   local("one", "10", 1),
   local("one", "20", 2),

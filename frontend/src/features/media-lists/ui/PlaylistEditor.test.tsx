@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { notifyManager } from "@tanstack/react-query";
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -35,7 +36,7 @@ const entry: MediaListEntry = {
     title: "Repeated movie",
     ratingKey: "3",
     type: "movie",
-  } as Plex.Metadata,
+  } as MediaMetadata,
 };
 const deleted = vi.fn();
 let root: Root;

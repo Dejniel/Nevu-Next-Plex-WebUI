@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "plex/media";
 import { PlexClient, PlexRequestError } from "shared/api/PlexClient";
 import {
   preparePlexPlayback,
@@ -18,7 +19,7 @@ import type {
 const DASH_SEGMENT_SECONDS = 8;
 
 function playbackRequestParams(
-  metadata: Plex.Metadata,
+  metadata: MediaMetadata,
   version: MediaVersion,
   plan: PlexPlaybackPlan,
   quality: MediaPlaybackQuality,
@@ -52,7 +53,7 @@ function playbackClient(context: Record<string, unknown>) {
 }
 
 export async function prepareMediaPlayback(
-  metadata: Plex.Metadata,
+  metadata: MediaMetadata,
   version: MediaVersion,
   quality: MediaPlaybackQuality,
   requestedPlan: PlexPlaybackPlan,
@@ -81,7 +82,7 @@ export async function prepareMediaPlayback(
 }
 
 async function loadSubtitleTracks(
-  metadata: Plex.Metadata,
+  metadata: MediaMetadata,
   version: MediaVersion,
   plan: PlexPlaybackPlan,
   source: PlexPlaybackSource,

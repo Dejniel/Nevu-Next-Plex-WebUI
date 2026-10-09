@@ -1,6 +1,10 @@
+import type { MediaMetadata } from "plex/media";
 import type { QueryClient } from "@tanstack/react-query";
 import { isLibraryContainerType } from "@nevu/contracts";
-import { affectedMediaParents, type ReconciledMediaChange } from "./mediaChanges";
+import {
+  affectedMediaParents,
+  type ReconciledMediaChange,
+} from "./mediaChanges";
 import { readMediaQueryKey } from "./mediaMetadataQuery";
 
 export async function applyMediaMetadataChanges(
@@ -15,10 +19,10 @@ export async function applyMediaMetadataChanges(
   }).map(async (query) => {
     const key = readMediaQueryKey(query.queryKey);
     if (!key) return;
-    const metadata = query.state.data as Plex.Metadata | undefined;
+    const metadata = query.state.data as MediaMetadata | undefined;
     const replacement = changes.find(({ change, update }) =>
       change.kind === "item" && change.id === key.id && update?.metadata,
-    )?.update?.metadata as Plex.Metadata | undefined;
+    )?.update?.metadata;
     const refresh = parents.has(key.id) || changes.some(({ change, update, parentScopeUnknown }) => {
       if (change.kind === "list") return false;
       if (change.kind === "item" && change.id) {

@@ -1,5 +1,9 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
-import type { MediaScope, ReconciledMediaChange } from "entities/media/model";
+import type {
+  MediaMetadata,
+  MediaScope,
+  ReconciledMediaChange,
+} from "entities/media/model";
 import { getLibraryDirectory } from "../api/libraryDirectories";
 import { decideLibraryDirectorySynchronization } from "./libraryDirectorySynchronization";
 
@@ -27,13 +31,13 @@ export async function applyLibraryDirectoryChanges(
   await Promise.all(queries.map(async (query) => {
     const [, , , dir, props] = query.queryKey as ReturnType<typeof libraryDirectoryQueryOptions>["queryKey"];
     const data = query.state.data as Plex.MediaContainer | undefined;
-    const patches = new Map<string, Plex.Metadata>();
+    const patches = new Map<string, MediaMetadata>();
     let refresh = false;
     for (const entry of changes) {
       const decision = decideLibraryDirectorySynchronization(dir, props, data, entry);
       refresh ||= decision === "refresh";
       if (decision === "patch") {
-        const metadata = entry.update!.metadata as Plex.Metadata;
+        const metadata = entry.update!.metadata!;
         patches.set(metadata.ratingKey, metadata);
       }
     }

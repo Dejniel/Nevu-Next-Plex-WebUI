@@ -1,10 +1,11 @@
+import type { MediaMetadata } from "plex/media";
 import { queryOptions } from "@tanstack/react-query";
 import { fetchDiscoverExtras } from "../api/mediaExtras";
 import { getDiscoverID } from "./mediaExtras";
 
 export function mediaExtrasQueryOptions(
   profileKey: string,
-  item: Partial<Pick<Plex.Metadata, "guid" | "Guid">>,
+  item: Partial<Pick<MediaMetadata, "guid" | "Guid">>,
 ) {
   const id = getDiscoverID(item);
   return queryOptions({

@@ -6,7 +6,13 @@ export function TuneSectionLabel({ children }: React.PropsWithChildren) {
   return (
     <Typography
       variant="caption"
-      sx={{ color: "text.secondary", display: "block", px: 2, pt: 1.5, pb: 0.5 }}
+      sx={{
+        color: "text.secondary",
+        display: "block",
+        px: 2,
+        pt: 1.5,
+        pb: 0.5,
+      }}
     >
       {children}
     </Typography>
@@ -15,18 +21,26 @@ export function TuneSectionLabel({ children }: React.PropsWithChildren) {
 
 export function TuneOption({
   selected,
+  disabled = false,
   primary,
   secondary,
   onClick,
 }: {
   selected: boolean;
+  disabled?: boolean;
   primary: string;
   secondary?: string;
   onClick: () => void;
 }) {
   return (
     <Box
+      component="button"
+      type="button"
+      disabled={disabled}
       sx={{
+        border: 0,
+        color: "inherit",
+        font: "inherit",
         display: "grid",
         gridTemplateColumns: "24px minmax(0, 1fr)",
         alignItems: "center",
@@ -35,7 +49,8 @@ export function TuneOption({
         minHeight: 50,
         px: 2,
         py: 1,
-        cursor: "pointer",
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled ? 0.5 : 1,
         backgroundColor: "#00000088",
         "&:hover": { backgroundColor: "#000000ee" },
       }}
@@ -52,11 +67,13 @@ export function TuneOption({
 
 export function TuneAction({
   icon,
+  disabled = false,
   primary,
   secondary,
   onClick,
 }: {
   icon: React.ReactNode;
+  disabled?: boolean;
   primary: string;
   secondary?: string;
   onClick: () => void;
@@ -65,6 +82,7 @@ export function TuneAction({
     <Box
       component="button"
       type="button"
+      disabled={disabled}
       sx={{
         display: "grid",
         gridTemplateColumns: "24px minmax(0, 1fr)",
@@ -124,12 +142,24 @@ export function tuneSettingTab(
   );
 }
 
-function TuneText({ primary, secondary }: { primary: string; secondary?: string }) {
+function TuneText({
+  primary,
+  secondary,
+}: {
+  primary: string;
+  secondary?: string;
+}) {
   return (
     <Box sx={{ minWidth: 0, textAlign: "right" }}>
-      <Typography variant="body2" noWrap>{primary}</Typography>
+      <Typography variant="body2" noWrap>
+        {primary}
+      </Typography>
       {secondary && (
-        <Typography variant="caption" noWrap sx={{ color: "text.secondary", display: "block" }}>
+        <Typography
+          variant="caption"
+          noWrap
+          sx={{ color: "text.secondary", display: "block" }}
+        >
           {secondary}
         </Typography>
       )}

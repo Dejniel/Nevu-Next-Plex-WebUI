@@ -1,25 +1,34 @@
 import { useQuery } from "@tanstack/react-query";
-import { mediaChildrenQueryOptions } from "entities/media/model";
+import {
+  type MediaMetadata,
+  mediaChildrenQueryOptions,
+} from "entities/media/model";
 import { useActiveServerScope, useAuthSession } from "features/session/model";
 import { useEffect, useState } from "react";
 import { serverQueryClient } from "shared/api/queryClient";
 
-export function selectInitialSeason(data: Plex.Metadata) {
+export function selectInitialSeason(data: MediaMetadata) {
   const seasons = data.Children?.Metadata ?? [];
+  const nextEpisode = data.OnDeck?.Metadata;
   const onDeck = seasons.find(
-    (season) => season.index === data.OnDeck?.Metadata?.parentIndex,
+    (season) =>
+      season.ratingKey === nextEpisode?.parentRatingKey ||
+      (nextEpisode?.parentIndex !== undefined &&
+        season.index === nextEpisode.parentIndex),
   );
   return (
     onDeck ??
     [...seasons].sort(
       (a, b) =>
-        Number(a.index === 0) - Number(b.index === 0) || a.index - b.index,
+        Number(a.index === 0) - Number(b.index === 0) ||
+        (a.index ?? Number.MAX_SAFE_INTEGER) -
+          (b.index ?? Number.MAX_SAFE_INTEGER),
     )[0]
   );
 }
 
 /** Query owns the episode response; only the chosen season is local UI state. */
-export function useTitleEpisodes(data: Plex.Metadata | undefined) {
+export function useTitleEpisodes(data: MediaMetadata | undefined) {
   const scope = useActiveServerScope();
   const revision = useAuthSession((state) => state.revision);
   const titleIdentity = JSON.stringify([

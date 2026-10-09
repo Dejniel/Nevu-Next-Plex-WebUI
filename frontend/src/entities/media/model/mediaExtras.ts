@@ -1,12 +1,13 @@
+import type { MediaMetadata } from "plex/media";
 type ExtraSource = "local" | "discover";
 
 export interface TitleExtra {
   source: ExtraSource;
-  metadata: Plex.Metadata;
+  metadata: MediaMetadata;
 }
 
 export function getDiscoverID(
-  item: Partial<Pick<Plex.Metadata, "guid" | "Guid">>,
+  item: Partial<Pick<MediaMetadata, "guid" | "Guid">>,
 ): string | null {
   const plexGuid = item.Guid?.find((guid) => guid.id.startsWith("plex://"))?.id;
   const guid = plexGuid || item.guid;
@@ -14,7 +15,7 @@ export function getDiscoverID(
   return match?.[1] ?? null;
 }
 
-function extraIdentity(extra: Plex.Metadata): string[] {
+function extraIdentity(extra: MediaMetadata): string[] {
   const title = (extra.title || "").trim().toLowerCase();
   const signature = [
     extra.extraType ?? "",
@@ -29,13 +30,13 @@ function extraIdentity(extra: Plex.Metadata): string[] {
 }
 
 export function mergeTitleExtras(
-  localExtras: Plex.Metadata[] = [],
-  discoverExtras: Plex.Metadata[] = [],
+  localExtras: MediaMetadata[] = [],
+  discoverExtras: MediaMetadata[] = [],
 ): TitleExtra[] {
   const seen = new Set<string>();
   const merged: TitleExtra[] = [];
 
-  const append = (metadata: Plex.Metadata, source: ExtraSource) => {
+  const append = (metadata: MediaMetadata, source: ExtraSource) => {
     const identities = extraIdentity(metadata);
     if (identities.some((identity) => seen.has(identity))) return;
     identities.forEach((identity) => seen.add(identity));
@@ -77,7 +78,7 @@ export function withoutExtra(
   return extras.filter((extra) => extra !== selected);
 }
 
-export function extraTypeLabel(extra: Plex.Metadata): string {
+export function extraTypeLabel(extra: MediaMetadata): string {
   if (extra.subtype) {
     return extra.subtype
       .replace(/([a-z])([A-Z])/g, "$1 $2")

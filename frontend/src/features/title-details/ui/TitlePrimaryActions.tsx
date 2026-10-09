@@ -20,7 +20,7 @@ import {
   MenuItem,
   Tooltip,
 } from "@mui/material";
-import { isMediaWatched } from "entities/media/model";
+import { type MediaMetadata, isMediaWatched } from "entities/media/model";
 import {
   openMediaWatchedDialog,
   matchActionLabel,
@@ -99,9 +99,9 @@ export default function TitlePrimaryActions({
   onWriteReview,
 }: {
   capabilities: MediaActionCapabilities;
-  data: Plex.Metadata;
+  data: MediaMetadata;
   onDataChanged: React.Dispatch<
-    React.SetStateAction<Plex.Metadata | undefined>
+    React.SetStateAction<MediaMetadata | undefined>
   >;
   onEditMetadata: () => void;
   onMatch: () => void;

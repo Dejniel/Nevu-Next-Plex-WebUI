@@ -1,3 +1,4 @@
+import type { MediaMetadata, MediaPart } from "plex/media";
 import axios from "axios";
 import { AuthStorage } from "features/session/model";
 import { getBackendURL } from "shared/api/backend";
@@ -12,9 +13,9 @@ function discoverHeaders() {
 }
 
 export async function fetchDiscoverExtras(
-  item: Partial<Pick<Plex.Metadata, "guid" | "Guid">>,
+  item: Partial<Pick<MediaMetadata, "guid" | "Guid">>,
   signal?: AbortSignal,
-): Promise<Plex.Metadata[]> {
+): Promise<MediaMetadata[]> {
   const discoverID = getDiscoverID(item);
   if (!discoverID || !AuthStorage.getProfileAccountToken()) return [];
 
@@ -27,7 +28,7 @@ export async function fetchDiscoverExtras(
   return response.data?.MediaContainer?.Metadata ?? [];
 }
 
-function getPlayablePart(extra: Plex.Metadata): Plex.Part | null {
+function getPlayablePart(extra: MediaMetadata): MediaPart | null {
   const parts = extra.Media?.flatMap((media) => media.Part || []) ?? [];
   return parts.find((part) => part.key?.split("?")[0].endsWith("/parts/hls.m3u8")) ?? null;
 }

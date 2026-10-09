@@ -1,21 +1,25 @@
+import type { MediaMetadata } from "entities/media/model";
 import { act, Profiler } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { getLibraryPage, LibraryPageError } from "../api/libraryPage";
 import { serverQueryClient as client } from "shared/api/queryClient";
 import { useServerSession } from "features/session/model";
 import type { LibraryQuery } from "../model/libraryQuery";
-import { ContainedLibraryCollectionGrid, WindowLibraryCollectionGrid } from "./LibraryCollectionGrid";
+import {
+  ContainedLibraryCollectionGrid,
+  WindowLibraryCollectionGrid,
+} from "./LibraryCollectionGrid";
 
 vi.mock("../api/libraryPage", async (original) => ({
   ...await original<typeof import("../api/libraryPage")>(), getLibraryPage: vi.fn(),
 }));
 vi.mock("features/media-actions/public", () => ({
-  ActionableMediaCard: ({ item }: { item: Plex.Metadata }) => (
+  ActionableMediaCard: ({ item }: { item: MediaMetadata }) => (
     <div data-media-card>{item.title}</div>
   ),
 }));
 vi.mock("features/music/public", () => ({
-  MusicMediaCard: ({ item }: { item: Plex.Metadata }) => <div data-media-card>{item.title}</div>,
+  MusicMediaCard: ({ item }: { item: MediaMetadata }) => <div data-media-card>{item.title}</div>,
 }));
 const viewport = vi.hoisted(() => ({ row: 0 }));
 vi.mock("@tanstack/react-virtual", () => {

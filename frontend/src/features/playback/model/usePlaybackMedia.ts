@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  type MediaMetadata,
   chooseBestMediaVersion,
   findPreferredStream,
   getMediaVersions,
@@ -35,12 +36,12 @@ interface PlaybackMediaOptions {
   setError: (error: string | false) => void;
 }
 
-function preferenceScope(metadata: Plex.Metadata) {
+function preferenceScope(metadata: MediaMetadata) {
   return metadata.grandparentRatingKey || metadata.ratingKey;
 }
 
 function storedTrackPreference(
-  metadata: Plex.Metadata,
+  metadata: MediaMetadata,
   kind: "AUDIO" | "SUBTITLE",
 ) {
   return parseTrackPreference(
@@ -56,17 +57,20 @@ async function applyTrackPreferences(
   subtitlePreference: TrackPreference | null,
   signal: AbortSignal,
 ) {
+  if (version.part.id === undefined) return false;
   const audio = findPreferredStream(version, 2, audioPreference);
   const subtitle = findPreferredStream(version, 3, subtitlePreference);
   if (!audio && !subtitle && subtitlePreference?.index !== -1) return false;
-  if (audio) await putAudioStream(version.part.id, audio.id, signal);
+  if (audio?.id !== undefined)
+    await putAudioStream(version.part.id, audio.id, signal);
 
   if (subtitlePreference?.index === -1) {
     await putSubtitleStream(version.part.id, 0, signal);
     return true;
   }
-  if (subtitle) await putSubtitleStream(version.part.id, subtitle.id, signal);
-  return true;
+  if (subtitle?.id !== undefined)
+    await putSubtitleStream(version.part.id, subtitle.id, signal);
+  return audio?.id !== undefined || subtitle?.id !== undefined;
 }
 
 function errorMessage(error: unknown) {
@@ -79,8 +83,8 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
   const request = useRef<AbortController | null>(null);
   const sessionRevision = useAuthSession((state) => state.revision);
 
-  const [metadata, setMetadata] = useState<Plex.Metadata | null>(null);
-  const [showMetadata, setShowMetadata] = useState<Plex.Metadata | null>(null);
+  const [metadata, setMetadata] = useState<MediaMetadata | null>(null);
+  const [showMetadata, setShowMetadata] = useState<MediaMetadata | null>(null);
   const { playQueue, queueError, reloadQueue } = usePlaybackQueue(
     metadata,
     options.playlistContext,
@@ -122,7 +126,10 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
 
     void (async () => {
       try {
-        const initialMetadata = await getMediaMetadata(itemID, controller.signal);
+        const initialMetadata = await getMediaMetadata(
+          itemID,
+          controller.signal,
+        );
         if (controller.signal.aborted) return;
         if (!["movie", "episode"].includes(initialMetadata.type))
           throw new Error("No playable media is available.");
@@ -339,6 +346,10 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     const controller = new AbortController();
     request.current = controller;
     const mediaItemID = activeVersion.media.id;
+    if (mediaItemID === undefined)
+      throw new Error(
+        "Plex did not identify this media version for subtitle downloads.",
+      );
     const signal = controller.signal;
     try {
       await downloadSubtitle(metadata.ratingKey, mediaItemID, subtitle, signal);

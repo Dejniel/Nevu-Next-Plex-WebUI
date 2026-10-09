@@ -369,7 +369,7 @@ export function PhotoViewer({
               {item?.parentTitle && (
                 <Typography sx={{ mt: 1 }}>{item.parentTitle}</Typography>
               )}
-              {item?.Media?.[0]?.width && (
+              {item?.Media?.[0]?.width && item.Media[0].height && (
                 <Typography>
                   {item.Media[0].width} × {item.Media[0].height}
                 </Typography>

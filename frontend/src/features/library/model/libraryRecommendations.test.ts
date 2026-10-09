@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import {
   matchRecommendationDirectory,
   pickPreferredTag,
@@ -12,7 +13,7 @@ const metadata = (
     title,
     Genre: genres.map((tag) => ({ tag })),
     Role: roles.map((tag) => ({ tag })),
-  }) as Plex.Metadata;
+  }) as MediaMetadata;
 
 it("prefers recurring genres from recent watch history", () => {
   const result = pickPreferredTag(

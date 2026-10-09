@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { selectInitialSeason } from "./useTitleEpisodes";
 
 const show = (indices: number[], onDeck?: number) =>
@@ -7,7 +8,7 @@ const show = (indices: number[], onDeck?: number) =>
       Metadata: indices.map((index) => ({ ratingKey: `s${index}`, index })),
     },
     OnDeck: { Metadata: { parentIndex: onDeck } },
-  }) as Plex.Metadata;
+  }) as MediaMetadata;
 
 it("selects the available on-deck season before regular seasons", () => {
   expect(selectInitialSeason(show([0, 1, 3], 3))?.ratingKey).toBe("s3");

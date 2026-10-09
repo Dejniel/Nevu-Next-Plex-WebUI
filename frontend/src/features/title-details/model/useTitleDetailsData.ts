@@ -6,6 +6,7 @@ import {
 } from "features/session/model";
 import { serverQueryClient } from "shared/api/queryClient";
 import {
+  type MediaMetadata,
   getTrackChoices,
   mediaMetadataQueryOptions,
   mediaGuidQueryOptions,
@@ -13,7 +14,7 @@ import {
 import { type Dispatch, type SetStateAction, useCallback } from "react";
 import { useTitleEpisodes } from "./useTitleEpisodes";
 
-export function trackLanguages(data: Plex.Metadata, streamType: 2 | 3) {
+export function trackLanguages(data: MediaMetadata, streamType: 2 | 3) {
   return Array.from(
     new Set(
       getTrackChoices(data, streamType)
@@ -64,7 +65,7 @@ export function useTitleDetailsData(
         ? []
         : null;
   const setData = useCallback<
-    Dispatch<SetStateAction<Plex.Metadata | undefined>>
+    Dispatch<SetStateAction<MediaMetadata | undefined>>
   >(
     (update) => {
       const active = getActiveServerScope();
@@ -76,7 +77,7 @@ export function useTitleDetailsData(
         return;
       const key = mediaMetadataQueryOptions(scope, mediaID ?? "").queryKey;
       void serverQueryClient.cancelQueries({ queryKey: key, exact: true });
-      serverQueryClient.setQueryData<Plex.Metadata>(key, update);
+      serverQueryClient.setQueryData<MediaMetadata>(key, update);
     },
     [scope, mediaID, revision],
   );

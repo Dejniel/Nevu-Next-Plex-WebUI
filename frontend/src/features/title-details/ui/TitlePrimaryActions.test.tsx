@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
@@ -62,7 +63,7 @@ it("retains movie review invalidation and immediate title feedback after sharing
     type: "movie",
     title: "Movie",
     userRating: 8,
-  } as Plex.Metadata;
+  } as MediaMetadata;
   const key = titleReviewsQueryOptions("1:1", movie.guid).queryKey;
   const other = titleReviewsQueryOptions("1:2", movie.guid).queryKey;
   const reviews = {
@@ -74,7 +75,7 @@ it("retains movie review invalidation and immediate title feedback after sharing
   client.setQueryData(key, reviews);
   client.setQueryData(other, reviews);
   function Harness() {
-    const [item, setItem] = useState<Plex.Metadata | undefined>(movie);
+    const [item, setItem] = useState<MediaMetadata | undefined>(movie);
     return (
       <TitlePrimaryActions
         data={item!}
@@ -165,7 +166,7 @@ it("uses the shared watched confirmation and leaves watched metadata updates to 
     type: "movie",
     title: "Movie",
     viewCount: 0,
-  } as Plex.Metadata;
+  } as MediaMetadata;
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);

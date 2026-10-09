@@ -3,7 +3,7 @@ import {
   openMediaWatchedDialog,
   type MediaActionSelection,
 } from "features/media-actions/model";
-import { matchesMediaScope } from "entities/media/model";
+import { type MediaMetadata, matchesMediaScope } from "entities/media/model";
 import { capturePlexSession } from "features/session/model";
 import { useEffect, useRef } from "react";
 import { useItemSelection } from "shared/lib/useItemSelection";
@@ -29,7 +29,7 @@ export function useEpisodeActions(browser: TitleEpisodesModel) {
     allSelected:
       browser.episodes.length > 0 &&
       selected.length === browser.episodes.length,
-    request(watched: boolean, episode?: Plex.Metadata) {
+    request(watched: boolean, episode?: MediaMetadata) {
       const session = capturePlexSession();
       if (
         !session.scope ||

@@ -1,13 +1,14 @@
 import { Box, Typography, useTheme } from "@mui/material";
 import { durationToText } from "shared/lib/duration";
 import {
+  type MediaMetadata,
   formatMediaRating,
   getPrimaryMediaRating,
   getTranscodeImageURL,
   mediaRatingLabel,
 } from "entities/media/model";
 
-function MediaFacts({ metadata }: { metadata: Plex.Metadata }) {
+function MediaFacts({ metadata }: { metadata: MediaMetadata }) {
   const rating = getPrimaryMediaRating(metadata);
   const facts = [
     metadata.year,
@@ -53,8 +54,8 @@ export default function PlaybackInfoOverlay({
   showMetadata,
   visible,
 }: {
-  metadata: Plex.Metadata;
-  showMetadata: Plex.Metadata | null;
+  metadata: MediaMetadata;
+  showMetadata: MediaMetadata | null;
   visible: boolean;
 }) {
   const theme = useTheme();
@@ -80,7 +81,7 @@ export default function PlaybackInfoOverlay({
     >
       <Box
         component="img"
-        src={getTranscodeImageURL(metadata.thumb, 1500, 1500)}
+        src={metadata.thumb ? getTranscodeImageURL(metadata.thumb, 1500, 1500) : undefined}
         alt=""
         sx={{
           height: "25vw",

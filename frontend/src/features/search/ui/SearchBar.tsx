@@ -238,7 +238,7 @@ function SearchSuggestion({
         <>
           <Box
             component="img"
-            src={getTranscodeImageURL(metadata.thumb, 100, 100)}
+            src={metadata.thumb ? getTranscodeImageURL(metadata.thumb, 100, 100) : undefined}
             alt=""
             sx={{ width: 50, height: 50, objectFit: "cover", borderRadius: "4px" }}
           />

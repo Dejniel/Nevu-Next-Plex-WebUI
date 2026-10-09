@@ -1,7 +1,12 @@
+import type { MediaMetadata, MediaStream } from "plex/media";
 import type { Mock } from "vitest";
 import { ProxiedRequest } from "shared/api/backend";
 import { PlexRequestError } from "shared/api/PlexClient";
-import { prepareMediaPlayback, releaseMediaPlayback, pingMediaPlayback } from "./mediaPlayback";
+import {
+  prepareMediaPlayback,
+  releaseMediaPlayback,
+  pingMediaPlayback,
+} from "./mediaPlayback";
 import type { MediaVersion } from "../model/mediaVersions";
 import { planMediaPlayback } from "../model/mediaPlayback";
 import type { PlexPlaybackPlan } from "../model/mediaPlayback";
@@ -21,7 +26,7 @@ const version = {
     Stream: [{ streamType: 2, id: 4, selected: true }],
   },
 } as MediaVersion;
-const metadata = { ratingKey: "42" } as Plex.Metadata;
+const metadata = { ratingKey: "42" } as MediaMetadata;
 const request: PlexPlaybackPlan = {
   protocol: "dash",
   copyVideo: true,
@@ -162,7 +167,7 @@ it("reserves independent lazy subtitle extraction after video preparation", asyn
     {
       ...request,
       subtitles: "sidecar",
-      subtitle: { id: 6, languageCode: "eng" } as Plex.Stream,
+      subtitle: { id: 6, languageCode: "eng" } as MediaStream,
     },
     { bitrate: 240 },
   );
@@ -188,7 +193,7 @@ it("keeps subtitle HTTP failures separate from video failure", async () => {
   const { source } = await prepare({
     ...request,
     subtitles: "sidecar",
-    subtitle: { id: 6 } as Plex.Stream,
+    subtitle: { id: 6 } as MediaStream,
   });
   (ProxiedRequest as Mock).mockResolvedValue({
     status: 403,
@@ -210,6 +215,15 @@ it("cleans its reservation on a decision refusal without producing a source", as
     },
   });
   await expect(prepare()).rejects.toThrow("Playback denied.");
+  expect(new URL((fetch as Mock).mock.calls[0][0]).searchParams.get("session")).toBe("session-42");
+});
+
+it("cleans its reservation when the decision's negotiated streams are malformed", async () => {
+  (ProxiedRequest as Mock).mockResolvedValue({ status: 200, data: {
+    MediaContainer: { generalDecisionCode: 1001, Metadata: [{ Media: [{ Part: [{ Stream: {} }] }] }] },
+  } });
+  await expect(prepare()).rejects.toThrow("invalid playback decision");
+  expect(fetch).toHaveBeenCalledTimes(1);
   expect(new URL((fetch as Mock).mock.calls[0][0]).searchParams.get("session")).toBe("session-42");
 });
 it("retains HTTP errors and captured credentials when preparation fails", async () => {

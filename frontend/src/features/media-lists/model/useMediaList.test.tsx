@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { notifyManager } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -5,7 +6,11 @@ import { useServerSession } from "features/session/model";
 import { useUserSettings } from "features/settings/model";
 import { serverQueryClient as client } from "shared/api/queryClient";
 import { createMediaListSource } from "../api/mediaLists";
-import { listPageOptions, mediaListResultKey, mediaListWindowKey } from "./listPages";
+import {
+  listPageOptions,
+  mediaListResultKey,
+  mediaListWindowKey,
+} from "./listPages";
 import { applyMediaListChanges } from "./listSync";
 import { useMediaList, useMediaListWindow } from "./useMediaList";
 import type { MediaListPage, MediaListQuery } from "./mediaLists";
@@ -24,7 +29,7 @@ const metadata = {
   type: "movie",
   title: "Old",
   librarySectionID: 1,
-} as Plex.Metadata;
+} as MediaMetadata;
 const records = (offset: number, length = 100) =>
   Array.from({ length }, (_, index) => ({
     kind: "media" as const,

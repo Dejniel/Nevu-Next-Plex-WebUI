@@ -15,21 +15,36 @@ beforeEach(() => vi.clearAllMocks());
 it("loads metadata and children from Plex", async () => {
   (plexClient.get as Mock)
     .mockResolvedValueOnce({
-      MediaContainer: { Metadata: [{ ratingKey: "1" }] },
+      MediaContainer: {
+        Metadata: [{ ratingKey: "1", type: "movie", title: "Movie" }],
+      },
     })
     .mockResolvedValueOnce({
-      MediaContainer: { Metadata: [{ ratingKey: "2" }] },
+      MediaContainer: {
+        Metadata: [{ ratingKey: "2", type: "episode", title: "Episode" }],
+      },
     });
 
   await expect(getMediaMetadata("1")).resolves.toMatchObject({
     ratingKey: "1",
   });
-  await expect(getMediaChildren("1")).resolves.toEqual([{ ratingKey: "2" }]);
+  await expect(getMediaChildren("1")).resolves.toMatchObject([
+    { ratingKey: "2", type: "episode", title: "Episode" },
+  ]);
 });
 
 it("only returns a GUID lookup when Plex returned the requested item", async () => {
   (plexClient.get as Mock).mockResolvedValue({
-    MediaContainer: { Metadata: [{ guid: "plex://movie/other" }] },
+    MediaContainer: {
+      Metadata: [
+        {
+          ratingKey: "3",
+          type: "movie",
+          title: "Other",
+          guid: "plex://movie/other",
+        },
+      ],
+    },
   });
 
   await expect(getMediaByGuid("plex://movie/1")).resolves.toBeNull();
@@ -81,12 +96,14 @@ it.each([
   { MediaContainer: { Directory: {} } },
 ])("rejects malformed media responses (%j)", async (response) => {
   vi.mocked(plexClient.get).mockResolvedValue(response);
-  await expect(getMediaChildren("1")).rejects.toThrow("invalid media response");
+  await expect(getMediaChildren("1")).rejects.toThrow("invalid media metadata");
 });
 
 it("forwards metadata cancellation and encodes the item path", async () => {
   vi.mocked(plexClient.get).mockResolvedValue({
-    MediaContainer: { Metadata: [{ ratingKey: "1/2" }] },
+    MediaContainer: {
+      Metadata: [{ ratingKey: "1/2", type: "movie", title: "Movie" }],
+    },
   });
   const signal = new AbortController().signal;
   await getMediaMetadata("1/2", signal);
@@ -94,4 +111,32 @@ it("forwards metadata cancellation and encodes the item path", async () => {
     "/library/metadata/1%2F2?query",
     signal,
   );
+});
+
+it("does not confuse a show's All episodes link with season metadata", async () => {
+  const season = {
+    ratingKey: "2",
+    type: "season",
+    title: "Season 1",
+    index: 1,
+  };
+  vi.mocked(plexClient.get).mockResolvedValue({
+    MediaContainer: {
+      Metadata: [season],
+      Directory: [
+        { key: "/library/metadata/1/allLeaves", title: "All episodes" },
+      ],
+    },
+  });
+  await expect(getMediaChildren("1")).resolves.toEqual([season]);
+});
+
+it("fails the whole children read if an actual media row lacks its identity", async () => {
+  vi.mocked(plexClient.get).mockResolvedValue({
+    MediaContainer: {
+      Metadata: [{ ratingKey: "2", type: "season", title: "Season" }],
+      Directory: [{ type: "photo", title: "Broken album" }],
+    },
+  });
+  await expect(getMediaChildren("1")).rejects.toThrow("invalid media metadata");
 });

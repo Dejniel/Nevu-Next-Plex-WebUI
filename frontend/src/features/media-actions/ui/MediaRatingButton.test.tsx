@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import MediaRatingButton from "./MediaRatingButton";
@@ -24,7 +25,7 @@ afterEach(async () => {
 });
 
 async function clearRating(
-  item: Plex.Metadata,
+  item: MediaMetadata,
   onChanged: (rating: number | undefined) => void,
 ) {
   await act(async () =>
@@ -45,7 +46,7 @@ async function clearRating(
 }
 
 it("clears a rating only after Plex accepts the change, without mutating the item", async () => {
-  const item = { ratingKey: "12", userRating: 8 } as Plex.Metadata;
+  const item = { ratingKey: "12", userRating: 8 } as MediaMetadata;
   const onChanged = vi.fn();
   save.mockResolvedValue(true);
   await clearRating(item, onChanged);
@@ -99,7 +100,7 @@ it("keeps focus in the rating dialog while saving so Escape still closes it", as
 it.each([false, new Error("offline")])(
   "keeps the rating and offers retry after a failed save",
   async (result) => {
-    const item = { ratingKey: "12", userRating: 8 } as Plex.Metadata;
+    const item = { ratingKey: "12", userRating: 8 } as MediaMetadata;
     const onChanged = vi.fn();
     if (result instanceof Error) save.mockRejectedValue(result);
     else save.mockResolvedValue(result);
@@ -117,7 +118,7 @@ it("disables the clear icon without a rating and opens reviews independently", a
   await act(async () =>
     root.render(
       <MediaRatingButton
-        item={{ ratingKey: "12" } as Plex.Metadata}
+        item={{ ratingKey: "12" } as MediaMetadata}
         onChanged={vi.fn()}
         onWriteReview={onWriteReview}
       />,
@@ -153,7 +154,7 @@ it.each(["title", "profile"])(
           finish = resolve;
         }),
     );
-    const item = { ratingKey: "12", userRating: 8 } as Plex.Metadata;
+    const item = { ratingKey: "12", userRating: 8 } as MediaMetadata;
     const onChanged = vi.fn();
     await clearRating(item, onChanged);
     const signal = save.mock.calls[0][2]!;
@@ -162,7 +163,7 @@ it.each(["title", "profile"])(
       else
         root.render(
           <MediaRatingButton
-            item={{ ratingKey: "13" } as Plex.Metadata}
+            item={{ ratingKey: "13" } as MediaMetadata}
             onChanged={onChanged}
           />,
         );
@@ -174,7 +175,7 @@ it.each(["title", "profile"])(
 );
 
 it("offers the same 0–10 scale when selecting stars", async () => {
-  const item = { ratingKey: "12", userRating: 8 } as Plex.Metadata;
+  const item = { ratingKey: "12", userRating: 8 } as MediaMetadata;
   save.mockResolvedValue(true);
   await clearRating(item, vi.fn());
   expect(document.querySelector(".MuiPopover-paper")?.textContent).toContain(

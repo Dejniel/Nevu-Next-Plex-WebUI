@@ -1,6 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
+  type MediaMetadata,
   getMediaMetadata,
   mediaMetadataQueryKey,
   type MediaItemData,
@@ -65,7 +66,7 @@ const metadata = (type = "track") =>
         ],
       },
     ],
-  }) as Plex.Metadata;
+  }) as MediaMetadata;
 let root: Root;
 let host: HTMLDivElement;
 beforeEach(() => {
@@ -191,7 +192,7 @@ it.each(["track", "photo"])(
       expect.any(AbortSignal),
     );
     expect(
-      client.getQueryData<Plex.Metadata>(
+      client.getQueryData<MediaMetadata>(
         mediaMetadataQueryKey({ serverId: "server", profileKey: "1:1" }, "42"),
       )?.userRating,
     ).toBeUndefined();
@@ -281,7 +282,7 @@ it("opens the shared photo-album action from the personal photo menu", async () 
 it.each(["artist", "album"] as const)(
   "opens shared matching for a %s and retains it when its menu unmounts", async type => {
     useServerSession.setState({ canManageServer: true });
-    const data = { ...metadata(type), guid: "local://42" } as Plex.Metadata;
+    const data = { ...metadata(type), guid: "local://42" } as MediaMetadata;
     vi.mocked(getMediaMetadata).mockResolvedValue(data);
     await render(data);
     await click(host.querySelector("button"));
@@ -297,7 +298,7 @@ it.each(["artist", "album"] as const)(
 );
 it("uses Fix Match and Unmatch for an already matched album", async () => {
   useServerSession.setState({ canManageServer: true });
-  const data = { ...metadata("album"), guid: "mbid://release" } as Plex.Metadata;
+  const data = { ...metadata("album"), guid: "mbid://release" } as MediaMetadata;
   vi.mocked(getMediaMetadata).mockResolvedValue(data);
   await render(data); await click(host.querySelector("button"));
   expect(menuItem("Fix Match…")).toBeTruthy(); expect(menuItem("Unmatch")).toBeTruthy();

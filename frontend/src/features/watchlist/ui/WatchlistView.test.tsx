@@ -6,6 +6,7 @@ import { notifyManager } from "@tanstack/react-query";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
+  type MediaMetadata,
   indexMediaAvailability,
   useMediaAvailability,
 } from "entities/media/model";
@@ -64,7 +65,7 @@ vi.mock("features/media-actions/public", () => ({
     item,
     canPlay,
   }: {
-    item: Plex.Metadata;
+    item: MediaMetadata;
     canPlay: boolean;
   }) => {
     const action = useWatchlistAction(item);
@@ -101,7 +102,7 @@ const items = [
   { guid: "plex://movie/one", type: "movie", ratingKey: "one", title: "Alpha", year: 2024 },
   { guid: "plex://movie/two", type: "movie", ratingKey: "two", title: "Beta", year: 2020 },
   { guid: "plex://movie/three", type: "movie", ratingKey: "three", title: "Remote" },
-] as Plex.Metadata[];
+] as MediaMetadata[];
 const copies = [
   { ...items[0], ratingKey: "10", librarySectionID: 1 },
   { ...items[0], ratingKey: "20", librarySectionID: 2 },

@@ -20,7 +20,7 @@ import {
   Typography,
 } from "@mui/material";
 import React from "react";
-import type { MediaVersion } from "entities/media/model";
+import type { MediaMetadata, MediaVersion } from "entities/media/model";
 import { searchSubtitles } from "../api/subtitles";
 import { defaultSubtitleSearchTitle } from "../model/subtitles";
 import type {
@@ -101,7 +101,7 @@ export default function SubtitleSearchPanel({
   version,
   onDownload,
 }: {
-  metadata: Plex.Metadata;
+  metadata: MediaMetadata;
   version: MediaVersion;
   onDownload: (subtitle: SubtitleSearchResult) => Promise<void>;
 }) {
@@ -127,6 +127,7 @@ export default function SubtitleSearchPanel({
     localStorage.setItem("subtitleSearchLanguage", criteria.language);
 
     try {
+      if (version.media.id === undefined) throw new Error("Plex did not identify this media version for subtitle searches.");
       const nextResults = await searchSubtitles(metadata.ratingKey, {
         ...criteria,
         mediaItemID: version.media.id,

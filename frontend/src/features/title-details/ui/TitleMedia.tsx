@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { Box, Grid, Paper, Typography } from "@mui/material";
 import React from "react";
 
@@ -20,7 +21,7 @@ function Value({ label, value }: { label: string; value?: React.ReactNode }) {
   );
 }
 
-export default function TitleMedia({ data }: { data: Plex.Metadata }) {
+export default function TitleMedia({ data }: { data: MediaMetadata }) {
   const media = data.Media || [];
   if (media.length === 0) {
     return (

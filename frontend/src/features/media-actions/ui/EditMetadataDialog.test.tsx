@@ -13,7 +13,11 @@ import {
   openMetadataDialog,
   useMediaActionDialog,
 } from "../model/mediaActionDialog";
-import { getMediaMetadata, mediaMetadataQueryKey } from "entities/media/model";
+import {
+  type MediaMetadata,
+  getMediaMetadata,
+  mediaMetadataQueryKey,
+} from "entities/media/model";
 
 vi.mock("shared/api/backend", () => ({
   ProxiedRequest: vi.fn(),
@@ -35,10 +39,10 @@ const original = {
   summary: "Summary",
   Genre: [{ id: 1, tag: "Drama" }],
   Role: [{ id: 2, tag: "Actor", role: "Character" }],
-} as Plex.Metadata;
+} as MediaMetadata;
 let root: Root;
 let host: HTMLDivElement;
-let data: Plex.Metadata;
+let data: MediaMetadata;
 const onSaved = vi.fn();
 const onClose = vi.fn();
 beforeEach(() => {
@@ -158,7 +162,7 @@ it.each([
 ])(
   "uses the $type fields and shared artwork tabs",
   async ({ type, labels, artwork }) => {
-    data = { ...original, type: type as Plex.Metadata["type"] };
+    data = { ...original, type: type as MediaMetadata["type"] };
     await render();
     expect(input("Content rating")).toBeNull();
     expect(labels.map((label) => input(label))).not.toContain(null);

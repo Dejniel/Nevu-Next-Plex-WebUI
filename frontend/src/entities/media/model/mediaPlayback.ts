@@ -1,7 +1,14 @@
+import type { MediaStream } from "plex/media";
 import type { MediaVersion } from "./mediaVersions";
 import { playbackDecisionStreams } from "shared/api/plexPlayback";
-import type { PlexPlaybackDecision, PlexStreamSource } from "shared/api/plexPlayback";
-import { browserVideoCapabilities, canDecodeVideo } from "shared/lib/video/capabilities";
+import type {
+  PlexPlaybackDecision,
+  PlexStreamSource,
+} from "shared/api/plexPlayback";
+import {
+  browserVideoCapabilities,
+  canDecodeVideo,
+} from "shared/lib/video/capabilities";
 import type {
   VideoCapabilityProbe,
   VideoDecodeConfiguration,
@@ -19,14 +26,14 @@ export interface PlexPlaybackPlan {
   videoCodec: string;
   audioCodec: string;
   subtitles: "none" | "sidecar" | "burn";
-  subtitle?: Plex.Stream;
+  subtitle?: MediaStream;
 }
 
 export interface PlexPlaybackSource extends PlexStreamSource {
   subtitleSessionID?: string;
 }
 
-function videoCodecString(stream: Plex.Stream | undefined, codec: string) {
+function videoCodecString(stream: MediaStream | undefined, codec: string) {
   const depth = stream?.bitDepth ?? 8;
   const level = stream?.level;
   if (codec === "h264") {
@@ -50,7 +57,7 @@ function videoCodecString(stream: Plex.Stream | undefined, codec: string) {
   return null;
 }
 
-function audioCodecString(codec: string, stream?: Plex.Stream) {
+function audioCodecString(codec: string, stream?: MediaStream) {
   if (codec === "aac") return /he-aac/i.test(stream?.profile ?? "") ? "mp4a.40.5" : "mp4a.40.2";
   if (codec === "ac3") return "ac-3";
   if (codec === "eac3") return "ec-3";
@@ -60,8 +67,8 @@ function audioCodecString(codec: string, stream?: Plex.Stream) {
   return null;
 }
 
-function isTextSubtitle(subtitle: Plex.Stream) {
-  return ["srt", "subrip", "vtt", "webvtt", "mov_text", "text"].includes(subtitle.codec);
+function isTextSubtitle(subtitle: MediaStream) {
+  return ["srt", "subrip", "vtt", "webvtt", "mov_text", "text"].includes(subtitle.codec ?? "");
 }
 
 export function playbackPlanKey(plan: PlexPlaybackPlan) {
@@ -110,7 +117,7 @@ export async function planMediaPlayback(
         width: video?.width ?? media.width ?? 1920,
         height: video?.height ?? media.height ?? 1080,
         bitrate: Math.max(1, (video?.bitrate ?? media.bitrate ?? 12000) * 1000),
-        framerate: Number.parseFloat(video?.frameRate ?? "24") || 24,
+        framerate: video?.frameRate ?? 24,
       }
     : undefined;
   const audioConfiguration: AudioDecodeConfiguration | undefined = audioString

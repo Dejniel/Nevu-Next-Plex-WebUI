@@ -1,7 +1,11 @@
+import type { MediaMetadata } from "plex/media";
 import type { Mock } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { prepareMediaPlayback, releaseMediaPlayback } from "../api/mediaPlayback";
+import {
+  prepareMediaPlayback,
+  releaseMediaPlayback,
+} from "../api/mediaPlayback";
 import { planMediaPlayback } from "./mediaPlayback";
 import { PlexPlaybackRefusal } from "shared/api/plexPlayback";
 import { PlexRequestError } from "shared/api/PlexClient";
@@ -49,7 +53,7 @@ const converted: PlexPlaybackPlan = {
   copyVideo: false,
   copyAudio: false,
 };
-function movie(id = "1"): Plex.Metadata {
+function movie(id = "1"): MediaMetadata {
   return {
     ratingKey: id,
     Media: [
@@ -65,9 +69,9 @@ function movie(id = "1"): Plex.Metadata {
         ],
       },
     ],
-  } as Plex.Metadata;
+  } as MediaMetadata;
 }
-let root: Root, metadata: Plex.Metadata | null, quality: MediaPlaybackQuality;
+let root: Root, metadata: MediaMetadata | null, quality: MediaPlaybackQuality;
 let state: ReturnType<typeof useMediaPlaybackSource>, sequence: number;
 function Harness() {
   state = useMediaPlaybackSource(metadata, undefined, quality);

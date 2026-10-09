@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { act } from "react";
 import { notifyManager } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
@@ -75,7 +76,7 @@ it("shares one request with reviews, showing provider, own and individual friend
     audienceRating: 9.2,
     audienceRatingImage: "rottentomatoes://image.rating.upright",
     userRating: 6,
-  } as Plex.Metadata;
+  } as MediaMetadata;
   await act(async () =>
     root.render(
       <>
@@ -114,7 +115,7 @@ it("keeps provider scores visible during a community failure and does not fabric
             guid: "plex://movie/one",
             rating: 8,
             ratingImage: "imdb://image.rating",
-          } as Plex.Metadata
+          } as MediaMetadata
         }
       />,
     ),
@@ -141,7 +142,7 @@ it("does not render missing ratings as zero and switches to the new profile's fr
   await act(async () =>
     root.render(
       <TitleRatings
-        item={{ guid: "plex://movie/one", userRating: 0 } as Plex.Metadata}
+        item={{ guid: "plex://movie/one", userRating: 0 } as MediaMetadata}
       />,
     ),
   );

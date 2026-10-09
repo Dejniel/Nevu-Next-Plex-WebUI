@@ -1,12 +1,11 @@
-import { Avatar, Box, Button, Paper, Typography } from "@mui/material";
+import { Box, Button, Paper, Typography } from "@mui/material";
 import { ArrowForwardRounded } from "@mui/icons-material";
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
 import { ActionableMediaCard } from "features/media-actions/public";
-import { getTranscodeImageURL } from "entities/media/model";
+import { type MediaMetadata, getTranscodeImageURL } from "entities/media/model";
 import { TitleExtra } from "entities/media/model";
 import { MediaExtraPlayback } from "entities/media/public";
-import { libraryBrowseTo } from "shared/lib/navigation";
+import TitleCastMember from "./TitleCastMember";
 
 function SectionTitle({
   children,
@@ -73,12 +72,11 @@ export default function TitleOverview({
   onShowDetails,
   onShowReviews,
 }: {
-  data: Plex.Metadata;
+  data: MediaMetadata;
   trailer: TitleExtra | null;
   onShowDetails: () => void;
   onShowReviews: () => void;
 }) {
-  const location = useLocation();
   const related = Array.from(
     new Map(
       (data.Related?.Hub || [])
@@ -127,7 +125,10 @@ export default function TitleOverview({
             {reviews.map((review) => (
               <Paper key={review.id} sx={{ p: 2.5, height: "100%" }}>
                 <Typography sx={{ fontWeight: 700 }}>{review.tag}</Typography>
-                <Typography variant="body2" sx={{ color: "text.secondary", mb: 1.5 }}>
+                <Typography
+                  variant="body2"
+                  sx={{ color: "text.secondary", mb: 1.5 }}
+                >
                   {review.source}
                 </Typography>
                 <Typography
@@ -168,40 +169,11 @@ export default function TitleOverview({
           </SectionTitle>
           <HorizontalRail itemWidth={{ xs: "220px", sm: "240px" }}>
             {cast.map((role) => (
-              <Button
-                key={role.id}
-                component={Link}
-                to={libraryBrowseTo(
-                  location,
-                  `/library/sections/${data.librarySectionID}/actor/${role.id}`,
-                )}
-                sx={{
-                  width: "100%",
-                  minHeight: 72,
-                  justifyContent: "flex-start",
-                  gap: 1.5,
-                  px: 1.5,
-                  overflow: "hidden",
-                }}
-              >
-                <Avatar
-                  src={
-                    role.thumb
-                      ? getTranscodeImageURL(role.thumb, 120, 120)
-                      : undefined
-                  }
-                  alt=""
-                  sx={{ width: 48, height: 48, flexShrink: 0 }}
-                />
-                <Box sx={{ minWidth: 0, textAlign: "left" }}>
-                  <Typography noWrap sx={{ fontWeight: 600 }}>
-                    {role.tag}
-                  </Typography>
-                  <Typography noWrap variant="body2" sx={{ color: "text.secondary" }}>
-                    {role.role}
-                  </Typography>
-                </Box>
-              </Button>
+              <TitleCastMember
+                key={`${role.id ?? role.tag}:${role.role ?? ""}`}
+                member={role}
+                sectionId={data.librarySectionID}
+              />
             ))}
           </HorizontalRail>
         </Box>

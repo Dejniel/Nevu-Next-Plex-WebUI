@@ -8,7 +8,7 @@ import {
   MenuItem,
   Tooltip,
 } from "@mui/material";
-import type { MediaItemData } from "entities/media/model";
+import type { MediaMetadata, MediaItemData } from "entities/media/model";
 import React from "react";
 import { useBigReader } from "shared/ui";
 import { useWatchlistAction } from "../model/watchlistQuery";
@@ -72,7 +72,7 @@ export function WatchlistButton({ item }: { item: MediaItemData }) {
   );
 }
 
-export function HeroWatchlistButton({ item }: { item: Plex.Metadata }) {
+export function HeroWatchlistButton({ item }: { item: MediaMetadata }) {
   const { loading, selected, toggle, available } = useWatchlistToggle(item);
   if (!available) return null;
 

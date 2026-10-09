@@ -1,6 +1,7 @@
 import { focusManager } from "@tanstack/react-query";
 import { changedMediaFields } from "@nevu/contracts";
 import {
+  type MediaMetadata,
   applyAvailabilityChanges,
   applyMediaDetailsChanges,
   applyMediaMetadataChanges,
@@ -18,7 +19,10 @@ import {
   invalidateRandomCatalogs,
   synchronizeLibraryItem,
 } from "features/library/model";
-import { applyMediaListChanges, getCachedListItems } from "features/media-lists/model";
+import {
+  applyMediaListChanges,
+  getCachedListItems,
+} from "features/media-lists/model";
 import { applyHomeChanges } from "features/home/model";
 import { serverQueryClient } from "shared/api/queryClient";
 
@@ -69,7 +73,7 @@ export function startBrowseSynchronization(
           try {
             const metadataKey = mediaMetadataQueryKey(scope, change.id);
             const cached = client.getQueryState(metadataKey) !== undefined;
-            const before = client.getQueryData<Plex.Metadata>(metadataKey);
+            const before = client.getQueryData<MediaMetadata>(metadataKey);
             const includeDetails = cached || Boolean(prior?.found);
             update = await synchronizeLibraryItem(change.id, abort.signal, includeDetails);
             if (before && update.metadata) verified = {
@@ -78,7 +82,7 @@ export function startBrowseSynchronization(
               effect: "metadata",
               fields: [...new Set([
                 ...(change.effect === "metadata" ? change.fields : []),
-                ...changedMediaFields(before, update.metadata as Plex.Metadata),
+                ...changedMediaFields(before, update.metadata),
               ])],
             };
           } catch (error) {
@@ -100,7 +104,7 @@ export function startBrowseSynchronization(
           ? mediaChangeContext([
               ...occurrences,
               ...(update?.item ? [update.item] : []),
-              ...(update?.metadata ? [update.metadata as Plex.Metadata] : []),
+              ...(update?.metadata ? [update.metadata] : []),
             ], change.id)
           : undefined;
         changes.push({

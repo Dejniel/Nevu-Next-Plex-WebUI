@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "plex/media";
 import type { Mock } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -38,7 +39,7 @@ vi.mock("shared/ui/VideoPlayer", async () => {
 
 const extra = {
   source: "local" as const,
-  metadata: { ratingKey: "42" } as Plex.Metadata,
+  metadata: { ratingKey: "42" } as MediaMetadata,
 };
 let root: Root;
 let container: HTMLDivElement;
@@ -144,7 +145,7 @@ it("preserves the playback position on retry and resets it for a different extra
   expect(mockVideoProps.startTime).toBe(42);
   await renderDiscover({
     ...discoverExtra,
-    metadata: { ratingKey: "43" } as Plex.Metadata,
+    metadata: { ratingKey: "43" } as MediaMetadata,
   });
   expect(mockVideoProps.startTime).toBe(12);
 });
@@ -161,7 +162,7 @@ it("ignores a stale Discover failure after switching to a different extra", asyn
   await renderDiscover();
   await renderDiscover({
     ...discoverExtra,
-    metadata: { ratingKey: "43" } as Plex.Metadata,
+    metadata: { ratingKey: "43" } as MediaMetadata,
   });
   await act(async () => {
     rejectOld(new Error("Old request failed."));

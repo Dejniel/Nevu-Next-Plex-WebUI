@@ -1,12 +1,18 @@
 import { QueryObserver } from "@tanstack/react-query";
 import { createQueryClient } from "shared/api/queryClient";
-import type { ReconciledMediaChange } from "entities/media/model";
-import { applyLibraryDirectoryChanges, libraryDirectoryQueryOptions } from "./libraryDirectories";
+import type {
+  MediaMetadata,
+  ReconciledMediaChange,
+} from "entities/media/model";
+import {
+  applyLibraryDirectoryChanges,
+  libraryDirectoryQueryOptions,
+} from "./libraryDirectories";
 
 const scope = { serverId: "server", profileKey: "owner" };
 const client = createQueryClient();
 const closes: (() => void)[] = [];
-const movie = { ratingKey: "1", type: "movie", title: "Movie", summary: "Old", librarySectionID: 1 } as Plex.Metadata;
+const movie = { ratingKey: "1", type: "movie", title: "Movie", summary: "Old", librarySectionID: 1 } as MediaMetadata;
 const container = { Metadata: [movie], size: 1, totalSize: 50, offset: 16, viewGroup: "movie", Directory: [{ key: "all", title: "All" }] } as Plex.MediaContainer;
 function observe(dir: string, props?: Record<string, unknown>, initialData = container) {
   const options = libraryDirectoryQueryOptions(scope, dir, props);
@@ -14,7 +20,7 @@ function observe(dir: string, props?: Record<string, unknown>, initialData = con
   closes.push(new QueryObserver(client, { ...options, queryFn: read, initialData, staleTime: Infinity }).subscribe(() => {}));
   return { read, key: options.queryKey };
 }
-function edit(fields: string[], metadata = { ...movie, summary: "New" }): ReconciledMediaChange {
+function edit(fields: string[], metadata: MediaMetadata = { ...movie, summary: "New" }): ReconciledMediaChange {
   return {
     change: { ...scope, sectionId: "1", kind: "item", effect: "metadata", id: metadata.ratingKey, fields },
     update: { item: metadata as unknown as NonNullable<ReconciledMediaChange["update"]>["item"], metadata, sectionId: "1" },
@@ -63,7 +69,7 @@ it("keeps unknown predicates and sorts conservative despite equal cached metadat
 
 it("refreshes cached prior parents in raw show pages", async () => {
   const show = observe("/library/sections/1/all", { type: 2 }, {
-    ...container, viewGroup: "show", Metadata: [{ ratingKey: "old-show", type: "show" } as Plex.Metadata],
+    ...container, viewGroup: "show", Metadata: [{ ratingKey: "old-show", type: "show" } as MediaMetadata],
   });
   await applyLibraryDirectoryChanges(client, [{
     ...edit(["viewCount"], { ...movie, type: "episode", parentRatingKey: "new-season", grandparentRatingKey: "new-show" }),

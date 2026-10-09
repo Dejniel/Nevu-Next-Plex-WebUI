@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -26,7 +27,7 @@ describe("playlist playback commands", () => {
     type: "movie",
     ratingKey: "10",
     librarySectionID: 2,
-  } as Plex.Metadata;
+  } as MediaMetadata;
   function Harness() {
     commands = usePlaybackCommands(options);
     return null;

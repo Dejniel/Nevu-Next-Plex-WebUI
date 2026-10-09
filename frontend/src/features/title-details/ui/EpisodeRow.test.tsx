@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MemoryRouter, useLocation } from "react-router-dom";
@@ -11,7 +12,7 @@ const base = {
   duration: 60_000,
   thumb: "",
   summary: "Episode summary",
-} as Plex.Metadata;
+} as MediaMetadata;
 let root: Root;
 let container: HTMLDivElement;
 let path: string;

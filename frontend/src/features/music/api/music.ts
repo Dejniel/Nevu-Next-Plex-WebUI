@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { PlexClient, PlexRequestError } from "shared/api/PlexClient";
 import { queryBuilder } from "shared/lib/query";
 
@@ -8,7 +9,7 @@ export interface MusicQueue {
   selected: number;
   selectedOffset: number;
   shuffled: boolean;
-  items: Plex.Metadata[];
+  items: MediaMetadata[];
 }
 
 export type MusicQueueSource =
@@ -23,7 +24,7 @@ export function readMusicQueue(response: {
     playQueueSelectedItemID: number;
     playQueueSelectedItemOffset: number;
     playQueueShuffled?: boolean | number;
-    Metadata?: Plex.Metadata[];
+    Metadata?: MediaMetadata[];
   };
 }): MusicQueue {
   const data = response.MediaContainer;
@@ -161,7 +162,7 @@ export function musicAPI(context: Record<string, unknown>, serverID: string) {
       return change(id, "/reset", "PUT", {}, signal);
     },
     async timeline(
-      item: Pick<Plex.Metadata, "ratingKey" | "playQueueItemID">,
+      item: Pick<MediaMetadata, "ratingKey" | "playQueueItemID">,
       queueID: number,
       state: string,
       time: number,

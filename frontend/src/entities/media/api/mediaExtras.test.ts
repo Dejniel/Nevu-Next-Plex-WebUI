@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "plex/media";
 import type { Mocked } from "vitest";
 import axios from "axios";
 import { AuthStorage } from "features/session/model";
@@ -16,7 +17,7 @@ const extra: TitleExtra = {
   source: "discover",
   metadata: {
     Media: [{ Part: [{ key: path }] }],
-  } as Plex.Metadata,
+  } as MediaMetadata,
 };
 
 beforeEach(() => {
@@ -65,7 +66,7 @@ it("reports the HTTP status without exposing upstream URLs or tokens", async () 
 });
 
 it("rejects extras without a playable part before making a request", async () => {
-  await expect(resolveDiscoverExtra({ ...extra, metadata: {} as Plex.Metadata })).rejects.toThrow(
+  await expect(resolveDiscoverExtra({ ...extra, metadata: {} as MediaMetadata })).rejects.toThrow(
     "This extra does not have a playable stream.",
   );
   expect(mockedAxios.post).not.toHaveBeenCalled();

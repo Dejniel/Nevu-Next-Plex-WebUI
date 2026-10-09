@@ -1,3 +1,8 @@
+import {
+  readPlaybackDecision,
+  type PlexPlaybackDecision,
+} from "./plexPlaybackResponse";
+export type { PlexPlaybackDecision } from "./plexPlaybackResponse";
 import { PlexClient } from "./PlexClient";
 import { getBackendURL } from "./backend";
 import { queryBuilder } from "shared/lib/query";
@@ -12,38 +17,11 @@ export interface PlexStreamSource extends VideoSource {
   requestContext: Record<string, unknown>;
 }
 
-export interface PlexPlaybackDecision {
-  MediaContainer: {
-    generalDecisionCode?: number;
-    generalDecisionText?: string;
-    directPlayDecisionCode?: number;
-    directPlayDecisionText?: string;
-    transcodeDecisionCode?: number;
-    transcodeDecisionText?: string;
-    mdeDecisionCode?: number;
-    mdeDecisionText?: string;
-    Metadata?: Array<{
-      Media?: Array<{
-        selected?: boolean;
-        protocol?: string;
-        Part?: Array<{
-          selected?: boolean;
-          decision?: string;
-          Stream?: Array<{
-            streamType: number;
-            decision?: string;
-            selected?: boolean;
-            key?: string;
-            codec?: string;
-          }>;
-        }>;
-      }>;
-    }>;
-  };
-}
-
 export class PlexPlaybackRefusal extends Error {
-  constructor(message: string, readonly conversionDenied: boolean) {
+  constructor(
+    message: string,
+    readonly conversionDenied: boolean,
+  ) {
     super(message);
     this.name = "PlexPlaybackRefusal";
   }
@@ -61,7 +39,9 @@ export function playbackDecisionStreams(
     throw new PlexPlaybackRefusal(
       [
         container.generalDecisionText ?? container.mdeDecisionText,
-        (container.transcodeDecisionCode ?? 0) >= 2000 ? container.transcodeDecisionText : undefined,
+        (container.transcodeDecisionCode ?? 0) >= 2000
+          ? container.transcodeDecisionText
+          : undefined,
       ]
         .filter((text, index, values) => text && values.indexOf(text) === index)
         .join(" ") || "Plex could not prepare this media for playback.",
@@ -83,7 +63,9 @@ export function plexMediaURL(path: string, params: Record<string, unknown>) {
 }
 
 /** Decision, validation and start own one immutable session and parameter set. */
-export async function preparePlexPlayback<Plan extends { protocol: StreamingProtocol }>(
+export async function preparePlexPlayback<
+  Plan extends { protocol: StreamingProtocol },
+>(
   endpoint: PlaybackEndpoint,
   params: Record<string, unknown> & { protocol: StreamingProtocol },
   context: Record<string, unknown>,
@@ -102,8 +84,12 @@ export async function preparePlexPlayback<Plan extends { protocol: StreamingProt
   });
   const path = `/${endpoint}/:/transcode/universal`;
   try {
-    const client = new PlexClient(() => String(requestContext["X-Plex-Token"] ?? ""));
-    const decision = await client.get<PlexPlaybackDecision>(`${path}/decision?${query}`, signal);
+    const client = new PlexClient(() =>
+      String(requestContext["X-Plex-Token"] ?? ""),
+    );
+    const decision = readPlaybackDecision(
+      await client.get<unknown>(`${path}/decision?${query}`, signal),
+    );
     signal.throwIfAborted();
     const plan = readDecision(decision);
     if (plan.protocol !== params.protocol)
@@ -157,9 +143,16 @@ export async function releasePlexSessions(
   );
 }
 
-export async function pingPlexSession(endpoint: PlaybackEndpoint, source: PlexStreamSource) {
-  const response = await fetch(sessionURL(endpoint, source.requestContext, source.id, "ping"), {
-    signal: AbortSignal.timeout(3000),
-  });
-  if (!response.ok) throw new Error("Plex could not keep the playback session alive.");
+export async function pingPlexSession(
+  endpoint: PlaybackEndpoint,
+  source: PlexStreamSource,
+) {
+  const response = await fetch(
+    sessionURL(endpoint, source.requestContext, source.id, "ping"),
+    {
+      signal: AbortSignal.timeout(3000),
+    },
+  );
+  if (!response.ok)
+    throw new Error("Plex could not keep the playback session alive.");
 }

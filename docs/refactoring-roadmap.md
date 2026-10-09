@@ -90,8 +90,11 @@ response shape; avoid a repository-wide type-only rewrite.
 Video queue occurrences, timeline replies, artwork choices and current-cast
 snapshots now have checked response contracts. The metadata editor uses its own
 editable-field model; video and playlist queues share occurrence validation.
-Envelope/collection checks are shared with Match. Full metadata, child lists,
-availability, Discover extras and music queues still need endpoint-specific work.
+Envelope/collection checks are shared with Match. Full video/music/photo metadata,
+file/stream details and child records now share one decoder with canonical sync;
+the old global metadata/file types are removed. Playback decisions have a separate
+checked contract. Availability, Discover extras, music queue occurrences and
+browse/list response contracts remain to migrate.
 
 ### 6. Make Plex notification updates more selective — complete
 

@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { Alert, Box, Button, CircularProgress } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -19,7 +20,7 @@ export default function TitleReviewEditor({
   item,
   onClose,
 }: {
-  item: Plex.Metadata;
+  item: MediaMetadata;
   onClose: () => void;
 }) {
   const { profileKey } = useActiveServerScope();

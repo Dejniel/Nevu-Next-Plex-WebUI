@@ -1,9 +1,13 @@
-import { isMediaInLibrary, type MediaAvailability } from "entities/media/model";
+import {
+  type MediaMetadata,
+  isMediaInLibrary,
+  type MediaAvailability,
+} from "entities/media/model";
 
 export type WatchlistSort = "added" | "title" | "year";
 
 export function selectWatchlistItems(
-  items: readonly Plex.Metadata[],
+  items: readonly MediaMetadata[],
   availability: ReadonlyMap<string, MediaAvailability>,
   options: { libraryID?: string; search: string; sort: WatchlistSort },
 ) {
@@ -11,7 +15,7 @@ export function selectWatchlistItems(
   const selected = items.filter(
     (item) =>
       (!options.libraryID ||
-        isMediaInLibrary(item.guid, availability, options.libraryID)) &&
+        Boolean(item.guid && isMediaInLibrary(item.guid, availability, options.libraryID))) &&
       (!search || item.title.toLocaleLowerCase().includes(search)),
   );
   if (options.sort === "title")

@@ -1,9 +1,10 @@
+import type { MediaMetadata } from "plex/media";
 import type { QueryClient } from "@tanstack/react-query";
 import type { MediaScope } from "./mediaChanges";
 
 export function getCachedMediaItems(client: QueryClient, scope: MediaScope) {
   return ["media", "media-children", "availability"].flatMap((kind) =>
-    client.getQueriesData<Plex.Metadata | Plex.Metadata[]>({
+    client.getQueriesData<MediaMetadata | MediaMetadata[]>({
       queryKey: [kind, scope.serverId, scope.profileKey],
     }).flatMap(([, data]) => data ? (Array.isArray(data) ? data : [data]) : []),
   );
@@ -16,8 +17,8 @@ interface MediaOccurrence {
   librarySectionID?: number;
   parentRatingKey?: string;
   grandparentRatingKey?: string;
-  Children?: Plex.Metadata["Children"];
-  OnDeck?: Plex.Metadata["OnDeck"];
+  Children?: MediaMetadata["Children"];
+  OnDeck?: MediaMetadata["OnDeck"];
 }
 
 export function mediaChangeContext(

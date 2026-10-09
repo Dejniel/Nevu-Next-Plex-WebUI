@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import type { MediaMetadata } from "plex/media";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import {
   getXPlexProps,
   getActiveServerScope,
@@ -6,7 +14,10 @@ import {
   useActiveServerScope,
   useAuthSession,
 } from "features/session/model";
-import { prepareMediaPlayback, releaseMediaPlayback } from "../api/mediaPlayback";
+import {
+  prepareMediaPlayback,
+  releaseMediaPlayback,
+} from "../api/mediaPlayback";
 import { planMediaPlayback, playbackPlanKey } from "./mediaPlayback";
 import { PlexPlaybackRefusal } from "shared/api/plexPlayback";
 import type { MediaPlaybackQuality, PlexPlaybackSource } from "./mediaPlayback";
@@ -14,7 +25,11 @@ import { getMediaVersions } from "./mediaVersions";
 import type { MediaVersion } from "./mediaVersions";
 import type { VideoPlaybackFailure } from "shared/lib/video/types";
 import { idlePlayback, playbackReducer } from "./playbackState";
-import type { PlaybackOwner, PlaybackState, PlaybackAttempt } from "./playbackState";
+import type {
+  PlaybackOwner,
+  PlaybackState,
+  PlaybackAttempt,
+} from "./playbackState";
 
 const ORIGINAL: MediaPlaybackQuality = {};
 
@@ -32,7 +47,7 @@ function ownedPlayback(state: PlaybackState, sourceId: string) {
 }
 
 export function useMediaPlaybackSource(
-  metadata: Plex.Metadata | null,
+  metadata: MediaMetadata | null,
   version?: MediaVersion,
   quality: MediaPlaybackQuality = ORIGINAL,
 ) {

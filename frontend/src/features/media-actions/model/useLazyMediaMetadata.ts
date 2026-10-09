@@ -1,5 +1,6 @@
 import { isCancelledError, useQuery } from "@tanstack/react-query";
 import {
+  type MediaMetadata,
   mediaMetadataQueryOptions,
   type MediaItemData,
 } from "entities/media/model";
@@ -60,7 +61,7 @@ export function useLazyMediaMetadata(item: MediaItemData) {
         throw error;
       }
     },
-    update: (data: Plex.Metadata) => {
+    update: (data: MediaMetadata) => {
       assertCurrent();
       void serverQueryClient.cancelQueries({
         queryKey: options.queryKey,

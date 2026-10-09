@@ -18,14 +18,26 @@ export type PlaybackTimelineState =
   | "paused"
   | "stopped";
 
-export async function putAudioStream(
-  partID: number,
-  streamID: number,
+async function putStream(
+  field: "audioStreamID" | "subtitleStreamID",
+  partID: number | undefined,
+  streamID: number | undefined,
   signal?: AbortSignal,
 ) {
+  if (
+    partID === undefined ||
+    streamID === undefined ||
+    !Number.isSafeInteger(partID) ||
+    partID <= 0 ||
+    !Number.isSafeInteger(streamID) ||
+    streamID < 0
+  )
+    throw new Error(
+      "This track cannot be selected because Plex did not identify its file and stream.",
+    );
   await plexClient.put(
     `/library/parts/${partID}?${queryBuilder({
-      audioStreamID: streamID,
+      [field]: streamID,
       ...getXPlexProps(),
     })}`,
     {},
@@ -33,20 +45,16 @@ export async function putAudioStream(
   );
 }
 
-export async function putSubtitleStream(
-  partID: number,
-  streamID: number,
+export const putAudioStream = (
+  partID: number | undefined,
+  streamID: number | undefined,
   signal?: AbortSignal,
-) {
-  await plexClient.put(
-    `/library/parts/${partID}?${queryBuilder({
-      subtitleStreamID: streamID,
-      ...getXPlexProps(),
-    })}`,
-    {},
-    signal,
-  );
-}
+) => putStream("audioStreamID", partID, streamID, signal);
+export const putSubtitleStream = (
+  partID: number | undefined,
+  streamID: number | undefined,
+  signal?: AbortSignal,
+) => putStream("subtitleStreamID", partID, streamID, signal);
 
 export async function getTimelineUpdate(
   key: number,

@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   prepareAudioPlayback,
@@ -8,7 +9,7 @@ import type { AudioSource } from "../api/musicPlayback";
 import type { VideoPlaybackFailure } from "shared/lib/video/types";
 
 export function useAudioPlaybackSource(
-  metadata: Plex.Metadata | null,
+  metadata: MediaMetadata | null,
   context: Record<string, unknown>,
   playbackID: string | null,
   startTime = 0,

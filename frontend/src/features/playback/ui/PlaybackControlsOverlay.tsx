@@ -25,7 +25,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { VideoSeekSlider } from "react-video-seek-slider";
 import "react-video-seek-slider/styles.css";
-import { getTranscodeImageURL } from "entities/media/model";
+import { type MediaMetadata, getTranscodeImageURL } from "entities/media/model";
 import { useUserSettings } from "features/settings/model";
 import { activePlaybackMarker } from "../model/playbackNavigation";
 import { formatPlaybackTime } from "../model/playbackPresentation";
@@ -488,7 +488,7 @@ function PlaybackTime({ value }: { value: number }) {
   );
 }
 
-function PlaybackTitle({ metadata }: { metadata: Plex.Metadata }) {
+function PlaybackTitle({ metadata }: { metadata: MediaMetadata }) {
   const titleStyle = {
     color: "#fff",
     textOverflow: "ellipsis",

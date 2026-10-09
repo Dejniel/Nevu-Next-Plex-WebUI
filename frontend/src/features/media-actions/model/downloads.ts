@@ -1,11 +1,16 @@
+import type {
+  MediaMetadata,
+  MediaRendition,
+  MediaPart,
+} from "entities/media/model";
 import { AuthStorage } from "features/session/model";
 import { getBackendURL } from "shared/api/backend";
 
 export interface OriginalDownload {
   href: string;
   filename: string;
-  media: Plex.Media;
-  part: Plex.Part;
+  media: MediaRendition;
+  part: MediaPart;
 }
 
 export function formatDownloadDetails(download: OriginalDownload): string {
@@ -30,7 +35,7 @@ export function formatDownloadDetails(download: OriginalDownload): string {
     .join(" · ");
 }
 
-function fallbackFilename(data: Plex.Metadata, part: Plex.Part): string {
+function fallbackFilename(data: MediaMetadata, part: MediaPart): string {
   const title = Array.from(
     (data.title || "plex-media").replace(/[<>:"/\\|?*]/g, "_"),
     (character) => (character.charCodeAt(0) < 32 ? "_" : character),
@@ -38,12 +43,12 @@ function fallbackFilename(data: Plex.Metadata, part: Plex.Part): string {
   return part.container ? `${title}.${part.container}` : title;
 }
 
-export function originalFilename(data: Plex.Metadata, part: Plex.Part): string {
+export function originalFilename(data: MediaMetadata, part: MediaPart): string {
   return part.file?.split(/[\\/]/).pop() || fallbackFilename(data, part);
 }
 
 export function getOriginalDownloads(
-  data: Plex.Metadata,
+  data: MediaMetadata,
   allowDownloads: boolean,
 ): OriginalDownload[] {
   if (!allowDownloads) return [];
@@ -52,7 +57,7 @@ export function getOriginalDownloads(
 
   return (data.Media || []).flatMap((media) =>
     (media.Part || [])
-      .filter((part) => Boolean(part.key))
+      .filter((part): part is MediaPart & { key: string } => Boolean(part.key))
       .map((part) => {
         const source = new URL(part.key, "http://plex.local");
         source.searchParams.set("download", "1");

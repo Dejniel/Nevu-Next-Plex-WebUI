@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { MenuItem, Select } from "@mui/material";
 import type { LibrarySort } from "@nevu/contracts";
 import React, { SetStateAction } from "react";
@@ -42,7 +43,7 @@ function LibrarySortDropDown({
   );
 }
 
-export function sortMetadata(items: Plex.Metadata[], sort: LibrarySort) {
+export function sortMetadata(items: MediaMetadata[], sort: LibrarySort) {
   const result = [...items];
   if (isRandomLibrarySort(sort)) return result.sort(() => Math.random() - 0.5);
 

@@ -1,9 +1,18 @@
-import { queryOptions, useIsMutating, useMutation, useQuery } from "@tanstack/react-query";
-import type { MediaItemData } from "entities/media/model";
+import {
+  queryOptions,
+  useIsMutating,
+  useMutation,
+  useQuery,
+} from "@tanstack/react-query";
+import type { MediaMetadata, MediaItemData } from "entities/media/model";
 import { useAuthSession } from "features/session/model";
 import { useUserSettings } from "features/settings/model";
 import { serverQueryClient } from "shared/api/queryClient";
-import { addToWatchlist, getWatchlist, removeFromWatchlist } from "../api/watchlist";
+import {
+  addToWatchlist,
+  getWatchlist,
+  removeFromWatchlist,
+} from "../api/watchlist";
 import { canWatchlist } from "./watchlistItem";
 
 export const watchlistQueryKey = (profileKey: string | null) => ["watchlist", profileKey] as const;
@@ -58,10 +67,10 @@ export function useWatchlistAction(item: MediaItemData) {
         // A read started while the write was pending must not restore old membership.
         await serverQueryClient.cancelQueries({ queryKey: key, exact: true });
         if (!isCurrent(edit)) return;
-        serverQueryClient.setQueryData<Plex.Metadata[]>(key, (previous) => {
+        serverQueryClient.setQueryData<MediaMetadata[]>(key, (previous) => {
           if (!previous) return previous;
           const items = previous.filter((entry) => entry.guid !== edit.item.guid);
-          return edit.included ? [edit.item as Plex.Metadata, ...items] : items;
+          return edit.included ? [edit.item as MediaMetadata, ...items] : items;
         });
       },
     },
@@ -80,7 +89,7 @@ export function useWatchlistAction(item: MediaItemData) {
         included: false,
       };
       const key = watchlistQueryKey(profileKey);
-      let data = serverQueryClient.getQueryData<Plex.Metadata[]>(key);
+      let data = serverQueryClient.getQueryData<MediaMetadata[]>(key);
       if (!data) {
         const loaded = await result.refetch();
         if (!loaded.data) throw loaded.error ?? new Error("Could not read your Watchlist.");

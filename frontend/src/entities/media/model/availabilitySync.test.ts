@@ -1,5 +1,7 @@
+import type { MediaMetadata } from "plex/media";
 import { QueryObserver } from "@tanstack/react-query";
-import type { LibraryCardDto, LibraryItemUpdateDto } from "@nevu/contracts";
+import type { MediaItemUpdate } from "./mediaChanges";
+import type { LibraryCardDto } from "@nevu/contracts";
 import { createQueryClient } from "shared/api/queryClient";
 import { availabilityQueryOptions } from "./availabilityQuery";
 import { applyAvailabilityChanges } from "./availabilitySync";
@@ -13,10 +15,10 @@ const card: LibraryCardDto = {
   type: "movie",
   librarySectionID: 1,
 };
-const movie = card as Plex.Metadata;
+const movie = card as MediaMetadata;
 const key = (guids: string[], activeScope = scope) =>
   availabilityQueryOptions(activeScope, guids).queryKey;
-const changed = (update: LibraryItemUpdateDto) =>
+const changed = (update: MediaItemUpdate) =>
   applyAvailabilityChanges(client, [
     {
       change: { ...scope, kind: "item", effect: "unknown", id: "1", sectionId: "1" },
@@ -80,7 +82,7 @@ it("leaves other servers, profiles and unrelated GUIDs untouched", async () => {
 });
 
 it("cancels an older native read before publishing confirmed metadata", async () => {
-  let finish!: (items: Plex.Metadata[]) => void;
+  let finish!: (items: MediaMetadata[]) => void;
   let signal!: AbortSignal;
   const queryKey = key(["old"]);
   client.setQueryData(queryKey, [movie]);
@@ -88,7 +90,7 @@ it("cancels an older native read before publishing confirmed metadata", async ()
     queryKey,
     queryFn: (context) => {
       signal = context.signal;
-      return new Promise<Plex.Metadata[]>((resolve) => {
+      return new Promise<MediaMetadata[]>((resolve) => {
         finish = resolve;
       });
     },

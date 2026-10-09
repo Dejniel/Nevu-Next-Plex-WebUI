@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "plex/media";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerSession } from "features/session/model";
@@ -5,7 +6,7 @@ import { serverQueryClient } from "shared/api/queryClient";
 import { availabilityQueryOptions } from "./availabilityQuery";
 import { indexMediaAvailability } from "./mediaAvailability";
 
-const empty: Plex.Metadata[] = [];
+const empty: MediaMetadata[] = [];
 export function useMediaAvailability(guids: readonly string[], profileKey: string | null) {
   const serverId = useServerSession((state) => state.server?.machineIdentifier) ?? "";
   const enabled = Boolean(serverId && profileKey && guids.length);

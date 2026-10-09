@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 type RecommendationTagField = "Genre" | "Role";
 
 export interface PreferredTag {
@@ -6,7 +7,7 @@ export interface PreferredTag {
 }
 
 export function pickPreferredTag(
-  history: Plex.Metadata[],
+  history: MediaMetadata[],
   field: RecommendationTagField,
 ): PreferredTag | null {
   const scores = new Map<string, PreferredTag>();

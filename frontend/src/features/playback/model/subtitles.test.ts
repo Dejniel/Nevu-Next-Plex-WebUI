@@ -1,7 +1,10 @@
-import {
-  defaultSubtitleSearchTitle,
-  findAttachedSubtitle,
-} from "./subtitles";
+import type {
+  MediaMetadata,
+  MediaRendition,
+  MediaPart,
+  MediaStream,
+} from "entities/media/model";
+import { defaultSubtitleSearchTitle, findAttachedSubtitle } from "./subtitles";
 import type { SubtitleSearchResult } from "./subtitles";
 
 const result: SubtitleSearchResult = {
@@ -28,15 +31,15 @@ it("finds the downloaded stream in the active media version", () => {
     codec: "srt",
     languageCode: "pol",
     title: "Movie.Release.2024",
-  } as Plex.Stream;
+  } as MediaStream;
   const metadata = {
     Media: [
       {
         id: 44,
-        Part: [{ id: 5, Stream: [stream] } as Plex.Part],
-      } as Plex.Media,
+        Part: [{ id: 5, key: "/library/parts/5/file.mp4", Stream: [stream] } as MediaPart],
+      } as MediaRendition,
     ],
-  } as Plex.Metadata;
+  } as MediaMetadata;
 
   expect(findAttachedSubtitle(metadata, 44, result)?.stream).toBe(stream);
   expect(findAttachedSubtitle(metadata, 45, result)).toBeUndefined();

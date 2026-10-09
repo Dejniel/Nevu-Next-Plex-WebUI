@@ -1,5 +1,13 @@
-import { changedMediaFields, mediaFieldsUnaffected, mediaMetadataIncludes } from "@nevu/contracts";
-import { affectedMediaParents, type ReconciledMediaChange, type SynchronizationDecision } from "entities/media/model";
+import {
+  changedMediaFields,
+  mediaFieldsUnaffected,
+  mediaMetadataIncludes,
+} from "@nevu/contracts";
+import {
+  affectedMediaParents,
+  type ReconciledMediaChange,
+  type SynchronizationDecision,
+} from "entities/media/model";
 
 const controls = new Set(["sort", "type", "X-Plex-Container-Start", "X-Plex-Container-Size", ...Object.keys(mediaMetadataIncludes)]);
 const structural = ["type", "librarySectionID", "parentRatingKey", "grandparentRatingKey"];
@@ -17,7 +25,7 @@ export function decideLibraryDirectorySynchronization(
   const [, section, resource, value] = path.match(/^\/library\/sections\/([^/]+)(?:\/([^/]+))?(?:\/([^/]+))?$/) ?? [];
   const before = change.kind === "item" && change.id
     ? data?.Metadata?.find((item) => item.ratingKey === change.id) : undefined;
-  const metadata = update?.metadata as Plex.Metadata | undefined;
+  const metadata = update?.metadata;
   const compared = before && metadata ? changedMediaFields(before, metadata) : undefined;
   const fields = change.kind === "item" && change.effect === "metadata"
     ? [...new Set([...change.fields, ...(compared ?? [])])] : compared;

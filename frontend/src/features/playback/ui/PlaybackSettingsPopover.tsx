@@ -124,8 +124,10 @@ export default function PlaybackSettingsPopover({
             )}
             <TuneSectionLabel>Streaming quality</TuneSectionLabel>
             {getPlaybackQualityOptions(
-              activeVersion.media.videoResolution,
-              `${Math.floor(activeVersion.media.bitrate / 1000)}Mbps`,
+              activeVersion.media.videoResolution ?? "",
+              activeVersion.media.bitrate
+                ? `${Math.floor(activeVersion.media.bitrate / 1000)}Mbps`
+                : "Unknown bitrate",
             ).map((qualityOption) => (
               <TuneOption
                 key={`${qualityOption.title}:${qualityOption.bitrate}`}
@@ -152,6 +154,7 @@ export default function PlaybackSettingsPopover({
             {tuneSettingTab(setPage, { pageNum: 0, text: "Back" })}
             {audioChoices.map((choice) => (
               <TuneOption
+                disabled={!choice.part.id || !choice.stream.id}
                 key={`${choice.mediaIndex}:${choice.part.id}:${choice.stream.id}`}
                 selected={
                   choice.mediaIndex === activeVersion.mediaIndex &&
@@ -161,7 +164,7 @@ export default function PlaybackSettingsPopover({
                 primary={
                   choice.stream.extendedDisplayTitle ||
                   choice.stream.displayTitle ||
-                  `Audio ${choice.stream.index + 1}`
+                  `Audio ${(choice.stream.index ?? 0) + 1}`
                 }
                 secondary={
                   mediaVersions.length > 1
@@ -181,6 +184,7 @@ export default function PlaybackSettingsPopover({
           <>
             {tuneSettingTab(setPage, { pageNum: 0, text: "Back" })}
             <TuneOption
+              disabled={!activeVersion.part.id}
               selected={
                 !activeVersion.part.Stream?.some(
                   (stream) => stream.streamType === 3 && stream.selected,
@@ -194,6 +198,7 @@ export default function PlaybackSettingsPopover({
             />
             {subtitleChoices.map((choice) => (
               <TuneOption
+                disabled={!choice.part.id || !choice.stream.id}
                 key={`${choice.mediaIndex}:${choice.part.id}:${choice.stream.id}`}
                 selected={
                   choice.mediaIndex === activeVersion.mediaIndex &&
@@ -203,7 +208,7 @@ export default function PlaybackSettingsPopover({
                 primary={
                   choice.stream.extendedDisplayTitle ||
                   choice.stream.displayTitle ||
-                  `Subtitle ${choice.stream.index + 1}`
+                  `Subtitle ${(choice.stream.index ?? 0) + 1}`
                 }
                 secondary={
                   mediaVersions.length > 1
@@ -218,6 +223,7 @@ export default function PlaybackSettingsPopover({
             ))}
             <Divider />
             <TuneAction
+              disabled={!activeVersion.media.id}
               icon={<SearchRounded fontSize="small" />}
               primary="Find subtitles…"
               secondary="Search Plex subtitle providers"

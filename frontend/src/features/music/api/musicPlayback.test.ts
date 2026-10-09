@@ -1,7 +1,12 @@
+import type { MediaMetadata } from "entities/media/model";
 import type { Mock } from "vitest";
 import { ProxiedRequest } from "shared/api/backend";
 import { PlexRequestError } from "shared/api/PlexClient";
-import { prepareAudioPlayback, releaseAudioPlayback, pingAudioPlayback } from "./musicPlayback";
+import {
+  prepareAudioPlayback,
+  releaseAudioPlayback,
+  pingAudioPlayback,
+} from "./musicPlayback";
 
 const capabilities = vi.hoisted(() => ({ mse: true, hls: true }));
 vi.mock("shared/api/backend", () => ({ getBackendURL: () => "http://backend", ProxiedRequest: vi.fn() }));
@@ -11,7 +16,7 @@ vi.mock("shared/lib/video/capabilities", () => ({ browserVideoCapabilities: () =
   canPlayType: () => capabilities.hls,
 }) }));
 
-const track = { ratingKey: "42", Media: [{ Part: [{ key: "/library/parts/12/file.wma" }] }] } as Plex.Metadata;
+const track = { ratingKey: "42", Media: [{ Part: [{ key: "/library/parts/12/file.wma" }] }] } as MediaMetadata;
 const context = { "X-Plex-Token": "captured", session: "old-session" };
 function decision(protocol = "dash", codec = "aac", streamType = 2) {
   return { status: 200, data: { MediaContainer: {

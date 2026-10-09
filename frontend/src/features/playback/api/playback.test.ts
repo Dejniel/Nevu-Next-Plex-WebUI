@@ -35,6 +35,17 @@ beforeEach(() => {
   });
 });
 
+it("refuses unidentified track selections before sending a Plex mutation", async () => {
+  await expect(putAudioStream(undefined, 3)).rejects.toThrow(
+    "cannot be selected",
+  );
+  await expect(putAudioStream(4, undefined)).rejects.toThrow(
+    "cannot be selected",
+  );
+  await expect(putSubtitleStream(0, 3)).rejects.toThrow("cannot be selected");
+  expect(request).not.toHaveBeenCalled();
+});
+
 it("creates a video queue using the known server without fetching its root again", async () => {
   request.mockResolvedValue({
     status: 200,

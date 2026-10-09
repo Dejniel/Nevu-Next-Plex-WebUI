@@ -1,4 +1,4 @@
-import type { MediaItemData } from "entities/media/model";
+import type { MediaMetadata, MediaItemData } from "entities/media/model";
 import type { LibraryCardDto, LibraryVideoCardDto } from "@nevu/contracts";
 import { getMediaActionCapabilities } from "./mediaActionCapabilities";
 
@@ -148,7 +148,7 @@ it("requires a Plex ID for similar titles", () => {
 });
 
 it("keeps local metadata editing independent from support for matching and downloads", () => {
-  const season = { ...movie, type: "season" } as Plex.Metadata;
+  const season = { ...movie, type: "season" } as MediaMetadata;
   expect(getMediaActionCapabilities(season, manager)).toMatchObject({
     canEditMetadata: true,
     canMatch: false,

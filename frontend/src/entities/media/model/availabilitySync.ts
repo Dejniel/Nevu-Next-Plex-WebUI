@@ -1,6 +1,10 @@
+import type { MediaMetadata } from "plex/media";
 import type { QueryClient } from "@tanstack/react-query";
 import type { availabilityQueryOptions } from "./availabilityQuery";
-import { affectedMediaParents, type ReconciledMediaChange } from "./mediaChanges";
+import {
+  affectedMediaParents,
+  type ReconciledMediaChange,
+} from "./mediaChanges";
 
 export async function applyAvailabilityChanges(
   client: QueryClient,
@@ -15,7 +19,7 @@ export async function applyAvailabilityChanges(
     const [, , , requested] = query.queryKey as ReturnType<
       typeof availabilityQueryOptions
     >["queryKey"];
-    const previous = query.state.data as Plex.Metadata[] | undefined;
+    const previous = query.state.data as MediaMetadata[] | undefined;
     let items = previous;
     let refresh = false;
     let patched = false;
@@ -39,7 +43,7 @@ export async function applyAvailabilityChanges(
         if (!update.item && !previous) refresh = true;
         continue;
       }
-      const metadata = update.metadata as Plex.Metadata | undefined;
+      const metadata = update.metadata;
       if (update.item && !metadata) {
         refresh = true;
         continue;
@@ -49,7 +53,7 @@ export async function applyAvailabilityChanges(
         continue;
       }
       items = items.filter((item) => item.ratingKey !== change.id);
-      if (metadata && requested.includes(metadata.guid) && metadata.librarySectionID > 0)
+      if (metadata && metadata.guid && requested.includes(metadata.guid) && (metadata.librarySectionID ?? 0) > 0)
         items = [...items, metadata];
       patched = true;
     }

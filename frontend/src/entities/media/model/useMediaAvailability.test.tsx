@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "plex/media";
 import type { Mock } from "vitest";
 import { notifyManager } from "@tanstack/react-query";
 import { serverQueryClient } from "shared/api/queryClient";
@@ -18,7 +19,7 @@ const movie = {
   guid: "one",
   ratingKey: "1",
   librarySectionID: 1,
-} as Plex.Metadata;
+} as MediaMetadata;
 let root: Root;
 let element: HTMLDivElement;
 let guids: string[];
@@ -61,7 +62,7 @@ it("reuses availability when a caller only reorders the same GUIDs", async () =>
 });
 
 it("ignores responses after changing the active profile", async () => {
-  let resolveOld!: (items: Plex.Metadata[]) => void;
+  let resolveOld!: (items: MediaMetadata[]) => void;
   lookup.mockReturnValueOnce(
     new Promise((resolve) => {
       resolveOld = resolve;
@@ -78,7 +79,7 @@ it("ignores responses after changing the active profile", async () => {
 });
 
 it("ignores an earlier list's response after changing items", async () => {
-  let resolveOld!: (items: Plex.Metadata[]) => void;
+  let resolveOld!: (items: MediaMetadata[]) => void;
   lookup.mockReturnValueOnce(
     new Promise((resolve) => {
       resolveOld = resolve;

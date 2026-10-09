@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "plex/media";
 import { AuthStorage } from "features/session/model";
 import { PlexClient } from "shared/api/PlexClient";
 
@@ -8,7 +9,7 @@ const MATCH_PAGE_SIZE = 200;
 export async function getLocalMediaMatches(
   guids: readonly string[],
   signal?: AbortSignal,
-): Promise<Plex.Metadata[]> {
+): Promise<MediaMetadata[]> {
   const token = AuthStorage.getServerToken();
   if (!token) throw new Error("The active Plex session is missing.");
   const client = new PlexClient(() => token);
@@ -16,7 +17,7 @@ export async function getLocalMediaMatches(
   const batches: string[][] = [];
   for (let index = 0; index < unique.length; index += GUID_BATCH_SIZE)
     batches.push(unique.slice(index, index + GUID_BATCH_SIZE));
-  const results: Plex.Metadata[][] = [];
+  const results: MediaMetadata[][] = [];
   let nextBatch = 0;
 
   await Promise.all(
@@ -24,7 +25,7 @@ export async function getLocalMediaMatches(
       while (nextBatch < batches.length) {
         const batchIndex = nextBatch++;
         const batch = batches[batchIndex];
-        const matches: Plex.Metadata[] = [];
+        const matches: MediaMetadata[] = [];
         const seen = new Set<string>();
         let offset = 0;
         while (true) {
@@ -47,9 +48,9 @@ export async function getLocalMediaMatches(
           matches.push(
             ...page.filter(
               (item) =>
-                batch.includes(item.guid) &&
+                item.guid && batch.includes(item.guid) &&
                 /^\d+$/.test(item.ratingKey) &&
-                item.librarySectionID > 0,
+                (item.librarySectionID ?? 0) > 0,
             ),
           );
           offset += page.length;

@@ -1,33 +1,22 @@
-import { normalizeLibraryRecord } from "@nevu/contracts";
+import type { MediaMetadata } from "plex/media";
 import { plexClient, getXPlexProps } from "features/session/model";
 import { queryBuilder } from "shared/lib/query";
 import { getIncludeProps } from "../model/mediaIncludes";
-
-interface MediaResponse {
-  MediaContainer?: {
-    Metadata?: Plex.Metadata[];
-    Directory?: Plex.Metadata[];
-  };
-}
+import {
+  readMediaContainer,
+  readMediaMetadata,
+  readDirectoryMetadata,
+} from "./mediaMetadata";
+import { PlexResponseError } from "shared/api/plexResponse";
 
 async function getMediaContainer(path: string, signal?: AbortSignal) {
-  const response = await plexClient.get<MediaResponse>(path, signal);
-  const container = response?.MediaContainer;
-  if (
-    !container ||
-    typeof container !== "object" ||
-    Array.isArray(container) ||
-    (container.Metadata !== undefined && !Array.isArray(container.Metadata)) ||
-    (container.Directory !== undefined && !Array.isArray(container.Directory))
-  )
-    throw new Error("Plex returned an invalid media response.");
-  return container;
+  return readMediaContainer(await plexClient.get<unknown>(path, signal));
 }
 
 export async function getMediaMetadata(
   id: string,
   signal?: AbortSignal,
-): Promise<Plex.Metadata> {
+): Promise<MediaMetadata> {
   if (!id) throw new Error("No media item was selected.");
   const container = await getMediaContainer(
     `/library/metadata/${encodeURIComponent(id)}?${queryBuilder({
@@ -36,15 +25,18 @@ export async function getMediaMetadata(
     })}`,
     signal,
   );
-  const item = container.Metadata?.[0] ?? container.Directory?.[0];
+  const item = container.Metadata.length
+    ? readMediaMetadata(container.Metadata[0], id)
+    : container.Directory.map(readDirectoryMetadata).find(Boolean);
   if (!item) throw new Error("This item is no longer available in Plex.");
-  return normalizeLibraryRecord(item, !container.Metadata?.length);
+  if (item.ratingKey !== id) throw new PlexResponseError("media metadata");
+  return item;
 }
 
 export async function getMediaChildren(
   id: string,
   signal?: AbortSignal,
-): Promise<Plex.Metadata[]> {
+): Promise<MediaMetadata[]> {
   const container = await getMediaContainer(
     `/library/metadata/${encodeURIComponent(id)}/children?${queryBuilder({
       ...getIncludeProps(),
@@ -53,19 +45,18 @@ export async function getMediaChildren(
     signal,
   );
   return [
-    ...(container.Metadata ?? []).map((item: Plex.Metadata) =>
-      normalizeLibraryRecord(item),
-    ),
-    ...(container.Directory ?? []).map((item: Plex.Metadata) =>
-      normalizeLibraryRecord(item, true),
-    ),
+    ...container.Metadata.map((item) => readMediaMetadata(item)),
+    ...container.Directory.flatMap((item) => {
+      const metadata = readDirectoryMetadata(item);
+      return metadata ? [metadata] : [];
+    }),
   ];
 }
 
 export async function getMediaByGuid(
   guid: string,
   signal?: AbortSignal,
-): Promise<Plex.Metadata | null> {
+): Promise<MediaMetadata | null> {
   const container = await getMediaContainer(
     `/library/all?${queryBuilder({
       guid,
@@ -76,6 +67,8 @@ export async function getMediaByGuid(
     })}`,
     signal,
   );
-  const metadata = container.Metadata?.[0];
+  const metadata = container.Metadata.length
+    ? readMediaMetadata(container.Metadata[0])
+    : null;
   return metadata?.guid === guid ? metadata : null;
 }

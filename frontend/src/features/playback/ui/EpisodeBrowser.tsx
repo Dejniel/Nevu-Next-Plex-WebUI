@@ -20,7 +20,11 @@ import {
 } from "@mui/material";
 import React, { useEffect } from "react";
 import { useState } from "react";
-import { getTranscodeImageURL, mediaChildrenQueryOptions } from "entities/media/model";
+import {
+  type MediaMetadata,
+  getTranscodeImageURL,
+  mediaChildrenQueryOptions,
+} from "entities/media/model";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveServerScope } from "features/session/model";
 import { serverQueryClient } from "shared/api/queryClient";
@@ -32,7 +36,7 @@ function EpisodeBrowser({
   item,
   controlElementsVisibleState,
 }: {
-  item: Plex.Metadata;
+  item: MediaMetadata;
   controlElementsVisibleState: [boolean, React.Dispatch<React.SetStateAction<boolean>>];
 }) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -272,11 +276,11 @@ function EpisodeBrowser({
                                     left: 0,
                                     right: 0,
                                     bottom: 0,
-                                    backgroundImage: `url(${getTranscodeImageURL(
+                                    backgroundImage: episode.thumb ? `url(${getTranscodeImageURL(
                                       episode.thumb,
                                       320,
                                       180,
-                                    )})`,
+                                    )})` : undefined,
                                     backgroundSize: "cover",
                                     backgroundPosition: "center",
                                   }}
@@ -303,7 +307,7 @@ function EpisodeBrowser({
                                   <LinearProgress
                                     value={
                                       episode.viewOffset
-                                        ? (episode.viewOffset / episode.duration) * 100
+                                        ? episode.duration ? Math.min(100, (episode.viewOffset / episode.duration) * 100) : 0
                                         : 100
                                     }
                                     variant="determinate"
@@ -354,7 +358,7 @@ function EpisodeBrowser({
                                     variant="caption"
                                     sx={{ color: "text.secondary", whiteSpace: "nowrap" }}
                                   >
-                                    {durationInMinutes(episode.duration)} min
+                                    {episode.duration !== undefined ? `${durationInMinutes(episode.duration)} min` : ""}
                                   </Typography>
                                 </Box>
 

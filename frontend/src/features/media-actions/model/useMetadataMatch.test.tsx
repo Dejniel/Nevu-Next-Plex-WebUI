@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { notifyManager } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -14,7 +15,7 @@ const item = {
   type: "movie",
   guid: "plex://movie/current",
   year: 2026,
-} as Plex.Metadata;
+} as MediaMetadata;
 const current = { guid: item.guid!, name: "Current" };
 const candidate = { guid: "plex://movie/other", name: "Other" };
 const source = {

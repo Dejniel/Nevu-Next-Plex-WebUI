@@ -1,11 +1,20 @@
+import type { MediaMetadata } from "entities/media/model";
 import { focusManager, notifyManager } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useAuthSession } from "features/session/model";
 import { useUserSettings } from "features/settings/model";
 import { serverQueryClient as client } from "shared/api/queryClient";
-import { addToWatchlist, getWatchlist, removeFromWatchlist } from "../api/watchlist";
-import { useWatchlist, useWatchlistAction, watchlistQueryKey } from "./watchlistQuery";
+import {
+  addToWatchlist,
+  getWatchlist,
+  removeFromWatchlist,
+} from "../api/watchlist";
+import {
+  useWatchlist,
+  useWatchlistAction,
+  watchlistQueryKey,
+} from "./watchlistQuery";
 
 vi.mock("../api/watchlist", () => ({
   addToWatchlist: vi.fn(),
@@ -15,7 +24,7 @@ vi.mock("../api/watchlist", () => ({
 beforeAll(() => notifyManager.setScheduler(queueMicrotask));
 afterAll(() => notifyManager.setScheduler((callback) => setTimeout(callback, 0)));
 const movie = (id: string) =>
-  ({ guid: `plex://movie/${id}`, ratingKey: id, type: "movie", title: id }) as Plex.Metadata;
+  ({ guid: `plex://movie/${id}`, ratingKey: id, type: "movie", title: id }) as MediaMetadata;
 const target = movie("added");
 const read = vi.mocked(getWatchlist);
 const add = vi.mocked(addToWatchlist);
@@ -63,7 +72,7 @@ afterEach(async () => {
 });
 
 it("shares a pending cloud read between the screen and several membership controls", async () => {
-  const pending = deferred<Plex.Metadata[]>();
+  const pending = deferred<MediaMetadata[]>();
   read.mockReturnValue(pending.promise);
   await render();
   expect(read).toHaveBeenCalledTimes(1);
@@ -137,7 +146,7 @@ it("keeps independent confirmed writes when different titles finish out of order
 });
 
 it("shares a cold read and rechecks duplicate writes after that read completes", async () => {
-  const pending = deferred<Plex.Metadata[]>();
+  const pending = deferred<MediaMetadata[]>();
   const writing = deferred<void>();
   read.mockReturnValueOnce(pending.promise);
   add.mockReturnValueOnce(writing.promise);
@@ -163,7 +172,7 @@ it.each([false, true])(
   async (selected) => {
     read.mockResolvedValueOnce(selected ? [target, movie("kept")] : [movie("kept")]);
     await render();
-    const pending = deferred<Plex.Metadata[]>();
+    const pending = deferred<MediaMetadata[]>();
     read.mockReturnValueOnce(pending.promise);
     let refreshing!: ReturnType<typeof data.refetch>;
     await act(async () => {
@@ -192,7 +201,7 @@ it("cancels a read started during a pending write", async () => {
   await act(async () => {
     mutation = action.toggle();
   });
-  const pending = deferred<Plex.Metadata[]>();
+  const pending = deferred<MediaMetadata[]>();
   read.mockReturnValueOnce(pending.promise);
   await act(async () => {
     refreshing = data.refetch();
@@ -230,7 +239,7 @@ it("does not change another profile after a previous profile's write finishes", 
 });
 
 it("ignores an old cloud response after changing profiles and aborts its transport", async () => {
-  const pending = deferred<Plex.Metadata[]>();
+  const pending = deferred<MediaMetadata[]>();
   read.mockReturnValueOnce(pending.promise);
   await render();
   const signal = read.mock.calls[0][0]!;

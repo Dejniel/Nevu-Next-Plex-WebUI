@@ -1,4 +1,5 @@
 import {
+  type MediaMetadata,
   mediaGuidQueryOptions,
   mediaChildrenQueryOptions,
   mediaMetadataQueryOptions,
@@ -9,7 +10,7 @@ import { serverQueryClient } from "shared/api/queryClient";
 import { mediaWatchTo } from "shared/lib/navigation";
 
 export type PlaybackTarget =
-  { path: string; item: Plex.Metadata | MediaItemData } | { path: null; message: string };
+  { path: string; item: MediaMetadata | MediaItemData } | { path: null; message: string };
 
 export async function resolvePlaybackTarget(
   item: MediaItemData,

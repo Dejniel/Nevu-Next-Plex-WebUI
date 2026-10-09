@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useAudioPlaybackSource } from "./useAudioPlaybackSource";
@@ -7,9 +8,9 @@ const api = vi.hoisted(() => ({ prepare: vi.fn(), release: vi.fn(), ping: vi.fn(
 vi.mock("../api/musicPlayback", () => ({
   prepareAudioPlayback: api.prepare, releaseAudioPlayback: api.release, pingAudioPlayback: api.ping,
 }));
-let root: Root, metadata: Plex.Metadata | null, playbackID: string | null, context: Record<string, unknown>;
+let root: Root, metadata: MediaMetadata | null, playbackID: string | null, context: Record<string, unknown>;
 let runtime: ReturnType<typeof useAudioPlaybackSource>;
-const track = (id: string) => ({ ratingKey: id, Media: [{ Part: [{ key: `/library/parts/${id}/file.wma` }] }] }) as Plex.Metadata;
+const track = (id: string) => ({ ratingKey: id, Media: [{ Part: [{ key: `/library/parts/${id}/file.wma` }] }] }) as MediaMetadata;
 const source = (id: string, converted: boolean, requestContext = context): AudioSource => ({
   id, type: converted ? "hls" : "file", requestContext, url: "/fixture",
 });

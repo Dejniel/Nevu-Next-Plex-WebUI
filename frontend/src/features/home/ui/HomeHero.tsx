@@ -11,6 +11,7 @@ import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { usePreviewAudio } from "entities/media/public";
 import { HeroWatchlistButton } from "features/watchlist/public";
 import {
+  type MediaMetadata,
   getResponsiveTranscodeImageProps,
   HERO_IMAGE_WIDTHS,
 } from "entities/media/model";
@@ -24,7 +25,7 @@ function HomeHero({
   item,
   onArtworkError,
 }: {
-  item: Plex.Metadata;
+  item: MediaMetadata;
   onArtworkError?: () => void;
 }) {
   const [searchParams] = useSearchParams();
@@ -36,12 +37,14 @@ function HomeHero({
   const [previewVidPlaying, setPreviewVidPlaying] = useState<boolean>(false);
   const [previewVidVisible, setPreviewVidVisible] = useState<boolean>(false);
   const [artworkLoaded, setArtworkLoaded] = useState(false);
-  const artwork = getResponsiveTranscodeImageProps(item.art, {
-    widths: HERO_IMAGE_WIDTHS,
-    aspectRatio: 16 / 9,
-    sizes: "100vw",
-    fallbackWidth: 1280,
-  });
+  const artwork = item.art
+    ? getResponsiveTranscodeImageProps(item.art, {
+        widths: HERO_IMAGE_WIDTHS,
+        aspectRatio: 16 / 9,
+        sizes: "100vw",
+        fallbackWidth: 1280,
+      })
+    : undefined;
 
   useEffect(() => {
     setArtworkLoaded(false);

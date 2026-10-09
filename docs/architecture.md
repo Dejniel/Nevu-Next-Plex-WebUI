@@ -179,6 +179,11 @@ API readers accept unknown responses and validate the fields their models promis
 Video queue occurrences, timeline replies, artwork choices and current cast use
 specific contracts; missing optional fields remain optional. Shared envelope checks
 distinguish empty collections from malformed data, without copying full metadata.
+Imported video/music/photo metadata models share one decoder for full reads,
+children and canonical synchronization, including nested file/stream details.
+Navigation directories are separate from media; photo albums normalize consistently.
+Invalid responses cannot replace valid Query data. Negotiated playback tracks use
+their own checked decision contract, preserving the existing preparation flow.
 One application-level editor handles video, music and photos, independently of
 virtualized cards and responsive grid rows. Native library writes preserve unedited
 fields and retained cast characters; artwork uses Plex's choices/import operations,

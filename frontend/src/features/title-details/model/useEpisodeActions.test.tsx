@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { StrictMode, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { notifyManager } from "@tanstack/react-query";
@@ -22,7 +23,7 @@ vi.mock("shared/api/backend", () => ({
 const transport = vi.mocked(ProxiedRequest);
 const scope = { serverId: "server", profileKey: "1:1" };
 const episode = (id: string, title = id) =>
-  ({ ratingKey: id, title, type: "episode" }) as Plex.Metadata;
+  ({ ratingKey: id, title, type: "episode" }) as MediaMetadata;
 const browser = (
   ids = ["11", "12"],
   identity = "season-one",

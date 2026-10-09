@@ -2,6 +2,7 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { notifyManager } from "@tanstack/react-query";
 import {
+  type MediaMetadata,
   getMediaMetadata,
   getMediaChildren,
   getMediaByGuid,
@@ -35,7 +36,7 @@ const episode = (id: string) =>
     type: "episode",
     parentRatingKey: "s1",
     index: 1,
-  }) as Plex.Metadata;
+  }) as MediaMetadata;
 const show = {
   ratingKey: "show",
   type: "show",
@@ -45,7 +46,7 @@ const show = {
       { ratingKey: "s2", index: 2 },
     ],
   },
-} as Plex.Metadata;
+} as MediaMetadata;
 let root: Root;
 let state: ReturnType<typeof useTitleDetailsData>;
 function Harness({ id = "show", guid }: { id?: string | null; guid?: string }) {
@@ -92,7 +93,7 @@ it("reuses full metadata and cached episodes when returning to a season", async 
 });
 
 it("shares a pending metadata read with another consumer", async () => {
-  let finish!: (data: Plex.Metadata) => void;
+  let finish!: (data: MediaMetadata) => void;
   vi.mocked(getMediaMetadata).mockImplementationOnce(
     () =>
       new Promise((resolve) => {
@@ -110,7 +111,7 @@ it("shares a pending metadata read with another consumer", async () => {
 });
 
 it("ignores an old season's response after a quick selection change", async () => {
-  let finish!: (data: Plex.Metadata[]) => void;
+  let finish!: (data: MediaMetadata[]) => void;
   vi.mocked(getMediaChildren).mockImplementationOnce(
     () =>
       new Promise((resolve) => {
@@ -135,7 +136,7 @@ it("updates watched episodes from the confirmed canonical response without refet
         update: {
           sectionId: "1",
           parentIds: ["s1", "show"],
-          item: { ...updated, type: "episode" },
+          item: { ...updated, guid: updated.guid ?? "", type: "episode" },
           metadata: updated,
         },
       },
@@ -157,7 +158,7 @@ it("reloads the affected season after episode insertion and leaves other seasons
         update: {
           sectionId: "1",
           parentIds: ["s1", "show"],
-          item: { ...episode("e3"), type: "episode" },
+          item: { ...episode("e3"), guid: "episode/e3", type: "episode" },
         },
       },
     ]),
@@ -174,7 +175,7 @@ it("does not expose data or accept delayed edits from a previous profile", async
     ratingKey: "show",
     type: "movie",
     title: "Guest",
-  } as Plex.Metadata);
+  } as MediaMetadata);
   await render(<Harness />);
   await act(async () => old.setData({ ...show, title: "Old edit" }));
   expect(state.data?.title).toBe("Guest");
@@ -196,7 +197,7 @@ it("rejects delayed edits after a new session with the same profile", async () =
 it("resolves a cloud GUID through a scoped cancellable query", async () => {
   vi.mocked(getMediaByGuid).mockResolvedValue({
     ratingKey: "local",
-  } as Plex.Metadata);
+  } as MediaMetadata);
   await render(<Harness id={null} guid="plex://movie/one" />);
   expect(state.resolvedRatingKey).toBe("local");
   expect(getMediaByGuid).toHaveBeenCalledWith(
@@ -228,7 +229,7 @@ it("does not navigate away from the current season when on-deck changes in the b
     state.setData({
       ...show,
       OnDeck: { Metadata: { parentIndex: 2 } },
-    } as Plex.Metadata),
+    } as MediaMetadata),
   );
   expect(state.episodeBrowser.seasonId).toBe("s1");
   expect(getMediaChildren).toHaveBeenCalledTimes(1);

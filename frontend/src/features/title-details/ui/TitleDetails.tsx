@@ -1,19 +1,11 @@
-import {
-  Avatar,
-  Box,
-  Button,
-  CircularProgress,
-  Grid,
-  Typography,
-} from "@mui/material";
+import { Box, Button, CircularProgress, Grid, Typography } from "@mui/material";
 import { PlayArrowRounded } from "@mui/icons-material";
 import React, { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { getTranscodeImageURL } from "entities/media/model";
+import { type MediaMetadata, getTranscodeImageURL } from "entities/media/model";
 import { durationToText } from "shared/lib/duration";
 import { extraTypeLabel, TitleExtra } from "entities/media/model";
 import { MediaExtraPlayback } from "entities/media/public";
-import { libraryBrowseTo } from "shared/lib/navigation";
+import TitleCastMember from "./TitleCastMember";
 
 function Detail({ label, value }: { label: string; value?: React.ReactNode }) {
   if (!value) return null;
@@ -32,11 +24,10 @@ export default function TitleDetails({
   extras,
   loadingExtras,
 }: {
-  data: Plex.Metadata;
+  data: MediaMetadata;
   extras: TitleExtra[];
   loadingExtras: boolean;
 }) {
-  const location = useLocation();
   const [selectedExtra, setSelectedExtra] = useState<TitleExtra | null>(null);
 
   return (
@@ -156,7 +147,10 @@ export default function TitleDetails({
                       <Typography noWrap sx={{ fontWeight: 700 }}>
                         {extra.metadata.title}
                       </Typography>
-                      <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                      <Typography
+                        variant="body2"
+                        sx={{ color: "text.secondary" }}
+                      >
                         {extraTypeLabel(extra.metadata)}
                         {extra.metadata.duration
                           ? ` · ${durationToText(extra.metadata.duration)}`
@@ -181,40 +175,14 @@ export default function TitleDetails({
           </Typography>
           <Grid container spacing={1.5} sx={{ width: "100%" }}>
             {data.Role?.map((role) => (
-              <Grid key={role.id} size={{ xs: 6, sm: 4, md: 3 }}>
-                <Button
-                  component={Link}
-                  to={libraryBrowseTo(
-                    location,
-                    `/library/sections/${data.librarySectionID}/actor/${role.id}`,
-                  )}
-                  sx={{
-                    width: "100%",
-                    minHeight: 72,
-                    justifyContent: "flex-start",
-                    gap: 1.5,
-                    px: 1.5,
-                    overflow: "hidden",
-                  }}
-                >
-                  <Avatar
-                    src={
-                      role.thumb
-                        ? getTranscodeImageURL(role.thumb, 120, 120)
-                        : undefined
-                    }
-                    alt=""
-                    sx={{ width: 48, height: 48, flexShrink: 0 }}
-                  />
-                  <Box sx={{ minWidth: 0, textAlign: "left" }}>
-                    <Typography noWrap sx={{ fontWeight: 600 }}>
-                      {role.tag}
-                    </Typography>
-                    <Typography noWrap variant="body2" sx={{ color: "text.secondary" }}>
-                      {role.role}
-                    </Typography>
-                  </Box>
-                </Button>
+              <Grid
+                key={`${role.id ?? role.tag}:${role.role ?? ""}`}
+                size={{ xs: 6, sm: 4, md: 3 }}
+              >
+                <TitleCastMember
+                  member={role}
+                  sectionId={data.librarySectionID}
+                />
               </Grid>
             ))}
           </Grid>

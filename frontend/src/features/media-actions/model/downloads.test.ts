@@ -1,3 +1,8 @@
+import type {
+  MediaMetadata,
+  MediaRendition,
+  MediaPart,
+} from "entities/media/model";
 import { AuthStorage } from "features/session/model";
 import { getOriginalDownloads, originalFilename } from "./downloads";
 
@@ -6,7 +11,7 @@ beforeEach(() => {
   sessionStorage.clear();
 });
 
-function metadata(): Plex.Metadata {
+function metadata(): MediaMetadata {
   return {
     title: "Film: Test",
     Media: [
@@ -21,11 +26,11 @@ function metadata(): Plex.Metadata {
             file: "D:\\Movies\\Film Test (2024).mkv",
             size: 1024,
             container: "mkv",
-          } as Plex.Part,
+          } as MediaPart,
         ],
-      } as Plex.Media,
+      } as MediaRendition,
     ],
-  } as Plex.Metadata;
+  } as MediaMetadata;
 }
 
 it("builds an authenticated URL for the original file", () => {
@@ -57,6 +62,6 @@ it("does not expose a download without permission and a server token", () => {
 
 it("creates a safe fallback filename", () => {
   expect(
-    originalFilename(metadata(), { container: "mkv" } as Plex.Part),
+    originalFilename(metadata(), { container: "mkv" } as MediaPart),
   ).toBe("Film_ Test.mkv");
 });

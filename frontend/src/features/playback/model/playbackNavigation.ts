@@ -1,4 +1,4 @@
-import type { PlaybackQueueItem } from "entities/media/model";
+import type { MediaMetadata, PlaybackQueueItem } from "entities/media/model";
 import { queryBuilder } from "shared/lib/query";
 import {
   playlistReturnPath,
@@ -7,7 +7,7 @@ import {
 } from "features/media-lists/model";
 
 export function playbackBrowsePath(
-  metadata: Plex.Metadata,
+  metadata: MediaMetadata,
   playlist?: PlaylistPlaybackContext,
 ) {
   if (playlist) return playlistReturnPath(playlist);
@@ -19,7 +19,7 @@ export function playbackBrowsePath(
 }
 
 export function playbackAdvancePath(
-  metadata: Plex.Metadata,
+  metadata: MediaMetadata,
   playQueue: PlaybackQueueItem[] | null,
   restartNext = false,
   playlist?: PlaylistPlaybackContext,
@@ -37,12 +37,12 @@ export function playbackAdvancePath(
 }
 
 export function activePlaybackMarker(
-  metadata: Plex.Metadata | null,
+  metadata: MediaMetadata | null,
   timeSeconds: number,
 ) {
-  return metadata?.Marker?.find(
+  return metadata && "Marker" in metadata ? metadata.Marker?.find(
     (marker) =>
       marker.startTimeOffset / 1000 <= timeSeconds &&
       marker.endTimeOffset / 1000 >= timeSeconds,
-  );
+  ) : undefined;
 }

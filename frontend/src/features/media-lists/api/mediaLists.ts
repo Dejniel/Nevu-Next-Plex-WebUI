@@ -6,6 +6,7 @@ import {
 import { PlexClient } from "shared/api/PlexClient";
 import { useUserSettings } from "features/settings/model";
 import {
+  type MediaMetadata,
   publishMediaChange,
   readPlaybackQueueItem,
   type PlaybackQueueItem,
@@ -49,7 +50,7 @@ interface Container<T> {
   };
 }
 
-type ListEntryMetadata = Plex.Metadata & {
+type ListEntryMetadata = MediaMetadata & {
   playlistItemID?: number;
   sourceURI?: string;
 };

@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import {
   activePlaybackMarker,
   playbackAdvancePath,
@@ -12,13 +13,13 @@ const movie = {
   type: "movie",
   ratingKey: "10",
   librarySectionID: 2,
-} as Plex.Metadata;
+} as MediaMetadata;
 const episode = {
   type: "episode",
   ratingKey: "20",
   grandparentRatingKey: "15",
   librarySectionID: 3,
-} as Plex.Metadata;
+} as MediaMetadata;
 
 it("builds browse destinations for movies and episodes", () => {
   expect(playbackBrowsePath(movie)).toBe("/browse/2?mid=10");
@@ -26,7 +27,7 @@ it("builds browse destinations for movies and episodes", () => {
 });
 
 it("advances episodes and falls back to their show", () => {
-  const queue = [episode, { ratingKey: "21" } as Plex.Metadata];
+  const queue = [episode, { ratingKey: "21" } as MediaMetadata];
 
   expect(playbackAdvancePath(episode, queue)).toBe("/watch/21");
   expect(playbackAdvancePath(episode, queue, true)).toBe("/watch/21?t=0");
@@ -42,7 +43,7 @@ it("finds only the marker covering the current playback position", () => {
     startTimeOffset: 10_000,
     endTimeOffset: 20_000,
   };
-  const metadata = { Marker: [marker] } as Plex.Metadata;
+  const metadata = { Marker: [marker] } as MediaMetadata;
 
   expect(activePlaybackMarker(metadata, 15)).toBe(marker);
   expect(activePlaybackMarker(metadata, 25)).toBeUndefined();

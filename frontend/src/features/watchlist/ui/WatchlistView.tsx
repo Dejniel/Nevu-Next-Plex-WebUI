@@ -13,7 +13,11 @@ import {
   Typography,
 } from "@mui/material";
 import { useLibraries } from "entities/library/model";
-import { selectLocalMedia, useMediaAvailability } from "entities/media/model";
+import {
+  type MediaMetadata,
+  selectLocalMedia,
+  useMediaAvailability,
+} from "entities/media/model";
 import {
   getLibraryCardWidth,
   LibraryBrowseFrame,
@@ -31,7 +35,7 @@ import {
 } from "../model/watchlistBrowse";
 import { useWatchlist } from "../model/watchlistQuery";
 
-const empty: Plex.Metadata[] = [];
+const empty: MediaMetadata[] = [];
 
 export default function WatchlistView({
   libraryID,
@@ -46,7 +50,7 @@ export default function WatchlistView({
   const profileKey = useUserSettings((state) => state.profileKey);
   const { data: libraries } = useLibraries();
   const availability = useMediaAvailability(
-    items.map((item) => item.guid),
+    items.flatMap((item) => item.guid ? [item.guid] : []),
     profileKey,
   );
   const cardView = useLibraryCardView();
@@ -175,7 +179,7 @@ export default function WatchlistView({
       ) : selected.length > 0 ? (
         <VirtualGrid
           grid={grid}
-          itemKey={(index) => selected[index].guid}
+          itemKey={(index) => selected[index].guid ?? selected[index].ratingKey}
           renderItem={(index, imageSizes) => {
             const remote = selected[index];
             const local = selectLocalMedia(
@@ -185,7 +189,7 @@ export default function WatchlistView({
             );
             const known = !availability.loading && !availability.error;
             const copies =
-              availability.items.get(remote.guid)?.localItems ?? [];
+              remote.guid ? availability.items.get(remote.guid)?.localItems ?? [] : [];
             const names = [
               ...new Set(
                 copies.map(

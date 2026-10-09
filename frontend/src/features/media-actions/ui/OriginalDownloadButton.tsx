@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { DownloadRounded } from "@mui/icons-material";
 import { IconButton, Menu, Tooltip } from "@mui/material";
 import React, { useImperativeHandle, useState } from "react";
@@ -17,7 +18,7 @@ export default function OriginalDownloadButton({
   canDownload,
   menuRef,
 }: {
-  data: Plex.Metadata;
+  data: MediaMetadata;
   canDownload: boolean;
   menuRef?: React.Ref<{ open: (anchor: HTMLElement) => void }>;
 }) {

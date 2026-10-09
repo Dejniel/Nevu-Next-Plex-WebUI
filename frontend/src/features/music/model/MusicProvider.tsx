@@ -15,6 +15,7 @@ import {
 import { serverQueryClient } from "shared/api/queryClient";
 import { PlexRequestError } from "shared/api/PlexClient";
 import {
+  type MediaMetadata,
   mediaMetadataQueryOptions,
   type MediaItemData,
 } from "entities/media/model";
@@ -111,7 +112,7 @@ function useMusicController() {
   }
   function choose(
     result: MusicQueue,
-    item: Plex.Metadata,
+    item: MediaMetadata,
     playing = true,
     startTime = 0,
   ) {
@@ -227,7 +228,7 @@ function useMusicController() {
   }
   function playPlaylist(
     context: PlaylistPlaybackContext,
-    item: Plex.Metadata,
+    item: MediaMetadata,
     shuffle = false,
   ) {
     return update(async (signal) => {

@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -165,7 +166,7 @@ export default function TitleReviews({
   data,
   onWriteReview,
 }: {
-  data: Plex.Metadata | undefined;
+  data: MediaMetadata | undefined;
   onWriteReview?: () => void;
 }) {
   const { profileKey } = useActiveServerScope();

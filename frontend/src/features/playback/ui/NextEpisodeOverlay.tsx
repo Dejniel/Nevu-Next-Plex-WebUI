@@ -1,4 +1,4 @@
-import type { PlaybackQueueItem } from "entities/media/model";
+import type { MediaMetadata, PlaybackQueueItem } from "entities/media/model";
 import { SkipNext } from "@mui/icons-material";
 import { alpha, Box, Button, Typography, useTheme } from "@mui/material";
 import { useState, useEffect } from "react";
@@ -11,7 +11,7 @@ function NextEpisodeOverlay({
   onAdvance,
 }: {
   playing: boolean;
-  metadata: Plex.Metadata;
+  metadata: MediaMetadata;
   playQueue: PlaybackQueueItem[] | null;
   onAdvance: () => void;
 }) {
@@ -25,7 +25,7 @@ function NextEpisodeOverlay({
 
   // Start countdown when a next episode is available
   useEffect(() => {
-    if (metadata?.Marker && playQueue && playQueue[1]) {
+    if ("Marker" in metadata && metadata.Marker && playQueue && playQueue[1]) {
       setCountdown(countdownDuration);
       setShowWatchCredits(true);
     }

@@ -1,4 +1,4 @@
-import { getTrackChoices } from "entities/media/model";
+import { type MediaMetadata, getTrackChoices } from "entities/media/model";
 import type { TrackChoice } from "entities/media/model";
 
 export type SubtitleSearchPreference = 0 | 1 | 2 | 3;
@@ -37,7 +37,7 @@ export function defaultSubtitleSearchTitle(file?: string) {
 }
 
 export function findAttachedSubtitle(
-  metadata: Plex.Metadata,
+  metadata: MediaMetadata,
   mediaItemID: number,
   result: SubtitleSearchResult,
 ): TrackChoice | undefined {

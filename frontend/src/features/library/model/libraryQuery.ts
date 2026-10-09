@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import type { QueryKey } from "@tanstack/react-query";
 import type {
   LibraryFilterExpression,
@@ -24,7 +25,7 @@ export interface LibraryQuery {
 export function musicChildrenQuery(
   profileKey: string,
   sectionId: number,
-  item: Pick<Plex.Metadata, "ratingKey" | "type"> | undefined,
+  item: Pick<MediaMetadata, "ratingKey" | "type"> | undefined,
 ): LibraryQuery | null {
   if (!item || (item.type !== "artist" && item.type !== "album")) return null;
   return {

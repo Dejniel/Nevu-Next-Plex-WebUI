@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { Alert, Box, Button, Skeleton, Typography } from "@mui/material";
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -8,7 +9,10 @@ import { ArrowForwardIosRounded } from "@mui/icons-material";
 import { Link, To, useLocation } from "react-router-dom";
 import { shuffleArray } from "shared/lib/arrays";
 import { ActionableMediaCard } from "features/media-actions/public";
-import { getLibraryCardWidth, LibraryCardLayout } from "./LibraryCardViewControls";
+import {
+  getLibraryCardWidth,
+  LibraryCardLayout,
+} from "./LibraryCardViewControls";
 import { useLibraryPages, useLibraryWindow } from "../model/useLibraryPages";
 import type { LibraryQuery } from "../model/libraryQuery";
 import { libraryBrowseTo } from "shared/lib/navigation";
@@ -31,7 +35,7 @@ function MovieItemSlider({
   dir?: string;
   link?: string;
   shuffle?: boolean;
-  data?: Plex.Metadata[];
+  data?: MediaMetadata[];
   plexTvSource?: boolean;
   layout?: LibraryCardLayout;
   cardSize?: number;

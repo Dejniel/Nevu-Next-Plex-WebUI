@@ -7,9 +7,13 @@ import {
   libraryPageOptions,
   libraryDirectoryQueryOptions,
 } from "features/library/model";
-import { listPageOptions, mediaListWindowKey } from "features/media-lists/model";
+import {
+  listPageOptions,
+  mediaListWindowKey,
+} from "features/media-lists/model";
 import { startBrowseSynchronization } from "./browseSynchronization";
 import {
+  type MediaMetadata,
   availabilityQueryOptions,
   mediaMetadataQueryKey,
   mediaChildrenQueryOptions,
@@ -53,7 +57,7 @@ it.each(["membership", "unknown"] as const)("refreshes full season/show metadata
   const episode = {
     ratingKey: "101", type: "episode", librarySectionID: 1,
     parentRatingKey: "100", grandparentRatingKey: "99",
-  } as Plex.Metadata;
+  } as MediaMetadata;
   const reads = [vi.fn(async () => ({ leafCount: 0 })), vi.fn(async () => ({ leafCount: 0 }))];
   const stops = ["100", "99"].map((id, index) => new QueryObserver(client, {
     queryKey: mediaMetadataQueryKey(scope, id),
@@ -62,7 +66,7 @@ it.each(["membership", "unknown"] as const)("refreshes full season/show metadata
     staleTime: Infinity,
   }).subscribe(() => {}));
   const children = mediaChildrenQueryOptions(scope, "100");
-  const readChildren = vi.fn(async () => [] as Plex.Metadata[]);
+  const readChildren = vi.fn(async () => [] as MediaMetadata[]);
   stops.push(new QueryObserver(client, {
     ...children, queryFn: readChildren, initialData: [episode], staleTime: Infinity,
   }).subscribe(() => {}));
@@ -101,10 +105,10 @@ it.each(["library", "directory", "playlist", "availability", "onDeck"])(
     const episode = {
       ratingKey: "101", type: "episode", librarySectionID: 1,
       parentRatingKey: "100", grandparentRatingKey: "99",
-    } as Plex.Metadata;
+    } as MediaMetadata;
     const show = { ratingKey: "99", type: "show", librarySectionID: 1, leafCount: 1,
       ...(source === "onDeck" && { OnDeck: { Metadata: episode } }),
-    } as Plex.Metadata;
+    } as MediaMetadata;
     if (source === "library") client.setQueryData(libraryPageOptions("server", {
       profileKey: "owner", sectionId: 1, type: "episode", sort: "titleSort",
     }, 0, 0).queryKey, { offset: 0, size: 1, totalSize: 1, hasMore: false, items: [episode as LibraryCardDto] });
@@ -130,20 +134,20 @@ it.each(["library", "directory", "playlist", "availability", "onDeck"])(
 it("cancels a cold parent read before it can publish pre-change aggregates", async () => {
   client.setQueryData(mediaChildrenQueryOptions(scope, "100").queryKey, [{
     ratingKey: "101", type: "episode", parentRatingKey: "100", grandparentRatingKey: "99", librarySectionID: 1,
-  } as Plex.Metadata]);
+  } as MediaMetadata]);
   const key = mediaMetadataQueryKey(scope, "99");
-  let finish!: (value: Plex.Metadata) => void;
+  let finish!: (value: MediaMetadata) => void;
   let signal!: AbortSignal;
   const read = vi.fn().mockImplementationOnce((context) => {
     signal = context.signal;
-    return new Promise<Plex.Metadata>((resolve) => { finish = resolve; });
+    return new Promise<MediaMetadata>((resolve) => { finish = resolve; });
   }).mockResolvedValue({ ratingKey: "99", leafCount: 0 });
   const stop = new QueryObserver(client, { queryKey: key, queryFn: read }).subscribe(() => {});
   try {
     sync.enqueue({ ...scope, sectionId: "1", kind: "item", effect: "membership", id: "101" });
     await vi.advanceTimersByTimeAsync(1000);
     expect(signal.aborted).toBe(true);
-    finish({ ratingKey: "99", leafCount: 1 } as Plex.Metadata);
+    finish({ ratingKey: "99", leafCount: 1 } as MediaMetadata);
     await vi.advanceTimersByTimeAsync(10);
     expect(client.getQueryData(key)).toEqual({ ratingKey: "99", leafCount: 0 });
     expect(read).toHaveBeenCalledTimes(2);
@@ -153,10 +157,10 @@ it("cancels a cold parent read before it can publish pre-change aggregates", asy
 it("does not let a deleted item's details error block its parent/child reconciliation or duplicate the read", async () => {
   const episode = {
     ratingKey: "101", type: "episode", parentRatingKey: "100", grandparentRatingKey: "99", librarySectionID: 1,
-  } as Plex.Metadata;
+  } as MediaMetadata;
   const readItem = vi.fn(async () => { throw new Error("404: deleted"); });
   const readParent = vi.fn(async () => ({ ratingKey: "99", leafCount: 0 }));
-  const readChildren = vi.fn(async () => [] as Plex.Metadata[]);
+  const readChildren = vi.fn(async () => [] as MediaMetadata[]);
   const stops = [
     new QueryObserver(client, { queryKey: mediaMetadataQueryKey(scope, "101"), queryFn: readItem, initialData: episode, staleTime: Infinity }).subscribe(() => {}),
     new QueryObserver(client, { queryKey: mediaMetadataQueryKey(scope, "99"), queryFn: readParent, initialData: { ratingKey: "99", type: "show", leafCount: 1 }, staleTime: Infinity }).subscribe(() => {}),
@@ -177,7 +181,7 @@ it("refreshes prior and current parent metadata when an episode moves", async ()
   const before = {
     ratingKey: "101", type: "episode", librarySectionID: 1,
     parentRatingKey: "100", grandparentRatingKey: "99",
-  } as Plex.Metadata;
+  } as MediaMetadata;
   client.setQueryData(mediaMetadataQueryKey(scope, "101"), before);
   const reads = Array.from({ length: 4 }, () => vi.fn(async () => ({ leafCount: 1 })));
   const stops = ["100", "99", "200", "199"].map((id, index) => new QueryObserver(client, {
@@ -199,7 +203,7 @@ it("refreshes prior and current parent metadata when an episode moves", async ()
 it("preserves the verified before/after delta for directories before publishing canonical metadata", async () => {
   const before = {
     ratingKey: "1", type: "movie", librarySectionID: 1, summary: "Old",
-  } as Plex.Metadata;
+  } as MediaMetadata;
   client.setQueryData(mediaMetadataQueryKey(scope, "1"), before);
   const reads = Array.from({ length: 3 }, () => vi.fn(async () => ({ size: 0 } as Plex.MediaContainer)));
   const stops = ["/library/sections/1", "/library/sections/1/genre", "/library/sections/1/actor"]
@@ -278,6 +282,7 @@ it("updates cached full metadata with the same canonical read and rejects its ol
   const fresh = {
     ratingKey: "1",
     title: "Confirmed",
+    type: "movie" as const,
     summary: "Canonical details",
     librarySectionID: 1,
   };
@@ -319,7 +324,7 @@ it("reuses one canonical read for the library, repeated playlist entries, detail
     title: "Movie",
     librarySectionID: 1,
   };
-  const metadata = { ...card, summary: "Old" } as Plex.Metadata;
+  const metadata = { ...card, summary: "Old" } as MediaMetadata;
   const library = libraryPageOptions(
     "server",
     { profileKey: "owner", sectionId: 1, sort: "titleSort" },
@@ -441,8 +446,8 @@ it("requests full canonical metadata for a cached episode and patches the season
     librarySectionID: 1,
   };
   const options = mediaChildrenQueryOptions(scope, "season");
-  client.setQueryData(options.queryKey, [episode] as Plex.Metadata[]);
-  const read = vi.fn(async () => [episode] as Plex.Metadata[]);
+  client.setQueryData(options.queryKey, [episode] as MediaMetadata[]);
+  const read = vi.fn(async () => [episode] as MediaMetadata[]);
   const leave = new QueryObserver(client, {
     ...options,
     queryFn: read,
@@ -458,7 +463,7 @@ it("requests full canonical metadata for a cached episode and patches the season
   sync.enqueue({ ...scope, kind: "item", effect: "unknown", id: "episode", sectionId: "1" });
   await vi.advanceTimersByTimeAsync(1000);
   expect(synchronizeLibraryItem).toHaveBeenCalledWith("episode", expect.any(AbortSignal), true);
-  expect(client.getQueryData<Plex.Metadata[]>(options.queryKey)?.[0].viewCount).toBe(1);
+  expect(client.getQueryData<MediaMetadata[]>(options.queryKey)?.[0].viewCount).toBe(1);
   expect(read).not.toHaveBeenCalled();
   leave();
 });

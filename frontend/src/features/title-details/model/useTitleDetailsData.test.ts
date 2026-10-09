@@ -1,69 +1,27 @@
+import type { MediaMetadata } from "entities/media/model";
 import { trackLanguages } from "./useTitleDetailsData";
 
 it("returns unique track languages with display titles as fallback", () => {
-  const data: Plex.Metadata = {
+  const data: MediaMetadata = {
     ratingKey: "1",
-    key: "/library/metadata/1",
-    guid: "plex://movie/1",
-    studio: "Studio",
     type: "movie",
     title: "Movie",
-    librarySectionTitle: "Movies",
-    librarySectionID: 1,
-    librarySectionKey: "/library/sections/1",
-    contentRating: "PG",
-    summary: "",
-    year: 2024,
-    tagline: "",
-    thumb: "",
-    art: "",
-    duration: 12000,
-    originallyAvailableAt: "2024-01-01",
-    addedAt: 0,
-    updatedAt: 0,
-    audienceRatingImage: "",
     Media: [
       {
         id: 1,
-        duration: 12000,
-        bitrate: 1000,
-        width: 1280,
-        height: 720,
-        aspectRatio: 16 / 9,
-        audioChannels: 2,
-        audioCodec: "aac",
-        videoCodec: "h264",
-        videoResolution: "720",
-        container: "mp4",
-        videoFrameRate: "24p",
-        audioProfile: "lc",
-        videoProfile: "main",
         Part: [
           {
             id: 1,
             key: "/library/parts/1/file.mp4",
-            duration: 12000,
-            file: "/movies/movie.mp4",
-            size: 1500000,
-            audioProfile: "lc",
-            container: "mp4",
-            indexes: "",
-            videoProfile: "main",
-            Stream: [
-              { index: 0, streamType: 2, language: "English" },
-              { index: 1, streamType: 2, language: "English" },
-              { index: 2, streamType: 2, displayTitle: "Commentary" },
-              { index: 3, streamType: 3, language: "Polish" },
-            ].map((stream) => ({
+            Stream: (
+              [
+                { index: 0, streamType: 2, language: "English" },
+                { index: 1, streamType: 2, language: "English" },
+                { index: 2, streamType: 2, displayTitle: "Commentary" },
+                { index: 3, streamType: 3, language: "Polish" },
+              ] as const
+            ).map((stream) => ({
               id: stream.index + 1,
-              default: false,
-              codec: stream.streamType === 2 ? "aac" : "srt",
-              bitrate: 0,
-              language: "",
-              languageTag: "",
-              languageCode: "",
-              displayTitle: "",
-              extendedDisplayTitle: "",
               ...stream,
             })),
           },

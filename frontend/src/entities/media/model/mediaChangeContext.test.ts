@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "plex/media";
 import { mediaChangeContext } from "./mediaChangeContext";
 
 it("finds episode relationships and section from cached response projections", () => {
@@ -15,7 +16,7 @@ it("follows cached season relationships and nested Children/OnDeck without requi
     ratingKey: "99", type: "show",
     Children: { Metadata: [{ ratingKey: "100", type: "season" }] },
     OnDeck: { Metadata: { ratingKey: "101", type: "episode", parentRatingKey: "100", grandparentRatingKey: "99" } },
-  } as Plex.Metadata;
+  } as MediaMetadata;
   expect(mediaChangeContext([show], "100").parentIds).toEqual(["99"]);
   expect(mediaChangeContext([show], "101")).toMatchObject({ parentIds: ["99", "100"], parentScopeUnknown: false });
 });

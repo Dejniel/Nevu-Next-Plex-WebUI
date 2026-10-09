@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import type { Mocked } from "vitest";
 import axios from "axios";
 import { AuthStorage } from "features/session/model";
@@ -85,7 +86,7 @@ const movies = (count: number, start = 0) =>
       ({
         guid: `plex://movie/${start + index}`,
         ratingKey: String(start + index),
-      }) as Plex.Metadata,
+      }) as MediaMetadata,
   );
 
 it("loads a Watchlist larger than 300 using accepted 100-item pages", async () => {

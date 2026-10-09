@@ -8,6 +8,7 @@ import {
   useServerSession,
 } from "features/session/model";
 import {
+  type MediaMetadata,
   applyMediaMetadataChanges,
   mediaMetadataQueryKey,
 } from "entities/media/model";
@@ -45,7 +46,7 @@ const movie = {
   title: "Movie",
   type: "movie",
   viewCount: 0,
-} as Plex.Metadata;
+} as MediaMetadata;
 const scope = { serverId: "server", profileKey: "1:2" };
 let root: Root;
 let container: HTMLDivElement;

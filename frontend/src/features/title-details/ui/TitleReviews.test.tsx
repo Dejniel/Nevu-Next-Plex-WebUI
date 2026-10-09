@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "entities/media/model";
 import { act, useState } from "react";
 import { notifyManager } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
@@ -87,7 +88,7 @@ it("keeps critic reviews visible when the Plex community is unavailable", async 
                 source: "Source",
               },
             ],
-          } as unknown as Plex.Metadata
+          } as unknown as MediaMetadata
         }
       />,
     ),
@@ -110,13 +111,13 @@ it("cancels old title requests and ignores their late responses", async () => {
   get.mockResolvedValueOnce(empty);
   await act(async () =>
     root.render(
-      <TitleReviews data={{ guid: "plex://movie/one" } as Plex.Metadata} />,
+      <TitleReviews data={{ guid: "plex://movie/one" } as MediaMetadata} />,
     ),
   );
   const oldSignal = get.mock.calls[0][1]!;
   await act(async () =>
     root.render(
-      <TitleReviews data={{ guid: "plex://movie/two" } as Plex.Metadata} />,
+      <TitleReviews data={{ guid: "plex://movie/two" } as MediaMetadata} />,
     ),
   );
   await act(async () =>
@@ -146,7 +147,7 @@ it("protects spoilers with an explicit expandable control and tolerates invalid 
   });
   await act(async () =>
     root.render(
-      <TitleReviews data={{ guid: "plex://movie/one" } as Plex.Metadata} />,
+      <TitleReviews data={{ guid: "plex://movie/one" } as MediaMetadata} />,
     ),
   );
   expect(host.querySelector("summary")?.textContent).toBe("Show spoilers");
@@ -185,7 +186,7 @@ it("puts your review first in Recent, without duplicating it in other sections",
           {
             guid: "plex://movie/one",
             Review: [{ id: "critic", text: "Critic opinion" }],
-          } as unknown as Plex.Metadata
+          } as unknown as MediaMetadata
         }
       />,
     ),
@@ -209,7 +210,7 @@ it("puts your review first in Recent, without duplicating it in other sections",
   expect(write).toHaveBeenCalledTimes(2);
 });
 
-const movie = { guid: "plex://movie/one", ratingKey: "1" } as Plex.Metadata;
+const movie = { guid: "plex://movie/one", ratingKey: "1" } as MediaMetadata;
 function EditorHarness() {
   const [editing, setEditing] = useState(false);
   return (
@@ -350,7 +351,7 @@ it("keeps the Recent heading and write action when community reviews are empty",
   await act(async () =>
     root.render(
       <TitleReviews
-        data={{ guid: "plex://movie/one" } as Plex.Metadata}
+        data={{ guid: "plex://movie/one" } as MediaMetadata}
         onWriteReview={vi.fn()}
       />,
     ),

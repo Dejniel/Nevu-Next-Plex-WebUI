@@ -1,3 +1,4 @@
+import type { MediaMetadata } from "plex/media";
 import type { Mock } from "vitest";
 import { AuthStorage } from "features/session/model";
 import { ProxiedRequest } from "shared/api/backend";
@@ -9,8 +10,8 @@ const movie = (
   ratingKey: string,
   guid = "plex://movie/one",
   librarySectionID = 1,
-) => ({ ratingKey, guid, librarySectionID }) as Plex.Metadata;
-const response = (items: Plex.Metadata[], totalSize?: number) => ({
+) => ({ ratingKey, guid, librarySectionID }) as MediaMetadata;
+const response = (items: MediaMetadata[], totalSize?: number) => ({
   status: 200,
   data: { MediaContainer: { Metadata: items, totalSize } },
 });
