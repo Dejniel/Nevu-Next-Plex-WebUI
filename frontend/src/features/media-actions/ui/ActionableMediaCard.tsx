@@ -2,17 +2,16 @@ import { MoreVertRounded, PlayArrowRounded } from "@mui/icons-material";
 import { isVideoLibraryItemType } from "@nevu/contracts";
 import { CircularProgress, IconButton, Tooltip } from "@mui/material";
 import { MediaCard, type MediaCardProps } from "entities/media/public";
-import { applyMediaWatchedState, setMediaPlayedStatus } from "entities/media/model";
 import { useCanManageServer, useServerSession } from "features/session/public";
 import { WatchlistButton } from "features/watchlist/public";
 import {
   openMediaListDialog,
   type MediaListKind,
 } from "features/media-lists/public";
-import React, { memo, useEffect, useMemo, useState } from "react";
+import React, { memo, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { mediaDetailsTo } from "shared/lib/navigation";
-import { useBigReader, useConfirmModal } from "shared/ui";
+import { useBigReader } from "shared/ui";
 import { getOriginalDownloads } from "../model/downloads";
 import { resolvePlaybackTarget } from "../model/playbackTarget";
 import { getMediaActionCapabilities } from "../model/mediaActionCapabilities";
@@ -20,10 +19,11 @@ import {
   StaleMediaMetadataRequestError,
   useLazyMediaMetadata,
 } from "../model/useLazyMediaMetadata";
-import { openMetadataDialog } from "../model/metadataDialog";
-import MediaActionsMenu, {
-  MediaMenuAnchor,
-} from "./MediaActionsMenu";
+import {
+  openMetadataDialog,
+  openMediaWatchedDialog,
+} from "../model/mediaActionDialog";
+import MediaActionsMenu, { MediaMenuAnchor } from "./MediaActionsMenu";
 
 const controlStyle = {
   backgroundColor: "rgba(18, 25, 39, 0.55)",
@@ -40,15 +40,15 @@ const controlStyle = {
 type ActionableMediaCardProps = Omit<
   MediaCardProps,
   "item" | "overlayActions" | "onContextMenu"
-> & Pick<MediaCardProps, "item"> & {
-  canPlay?: boolean;
-  playbackTo?: string;
-  renderMenuItems?: (onClose: () => void) => React.ReactNode;
-};
+> &
+  Pick<MediaCardProps, "item"> & {
+    canPlay?: boolean;
+    playbackTo?: string;
+    renderMenuItems?: (onClose: () => void) => React.ReactNode;
+  };
 
 function ActionableMediaCard(props: ActionableMediaCardProps) {
-  if (!isVideoLibraryItemType(props.item.type))
-    return <MediaCard {...props} />;
+  if (!isVideoLibraryItemType(props.item.type)) return <MediaCard {...props} />;
   return <VideoMediaCard {...props} />;
 }
 
@@ -66,32 +66,24 @@ function VideoMediaCard({
   const allowDownloads = useServerSession(
     (state) => state.server?.allowSync === true,
   );
-  const [displayItem, setDisplayItem] = useState(item);
   const [anchor, setAnchor] = useState<MediaMenuAnchor | null>(null);
   const [playLoading, setPlayLoading] = useState(false);
   const {
     data: fullMetadata,
     status: metadataStatus,
     load: loadFullMetadata,
-    invalidate: invalidateMetadata,
-    update: updateMetadata,
   } = useLazyMediaMetadata(item);
-  const capabilities = getMediaActionCapabilities(fullMetadata ?? displayItem, {
+  const displayItem = !PlexTvSource && fullMetadata ? fullMetadata : item;
+  const capabilities = getMediaActionCapabilities(displayItem, {
     localItem: !PlexTvSource,
     canManageServer,
     allowDownloads,
   });
 
-  useEffect(() => {
-    setDisplayItem(item);
-  }, [item]);
-
   const menuOpen = anchor !== null;
   const openMenu = (nextAnchor: MediaMenuAnchor) => {
     setAnchor(nextAnchor);
-    if (
-      !capabilities.canEditMetadata && !capabilities.canDownload
-    ) return;
+    if (!capabilities.canEditMetadata && !capabilities.canDownload) return;
     void loadFullMetadata().catch(() => undefined);
   };
 
@@ -100,7 +92,10 @@ function VideoMediaCard({
     tab: "media",
   });
   const downloads = useMemo(
-    () => fullMetadata ? getOriginalDownloads(fullMetadata, capabilities.canDownload) : [],
+    () =>
+      fullMetadata
+        ? getOriginalDownloads(fullMetadata, capabilities.canDownload)
+        : [],
     [capabilities.canDownload, fullMetadata],
   );
 
@@ -123,24 +118,8 @@ function VideoMediaCard({
   };
 
   const setWatched = (watched: boolean) => {
-    useConfirmModal.getState().setModal({
-      title: `Mark as ${watched ? "Watched" : "Unwatched"}`,
-      message: `Are you sure you want to mark "${displayItem.title}" as ${
-        watched ? "Watched" : "Unwatched"
-      }?`,
-      onConfirm: async () => {
-        try {
-          await setMediaPlayedStatus(watched, displayItem.ratingKey);
-          if (fullMetadata) updateMetadata(applyMediaWatchedState(fullMetadata, watched));
-          else invalidateMetadata();
-          setDisplayItem((current) => applyMediaWatchedState(current, watched));
-        } catch (error) {
-          if (error instanceof StaleMediaMetadataRequestError) return;
-          useBigReader.getState().setBigReader("Plex could not update this item's watched state.");
-        }
-      },
-      onCancel: () => undefined,
-    });
+    if (capabilities.canSetWatched)
+      openMediaWatchedDialog([displayItem], watched);
   };
 
   const editMetadata = async () => {
@@ -149,9 +128,9 @@ function VideoMediaCard({
       openMetadataDialog(data);
     } catch (error) {
       if (error instanceof StaleMediaMetadataRequestError) return;
-      useBigReader.getState().setBigReader(
-        "Nevu could not load this item's editable metadata.",
-      );
+      useBigReader
+        .getState()
+        .setBigReader("Nevu could not load this item's editable metadata.");
     }
   };
 
@@ -161,9 +140,9 @@ function VideoMediaCard({
       openMediaListDialog(kind, metadata);
     } catch (error) {
       if (error instanceof StaleMediaMetadataRequestError) return;
-      useBigReader.getState().setBigReader(
-        "Plex could not load this item. Please try again.",
-      );
+      useBigReader
+        .getState()
+        .setBigReader("Plex could not load this item. Please try again.");
     }
   };
   const openContextMenu: React.MouseEventHandler<HTMLDivElement> = (event) => {
@@ -232,7 +211,7 @@ function VideoMediaCard({
           downloadsLoading={
             capabilities.canDownload && metadataStatus === "loading"
           }
-          item={fullMetadata ?? displayItem}
+          item={displayItem}
           location={location}
           onClose={() => setAnchor(null)}
           extraItems={renderMenuItems?.(() => setAnchor(null))}

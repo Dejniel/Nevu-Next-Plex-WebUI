@@ -4,11 +4,15 @@ import type { Mock } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
+  applyMediaMetadataChanges,
   getMediaMetadata,
   mediaMetadataQueryOptions,
   type MediaItemData,
 } from "entities/media/model";
-import { StaleMediaMetadataRequestError, useLazyMediaMetadata } from "./useLazyMediaMetadata";
+import {
+  StaleMediaMetadataRequestError,
+  useLazyMediaMetadata,
+} from "./useLazyMediaMetadata";
 
 vi.mock("entities/media/api/media", async (original) => ({
   ...(await original<typeof import("entities/media/api/media")>()),
@@ -20,7 +24,9 @@ vi.mock("features/session/model", async (original) => ({
   useActiveServerScope: () => scope,
 }));
 beforeAll(() => notifyManager.setScheduler(queueMicrotask));
-afterAll(() => notifyManager.setScheduler((callback) => setTimeout(callback, 0)));
+afterAll(() =>
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0)),
+);
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -43,6 +49,14 @@ let state: ReturnType<typeof useLazyMediaMetadata>;
 let root: Root;
 let element: HTMLDivElement;
 
+function invalidate() {
+  return applyMediaMetadataChanges(serverQueryClient, [
+    {
+      change: { ...scope, kind: "item", id: item.ratingKey, effect: "unknown" },
+    },
+  ]);
+}
+
 function Harness() {
   state = useLazyMediaMetadata(item);
   return null;
@@ -55,7 +69,9 @@ async function renderCard() {
 beforeEach(() => {
   vi.resetAllMocks();
   serverQueryClient.clear();
-  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  (
+    globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
   item = movie;
   element = document.createElement("div");
   document.body.appendChild(element);
@@ -141,9 +157,11 @@ it("invalidates loaded metadata and fetches the new match on demand", async () =
   };
   (getMediaMetadata as Mock).mockResolvedValue(matched);
 
-  act(() => state.invalidate());
+  await act(async () => invalidate());
   expect(
-    serverQueryClient.getQueryState(mediaMetadataQueryOptions(scope, "1").queryKey)?.isInvalidated,
+    serverQueryClient.getQueryState(
+      mediaMetadataQueryOptions(scope, "1").queryKey,
+    )?.isInvalidated,
   ).toBe(true);
   expect(getMediaMetadata).toHaveBeenCalledTimes(1);
 
@@ -163,7 +181,7 @@ it("rejects an invalidated response for every caller without replacing fresh dat
   act(() => {
     firstResult = state.load().catch((error) => error);
     secondResult = state.load().catch((error) => error);
-    state.invalidate();
+    void invalidate();
   });
   const unmatched = { ...fullMovie, guid: "local://1", title: "Unmatched" };
   (getMediaMetadata as Mock).mockResolvedValue(unmatched);
@@ -189,7 +207,7 @@ it("does not let an old failure clear or fail a newer pending request", async ()
   let newPromise!: Promise<Plex.Metadata>;
   act(() => {
     oldResult = state.load().catch((error) => error);
-    state.invalidate();
+    void invalidate();
     newPromise = state.load();
   });
   await act(async () => oldRequest.reject(new Error("Old failure")));
@@ -231,7 +249,10 @@ it("rejects all old callers when the card changes while loading", async () => {
   expect(await firstResult).toBeInstanceOf(StaleMediaMetadataRequestError);
   expect(await secondResult).toBeInstanceOf(StaleMediaMetadataRequestError);
   expect(state.data).toBe(nextMetadata);
-  expect(getMediaMetadata).toHaveBeenLastCalledWith("2", expect.any(AbortSignal));
+  expect(getMediaMetadata).toHaveBeenLastCalledWith(
+    "2",
+    expect.any(AbortSignal),
+  );
 });
 
 it("keeps the shared cache when new props refer to the same Plex ID", async () => {
@@ -259,9 +280,12 @@ it("prevents delayed actions for an old item from touching the new cache", async
     await state.load();
   });
 
-  await expect(oldActions.load()).rejects.toBeInstanceOf(StaleMediaMetadataRequestError);
-  expect(() => oldActions.invalidate()).toThrow(StaleMediaMetadataRequestError);
-  expect(() => oldActions.update(fullMovie)).toThrow(StaleMediaMetadataRequestError);
+  await expect(oldActions.load()).rejects.toBeInstanceOf(
+    StaleMediaMetadataRequestError,
+  );
+  expect(() => oldActions.update(fullMovie)).toThrow(
+    StaleMediaMetadataRequestError,
+  );
   expect(state.data).toBe(currentMetadata);
   expect(getMediaMetadata).toHaveBeenCalledTimes(1);
 });
@@ -307,7 +331,10 @@ it("shares metadata and confirmed edits with a second card and the title details
     return null;
   }
   function Details() {
-    details = useQuery(mediaMetadataQueryOptions(scope, "1"), serverQueryClient).data;
+    details = useQuery(
+      mediaMetadataQueryOptions(scope, "1"),
+      serverQueryClient,
+    ).data;
     return null;
   }
   await act(async () =>
@@ -334,18 +361,20 @@ it("rejects an invalidated warm read instead of exposing its reverted stale meta
   await renderCard();
   await act(async () => {
     await state.load();
-    state.invalidate();
+    void invalidate();
   });
   const request = deferred<Plex.Metadata>();
   vi.mocked(getMediaMetadata).mockReturnValueOnce(request.promise);
   let result!: Promise<Plex.Metadata | Error>;
   await act(async () => {
     result = state.load().catch((error) => error);
-    state.invalidate();
+    void invalidate();
   });
   await act(async () => request.resolve(fullMovie));
   expect(await result).toBeInstanceOf(StaleMediaMetadataRequestError);
   expect(
-    serverQueryClient.getQueryState(mediaMetadataQueryOptions(scope, "1").queryKey)?.isInvalidated,
+    serverQueryClient.getQueryState(
+      mediaMetadataQueryOptions(scope, "1").queryKey,
+    )?.isInvalidated,
   ).toBe(true);
 });

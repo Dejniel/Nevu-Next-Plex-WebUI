@@ -1,6 +1,10 @@
 export { default as ActionableMediaCard } from "./ui/ActionableMediaCard";
-export { MetadataDialogHost } from "./ui/MetadataDialogHost";
-export { openMetadataDialog, openMetadataMatchDialog } from "./model/metadataDialog";
+export { MediaActionDialogHost } from "./ui/MediaActionDialogHost";
+export {
+  openMetadataDialog,
+  openMetadataMatchDialog,
+} from "./model/mediaActionDialog";
+export { openMediaWatchedDialog } from "./model";
 export { default as OriginalDownloadButton } from "./ui/OriginalDownloadButton";
 export { default as MediaRatingButton } from "./ui/MediaRatingButton";
 export { MediaItemMenu } from "./ui/MediaItemMenu";

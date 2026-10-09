@@ -1,5 +1,8 @@
 import { isCancelledError, useQuery } from "@tanstack/react-query";
-import { mediaMetadataQueryOptions, type MediaItemData } from "entities/media/model";
+import {
+  mediaMetadataQueryOptions,
+  type MediaItemData,
+} from "entities/media/model";
 import { useActiveServerScope, useAuthSession } from "features/session/model";
 import { useEffect, useMemo } from "react";
 import { serverQueryClient } from "shared/api/queryClient";
@@ -20,7 +23,10 @@ export function useLazyMediaMetadata(item: MediaItemData) {
   );
   const result = useQuery({ ...options, enabled: false }, serverQueryClient);
   // This guard belongs to the action's mounted item, not the shared query lifetime.
-  const action = useMemo(() => ({ options, revision, active: true }), [options, revision]);
+  const action = useMemo(
+    () => ({ options, revision, active: true }),
+    [options, revision],
+  );
   useEffect(() => {
     action.active = true;
     return () => {
@@ -31,11 +37,6 @@ export function useLazyMediaMetadata(item: MediaItemData) {
     if (!action.active || useAuthSession.getState().revision !== revision)
       throw new StaleMediaMetadataRequestError();
   };
-  const cancel = () =>
-    serverQueryClient.cancelQueries({
-      queryKey: options.queryKey,
-      exact: true,
-    });
   return {
     data: result.data ?? null,
     status: result.isFetching
@@ -54,22 +55,17 @@ export function useLazyMediaMetadata(item: MediaItemData) {
           throw new StaleMediaMetadataRequestError();
         return data;
       } catch (error) {
-        if (!action.active || isCancelledError(error)) throw new StaleMediaMetadataRequestError();
+        if (!action.active || isCancelledError(error))
+          throw new StaleMediaMetadataRequestError();
         throw error;
       }
     },
-    invalidate: () => {
-      assertCurrent();
-      void cancel();
-      void serverQueryClient.invalidateQueries({
-        queryKey: options.queryKey,
-        exact: true,
-        refetchType: "none",
-      });
-    },
     update: (data: Plex.Metadata) => {
       assertCurrent();
-      void cancel();
+      void serverQueryClient.cancelQueries({
+        queryKey: options.queryKey,
+        exact: true,
+      });
       serverQueryClient.setQueryData(options.queryKey, data);
     },
   };

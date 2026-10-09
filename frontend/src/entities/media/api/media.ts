@@ -1,6 +1,5 @@
 import { normalizeLibraryRecord } from "@nevu/contracts";
-import { publishMediaChange } from "../model/mediaChanges";
-import { plexClient, getActiveServerScope, getXPlexProps } from "features/session/model";
+import { plexClient, getXPlexProps } from "features/session/model";
 import { queryBuilder } from "shared/lib/query";
 import { getIncludeProps } from "../model/mediaIncludes";
 
@@ -25,7 +24,10 @@ async function getMediaContainer(path: string, signal?: AbortSignal) {
   return container;
 }
 
-export async function getMediaMetadata(id: string, signal?: AbortSignal): Promise<Plex.Metadata> {
+export async function getMediaMetadata(
+  id: string,
+  signal?: AbortSignal,
+): Promise<Plex.Metadata> {
   if (!id) throw new Error("No media item was selected.");
   const container = await getMediaContainer(
     `/library/metadata/${encodeURIComponent(id)}?${queryBuilder({
@@ -39,7 +41,10 @@ export async function getMediaMetadata(id: string, signal?: AbortSignal): Promis
   return normalizeLibraryRecord(item, !container.Metadata?.length);
 }
 
-export async function getMediaChildren(id: string, signal?: AbortSignal): Promise<Plex.Metadata[]> {
+export async function getMediaChildren(
+  id: string,
+  signal?: AbortSignal,
+): Promise<Plex.Metadata[]> {
   const container = await getMediaContainer(
     `/library/metadata/${encodeURIComponent(id)}/children?${queryBuilder({
       ...getIncludeProps(),
@@ -48,8 +53,12 @@ export async function getMediaChildren(id: string, signal?: AbortSignal): Promis
     signal,
   );
   return [
-    ...(container.Metadata ?? []).map((item: Plex.Metadata) => normalizeLibraryRecord(item)),
-    ...(container.Directory ?? []).map((item: Plex.Metadata) => normalizeLibraryRecord(item, true)),
+    ...(container.Metadata ?? []).map((item: Plex.Metadata) =>
+      normalizeLibraryRecord(item),
+    ),
+    ...(container.Directory ?? []).map((item: Plex.Metadata) =>
+      normalizeLibraryRecord(item, true),
+    ),
   ];
 }
 
@@ -69,32 +78,4 @@ export async function getMediaByGuid(
   );
   const metadata = container.Metadata?.[0];
   return metadata?.guid === guid ? metadata : null;
-}
-
-export async function setMediaPlayedStatus(
-  watched: boolean,
-  ratingKey: string,
-  signal?: AbortSignal,
-): Promise<void> {
-  const scope = getActiveServerScope();
-  signal?.throwIfAborted();
-  try {
-    await plexClient.get<void>(
-      `/:/${watched ? "scrobble" : "unscrobble"}?${queryBuilder({
-        key: ratingKey,
-        identifier: "com.plexapp.plugins.library",
-        ...getXPlexProps(),
-      })}`,
-      signal,
-    );
-  } finally {
-    // Plex may accept a write even when its response fails or is cancelled.
-    if (scope)
-      publishMediaChange({
-        ...scope,
-        kind: "item",
-        effect: "unknown",
-        id: ratingKey,
-      });
-  }
 }

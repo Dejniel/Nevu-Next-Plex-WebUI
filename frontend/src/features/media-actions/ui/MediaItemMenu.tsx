@@ -33,7 +33,7 @@ import {
 import { getOriginalDownloads } from "../model/downloads";
 import { getMediaActionCapabilities } from "../model/mediaActionCapabilities";
 import { useLazyMediaMetadata } from "../model/useLazyMediaMetadata";
-import { openMetadataDialog } from "../model/metadataDialog";
+import { openMetadataDialog } from "../model/mediaActionDialog";
 import MediaRatingButton from "./MediaRatingButton";
 import { renderOriginalDownloadMenuItems } from "./OriginalDownloadMenuItems";
 import { renderMetadataMatchingMenuItems } from "./MetadataMatchingMenuItems";

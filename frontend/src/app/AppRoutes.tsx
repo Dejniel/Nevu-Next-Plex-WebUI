@@ -8,7 +8,7 @@ import LibraryBrowse from "./library/LibraryBrowse";
 import { WatchlistView } from "features/watchlist/routes";
 import { MediaListsView } from "features/media-lists/routes";
 import { MediaListActionDialog } from "features/media-lists/public";
-import { MetadataDialogHost } from "features/media-actions/public";
+import { MediaActionDialogHost } from "features/media-actions/public";
 import { SearchScreen } from "features/search/public";
 import { SettingsScreen } from "features/settings/public";
 import { PlaybackScreen } from "features/playback/public";
@@ -25,10 +25,16 @@ export default function AppRoutes() {
       <Box sx={{ width: "100%", height: "auto" }}>
         <Routes>
           <Route path="/" element={<HomeScreen />} />
-          <Route path="/browse/:libraryID/item/:itemID" element={<CatalogItemScreen />} />
+          <Route
+            path="/browse/:libraryID/item/:itemID"
+            element={<CatalogItemScreen />}
+          />
           <Route path="/browse/:libraryID" element={<LibraryBrowse />} />
           <Route path="/watchlist" element={<WatchlistView />} />
-          <Route path="/playlists" element={<MediaListsView kind="playlist" />} />
+          <Route
+            path="/playlists"
+            element={<MediaListsView kind="playlist" />}
+          />
           <Route path="/watch/:itemID" element={<PlaybackScreen />} />
           <Route path="/search/:query?" element={<SearchScreen />} />
           <Route path="/sync/waitingroom" element={<WaitingRoomScreen />} />
@@ -37,7 +43,7 @@ export default function AppRoutes() {
       </Box>
       <MusicPlayer />
       <MediaListActionDialog />
-      <MetadataDialogHost />
+      <MediaActionDialogHost />
     </>
   );
 }

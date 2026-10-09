@@ -61,7 +61,9 @@ export function buildApplyMatchPath(
   return `${itemPath(ratingKey, "match")}?${params.toString()}`;
 }
 
-export function createMetadataMatcher(item: MediaItemData) {
+export function createMetadataMatcher(
+  item: Pick<MediaItemData, "ratingKey" | "type">,
+) {
   const session = createMetadataSession();
   const client = new PlexClient(() => session.token);
   const mediaType = metadataMatchType(item.type);

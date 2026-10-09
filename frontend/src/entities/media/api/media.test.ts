@@ -1,23 +1,13 @@
 import type { Mock } from "vitest";
 import { plexClient } from "features/session/model";
-import { publishMediaChange } from "../model/mediaChanges";
-import {
-  getMediaByGuid,
-  getMediaChildren,
-  getMediaMetadata,
-  setMediaPlayedStatus,
-} from "./media";
+import { getMediaByGuid, getMediaChildren, getMediaMetadata } from "./media";
 
 vi.mock("features/session/model", () => ({
-  getActiveServerScope: () => ({ serverId: "server", profileKey: "owner" }),
   plexClient: { get: vi.fn() },
   getXPlexProps: () => ({}),
 }));
 vi.mock("shared/lib/query", () => ({
   queryBuilder: () => "query",
-}));
-vi.mock("../model/mediaChanges", () => ({
-  publishMediaChange: vi.fn(),
 }));
 
 beforeEach(() => vi.clearAllMocks());
@@ -43,47 +33,6 @@ it("only returns a GUID lookup when Plex returned the requested item", async () 
   });
 
   await expect(getMediaByGuid("plex://movie/1")).resolves.toBeNull();
-});
-
-it("publishes a scoped item effect after confirming watched state", async () => {
-  (plexClient.get as Mock).mockResolvedValue({});
-
-  await setMediaPlayedStatus(true, "12");
-
-  expect(plexClient.get).toHaveBeenCalledWith("/:/scrobble?query", undefined);
-  expect(publishMediaChange).toHaveBeenCalledWith({
-    serverId: "server",
-    profileKey: "owner",
-    kind: "item",
-    effect: "unknown",
-    id: "12",
-  });
-});
-
-it("forwards watched-action cancellation and reconciles an uncertain write", async () => {
-  const controller = new AbortController();
-  const failure = new Error("Response lost");
-  vi.mocked(plexClient.get).mockRejectedValue(failure);
-  await expect(
-    setMediaPlayedStatus(false, "12", controller.signal),
-  ).rejects.toBe(failure);
-  expect(plexClient.get).toHaveBeenCalledWith(
-    "/:/unscrobble?query",
-    controller.signal,
-  );
-  expect(publishMediaChange).toHaveBeenCalledWith(
-    expect.objectContaining({ id: "12", effect: "unknown" }),
-  );
-});
-
-it("does not send a watched action or publish an effect when already cancelled", async () => {
-  const controller = new AbortController();
-  controller.abort();
-  await expect(
-    setMediaPlayedStatus(true, "12", controller.signal),
-  ).rejects.toThrow();
-  expect(plexClient.get).not.toHaveBeenCalled();
-  expect(publishMediaChange).not.toHaveBeenCalled();
 });
 
 it("normalizes photo album Directory records without retyping ordinary photos", async () => {

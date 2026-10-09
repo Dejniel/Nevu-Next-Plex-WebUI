@@ -126,10 +126,14 @@ features/library/
 `features/title-details` follows the same boundary for title metadata, extra selection,
 reviews, downloads, and the details dialog. Review entry points share one Plex
 editor and a profile-scoped Query resource; confirmed saves update its readers.
-Episode browsing separates season selection/Query reads from confirmed single
-and batch actions. Rows have no metadata mirror; writes use the common Plex
-synchronization. Selection stores IDs in a shared scoped UI model; season/session
-changes cancel obsolete actions, and partial failures retry only remaining IDs.
+Episode browsing owns season selection/Query reads and scoped selected IDs.
+Cards, details and episodes delegate confirmed watched actions to
+`features/media-actions`: one application-level dialog/controller owns pending,
+errors, cancellation and retries. Unmatch uses the same confirmation controller.
+Writes capture their server/profile/token before confirmation; batches bound
+concurrency and retain only failed IDs. Season/session changes cancel obsolete
+work. Submitted writes publish reconciliation hints, including uncertain failures;
+Plex synchronization owns watched metadata without local view-count copies.
 Title tabs use the URL and native accessible controls as their single owner.
 `entities/media` owns the pure rating model and shared score display. Provider
 values keep Plex's 0–10 scale; friend scores remain individual ratings. Library

@@ -8,8 +8,11 @@ import {
 import { ProxiedRequest } from "shared/api/backend";
 import { serverQueryClient } from "shared/api/queryClient";
 import EditMetadataDialog from "./EditMetadataDialog";
-import { MetadataDialogHost } from "./MetadataDialogHost";
-import { openMetadataDialog, useMetadataDialog } from "../model/metadataDialog";
+import { MediaActionDialogHost } from "./MediaActionDialogHost";
+import {
+  openMetadataDialog,
+  useMediaActionDialog,
+} from "../model/mediaActionDialog";
 import { getMediaMetadata, mediaMetadataQueryKey } from "entities/media/model";
 
 vi.mock("shared/api/backend", () => ({
@@ -42,7 +45,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   serverQueryClient.clear();
-  useMetadataDialog.setState({ selection: null });
+  useMediaActionDialog.setState({ selection: null });
   vi.mocked(getMediaMetadata).mockResolvedValue(original);
   AuthStorage.saveActiveSession({
     profile: null,
@@ -299,7 +302,7 @@ it("keeps the shared dialog and draft when its original virtualized card disappe
           Edit card
         </button>
       )}
-      <MetadataDialogHost />
+      <MediaActionDialogHost />
     </>
   );
   await act(async () => root.render(content(true)));
@@ -316,18 +319,18 @@ it("keeps the shared dialog and draft when its original virtualized card disappe
   expect(input("Title")!.value).toBe("My draft");
   await click(button("Save"));
   expect(onSaved).toHaveBeenCalledTimes(1);
-  expect(useMetadataDialog.getState().selection).toBeNull();
+  expect(useMediaActionDialog.getState().selection).toBeNull();
 });
 
 it("closes the shared dialog and clears its selection when the active session changes", async () => {
   await act(async () => {
-    root.render(<MetadataDialogHost />);
+    root.render(<MediaActionDialogHost />);
     openMetadataDialog(original, onSaved);
   });
   await settle();
   expect(document.querySelector('[role="dialog"]')).toBeTruthy();
   await act(async () => useAuthSession.setState({ revision: 2 }));
-  expect(useMetadataDialog.getState().selection).toBeNull();
+  expect(useMediaActionDialog.getState().selection).toBeNull();
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect(onSaved).not.toHaveBeenCalled();
 });
@@ -351,7 +354,7 @@ it.each([
     };
     try {
       await act(async () => {
-        root.render(<MetadataDialogHost />);
+        root.render(<MediaActionDialogHost />);
         openMetadataDialog(original, onSaved);
       });
       await settle();
@@ -359,9 +362,10 @@ it.each([
       await click(button("Save"));
       expect(writes()).toHaveLength(1);
       expect(onSaved).not.toHaveBeenCalled();
-      expect(useMetadataDialog.getState().selection?.data.ratingKey).toBe(
-        selectedID,
-      );
+      const opened = useMediaActionDialog.getState().selection;
+      expect(
+        opened && "data" in opened ? opened.data.ratingKey : undefined,
+      ).toBe(selectedID);
     } finally {
       config.onSuccess = previous;
     }

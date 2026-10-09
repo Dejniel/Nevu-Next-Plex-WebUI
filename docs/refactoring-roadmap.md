@@ -56,9 +56,12 @@ recommendation context, episodes, GUID resolution and Discover extras.
 `features/media-actions/model/mediaActionCapabilities` decides availability for
 Edit, Match, Unmatch, Download, View Similar, and watched-state actions. Cards
 and title details use the same decisions. `entities/media` owns watched-state
-recognition and immutable updates, shared by cards, details, and episode rows.
-Tests cover media types, remote sources, management and download permissions,
-empty shows, and watched/unwatched transitions.
+recognition. `useConfirmedMediaAction` owns single/batch writes, pending state,
+errors and partial retries. Cards, details and episodes use one application-level
+host; session changes cancel obsolete requests. Watched metadata comes only from
+Plex synchronization, without local view-count copies. Unmatch uses the same
+confirmation controller. Tests cover permissions, cancellation, partial failure,
+retry and canonical updates.
 
 ### 3. Isolate matching state — complete
 
@@ -72,8 +75,8 @@ and PMS-provided agents cover movies, shows, artists and albums.
 
 Tab selection comes from the URL; navigation has a separate accessible view.
 `useTitleEpisodes` owns season selection and canonical Query reads;
-`useEpisodeActions` owns single/batch confirmations, cancellation and partial
-retries. Rows render Query metadata directly. `shared/lib/useItemSelection`
+`useEpisodeActions` adapts scoped selection to the shared media-action controller.
+Rows render Query metadata directly. `shared/lib/useItemSelection`
 stores scoped IDs and supplies the foundation for future library selection.
 Static hero composition remains in the screen.
 

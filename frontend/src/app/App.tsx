@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { BigReader, ConfirmModal } from "shared/ui";
+import { BigReader } from "shared/ui";
 import { LibraryScreen } from "features/library/public";
 import { TitleDetailsScreen } from "features/title-details/public";
 import { WatchTogetherFeature } from "features/watch-together/public";
@@ -68,8 +68,9 @@ function App() {
       <WatchTogetherFeature />
       <LibraryScreen />
       <TitleDetailsScreen />
-      <ConfirmModal />
-      <MusicProvider><AppRoutes /></MusicProvider>
+      <MusicProvider>
+        <AppRoutes />
+      </MusicProvider>
     </>
   );
 }

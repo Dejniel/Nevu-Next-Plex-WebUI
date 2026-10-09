@@ -37,7 +37,6 @@ export default function EpisodeRow({
   item,
   selecting,
   selected,
-  busy,
   onToggle,
   onStartSelection,
   onCancelSelection,
@@ -46,7 +45,6 @@ export default function EpisodeRow({
   item: Plex.Metadata;
   selecting: boolean;
   selected: boolean;
-  busy: boolean;
   onToggle: () => void;
   onStartSelection: () => void;
   onCancelSelection: () => void;
@@ -90,7 +88,6 @@ export default function EpisodeRow({
           },
         })}
         <MenuItem
-          disabled={busy}
           onClick={() => {
             close();
             if (selecting) onCancelSelection();
@@ -110,7 +107,6 @@ export default function EpisodeRow({
           [true, false].map((watched) => (
             <MenuItem
               key={String(watched)}
-              disabled={busy}
               onClick={() => {
                 close();
                 onSetWatched(watched);
@@ -152,7 +148,6 @@ export default function EpisodeRow({
       >
         {selecting ? (
           <ButtonBase
-            disabled={busy}
             aria-label={selectionLabel}
             aria-pressed={selected}
             onClick={onToggle}
@@ -181,7 +176,6 @@ export default function EpisodeRow({
           {selecting ? (
             <Checkbox
               checked={selected}
-              disabled={busy}
               onChange={onToggle}
               slotProps={{ input: { "aria-label": `Select ${item.title}` } }}
             />

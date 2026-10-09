@@ -34,7 +34,6 @@ const render = async (item = base, selecting = false) => {
           item={item}
           selecting={selecting}
           selected={selecting}
-          busy={false}
           {...callbacks}
         />
       </MemoryRouter>,

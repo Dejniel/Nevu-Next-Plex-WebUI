@@ -8,15 +8,17 @@ import {
 } from "features/session/model";
 import { serverQueryClient } from "shared/api/queryClient";
 import {
-  useMetadataDialog,
-  type MetadataSelection,
-} from "../model/metadataDialog";
+  closeMediaActionDialog,
+  useMediaActionDialog,
+  type MediaActionSelection,
+} from "../model/mediaActionDialog";
 import EditMetadataDialog from "./EditMetadataDialog";
 import MatchMetadataDialog from "./MatchMetadataDialog";
+import ConfirmedMediaActionDialog from "./ConfirmedMediaActionDialog";
 
-/** Metadata workflows outlive virtualized cards and responsive grid regrouping. */
-export function MetadataDialogHost() {
-  const selection = useMetadataDialog((state) => state.selection);
+/** Media workflows outlive virtualized cards and responsive grid regrouping. */
+export function MediaActionDialogHost() {
+  const selection = useMediaActionDialog((state) => state.selection);
   const scope = useActiveServerScope();
   const revision = useAuthSession((state) => state.revision);
   const ready = useAuthSession((state) => state.status === "ready");
@@ -24,29 +26,32 @@ export function MetadataDialogHost() {
   const current = Boolean(
     selection &&
       ready &&
-      allowed &&
+      (selection.kind === "watched" || allowed) &&
       selection.scope.serverId === scope.serverId &&
       selection.scope.profileKey === scope.profileKey &&
-      selection.revision === revision,
+      selection.revision === revision &&
+      selection.isCurrent(),
   );
   useEffect(() => {
-    if (selection && !current) useMetadataDialog.setState({ selection: null });
+    if (selection && !current) closeMediaActionDialog(selection);
   }, [selection, current]);
   return current && selection ? (
-    <OpenedMetadataDialog
-      key={`${selection.kind}:${selection.scope.serverId}:${selection.scope.profileKey}:${selection.revision}:${selection.data.ratingKey}`}
-      selection={selection}
-    />
+    <OpenedMediaActionDialog key={selection.key} selection={selection} />
   ) : null;
 }
 
-function OpenedMetadataDialog({ selection }: { selection: MetadataSelection }) {
-  const onClose = () => {
-    if (useMetadataDialog.getState().selection === selection)
-      useMetadataDialog.setState({ selection: null });
-  };
+function OpenedMediaActionDialog({
+  selection,
+}: {
+  selection: MediaActionSelection;
+}) {
+  const onClose = () => closeMediaActionDialog(selection);
+  if (selection.kind === "watched" || selection.kind === "unmatch")
+    return (
+      <ConfirmedMediaActionDialog selection={selection} onClose={onClose} />
+    );
   const onSaved = () => {
-    if (useMetadataDialog.getState().selection === selection)
+    if (useMediaActionDialog.getState().selection === selection)
       selection.onSaved?.();
   };
   return selection.kind === "match" ? (
@@ -69,7 +74,7 @@ function OpenedMetadataEditor({
   onClose,
   onSaved,
 }: {
-  selection: Extract<MetadataSelection, { kind: "edit" }>;
+  selection: Extract<MediaActionSelection, { kind: "edit" }>;
   onClose: () => void;
   onSaved: () => void;
 }) {

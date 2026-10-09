@@ -12,6 +12,7 @@ const HEADLESS_FEATURE_ENTRYPOINTS = new Set([
   "home",
   "watchlist",
   "media-lists",
+  "media-actions",
   "music",
   "photos",
 ]);
@@ -108,7 +109,7 @@ describe("frontend module boundaries", () => {
     ]);
   });
 
-  it("keeps browse features free of runtime import cycles", () => {
+  it("keeps browse and media-action features free of runtime import cycles", () => {
     const files = sourceFiles(SOURCE_ROOT).filter(
       (file) => !file.includes(".test.") && !file.endsWith(".d.ts"),
     );
@@ -148,7 +149,7 @@ describe("frontend module boundaries", () => {
       stack.pop();
     };
     files
-      .filter((file) => /^features\/(library|watchlist|media-lists)\//.test(sourcePath(file)))
+      .filter((file) => /^features\/(library|watchlist|media-lists|media-actions|title-details)\//.test(sourcePath(file)))
       .forEach(visit);
     expect(cycles).toEqual([]);
   });

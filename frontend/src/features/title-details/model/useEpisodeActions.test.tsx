@@ -1,32 +1,37 @@
-import React, { act } from "react";
+import { StrictMode, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { notifyManager } from "@tanstack/react-query";
-import { setMediaPlayedStatus } from "entities/media/model";
-import { useAuthSession } from "features/session/model";
+import {
+  AuthStorage,
+  useAuthSession,
+  useServerSession,
+} from "features/session/model";
+import {
+  MediaActionDialogHost,
+  openMediaWatchedDialog,
+} from "features/media-actions/public";
+import { ProxiedRequest } from "shared/api/backend";
 import { serverQueryClient } from "shared/api/queryClient";
 import { useEpisodeActions } from "./useEpisodeActions";
 import type { TitleEpisodesModel } from "./useTitleEpisodes";
 
-vi.mock("entities/media/api/media", async (original) => ({
-  ...(await original<typeof import("entities/media/api/media")>()),
-  setMediaPlayedStatus: vi.fn(),
+vi.mock("shared/api/backend", () => ({
+  ProxiedRequest: vi.fn(),
+  getBackendURL: () => "",
 }));
-let scope = { serverId: "server", profileKey: "owner" };
-vi.mock("features/session/model", async (original) => ({
-  ...(await original<typeof import("features/session/model")>()),
-  getActiveServerScope: () => scope,
-}));
+const transport = vi.mocked(ProxiedRequest);
+const scope = { serverId: "server", profileKey: "1:1" };
 const episode = (id: string, title = id) =>
   ({ ratingKey: id, title, type: "episode" }) as Plex.Metadata;
 const browser = (
-  ids = ["a", "b"],
+  ids = ["11", "12"],
   identity = "season-one",
 ): TitleEpisodesModel => ({
   identity,
   scope,
   revision: 1,
   seasons: [],
-  seasonId: "s1",
+  seasonId: "10",
   selectSeason: vi.fn(),
   episodes: ids.map((id) => episode(id)),
   loading: false,
@@ -34,154 +39,176 @@ const browser = (
   retry: vi.fn(),
 });
 let root: Root;
+let host: HTMLDivElement;
 let state: ReturnType<typeof useEpisodeActions>;
 function Harness({ source }: { source: TitleEpisodesModel }) {
   state = useEpisodeActions(source);
   return null;
 }
-const render = async (source = browser()) => {
-  await act(async () =>
-    root.render(<Harness key={source.identity} source={source} />),
+const render = async (source = browser()) =>
+  act(async () =>
+    root.render(
+      <StrictMode>
+        <Harness source={source} />
+        <MediaActionDialogHost />
+      </StrictMode>,
+    ),
   );
-};
+const confirm = async (label = "Confirm") =>
+  act(async () => {
+    [...document.querySelectorAll<HTMLButtonElement>("button")]
+      .find((button) => button.textContent === label)!
+      .click();
+  });
+const dialog = () => document.querySelector('[role="dialog"]');
+const writtenIds = () =>
+  transport.mock.calls.map(([path]) =>
+    new URL(path, "https://plex.test").searchParams.get("key"),
+  );
 beforeAll(() => notifyManager.setScheduler(queueMicrotask));
 afterAll(() =>
   notifyManager.setScheduler((callback) => setTimeout(callback, 0)),
 );
 beforeEach(async () => {
   vi.resetAllMocks();
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   serverQueryClient.clear();
-  scope = { serverId: "server", profileKey: "owner" };
-  useAuthSession.setState({ status: "ready", revision: 1 });
-  (
-    globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
-  ).IS_REACT_ACT_ENVIRONMENT = true;
-  root = createRoot(document.createElement("div"));
-  vi.mocked(setMediaPlayedStatus).mockResolvedValue();
+  AuthStorage.saveActiveSession({
+    profile: null,
+    accountToken: "account",
+    serverToken: "token",
+  });
+  useAuthSession.setState({
+    status: "ready",
+    revision: 1,
+    ownerUser: { id: 1 } as Plex.UserData,
+    activeUser: { id: 1, restricted: false } as Plex.UserData,
+    activeProfile: {
+      id: 1,
+      isOwner: true,
+      title: "Owner",
+      restricted: false,
+      protected: false,
+    },
+  });
+  useServerSession.setState({
+    server: { machineIdentifier: "server" } as Plex.ServerPreferences,
+    canManageServer: true,
+  });
+  host = document.createElement("div");
+  document.body.append(host);
+  root = createRoot(host);
+  transport.mockResolvedValue({ status: 200, data: {} });
   await render();
 });
 afterEach(async () => {
   await act(async () => root.unmount());
+  host.remove();
   serverQueryClient.clear();
+  vi.unstubAllGlobals();
 });
 
-it("uses refreshed episodes as the source and retains selection by ID", async () => {
-  await act(async () => state.selection.start("a"));
+it("uses refreshed episode data and delegates a single action without clearing existing selection", async () => {
+  await act(async () => state.selection.start("11"));
   const refreshed = browser();
-  refreshed.episodes = [episode("a", "New title"), episode("b")];
+  refreshed.episodes = [episode("11", "New title"), episode("12")];
   await render(refreshed);
   expect(state.selectedCount).toBe(1);
   await act(async () => state.request(false, refreshed.episodes[0]));
-  expect(state.confirmation?.message).toContain("New title");
-  await act(async () => state.confirmation?.confirm());
-  expect(setMediaPlayedStatus).toHaveBeenCalledWith(
-    false,
-    "a",
-    expect.any(AbortSignal),
-  );
-  expect(state.confirmation).toBeNull();
+  expect(dialog()?.textContent).toContain("New title");
+  await confirm();
+  expect(writtenIds()).toEqual(["11"]);
   expect(state.selection.active).toBe(true);
 });
 
-it("does not open a batch action for an empty selection or send removed IDs", async () => {
+it("does not open an empty batch or submit items removed from the current season", async () => {
   await act(async () => state.request(true));
-  expect(state.confirmation).toBeNull();
-  await act(async () => state.selection.toggleAll(["a", "b", "removed"]));
-  await render(browser(["b"]));
-  expect(state.selectedCount).toBe(1);
+  expect(dialog()).toBeNull();
+  await act(async () => state.selection.toggleAll(["11", "12", "999"]));
+  await render(browser(["12"]));
   await act(async () => state.request(true));
-  await act(async () => state.confirmation?.confirm());
-  expect(
-    vi.mocked(setMediaPlayedStatus).mock.calls.map(([, id]) => id),
-  ).toEqual(["b"]);
+  await confirm();
+  expect(writtenIds()).toEqual(["12"]);
   expect(state.selection.active).toBe(false);
 });
 
-it("retains only failed episodes after a partial write and retries those IDs", async () => {
-  vi.mocked(setMediaPlayedStatus).mockImplementation(async (_, id) => {
-    if (id === "b") throw new Error("HTTP 500");
-  });
-  await act(async () => state.selection.toggleAll(["a", "b"]));
+it("retains failed selections and clears them only after the shared controller finishes the retry", async () => {
+  transport.mockImplementation(async (path) => ({
+    status: path.includes("key=12&") ? 503 : 200,
+    data: {},
+  }));
+  await act(async () => state.selection.toggleAll(["11", "12"]));
   await act(async () => state.request(true));
-  await act(async () => state.confirmation?.confirm());
-  expect(state.confirmation?.error).toContain("Could not update 1 episode");
-  expect(state.confirmation?.message).toContain("1 episode");
-  expect([...state.selection.ids]).toEqual(["b"]);
-  vi.mocked(setMediaPlayedStatus).mockResolvedValue();
-  await act(async () => state.confirmation?.confirm());
-  expect(
-    vi.mocked(setMediaPlayedStatus).mock.calls.map(([, id]) => id),
-  ).toEqual(["a", "b", "b"]);
-  expect(state.confirmation).toBeNull();
+  await confirm();
+  expect([...state.selection.ids]).toEqual(["12"]);
+  expect(dialog()?.textContent).toContain("1 episode as watched");
+  transport.mockResolvedValue({ status: 200, data: {} });
+  await confirm("Retry");
+  expect(writtenIds()).toEqual(["11", "12", "12"]);
   expect(state.selection.active).toBe(false);
 });
 
-it("keeps single-episode failures in the confirmation without changing selection", async () => {
-  vi.mocked(setMediaPlayedStatus).mockRejectedValue(new Error("HTTP 403"));
-  await act(async () => state.request(true, episode("a")));
-  await act(async () => state.confirmation?.confirm());
-  expect(state.confirmation?.error).toContain("Could not update 1 episode");
-  expect(state.selection.active).toBe(false);
-  await act(async () => state.confirmation?.cancel());
-  expect(state.confirmation).toBeNull();
-});
-
-it("resets selection and confirmation on season changes", async () => {
-  await act(async () => state.selection.start("a"));
-  await act(async () => state.request(true));
-  await render(browser(["c", "d"], "season-two"));
-  expect(state.selectedCount).toBe(0);
-  expect(state.selection.active).toBe(false);
-  expect(state.confirmation).toBeNull();
-});
-
-it("does not send a delayed confirmation under another profile or session", async () => {
-  await act(async () => state.request(true, episode("a")));
-  scope = { ...scope, profileKey: "guest" };
-  await act(async () => state.confirmation?.confirm());
-  expect(setMediaPlayedStatus).not.toHaveBeenCalled();
-  expect(state.confirmation?.error).toContain("session changed");
-  scope = { ...scope, profileKey: "owner" };
-  await act(async () => useAuthSession.setState({ revision: 2 }));
-  await act(async () => state.confirmation?.confirm());
-  expect(setMediaPlayedStatus).not.toHaveBeenCalled();
-});
-
-it("bounds batch concurrency and cancels queued work when the season closes", async () => {
-  const source = browser(Array.from({ length: 12 }, (_, i) => String(i)));
+it("closes its dialog and cancels queued writes on a season change without remounting the selection owner", async () => {
+  const source = browser(Array.from({ length: 12 }, (_, i) => String(i + 100)));
   await render(source);
   const finish: Array<() => void> = [];
-  vi.mocked(setMediaPlayedStatus).mockImplementation(
-    () => new Promise<void>((resolve) => finish.push(resolve)),
+  transport.mockImplementation(
+    () =>
+      new Promise((resolve) =>
+        finish.push(() => resolve({ status: 200, data: {} })),
+      ),
   );
   await act(async () =>
     state.selection.toggleAll(source.episodes.map((item) => item.ratingKey)),
   );
   await act(async () => state.request(true));
-  await act(async () => state.confirmation?.confirm());
-  expect(state.busy).toBe(true);
-  expect(setMediaPlayedStatus).toHaveBeenCalledTimes(4);
-  const signals = vi
-    .mocked(setMediaPlayedStatus)
-    .mock.calls.map(([, , signal]) => signal);
-  await render(browser(["new"], "season-two"));
+  await confirm();
+  expect(transport).toHaveBeenCalledTimes(4);
+  const signals = transport.mock.calls.map(([, , , , signal]) => signal);
+  await render(browser(["20"], "season-two"));
   expect(signals.every((signal) => signal?.aborted)).toBe(true);
   await act(async () => finish.forEach((resolve) => resolve()));
-  expect(setMediaPlayedStatus).toHaveBeenCalledTimes(4);
+  expect(transport).toHaveBeenCalledTimes(4);
   expect(state.selectedCount).toBe(0);
-  expect(state.confirmation).toBeNull();
+  expect(state.selection.active).toBe(false);
+  expect(dialog()).toBeNull();
 });
 
-it("survives the development StrictMode effect remount", async () => {
-  const source = browser();
+it("does not close a replacement card action when the episode owner leaves", async () => {
+  await act(async () => state.request(true, episode("11")));
   await act(async () =>
-    root.render(
-      <React.StrictMode>
-        <Harness key={source.identity} source={source} />
-      </React.StrictMode>,
+    openMediaWatchedDialog(
+      [{ ratingKey: "25", type: "movie", title: "Movie" }],
+      false,
     ),
   );
-  await act(async () => state.request(true, episode("a")));
-  await act(async () => state.confirmation?.confirm());
-  expect(setMediaPlayedStatus).toHaveBeenCalledTimes(1);
+  await act(async () => root.render(<MediaActionDialogHost />));
+  expect(dialog()?.textContent).toContain('"Movie" as unwatched');
+  await confirm();
+  expect(writtenIds()).toEqual(["25"]);
+});
+
+it("does not attach episodes from an old server or profile to the new session", async () => {
+  useServerSession.setState({
+    server: { machineIdentifier: "another-server" } as Plex.ServerPreferences,
+  });
+  await act(async () => state.request(true, episode("11")));
+  expect(dialog()).toBeNull();
+  expect(transport).not.toHaveBeenCalled();
+  useServerSession.setState({
+    server: { machineIdentifier: "server" } as Plex.ServerPreferences,
+  });
+  await act(async () => useAuthSession.setState({ revision: 2 }));
+  await act(async () => state.request(true, episode("11")));
+  expect(dialog()).toBeNull();
+  expect(transport).not.toHaveBeenCalled();
+});
+
+it("keeps ownership of an existing confirmation when an empty request is ignored", async () => {
+  await act(async () => state.request(true, episode("11")));
+  await act(async () => state.request(true));
+  expect(dialog()?.textContent).toContain('"11" as watched');
+  await render(browser(["20"], "season-two"));
+  expect(dialog()).toBeNull();
+  expect(transport).not.toHaveBeenCalled();
 });

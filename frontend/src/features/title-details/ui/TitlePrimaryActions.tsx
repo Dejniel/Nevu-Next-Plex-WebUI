@@ -20,12 +20,9 @@ import {
   MenuItem,
   Tooltip,
 } from "@mui/material";
+import { isMediaWatched } from "entities/media/model";
 import {
-  applyMediaWatchedState,
-  isMediaWatched,
-  setMediaPlayedStatus,
-} from "entities/media/model";
-import {
+  openMediaWatchedDialog,
   matchActionLabel,
   getOriginalDownloads,
   OriginalDownloadButton,
@@ -44,7 +41,7 @@ import {
 } from "features/media-lists/public";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useBigReader, useConfirmModal } from "shared/ui";
+import { useBigReader } from "shared/ui";
 import { useActiveServerScope } from "features/session/model";
 import { serverQueryClient } from "shared/api/queryClient";
 import { titleReviewsQueryOptions } from "../model/titleReviewsQuery";
@@ -117,7 +114,9 @@ export default function TitlePrimaryActions({
   const downloadMenuRef = useRef<{ open: (anchor: HTMLElement) => void }>(null);
   const ratingMenuRef = useRef<{ open: (anchor: HTMLElement) => void }>(null);
   const hasMenuActions =
-    capabilities.canAddToPlaylist || capabilities.canAddToCollection || capabilities.canUnmatch;
+    capabilities.canAddToPlaylist ||
+    capabilities.canAddToCollection ||
+    capabilities.canUnmatch;
   const { toolbarRef, overflow } = useTitleActionOverflow(hasMenuActions);
   const hidden = (id: TitleActionID) => overflow.includes(id);
   const downloads = getOriginalDownloads(data, capabilities.canDownload);
@@ -141,20 +140,7 @@ export default function TitlePrimaryActions({
   };
 
   const toggleWatched = () => {
-    const nextWatched = !watched;
-    useConfirmModal.getState().setModal({
-      title: `Mark as ${nextWatched ? "watched" : "unwatched"}`,
-      message: `Are you sure you want to mark "${data.title}" as ${
-        nextWatched ? "watched" : "unwatched"
-      }?`,
-      onConfirm: async () => {
-        await setMediaPlayedStatus(nextWatched, data.ratingKey);
-        onDataChanged(
-          (current) => current && applyMediaWatchedState(current, nextWatched),
-        );
-      },
-      onCancel: () => undefined,
-    });
+    if (capabilities.canSetWatched) openMediaWatchedDialog([data], !watched);
   };
 
   return (
@@ -387,7 +373,12 @@ export default function TitlePrimaryActions({
           </MenuItem>
         )}
         {overflow.length > 0 && hasMenuActions && <Divider />}
-        {renderMetadataMatchingMenuItems({ item: data, capabilities, onClose: () => setMenuAnchor(null), showMatch: false })}
+        {renderMetadataMatchingMenuItems({
+          item: data,
+          capabilities,
+          onClose: () => setMenuAnchor(null),
+          showMatch: false,
+        })}
         {renderMediaListMenuItems({
           capabilities,
           onSelect: (kind) => {

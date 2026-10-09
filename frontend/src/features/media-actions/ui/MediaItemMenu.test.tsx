@@ -13,8 +13,8 @@ import {
 import { serverQueryClient as client } from "shared/api/queryClient";
 import { setMediaRating } from "../api/rating";
 import { MediaItemMenu } from "./MediaItemMenu";
-import { MetadataDialogHost } from "./MetadataDialogHost";
-import { useMetadataDialog } from "../model/metadataDialog";
+import { MediaActionDialogHost } from "./MediaActionDialogHost";
+import { useMediaActionDialog } from "../model/mediaActionDialog";
 import { openMediaListDialog } from "features/media-lists/public";
 import { ProxiedRequest } from "shared/api/backend";
 
@@ -71,7 +71,7 @@ let host: HTMLDivElement;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.clearAllMocks();
-  useMetadataDialog.setState({ selection: null });
+  useMediaActionDialog.setState({ selection: null });
   client.clear();
   localStorage.clear();
   sessionStorage.clear();
@@ -121,7 +121,7 @@ const settle = async () => {
   });
 };
 const render = async (value = item) => {
-  await act(async () => root.render(<><MediaItemMenu item={value} /><MetadataDialogHost /></>));
+  await act(async () => root.render(<><MediaItemMenu item={value} /><MediaActionDialogHost /></>));
 };
 const click = async (element: Element | null | undefined) => {
   expect(element).toBeTruthy();
@@ -286,13 +286,13 @@ it.each(["artist", "album"] as const)(
     await render(data);
     await click(host.querySelector("button"));
     await click(menuItem("Match…"));
-    expect(useMetadataDialog.getState().selection).toMatchObject({ kind: "match", data: { ratingKey: "42", type } });
+    expect(useMediaActionDialog.getState().selection).toMatchObject({ kind: "match", data: { ratingKey: "42", type } });
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Match: Song");
-    await act(async () => root.render(<MetadataDialogHost />));
+    await act(async () => root.render(<MediaActionDialogHost />));
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Match: Song");
     await act(async () => useAuthSession.setState({ revision: 2 }));
     expect(document.querySelector('[role="dialog"]')).toBeNull();
-    expect(useMetadataDialog.getState().selection).toBeNull();
+    expect(useMediaActionDialog.getState().selection).toBeNull();
   },
 );
 it("uses Fix Match and Unmatch for an already matched album", async () => {

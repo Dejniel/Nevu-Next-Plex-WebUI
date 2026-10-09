@@ -1,4 +1,6 @@
 export { AuthStorage } from "./model/authStorage";
+export { capturePlexSession } from "./model/capturedPlexSession";
+export type { CapturedPlexSession } from "./model/capturedPlexSession";
 export { getPlexHomeOverview, changePlexHome } from "./api/plexHome";
 export { homeMemberActions, HOME_RESTRICTION_PROFILES } from "./model/plexHome";
 export type {
