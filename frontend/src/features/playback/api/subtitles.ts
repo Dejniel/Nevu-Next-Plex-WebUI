@@ -1,18 +1,18 @@
 import { AuthStorage } from "features/session/model";
-import { ProxiedRequest } from "shared/api/backend";
+import { PlexClient, PlexRequestError } from "shared/api/PlexClient";
 import type {
   SubtitleSearchCriteria,
   SubtitleSearchResult,
 } from "../model/subtitles";
 
 class SubtitleSearchError extends Error {
-  constructor(message: string, public readonly status?: number) {
-    super(message);
+  constructor(message: string, public readonly status?: number, cause?: unknown) {
+    super(message, { cause });
     this.name = "SubtitleSearchError";
   }
 }
 
-function serverHeaders() {
+function subtitleClient() {
   const token = AuthStorage.getServerToken();
   if (!token)
     throw new SubtitleSearchError(
@@ -20,22 +20,22 @@ function serverHeaders() {
       401,
     );
 
-  return {
-    Accept: "application/json",
-    "X-Plex-Token": token,
-  };
+  return new PlexClient(() => token);
 }
 
-function subtitleError(status: number, operation: "search" | "download") {
+function subtitleError(error: PlexRequestError, operation: "search" | "download") {
+  const status = error.status;
   if (status === 401 || status === 403)
     return new SubtitleSearchError(
       "This Plex profile cannot search for subtitles.",
       status,
+      error,
     );
   if (status === 404)
     return new SubtitleSearchError(
       "Subtitle search is not available for this item.",
       status,
+      error,
     );
 
   return new SubtitleSearchError(
@@ -43,6 +43,7 @@ function subtitleError(status: number, operation: "search" | "download") {
       ? "Plex could not search for subtitles."
       : "Plex could not download this subtitle.",
     status,
+    error,
   );
 }
 
@@ -84,29 +85,37 @@ export function buildSubtitleDownloadPath(
 export async function searchSubtitles(
   ratingKey: string,
   criteria: SubtitleSearchCriteria,
+  signal?: AbortSignal,
 ): Promise<SubtitleSearchResult[]> {
-  const response = await ProxiedRequest(
-    buildSubtitleSearchPath(ratingKey, criteria),
-    "GET",
-    serverHeaders(),
-  );
-  if (response.status < 200 || response.status >= 300)
-    throw subtitleError(response.status, "search");
-
-  return (response.data?.MediaContainer?.Stream || []) as SubtitleSearchResult[];
+  const client = subtitleClient();
+  try {
+    const response = await client.get<{
+      MediaContainer?: { Stream?: SubtitleSearchResult[] };
+    }>(buildSubtitleSearchPath(ratingKey, criteria), signal);
+    const container = response?.MediaContainer;
+    if (
+      !container || typeof container !== "object" || Array.isArray(container) ||
+      (container.Stream !== undefined && !Array.isArray(container.Stream))
+    )
+      throw new SubtitleSearchError("Plex returned invalid subtitle search results.");
+    return container.Stream ?? [];
+  } catch (error) {
+    if (error instanceof PlexRequestError) throw subtitleError(error, "search");
+    throw error;
+  }
 }
 
 export async function downloadSubtitle(
   ratingKey: string,
   mediaItemID: number,
   subtitle: SubtitleSearchResult,
+  signal?: AbortSignal,
 ): Promise<void> {
-  const response = await ProxiedRequest(
-    buildSubtitleDownloadPath(ratingKey, mediaItemID, subtitle),
-    "PUT",
-    serverHeaders(),
-    {},
-  );
-  if (response.status < 200 || response.status >= 300)
-    throw subtitleError(response.status, "download");
+  const client = subtitleClient();
+  try {
+    await client.put(buildSubtitleDownloadPath(ratingKey, mediaItemID, subtitle), {}, signal);
+  } catch (error) {
+    if (error instanceof PlexRequestError) throw subtitleError(error, "download");
+    throw error;
+  }
 }

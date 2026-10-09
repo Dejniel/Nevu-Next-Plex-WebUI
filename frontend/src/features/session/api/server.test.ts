@@ -20,9 +20,9 @@ it("loads the server and its capabilities with the active token", async () => {
     providers: { Feature: [{ type: "manage" }] },
   });
   expect(request).toHaveBeenCalledWith("/", "GET", {
-    Accept: "application/json",
+    accept: "application/json",
     "X-Plex-Token": "token",
-  });
+  }, undefined, undefined);
 });
 
 it("keeps server details when the optional capability request fails", async () => {

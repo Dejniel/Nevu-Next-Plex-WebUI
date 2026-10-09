@@ -1,22 +1,13 @@
-import { ProxiedRequest } from "shared/api/backend";
-
-async function getServerResource(path: string, token: string) {
-  const response = await ProxiedRequest(path, "GET", {
-    Accept: "application/json",
-    "X-Plex-Token": token,
-  });
-  if (response.status !== 200)
-    throw new Error(`Plex server request failed with status ${response.status}`);
-  return response.data;
-}
+import { PlexClient } from "shared/api/PlexClient";
 
 export async function getServerSessionContext(token: string) {
+  const client = new PlexClient(() => token);
   const [root, providers] = await Promise.all([
-    getServerResource("/", token),
-    getServerResource("/media/providers", token).catch(() => null),
+    client.get<{ MediaContainer?: Plex.ServerPreferences }>("/"),
+    client.get("/media/providers").catch(() => null),
   ]);
   return {
-    server: (root?.MediaContainer ?? null) as Plex.ServerPreferences | null,
+    server: root?.MediaContainer ?? null,
     providers,
   };
 }

@@ -116,10 +116,12 @@ export default function SubtitleSearchPanel({
   const [downloadingKey, setDownloadingKey] = React.useState<string | null>(
     null,
   );
-  const requestID = React.useRef(0);
+  const request = React.useRef<AbortController | null>(null);
 
   const runSearch = async (criteria: SearchForm) => {
-    const currentRequest = ++requestID.current;
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
     setLoading(true);
     setError(null);
     localStorage.setItem("subtitleSearchLanguage", criteria.language);
@@ -128,12 +130,12 @@ export default function SubtitleSearchPanel({
       const nextResults = await searchSubtitles(metadata.ratingKey, {
         ...criteria,
         mediaItemID: version.media.id,
-      });
-      if (requestID.current !== currentRequest) return;
+      }, controller.signal);
+      if (controller.signal.aborted) return;
       setResults(nextResults);
       setLastSearch(formSignature(criteria));
     } catch (searchError) {
-      if (requestID.current !== currentRequest) return;
+      if (controller.signal.aborted) return;
       setResults(null);
       setError(
         searchError instanceof Error
@@ -141,14 +143,14 @@ export default function SubtitleSearchPanel({
           : "Plex could not search for subtitles.",
       );
     } finally {
-      if (requestID.current === currentRequest) setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   };
 
   React.useEffect(() => {
     void runSearch(form);
     return () => {
-      requestID.current += 1;
+      request.current?.abort();
     };
     // Search once when this active file opens; edits require an explicit search.
     // oxlint-disable-next-line react/exhaustive-deps

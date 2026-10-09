@@ -20,9 +20,6 @@ export { connectPlexServerEvents } from "./api/serverEvents";
 export type { PlexServerChange } from "./model/serverChanges";
 export { mediaChangeFromServer } from "./model/serverChanges";
 export {
-  authedGet,
-  authedGetStrict,
-  authedPost,
   getXPlexProps,
   plexClient,
   PlexRequestError,

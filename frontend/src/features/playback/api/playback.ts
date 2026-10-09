@@ -1,41 +1,53 @@
-import {
-  authedGet,
-  authedPost,
-  plexClient,
-  getXPlexProps,
-} from "features/session/model";
-import { getIncludeProps } from "entities/media/model";
+import { plexClient, getXPlexProps, useServerSession } from "features/session/model";
+import { getIncludeProps, type PlexPlaybackSource } from "entities/media/model";
+import { PlexClient } from "shared/api/PlexClient";
 import { queryBuilder } from "shared/lib/query";
 
-export async function putAudioStream(partID: number, streamID: number) {
+export type PlaybackTimelineState = "buffering" | "playing" | "paused" | "stopped";
+
+export interface PlaybackTimelineResult {
+  terminationCode?: number;
+  terminationText?: string;
+}
+
+interface PlaybackQueueResponse {
+  MediaContainer?: { Metadata?: Plex.Metadata[] };
+}
+
+export async function putAudioStream(partID: number, streamID: number, signal?: AbortSignal) {
   await plexClient.put(
     `/library/parts/${partID}?${queryBuilder({
       audioStreamID: streamID,
       ...getXPlexProps(),
     })}`,
     {},
+    signal,
   );
 }
 
-export async function putSubtitleStream(partID: number, streamID: number) {
+export async function putSubtitleStream(partID: number, streamID: number, signal?: AbortSignal) {
   await plexClient.put(
     `/library/parts/${partID}?${queryBuilder({
       subtitleStreamID: streamID,
       ...getXPlexProps(),
     })}`,
     {},
+    signal,
   );
 }
 
 export async function getTimelineUpdate(
   key: number,
   duration: number,
-  state: string,
+  state: PlaybackTimelineState,
   time: number,
-  sessionID?: string,
-): Promise<Plex.TimelineUpdateResult> {
-  return authedGet(
+  source: PlexPlaybackSource,
+): Promise<PlaybackTimelineResult> {
+  const context = source.requestContext;
+  const client = new PlexClient(() => String(context["X-Plex-Token"] ?? ""));
+  const response = await client.get<{ MediaContainer?: PlaybackTimelineResult }>(
     `/:/timeline?${queryBuilder({
+      ...context,
       ratingKey: key,
       key: `/library/metadata/${key}/`,
       duration,
@@ -43,48 +55,35 @@ export async function getTimelineUpdate(
       playbackTime: time,
       time,
       context: "library",
-      ...getXPlexProps(),
-      ...(sessionID ? { "X-Plex-Session-Identifier": sessionID } : {}),
+      "X-Plex-Session-Identifier": source.id,
     })}`,
   );
+  // PMS may acknowledge a report with an empty successful response.
+  return response?.MediaContainer ?? {};
 }
 
-async function getServerPreferences(): Promise<Plex.ServerPreferences> {
-  const response = await authedGet("/");
-  return response.MediaContainer;
-}
-
-async function getPlayQueue(uri: string): Promise<Plex.Metadata[]> {
-  const response = await authedPost(
+export async function getPlaybackQueueForItem(
+  ratingKey: string,
+  signal?: AbortSignal,
+): Promise<Plex.Metadata[]> {
+  const serverID = useServerSession.getState().server?.machineIdentifier;
+  if (!serverID) throw new Error("The active Plex server is unavailable. Please try again.");
+  const response = await plexClient.post<PlaybackQueueResponse>(
     `/playQueues?${queryBuilder({
       type: "video",
-      uri,
+      uri: `server://${serverID}/com.plexapp.plugins.library/library/metadata/${encodeURIComponent(ratingKey)}`,
       continuous: 1,
       ...getIncludeProps(),
       ...getXPlexProps(),
     })}`,
+    undefined,
+    signal,
   );
-  return response.MediaContainer.Metadata;
-}
-
-export async function getPlaybackMetadata(
-  itemID: string,
-): Promise<Plex.Metadata | null> {
-  const response = await authedGet(
-    `/library/metadata/${itemID}?${queryBuilder({
-      ...getIncludeProps(),
-      ...getXPlexProps(),
-    })}`,
-  );
-  return response?.MediaContainer?.Metadata?.[0] ?? null;
-}
-
-export async function getPlaybackQueueForItem(
-  metadata: Plex.Metadata,
-): Promise<Plex.Metadata[]> {
-  const preferences = await getServerPreferences();
-  return getPlayQueue(
-    `server://${preferences.machineIdentifier}` +
-      `/com.plexapp.plugins.library/library/metadata/${metadata.ratingKey}`,
-  );
+  const container = response?.MediaContainer;
+  if (
+    !container || typeof container !== "object" || Array.isArray(container) ||
+    (container.Metadata !== undefined && !Array.isArray(container.Metadata))
+  )
+    throw new Error("Plex returned an invalid playback queue.");
+  return container.Metadata ?? [];
 }

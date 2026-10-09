@@ -13,22 +13,6 @@ export { PlexRequestError };
 
 export const plexClient = new PlexClient(() => AuthStorage.getServerToken());
 
-export function authedGetStrict(url: string, signal?: AbortSignal) {
-  return plexClient.get(url, signal);
-}
-
-export async function authedGet(url: string) {
-  try {
-    return await authedGetStrict(url);
-  } catch {
-    return null;
-  }
-}
-
-export function authedPost(url: string, body?: unknown) {
-  return plexClient.post(url, body).catch(() => null);
-}
-
 export function getXPlexProps() {
   const serverSession = useServerSession.getState();
   const desktop = Boolean(platformCache.platform?.platform);

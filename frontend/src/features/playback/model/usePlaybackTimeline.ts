@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
-import { getTimelineUpdate } from "../api/playback";
+import { getTimelineUpdate, type PlaybackTimelineState } from "../api/playback";
 import { pingMediaPlayback } from "entities/media/model";
 import type { PlexPlaybackSource } from "entities/media/model";
-
-type TimelineState = "buffering" | "playing" | "paused" | "stopped";
 
 interface PlaybackTimelineOptions {
   itemID?: string;
@@ -21,25 +19,25 @@ interface TimelineSession {
   duration: number;
   started: boolean;
   stopped: boolean;
-  sourceID?: string;
+  source?: PlexPlaybackSource;
 }
 
 export function currentTimelineState(
   playing: boolean,
   buffering: boolean,
-): TimelineState {
+): PlaybackTimelineState {
   return buffering ? "buffering" : playing ? "playing" : "paused";
 }
 
-async function reportTimeline(session: TimelineSession, state: TimelineState) {
+async function reportTimeline(session: TimelineSession, state: PlaybackTimelineState) {
   const numericID = Number.parseInt(session.itemID, 10);
-  if (!Number.isFinite(numericID)) return null;
+  if (!Number.isFinite(numericID) || !session.source) return null;
   return getTimelineUpdate(
     numericID,
     Math.floor(session.duration * 1000),
     state,
     Math.floor(session.time * 1000),
-    session.sourceID,
+    session.source,
   );
 }
 
@@ -70,7 +68,7 @@ export function usePlaybackTimeline(options: PlaybackTimelineOptions) {
   }
   const session = sessionRef.current;
   if (session && options.source) {
-    session.sourceID = options.source.id;
+    session.source = options.source;
     const duration = options.getDuration();
     if (duration > 0) {
       session.started = true;
@@ -112,7 +110,7 @@ export function usePlaybackTimeline(options: PlaybackTimelineOptions) {
           currentTimelineState(current.playing, current.buffering),
         );
         if (!active || !result) return;
-        const { terminationCode, terminationText } = result.MediaContainer;
+        const { terminationCode, terminationText } = result;
         if (terminationCode)
           current.onTermination(`${terminationCode} - ${terminationText}`);
       } catch {

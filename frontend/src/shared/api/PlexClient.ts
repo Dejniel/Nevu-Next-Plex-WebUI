@@ -6,7 +6,7 @@ type PlexTransport = (
   headers?: Record<string, string>,
   data?: unknown,
   signal?: AbortSignal,
-) => Promise<{ status: number; data: any }>;
+) => Promise<{ status: number; data: unknown }>;
 
 export class PlexRequestError extends Error {
   constructor(
@@ -24,12 +24,13 @@ export class PlexClient {
     private readonly transport: PlexTransport = ProxiedRequest,
   ) {}
 
-  async request<T = any>(
+  async request<T = unknown>(
     url: string,
     method: PlexHttpMethod,
     body?: unknown,
     signal?: AbortSignal,
   ) {
+    signal?.throwIfAborted();
     const response = await this.transport(
       url,
       method,
@@ -40,21 +41,22 @@ export class PlexClient {
       body,
       signal,
     );
+    signal?.throwIfAborted();
 
     if (response.status >= 200 && response.status < 300)
       return response.data as T;
     throw new PlexRequestError(response.status, response.data);
   }
 
-  get<T = any>(url: string, signal?: AbortSignal) {
+  get<T = unknown>(url: string, signal?: AbortSignal) {
     return this.request<T>(url, "GET", undefined, signal);
   }
 
-  post<T = any>(url: string, body?: unknown, signal?: AbortSignal) {
+  post<T = unknown>(url: string, body?: unknown, signal?: AbortSignal) {
     return this.request<T>(url, "POST", body, signal);
   }
 
-  put<T = any>(url: string, body?: unknown, signal?: AbortSignal) {
+  put<T = void>(url: string, body?: unknown, signal?: AbortSignal) {
     return this.request<T>(url, "PUT", body, signal);
   }
 

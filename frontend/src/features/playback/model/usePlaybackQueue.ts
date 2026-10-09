@@ -3,17 +3,19 @@ import {
   getPlaylistQueue,
   type PlaylistPlaybackContext,
 } from "features/media-lists/model";
-import { useUserSettings } from "features/settings/model";
+import { useActiveServerScope } from "features/session/model";
 import { getPlaybackQueueForItem } from "../api/playback";
 
 export function usePlaybackQueue(
   metadata: Plex.Metadata | null,
   playlist?: PlaylistPlaybackContext,
 ) {
-  const profileKey = useUserSettings((state) => state.profileKey);
+  const { serverId, profileKey } = useActiveServerScope();
+  const ratingKey = metadata?.ratingKey;
   const key = JSON.stringify([
+    serverId,
     profileKey,
-    metadata?.ratingKey,
+    ratingKey,
     playlist?.id,
     playlist?.index,
     playlist?.itemID,
@@ -28,10 +30,11 @@ export function usePlaybackQueue(
   useEffect(() => {
     let alive = true;
     setState({ key, queue: null, error: null });
-    if (!metadata || !profileKey) return;
+    if (!ratingKey || !serverId || !profileKey) return;
+    const controller = new AbortController();
     const request = playlist
-      ? getPlaylistQueue(playlist, metadata.ratingKey)
-      : getPlaybackQueueForItem(metadata);
+      ? getPlaylistQueue(playlist, ratingKey, controller.signal)
+      : getPlaybackQueueForItem(ratingKey, controller.signal);
     void request
       .then((queue) => {
         if (alive) setState({ key, queue, error: null });
@@ -41,19 +44,20 @@ export function usePlaybackQueue(
           setState({
             key,
             queue: null,
-            error: playlist
-              ? error instanceof Error
-                ? error.message
-                : "Plex could not load the playlist order."
-              : null,
+            error: error instanceof Error
+              ? error.message
+              : playlist
+                ? "Plex could not load the playlist order."
+                : "Plex could not load the playback queue.",
           });
       });
     return () => {
       alive = false;
+      controller.abort();
     };
     // The serialized key covers playlist identity without depending on a new object on each render.
     // oxlint-disable-next-line react/exhaustive-deps
-  }, [key, metadata, profileKey, revision]);
+  }, [key, ratingKey, serverId, profileKey, revision]);
 
   return {
     playQueue: state.key === key ? state.queue : null,

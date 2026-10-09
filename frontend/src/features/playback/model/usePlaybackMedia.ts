@@ -3,6 +3,7 @@ import {
   chooseBestMediaVersion,
   findPreferredStream,
   getMediaVersions,
+  getMediaMetadata,
   getTrackChoices,
   MediaVersion,
   parseTrackPreference,
@@ -11,13 +12,10 @@ import {
   TrackPreference,
   useMediaPlaybackSource,
 } from "entities/media/model";
+import { useAuthSession } from "features/session/model";
 import { useUserSettings } from "features/settings/model";
 import type { PlaylistPlaybackContext } from "features/media-lists/model";
-import {
-  getPlaybackMetadata,
-  putAudioStream,
-  putSubtitleStream,
-} from "../api/playback";
+import { putAudioStream, putSubtitleStream } from "../api/playback";
 import { downloadSubtitle } from "../api/subtitles";
 import {
   parseStoredPlaybackQuality,
@@ -56,16 +54,19 @@ async function applyTrackPreferences(
   version: MediaVersion,
   audioPreference: TrackPreference | null,
   subtitlePreference: TrackPreference | null,
+  signal: AbortSignal,
 ) {
   const audio = findPreferredStream(version, 2, audioPreference);
-  if (audio) await putAudioStream(version.part.id, audio.id);
+  const subtitle = findPreferredStream(version, 3, subtitlePreference);
+  if (!audio && !subtitle && subtitlePreference?.index !== -1) return false;
+  if (audio) await putAudioStream(version.part.id, audio.id, signal);
 
   if (subtitlePreference?.index === -1) {
-    await putSubtitleStream(version.part.id, 0);
-    return;
+    await putSubtitleStream(version.part.id, 0, signal);
+    return true;
   }
-  const subtitle = findPreferredStream(version, 3, subtitlePreference);
-  if (subtitle) await putSubtitleStream(version.part.id, subtitle.id);
+  if (subtitle) await putSubtitleStream(version.part.id, subtitle.id, signal);
+  return true;
 }
 
 function errorMessage(error: unknown) {
@@ -75,7 +76,8 @@ function errorMessage(error: unknown) {
 export function usePlaybackMedia(options: PlaybackMediaOptions) {
   const callbacks = useRef(options);
   callbacks.current = options;
-  const operation = useRef(0);
+  const request = useRef<AbortController | null>(null);
+  const sessionRevision = useAuthSession((state) => state.revision);
 
   const [metadata, setMetadata] = useState<Plex.Metadata | null>(null);
   const [showMetadata, setShowMetadata] = useState<Plex.Metadata | null>(null);
@@ -90,22 +92,27 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
   );
   const [initialRevision, setInitialRevision] = useState(0);
 
-  const updateContext = (loaded: Plex.Metadata) => {
-    const itemID = loaded.ratingKey;
-    if (loaded.type === "episode" && loaded.grandparentRatingKey) {
-      void getPlaybackMetadata(loaded.grandparentRatingKey)
-        .then((show) => {
-          if (callbacks.current.itemID === itemID) setShowMetadata(show);
-        })
-        .catch(() => undefined);
-    } else {
-      setShowMetadata(null);
-    }
-  };
+  const parentID =
+    metadata?.type === "episode" ? metadata.grandparentRatingKey : undefined;
+  useEffect(() => {
+    setShowMetadata(null);
+    if (!parentID) return;
+    const controller = new AbortController();
+    void getMediaMetadata(parentID, controller.signal)
+      .then((show) => {
+        if (!controller.signal.aborted) setShowMetadata(show);
+      })
+      .catch(() => {
+        // Series information is optional and must not block the episode.
+      });
+    return () => controller.abort();
+  }, [parentID, sessionRevision]);
 
   useEffect(() => {
     if (!options.itemID) return;
-    const operationID = ++operation.current;
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
     const itemID = options.itemID;
     callbacks.current.onSourceChanging();
     setMetadata(null);
@@ -115,12 +122,9 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
 
     void (async () => {
       try {
-        const initialMetadata = await getPlaybackMetadata(itemID);
-        if (operation.current !== operationID) return;
-        if (
-          !initialMetadata ||
-          !["movie", "episode"].includes(initialMetadata.type)
-        )
+        const initialMetadata = await getMediaMetadata(itemID, controller.signal);
+        if (controller.signal.aborted) return;
+        if (!["movie", "episode"].includes(initialMetadata.type))
           throw new Error("No playable media is available.");
 
         const autoMatch =
@@ -139,20 +143,20 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
         if (!version)
           throw new Error("No playable media version is available.");
 
-        if (autoMatch) {
-          await applyTrackPreferences(
-            version,
-            audioPreference,
-            subtitlePreference,
-          );
-        }
-        const loaded = await getPlaybackMetadata(itemID);
-        if (
-          operation.current !== operationID ||
-          !loaded ||
-          !["movie", "episode"].includes(loaded.type)
-        )
-          return;
+        const configured = autoMatch
+          ? await applyTrackPreferences(
+              version,
+              audioPreference,
+              subtitlePreference,
+              controller.signal,
+            )
+          : false;
+        const loaded = configured
+          ? await getMediaMetadata(itemID, controller.signal)
+          : initialMetadata;
+        if (controller.signal.aborted) return;
+        if (!["movie", "episode"].includes(loaded.type))
+          throw new Error("No playable media is available.");
         const loadedVersion =
           getMediaVersions(loaded).find(
             (candidate) =>
@@ -164,20 +168,19 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
         setActiveMediaIndex(loadedVersion.mediaIndex);
         setActivePartIndex(loadedVersion.partIndex);
         callbacks.current.setError(false);
-        updateContext(loaded);
       } catch (error) {
-        if (operation.current === operationID)
+        if (!controller.signal.aborted)
           callbacks.current.setError(errorMessage(error));
       }
     })();
 
     return () => {
-      operation.current += 1;
+      request.current?.abort();
     };
     // Quality changes restart the current source explicitly. They must not
     // repeat the complete initial selection flow.
     // oxlint-disable-next-line react/exhaustive-deps
-  }, [options.itemID, initialRevision]);
+  }, [options.itemID, initialRevision, sessionRevision]);
 
   const mediaVersions = metadata ? getMediaVersions(metadata) : [];
   const activeVersion =
@@ -210,23 +213,22 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
   const restartPlayback = async (
     version: MediaVersion,
     nextQuality = quality,
-    configure?: () => Promise<void>,
+    configure?: (signal: AbortSignal) => Promise<void>,
   ) => {
     const itemID = callbacks.current.itemID;
     if (!itemID || !metadata) return false;
-    const operationID = ++operation.current;
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
     const resumeAt = callbacks.current.getCurrentTime();
     callbacks.current.onSourceChanging();
 
     try {
-      if (configure) await configure();
-      const loaded = await getPlaybackMetadata(itemID);
-      if (
-        operation.current !== operationID ||
-        !loaded ||
-        !["movie", "episode"].includes(loaded.type)
-      )
-        return false;
+      if (configure) await configure(controller.signal);
+      const loaded = await getMediaMetadata(itemID, controller.signal);
+      if (controller.signal.aborted) return false;
+      if (!["movie", "episode"].includes(loaded.type))
+        throw new Error("No playable media is available.");
       const refreshedVersion =
         getMediaVersions(loaded).find(
           (candidate) =>
@@ -242,7 +244,7 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
       setActivePartIndex(refreshedVersion.partIndex);
       return true;
     } catch (error) {
-      if (operation.current === operationID)
+      if (!controller.signal.aborted)
         callbacks.current.setError(errorMessage(error));
       return false;
     }
@@ -251,12 +253,13 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
   const selectMediaVersion = async (version: MediaVersion) => {
     const autoMatch =
       useUserSettings.getState().settings.AUTO_MATCH_TRACKS === "true";
-    await restartPlayback(version, quality, async () => {
+    await restartPlayback(version, quality, async (signal) => {
       if (!metadata || !autoMatch) return;
       await applyTrackPreferences(
         version,
         storedTrackPreference(metadata, "AUDIO"),
         storedTrackPreference(metadata, "SUBTITLE"),
+        signal,
       );
     });
   };
@@ -271,10 +274,10 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
         JSON.stringify(preference),
       );
     const subtitlePreference = selectedPreference(3);
-    await restartPlayback(choice, quality, async () => {
-      await putAudioStream(choice.part.id, choice.stream.id);
+    await restartPlayback(choice, quality, async (signal) => {
+      await putAudioStream(choice.part.id, choice.stream.id, signal);
       if (subtitlePreference)
-        await applyTrackPreferences(choice, null, subtitlePreference);
+        await applyTrackPreferences(choice, null, subtitlePreference, signal);
     });
   };
 
@@ -288,10 +291,10 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
         JSON.stringify(preference),
       );
     const audioPreference = selectedPreference(2);
-    return restartPlayback(choice, quality, async () => {
-      await putSubtitleStream(choice.part.id, choice.stream.id);
+    return restartPlayback(choice, quality, async (signal) => {
+      await putSubtitleStream(choice.part.id, choice.stream.id, signal);
       if (audioPreference)
-        await applyTrackPreferences(choice, audioPreference, null);
+        await applyTrackPreferences(choice, audioPreference, null, signal);
     });
   };
 
@@ -303,8 +306,8 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
         `MEDIA_PREF_SUBTITLE-${preferenceScope(metadata)}`,
         JSON.stringify({ index: -1, title: "None" } satisfies TrackPreference),
       );
-    await restartPlayback(activeVersion, quality, () =>
-      putSubtitleStream(activeVersion.part.id, 0),
+    await restartPlayback(activeVersion, quality, (signal) =>
+      putSubtitleStream(activeVersion.part.id, 0, signal),
     );
   };
 
@@ -320,7 +323,7 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
       metadata?.ratingKey !== callbacks.current.itemID
     )
       return false;
-    operation.current += 1;
+    request.current?.abort();
     callbacks.current.onSourceChanging();
     callbacks.current.setError(false);
     setQuality({ bitrate: -1 });
@@ -332,32 +335,30 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     if (!itemID || !metadata || !activeVersion)
       throw new Error("No active media file is available.");
 
-    const operationID = operation.current;
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
     const mediaItemID = activeVersion.media.id;
-    await downloadSubtitle(metadata.ratingKey, mediaItemID, subtitle);
-    for (let attempt = 0; attempt < 40; attempt += 1) {
-      if (
-        operation.current !== operationID ||
-        callbacks.current.itemID !== itemID
-      )
-        return;
-      if (attempt > 0)
-        await new Promise((resolve) => window.setTimeout(resolve, 500));
-      if (
-        operation.current !== operationID ||
-        callbacks.current.itemID !== itemID
-      )
-        return;
-      const refreshed = await getPlaybackMetadata(itemID);
-      if (!refreshed) continue;
-      const choice = findAttachedSubtitle(refreshed, mediaItemID, subtitle);
-      if (!choice) continue;
-      if (await selectSubtitleTrack(choice)) return;
-      break;
+    const signal = controller.signal;
+    try {
+      await downloadSubtitle(metadata.ratingKey, mediaItemID, subtitle, signal);
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        if (signal.aborted || callbacks.current.itemID !== itemID) return;
+        if (attempt > 0)
+          await new Promise((resolve) => window.setTimeout(resolve, 500));
+        if (signal.aborted || callbacks.current.itemID !== itemID) return;
+        const refreshed = await getMediaMetadata(itemID, signal);
+        const choice = findAttachedSubtitle(refreshed, mediaItemID, subtitle);
+        if (!choice) continue;
+        if (await selectSubtitleTrack(choice)) return;
+        break;
+      }
+      throw new Error(
+        "Plex accepted the download, but the subtitle did not become available in time.",
+      );
+    } catch (error) {
+      if (!signal.aborted) throw error;
     }
-    throw new Error(
-      "Plex accepted the download, but the subtitle did not become available in time.",
-    );
   };
 
   return {

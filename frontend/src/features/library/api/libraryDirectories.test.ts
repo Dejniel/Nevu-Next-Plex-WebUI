@@ -1,16 +1,16 @@
 import type { Mock } from "vitest";
-import { authedGetStrict } from "features/session/model";
+import { plexClient } from "features/session/model";
 import { getLibraryDirectory } from "./libraryDirectories";
 
 vi.mock("features/session/model", () => ({
-  authedGetStrict: vi.fn(),
+  plexClient: { get: vi.fn() },
 }));
 
 it("preserves a filter source's existing query string and forwards cancellation", async () => {
-  vi.mocked(authedGetStrict).mockResolvedValue({ MediaContainer: { size: 0 } });
+  vi.mocked(plexClient.get).mockResolvedValue({ MediaContainer: { size: 0 } });
   const controller = new AbortController();
   await getLibraryDirectory("/library/sections/1/genre?type=1", undefined, controller.signal);
-  const [url, signal] = vi.mocked(authedGetStrict).mock.calls.at(-1)!;
+  const [url, signal] = vi.mocked(plexClient.get).mock.calls.at(-1)!;
   expect(new URL(url, window.location.origin).searchParams.get("type")).toBe("1");
   expect(signal).toBe(controller.signal);
 });
@@ -18,7 +18,7 @@ it("preserves a filter source's existing query string and forwards cancellation"
 beforeEach(() => vi.clearAllMocks());
 
 it("loads arbitrary library directories", async () => {
-  (authedGetStrict as Mock).mockResolvedValueOnce({
+  (plexClient.get as Mock).mockResolvedValueOnce({
     MediaContainer: { Metadata: [{ ratingKey: "1" }] },
   });
 
@@ -28,7 +28,7 @@ it("loads arbitrary library directories", async () => {
 });
 
 it("normalizes an empty media directory without Metadata", async () => {
-  (authedGetStrict as Mock).mockResolvedValue({ MediaContainer: { size: 0 } });
+  (plexClient.get as Mock).mockResolvedValue({ MediaContainer: { size: 0 } });
 
   await expect(getLibraryDirectory("/library/onDeck")).resolves.toEqual({
     size: 0,
@@ -37,7 +37,7 @@ it("normalizes an empty media directory without Metadata", async () => {
 });
 
 it("rejects a missing container instead of treating it as an empty directory", async () => {
-  (authedGetStrict as Mock).mockResolvedValue({});
+  (plexClient.get as Mock).mockResolvedValue({});
 
   await expect(getLibraryDirectory("/library/onDeck")).rejects.toThrow(
     "Plex returned an invalid library directory",
@@ -45,7 +45,7 @@ it("rejects a missing container instead of treating it as an empty directory", a
 });
 
 it("preserves bounded discovery window parameters and forwards cancellation", async () => {
-  vi.mocked(authedGetStrict).mockResolvedValue({ MediaContainer: { size: 8, Metadata: [] } });
+  vi.mocked(plexClient.get).mockResolvedValue({ MediaContainer: { size: 8, Metadata: [] } });
   const signal = new AbortController().signal;
   await getLibraryDirectory(
     "/library/sections/4/all",
@@ -56,7 +56,7 @@ it("preserves bounded discovery window parameters and forwards cancellation", as
     },
     signal,
   );
-  const [url, requestSignal] = vi.mocked(authedGetStrict).mock.calls[0];
+  const [url, requestSignal] = vi.mocked(plexClient.get).mock.calls[0];
   const params = new URL(url, "http://plex").searchParams;
   expect(params.get("sort")).toBe("titleSort:asc");
   expect(params.get("X-Plex-Container-Start")).toBe("24");

@@ -10,20 +10,12 @@ export function ProxiedRequest(
   url: string,
   method: PlexHttpMethod,
   headers?: Record<string, string>,
-  data?: any,
+  data?: unknown,
   signal?: AbortSignal,
-) {
-  return axios
-    .post(
-      `${getBackendURL()}/proxy`,
-      { url, method, headers, data },
-      { signal },
-    )
-    .catch((err) => {
-      if (axios.isCancel(err)) throw err;
-      return {
-        status: err.response?.status || 500,
-        data: err.response?.data || "Internal server error",
-      };
-    });
+): Promise<{ status: number; data: unknown }> {
+  return axios.post<unknown>(
+    `${getBackendURL()}/proxy`,
+    { url, method, headers, data },
+    { signal, validateStatus: () => true },
+  );
 }

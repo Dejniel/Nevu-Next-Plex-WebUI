@@ -285,10 +285,18 @@ Local extras, Discover trailers, card previews, and full playback share this
 engine. Local extras use the same fallback controller; Discover has its own source
 resolver. Plex supplies conversions; Nevu has no separate transcoder.
 
+Playback setup shares the media metadata API and uses the known server ID for
+queue creation. Queue failures remain retryable warnings; transient progress-report
+failures do not interrupt playback. Final reports retain the source's token/session
+when the active profile changes. Setup, stream changes and queue reads are cancellable.
+
 ## API and state conventions
 
 - Plex transport and HTTP error conversion live in `shared/api/PlexClient.ts`;
   token and Plex session parameters are supplied by the headless session model.
+- Client reads default to `unknown`; endpoint modules define response contracts.
+  HTTP failures retain their status and payload; connection failures reject without
+  fabricating an HTTP status.
 - Feature API modules translate transport data into the feature contract.
 - Keep queries and invalidation rules in their features; use global stores for
   session or application state.

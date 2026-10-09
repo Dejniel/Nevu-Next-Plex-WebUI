@@ -95,6 +95,8 @@ it("searches and downloads with the active server token", async () => {
     expect.stringContaining("/library/metadata/42/subtitles?"),
     "GET",
     expect.objectContaining({ "X-Plex-Token": "server-token" }),
+    undefined,
+    undefined,
   );
   expect(request).toHaveBeenNthCalledWith(
     2,
@@ -102,5 +104,33 @@ it("searches and downloads with the active server token", async () => {
     "PUT",
     expect.objectContaining({ "X-Plex-Token": "server-token" }),
     {},
+    undefined,
   );
+});
+
+it("passes cancellation to subtitle search and download", async () => {
+  request.mockResolvedValue({ status: 200, data: { MediaContainer: {} } });
+  const signal = new AbortController().signal;
+  await searchSubtitles("42", { language: "pl", mediaItemID: 44, hearingImpaired: 0, forced: 0 }, signal);
+  await downloadSubtitle("42", 44, result, signal);
+  expect(request.mock.calls.map((args) => args[4])).toEqual([signal, signal]);
+});
+
+it("keeps subtitle permission errors readable and preserves their cause", async () => {
+  request.mockResolvedValue({ status: 403, data: "denied" });
+  await expect(searchSubtitles("42", { language: "pl", mediaItemID: 44, hearingImpaired: 0, forced: 0 })).rejects.toMatchObject({
+    message: "This Plex profile cannot search for subtitles.", status: 403, cause: { status: 403, response: "denied" },
+  });
+});
+
+it("does not convert subtitle cancellation into a search error", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  await expect(searchSubtitles("42", { language: "pl", mediaItemID: 44, hearingImpaired: 0, forced: 0 }, controller.signal)).rejects.toMatchObject({ name: "AbortError" });
+  expect(request).not.toHaveBeenCalled();
+});
+
+it.each([{}, { MediaContainer: "invalid" }, { MediaContainer: [] }, { MediaContainer: { Stream: null } }, { MediaContainer: { Stream: {} } }])("rejects malformed subtitle search results (%j)", async (data) => {
+  request.mockResolvedValue({ status: 200, data });
+  await expect(searchSubtitles("42", { language: "pl", mediaItemID: 44, hearingImpaired: 0, forced: 0 })).rejects.toThrow("invalid subtitle search results");
 });

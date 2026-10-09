@@ -52,3 +52,19 @@ it.each([200, 201, 204])("accepts successful writes (%s), including empty DELETE
   expect(transport.mock.calls[0].slice(0, 2)).toEqual(["/playlists/20", "DELETE"]);
   expect(transport.mock.calls[0][4]).toBe(signal);
 });
+
+it("does not send an already cancelled request", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  await expect(client.get("/identity", controller.signal)).rejects.toMatchObject({ name: "AbortError" });
+  expect(transport).not.toHaveBeenCalled();
+});
+
+it("rejects a late response when the transport ignores cancellation", async () => {
+  const controller = new AbortController();
+  transport.mockImplementation(async () => {
+    controller.abort();
+    return { status: 200, data: { ok: true } };
+  });
+  await expect(client.get("/identity", controller.signal)).rejects.toMatchObject({ name: "AbortError" });
+});

@@ -7,7 +7,7 @@ import {
 } from "features/media-lists/model";
 import { getPlaybackQueueForItem } from "../api/playback";
 import { usePlaybackQueue } from "./usePlaybackQueue";
-import { useUserSettings } from "features/settings/model";
+import { useAuthSession, useServerSession } from "features/session/model";
 
 vi.mock("features/media-lists/model", () => ({
   getPlaylistQueue: vi.fn(),
@@ -18,9 +18,10 @@ const defaultLookup = getPlaybackQueueForItem as Mock;
 const movie = { ratingKey: "1", type: "movie" } as Plex.Metadata;
 let root: Root;
 let playlist: PlaylistPlaybackContext | undefined;
+let metadata: Plex.Metadata;
 let state: ReturnType<typeof usePlaybackQueue>;
 function Harness() {
-  state = usePlaybackQueue(movie, playlist);
+  state = usePlaybackQueue(metadata, playlist);
   return null;
 }
 async function render() {
@@ -34,7 +35,9 @@ beforeEach(() => {
   ).IS_REACT_ACT_ENVIRONMENT = true;
   root = createRoot(document.createElement("div"));
   playlist = { id: "20", index: 0 };
-  useUserSettings.setState({ profileKey: "owner:1" });
+  metadata = movie;
+  useAuthSession.setState({ ownerUser: { id: 1 } as Plex.UserData, activeProfile: { id: 1 } as never });
+  useServerSession.setState({ server: { machineIdentifier: "server" } as Plex.ServerPreferences });
   playlistLookup.mockResolvedValue([movie]);
   defaultLookup.mockResolvedValue([movie]);
 });
@@ -44,11 +47,11 @@ afterEach(async () => {
 
 it("uses the playlist adapter and keeps regular episode queues unchanged", async () => {
   await render();
-  expect(playlistLookup).toHaveBeenCalledWith(playlist, "1");
+  expect(playlistLookup).toHaveBeenCalledWith(playlist, "1", expect.any(AbortSignal));
   expect(defaultLookup).not.toHaveBeenCalled();
   playlist = undefined;
   await render();
-  expect(defaultLookup).toHaveBeenCalledWith(movie);
+  expect(defaultLookup).toHaveBeenCalledWith(movie.ratingKey, expect.any(AbortSignal));
 });
 
 it("ignores a late queue for a different occurrence of the same movie", async () => {
@@ -106,9 +109,39 @@ it("clears playback queues when the profile disappears and ignores the late resp
     }),
   );
   await render();
-  await act(async () => useUserSettings.setState({ profileKey: null }));
+  await act(async () => useAuthSession.setState({ ownerUser: null }));
   await act(async () => resolveOld([movie]));
   expect(state.playQueue).toBeNull();
   expect(state.queueError).toBeNull();
   expect(playlistLookup).toHaveBeenCalledTimes(1);
+});
+
+it("surfaces and retries a regular queue failure without losing the current movie", async () => {
+  playlist = undefined;
+  defaultLookup.mockRejectedValueOnce(new Error("HTTP 503"));
+  await render();
+  expect(state.queueError).toBe("HTTP 503");
+  expect(state.playQueue).toBeNull();
+  await act(async () => state.reloadQueue());
+  expect(state.queueError).toBeNull();
+  expect(state.playQueue).toEqual([movie]);
+});
+
+it("cancels the previous queue when the server changes", async () => {
+  playlistLookup.mockReturnValueOnce(new Promise(() => {}));
+  await render();
+  const previous = playlistLookup.mock.calls[0][2] as AbortSignal;
+  await act(async () => useServerSession.setState({ server: { machineIdentifier: "other" } as Plex.ServerPreferences }));
+  expect(previous.aborted).toBe(true);
+  expect(playlistLookup).toHaveBeenCalledTimes(2);
+  expect(state.playQueue).toEqual([movie]);
+});
+
+it("keeps the queue when stream selection refreshes metadata for the same item", async () => {
+  playlist = undefined;
+  await render();
+  metadata = { ...movie, Media: [] };
+  await render();
+  expect(defaultLookup).toHaveBeenCalledTimes(1);
+  expect(state.playQueue).toEqual([movie]);
 });

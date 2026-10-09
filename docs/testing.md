@@ -78,6 +78,11 @@ through `/decision`; preparation/start must use the same session and parameters.
 Original quality must still fetch segments, with no video request to
 `/library/parts/.../file`. Verify start before the complete media is downloaded
 and bounded buffering on a long sample, including MP4 with metadata at the end.
+
+Verify setup errors remain distinct from absent media. A failed queue should show
+a retryable warning while the video continues; reporting failures should leave it
+playing. Switching items/profiles must cancel setup and retain the old source's
+token/session for its final progress report.
 After a decoder/format failure, allow one different negotiated H264/AAC alternative.
 Network retries must keep the source/session, and subtitle failures must warn
 without restarting video. Check retained pause/position, stale events after an

@@ -166,7 +166,8 @@ async function getServerMachineIdentifier(token: string): Promise<string> {
     "X-Plex-Token": token,
     Accept: "application/json",
   });
-  const identifier = response.data?.MediaContainer?.machineIdentifier;
+  const data = response.data as { MediaContainer?: { machineIdentifier?: string } };
+  const identifier = data?.MediaContainer?.machineIdentifier;
   if (response.status >= 500)
     throw new Error("Nevu cannot reach the configured Plex server.");
   if (response.status !== 200 || !identifier)

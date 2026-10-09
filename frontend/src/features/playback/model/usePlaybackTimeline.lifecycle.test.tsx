@@ -6,7 +6,7 @@ import { usePlaybackTimeline } from "./usePlaybackTimeline";
 import type { PlexPlaybackSource } from "entities/media/model";
 
 vi.mock("../api/playback", () => ({
-  getTimelineUpdate: vi.fn().mockResolvedValue({ MediaContainer: {} }),
+  getTimelineUpdate: vi.fn().mockResolvedValue({}),
 }));
 vi.mock("entities/media/model", () => ({
   pingMediaPlayback: vi.fn().mockResolvedValue(undefined),
@@ -35,6 +35,7 @@ const render = () =>
   });
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(getTimelineUpdate).mockReset().mockResolvedValue({});
   vi.useFakeTimers();
   (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -71,7 +72,7 @@ it("does not report an unloaded video and pings only the owned source", async ()
     100000,
     "playing",
     7250,
-    "source",
+    source,
   );
   expect(pingMediaPlayback).toHaveBeenCalledWith(source);
 });
@@ -88,12 +89,13 @@ it("reports the last position once when explicit exit is followed by unmount", a
     100000,
     "stopped",
     7250,
-    "source",
+    source,
   );
 });
 it("stops the old item with its own position when navigation changes the item", async () => {
   source = { id: "source", url: "/stream", type: "dash", requestContext: {} };
   await render();
+  const previousSource = source;
   itemID = "43";
   source = null;
   time = 0;
@@ -104,7 +106,7 @@ it("stops the old item with its own position when navigation changes the item", 
     100000,
     "stopped",
     7250,
-    "source",
+    previousSource,
   );
 });
 
@@ -127,6 +129,14 @@ it("reports a changed stream using its new source session", async () => {
     100000,
     "playing",
     12000,
-    "replacement",
+    source,
   );
+});
+
+it("continues reporting after a transient timeline failure", async () => {
+  source = { id: "source", url: "/stream", type: "dash", requestContext: {} };
+  vi.mocked(getTimelineUpdate).mockRejectedValueOnce(new Error("HTTP 503"));
+  await render();
+  await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+  expect(getTimelineUpdate).toHaveBeenCalledTimes(2);
 });

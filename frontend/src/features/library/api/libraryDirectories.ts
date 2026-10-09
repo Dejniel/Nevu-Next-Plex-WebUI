@@ -1,4 +1,4 @@
-import { authedGetStrict } from "features/session/model";
+import { plexClient } from "features/session/model";
 import { getIncludeProps } from "entities/media/model";
 import { queryBuilder } from "shared/lib/query";
 
@@ -7,7 +7,7 @@ export async function getLibraryDirectory(
   props?: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<Plex.MediaContainer> {
-  const response = await authedGetStrict(
+  const response = await plexClient.get<{ MediaContainer?: Plex.MediaContainer }>(
     `${key}${key.includes("?") ? "&" : "?"}${queryBuilder({ ...props, ...getIncludeProps() })}`,
     signal,
   );
