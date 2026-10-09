@@ -126,6 +126,11 @@ features/library/
 `features/title-details` follows the same boundary for title metadata, extra selection,
 reviews, downloads, and the details dialog. Review entry points share one Plex
 editor and a profile-scoped Query resource; confirmed saves update its readers.
+Episode browsing separates season selection/Query reads from confirmed single
+and batch actions. Rows have no metadata mirror; writes use the common Plex
+synchronization. Selection stores IDs in a shared scoped UI model; season/session
+changes cancel obsolete actions, and partial failures retry only remaining IDs.
+Title tabs use the URL and native accessible controls as their single owner.
 `entities/media` owns the pure rating model and shared score display. Provider
 values keep Plex's 0–10 scale; friend scores remain individual ratings. Library
 cards carry score values and provider identifiers, without extra reads.

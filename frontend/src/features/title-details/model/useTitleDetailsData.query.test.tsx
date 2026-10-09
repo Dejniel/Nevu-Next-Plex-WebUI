@@ -26,7 +26,9 @@ vi.mock("features/session/model", async (original) => ({
   getActiveServerScope: () => scope,
 }));
 beforeAll(() => notifyManager.setScheduler(queueMicrotask));
-afterAll(() => notifyManager.setScheduler((callback) => setTimeout(callback, 0)));
+afterAll(() =>
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0)),
+);
 const episode = (id: string) =>
   ({
     ratingKey: id,
@@ -57,7 +59,9 @@ beforeEach(() => {
   vi.resetAllMocks();
   client.clear();
   scope = { serverId: "server", profileKey: "owner" };
-  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  (
+    globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
   root = createRoot(document.createElement("div"));
   vi.mocked(getMediaMetadata).mockImplementation(async (id) =>
     id === "show" ? show : episode(id),
@@ -73,14 +77,18 @@ afterEach(async () => {
 
 it("reuses full metadata and cached episodes when returning to a season", async () => {
   await render(<Harness />);
-  expect(state.selectedSeason).toBe(1);
-  expect(state.episodes?.[0].ratingKey).toBe("e1");
-  await act(async () => state.setSelectedSeason(2));
-  expect(state.episodes?.[0].ratingKey).toBe("e2");
-  await act(async () => state.setSelectedSeason(1));
-  expect(state.episodes?.[0].ratingKey).toBe("e1");
+  expect(state.episodeBrowser.seasonId).toBe("s1");
+  expect(state.episodeBrowser.episodes?.[0].ratingKey).toBe("e1");
+  await act(async () => state.episodeBrowser.selectSeason("s2"));
+  expect(state.episodeBrowser.episodes?.[0].ratingKey).toBe("e2");
+  await act(async () => state.episodeBrowser.selectSeason("s1"));
+  expect(state.episodeBrowser.episodes?.[0].ratingKey).toBe("e1");
   expect(getMediaChildren).toHaveBeenCalledTimes(2);
-  expect(vi.mocked(getMediaMetadata).mock.calls.map(([id]) => id)).toEqual(["show", "e1", "e2"]);
+  expect(vi.mocked(getMediaMetadata).mock.calls.map(([id]) => id)).toEqual([
+    "show",
+    "e1",
+    "e2",
+  ]);
 });
 
 it("shares a pending metadata read with another consumer", async () => {
@@ -111,10 +119,10 @@ it("ignores an old season's response after a quick selection change", async () =
   );
   await render(<Harness />);
   const signal = vi.mocked(getMediaChildren).mock.calls[0][1]!;
-  await act(async () => state.setSelectedSeason(2));
+  await act(async () => state.episodeBrowser.selectSeason("s2"));
   expect(signal.aborted).toBe(true);
   await act(async () => finish([episode("old")]));
-  expect(state.episodes?.[0].ratingKey).toBe("e2");
+  expect(state.episodeBrowser.episodes?.[0].ratingKey).toBe("e2");
 });
 
 it("updates watched episodes from the confirmed canonical response without refetching the season", async () => {
@@ -133,7 +141,7 @@ it("updates watched episodes from the confirmed canonical response without refet
       },
     ]),
   );
-  expect(state.episodes?.[0].viewCount).toBe(1);
+  expect(state.episodeBrowser.episodes?.[0].viewCount).toBe(1);
   expect(getMediaChildren).toHaveBeenCalledTimes(1);
 });
 
@@ -154,7 +162,7 @@ it("reloads the affected season after episode insertion and leaves other seasons
       },
     ]),
   );
-  expect(state.episodes).toHaveLength(2);
+  expect(state.episodeBrowser.episodes).toHaveLength(2);
   expect(client.getQueryState(other.queryKey)?.isInvalidated).toBe(false);
 });
 
@@ -191,23 +199,60 @@ it("resolves a cloud GUID through a scoped cancellable query", async () => {
   } as Plex.Metadata);
   await render(<Harness id={null} guid="plex://movie/one" />);
   expect(state.resolvedRatingKey).toBe("local");
-  expect(getMediaByGuid).toHaveBeenCalledWith("plex://movie/one", expect.any(AbortSignal));
+  expect(getMediaByGuid).toHaveBeenCalledWith(
+    "plex://movie/one",
+    expect.any(AbortSignal),
+  );
 });
 
-it("applies consecutive functional season selections to the latest UI state", async () => {
+it("falls back to an available season when the selected season is removed", async () => {
   await render(<Harness />);
-  await act(async () => {
-    state.setSelectedSeason((value) => value + 1);
-    state.setSelectedSeason((value) => value + 1);
-  });
-  expect(state.selectedSeason).toBe(3);
+  await act(async () => state.episodeBrowser.selectSeason("s2"));
+  expect(state.episodeBrowser.seasonId).toBe("s2");
+  await act(async () =>
+    state.setData({
+      ...show,
+      Children: {
+        ...show.Children!,
+        Metadata: show.Children!.Metadata!.slice(0, 1),
+      },
+    }),
+  );
+  expect(state.episodeBrowser.seasonId).toBe("s1");
+  expect(state.episodeBrowser.episodes[0].ratingKey).toBe("e1");
+});
+
+it("does not navigate away from the current season when on-deck changes in the background", async () => {
+  await render(<Harness />);
+  await act(async () =>
+    state.setData({
+      ...show,
+      OnDeck: { Metadata: { parentIndex: 2 } },
+    } as Plex.Metadata),
+  );
+  expect(state.episodeBrowser.seasonId).toBe("s1");
+  expect(getMediaChildren).toHaveBeenCalledTimes(1);
+});
+
+it("reports an episode read failure and allows retry instead of showing an empty season", async () => {
+  vi.mocked(getMediaChildren).mockRejectedValue(new Error("Plex offline"));
+  await render(<Harness />);
+  expect(state.episodeBrowser.error).toContain("Could not load episodes");
+  expect(state.episodeBrowser.loading).toBe(false);
+  vi.mocked(getMediaChildren).mockResolvedValue([episode("e1")]);
+  await act(async () => state.episodeBrowser.retry());
+  expect(state.episodeBrowser.error).toBeNull();
+  expect(state.episodeBrowser.episodes[0].ratingKey).toBe("e1");
 });
 
 it("keeps cached title details visible when a background metadata refresh fails", async () => {
   await render(<Harness />);
   vi.mocked(getMediaMetadata).mockRejectedValue(new Error("Plex offline"));
   await act(async () => {
-    await client.invalidateQueries({ queryKey: mediaMetadataQueryOptions(scope, "show").queryKey, exact: true });
+    await client.invalidateQueries({
+      queryKey: mediaMetadataQueryOptions(scope, "show").queryKey,
+      exact: true,
+    });
   });
   expect(state.data).toEqual(show);
   expect(state.loadError).toBeNull();

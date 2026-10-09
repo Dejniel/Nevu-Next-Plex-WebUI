@@ -68,12 +68,14 @@ share the application-level dialog host and captured-session permission checks;
 matching menu actions are shared by video and music. Native identifier searches
 and PMS-provided agents cover movies, shows, artists and albums.
 
-### 4. Reduce title-details composition
+### 4. Reduce title-details composition — complete
 
-`TitleDetailsScreen` remains the largest composition surface. Tab routing and
-episode actions are useful candidates for clearer ownership, independently or
-alongside product changes. Splitting static markup just to reduce the line count
-offers little benefit.
+Tab selection comes from the URL; navigation has a separate accessible view.
+`useTitleEpisodes` owns season selection and canonical Query reads;
+`useEpisodeActions` owns single/batch confirmations, cancellation and partial
+retries. Rows render Query metadata directly. `shared/lib/useItemSelection`
+stores scoped IDs and supplies the foundation for future library selection.
+Static hero composition remains in the screen.
 
 ### 5. Improve Plex contracts gradually
 

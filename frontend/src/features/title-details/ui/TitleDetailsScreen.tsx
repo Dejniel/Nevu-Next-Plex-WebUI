@@ -1,49 +1,24 @@
 import {
   Alert,
   Box,
-  Button,
-  Checkbox,
   CircularProgress,
   Collapse,
   Divider,
-  IconButton,
-  LinearProgress,
-  ListItemIcon,
-  Menu,
-  MenuItem,
-  Select,
   Snackbar,
   Typography,
-  Tooltip,
 } from "@mui/material";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
+import React, { useEffect, useState } from "react";
 import {
-  Link,
-  useLocation,
-  useNavigate,
-  useSearchParams,
-} from "react-router-dom";
-import React, { JSX, useEffect, useState } from "react";
-import {
-  applyMediaWatchedState,
   getResponsiveTranscodeImageProps,
-  getTranscodeImageURL,
   DETAIL_POSTER_IMAGE_WIDTHS,
   HERO_IMAGE_WIDTHS,
   isMediaWatched,
-  setMediaPlayedStatus,
 } from "entities/media/model";
-import {
-  CheckCircleRounded,
-  PlayArrowRounded,
-  CheckCircleOutlineRounded,
-  CheckBoxOutlineBlankRounded,
-  CheckBoxRounded,
-  MoreVertRounded,
-} from "@mui/icons-material";
-import { durationInMinutes, durationToText } from "shared/lib/duration";
+import { CheckCircleRounded } from "@mui/icons-material";
+import { durationToText } from "shared/lib/duration";
 import { alpha } from "@mui/material/styles";
-import { AnimatePresence, motion } from "motion/react";
-import { AppDialog, StretchedLink, useConfirmModal } from "shared/ui";
+import { AppDialog } from "shared/ui";
 import TitleReviews from "./TitleReviews";
 import TitleRatings from "./TitleRatings";
 import TitleReviewEditor from "./TitleReviewEditor";
@@ -63,24 +38,18 @@ import {
 } from "features/session/public";
 import { useTitleExtras } from "../model/useTitleExtras";
 import ExpandableDescription from "./ExpandableDescription";
-import { libraryBrowseTo, mediaWatchTo } from "shared/lib/navigation";
+import { libraryBrowseTo } from "shared/lib/navigation";
 import { useTitleDetailsData } from "../model/useTitleDetailsData";
 import TitlePrimaryActions from "./TitlePrimaryActions";
 import { getReviewMetadataID } from "../model/titleReviewsQuery";
+import TitleEpisodes from "./TitleEpisodes";
+import TitleDetailsNavigation from "./TitleDetailsNavigation";
 import {
-  openMediaListDialog,
-  renderMediaListMenuItems,
-} from "features/media-lists/public";
+  resolveTitleDetailsTab,
+  type TitleDetailsTab,
+} from "../model/titleDetailsTabs";
 
 const DESKTOP_HERO_HEIGHT = "clamp(560px, 93.333vh, 960px)";
-const detailsPages: Record<string, number> = {
-  overview: 0,
-  episodes: 1,
-  details: 2,
-  reviews: 3,
-  media: 4,
-};
-
 function TitleDetailsScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -90,27 +59,36 @@ function TitleDetailsScreen() {
   );
   const posterRef = React.useRef<HTMLDivElement>(null);
 
-  const [page, setPage] = useState<number>(0);
   const [reviewTarget, setReviewTarget] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const sessionRevision = useAuthSession((state) => state.revision);
 
   const mid = searchParams.get("mid");
   const plexGuid = searchParams.get("pguid");
-  const requestedPage = detailsPages[searchParams.get("detailsTab") || ""] ?? 0;
   const {
     data,
-    episodes,
+    episodeBrowser,
     languages,
     loadError,
     loading,
-    refetchEpisodes,
     resolvedRatingKey,
-    selectedSeason,
     setData,
-    setSelectedSeason,
     subtitles,
   } = useTitleDetailsData(mid, plexGuid);
+  const tab = resolveTitleDetailsTab(
+    searchParams.get("detailsTab"),
+    data?.type,
+  );
+  const setTab = (nextTab: TitleDetailsTab) =>
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (nextTab === "overview") next.delete("detailsTab");
+        else next.set("detailsTab", nextTab);
+        return next;
+      },
+      { replace: true },
+    );
   const reviewIdentity = `${sessionRevision}:${data?.ratingKey}:${data?.guid}`;
   const writeReview = getReviewMetadataID(data?.guid)
     ? () => setReviewTarget(reviewIdentity)
@@ -148,10 +126,6 @@ function TitleDetailsScreen() {
       { replace: true },
     );
   }, [resolvedRatingKey, setSearchParams]);
-
-  useEffect(() => {
-    setPage(requestedPage);
-  }, [mid, plexGuid, requestedPage]);
 
   useEffect(() => {
     setReviewTarget(null);
@@ -502,7 +476,13 @@ function TitleDetailsScreen() {
                     onEditMetadata={() => {
                       if (data) openMetadataDialog(data, metadataWasSaved);
                     }}
-                    onMatch={() => openMetadataMatchDialog(data, () => setNotice("Match applied. Plex is refreshing metadata."))}
+                    onMatch={() =>
+                      openMetadataMatchDialog(data, () =>
+                        setNotice(
+                          "Match applied. Plex is refreshing metadata.",
+                        ),
+                      )
+                    }
                     onWriteReview={writeReview}
                   />
                 )}
@@ -520,7 +500,9 @@ function TitleDetailsScreen() {
                   mt: 2,
                 }}
               >
-                <Typography sx={{ color: "text.secondary" }}>Genres: </Typography>
+                <Typography sx={{ color: "text.secondary" }}>
+                  Genres:{" "}
+                </Typography>
                 {data?.Genre?.slice(0, 5).map((genre, index) => (
                   <Typography
                     component={Link}
@@ -562,7 +544,9 @@ function TitleDetailsScreen() {
                   >
                     {languages && languages.length > 0 && (
                       <>
-                        <Typography sx={{ color: "text.secondary" }}>Audio: </Typography>
+                        <Typography sx={{ color: "text.secondary" }}>
+                          Audio:{" "}
+                        </Typography>
                         {languages.slice(0, 10).map((lang, index) => (
                           <Typography
                             key={index}
@@ -640,119 +624,47 @@ function TitleDetailsScreen() {
             zIndex: 2,
           }}
         >
-          <Box
-            sx={{
-              width: "100%",
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "flex-start",
-              gap: { xs: 2, sm: 3, md: 5 },
-              mb: "10px",
-              overflowX: "auto",
-              flexShrink: 0,
-              "&::-webkit-scrollbar": { display: "none" },
-              scrollbarWidth: "none",
-            }}
-          >
-            <TabButton
-              onClick={() => {
-                setPage(0);
-              }}
-              selected={page === 0}
-              text="Overview"
-            />
-
-            {data?.type === "show" && (
-              <TabButton
-                onClick={() => {
-                  setPage(1);
-                }}
-                selected={page === 1}
-                text="Episodes"
-              />
-            )}
-
-            <TabButton
-              onClick={() => {
-                setPage(2);
-              }}
-              selected={page === 2}
-              text="Details & Extras"
-            />
-
-            <TabButton
-              onClick={() => {
-                setPage(3);
-              }}
-              selected={page === 3}
-              text="Reviews"
-            />
-
-            <TabButton
-              onClick={() => {
-                setPage(4);
-              }}
-              selected={page === 4}
-              text="Media"
-            />
-
-            {data?.type === "show" &&
-              data?.Children &&
-              data?.Children.size > 1 && (
-                <Select
-                  sx={{
-                    ml: "auto",
-                    opacity: page === 1 ? 1 : 0,
-                    transition: "all 0.5s ease",
-                  }}
-                  size="small"
-                  value={selectedSeason}
-                  onChange={(e) => {
-                    if (e.target.value === selectedSeason) return;
-                    setSelectedSeason(e.target.value as number);
-                  }}
-                >
-                  {data?.type === "show" &&
-                    data?.Children?.Metadata?.map((season, index) => (
-                      <MenuItem key={index} value={season.index}>
-                        {season.title}
-                      </MenuItem>
-                    ))}
-                </Select>
-              )}
-          </Box>
+          <TitleDetailsNavigation
+            tab={tab}
+            type={data?.type}
+            onChange={setTab}
+            episodes={episodeBrowser}
+          />
 
           <Divider sx={{ mb: 2, width: "100%" }} />
 
-          <AnimatePresence mode="wait">
-            {page === 0 && data && (
+          <Box
+            role="tabpanel"
+            id={`title-panel-${tab}`}
+            aria-labelledby={`title-tab-${tab}`}
+            sx={{ width: "100%" }}
+          >
+            {tab === "overview" && data && (
               <TitleOverview
                 data={data}
                 trailer={primaryTrailer}
-                onShowDetails={() => setPage(2)}
-                onShowReviews={() => setPage(3)}
+                onShowDetails={() => setTab("details")}
+                onShowReviews={() => setTab("reviews")}
               />
             )}
-            {page === 1 && data?.type === "show" && (
-              <EpisodesPage
-                data={data}
-                episodes={episodes}
-                refetchEpisodes={refetchEpisodes}
+            {tab === "episodes" && data?.type === "show" && (
+              <TitleEpisodes
+                key={episodeBrowser.identity}
+                browser={episodeBrowser}
               />
             )}
-            {page === 2 && data && (
+            {tab === "details" && data && (
               <TitleDetails
                 data={data}
                 extras={remainingExtras}
                 loadingExtras={extrasLoading}
               />
             )}
-            {page === 3 && (
+            {tab === "reviews" && (
               <TitleReviews data={data} onWriteReview={writeReview} />
             )}
-            {page === 4 && data && <TitleMedia data={data} />}
-          </AnimatePresence>
+            {tab === "media" && data && <TitleMedia data={data} />}
+          </Box>
         </Box>
         {data && reviewTarget === reviewIdentity && (
           <TitleReviewEditor
@@ -773,634 +685,3 @@ function TitleDetailsScreen() {
 }
 
 export default TitleDetailsScreen;
-
-function EpisodesPage({
-  data,
-  episodes,
-  refetchEpisodes,
-}: {
-  data: Plex.Metadata | undefined;
-  episodes: Plex.Metadata[] | null | undefined;
-  refetchEpisodes: () => void;
-}) {
-  const [selectedEpisodes, setSelectedEpisodes] = useState<Plex.Metadata[]>([]);
-  const [selectMode, setSelectMode] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (!selectMode) setSelectedEpisodes([]);
-  }, [selectMode]);
-
-  return (
-    <>
-      <Collapse in={selectMode}>
-        {/* Buttons for marking selected episodes as watched or un-watched and a button for select all */}
-        <Box
-          sx={{
-            width: "100%",
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "flex-start",
-            flexWrap: "wrap",
-            gap: { xs: 1, sm: 2 },
-            mb: 2,
-          }}
-        >
-          <Button
-            variant="contained"
-            sx={{
-              fontWeight: "bold",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              transition: "all 0.2s ease-in-out",
-            }}
-            onClick={() => {
-              setSelectMode(false);
-            }}
-          >
-            Cancel
-          </Button>
-
-          <Button
-            variant="contained"
-            sx={{
-              fontWeight: "bold",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              transition: "all 0.2s ease-in-out",
-            }}
-            onClick={() => {
-              if (selectedEpisodes.length === episodes?.length) {
-                setSelectedEpisodes([]);
-              } else {
-                setSelectedEpisodes(episodes ?? []);
-              }
-            }}
-          >
-            {selectedEpisodes.length === episodes?.length
-              ? "Unselect All"
-              : "Select All"}
-          </Button>
-
-          <Button
-            variant="contained"
-            sx={{
-              fontWeight: "bold",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              transition: "all 0.2s ease-in-out",
-            }}
-            onClick={async () => {
-              useConfirmModal.getState().setModal({
-                title: `Mark as watched`,
-                message: `Are you sure you want to mark ${selectedEpisodes.length} episodes as watched?`,
-                onConfirm: async () => {
-                  await Promise.all(
-                    selectedEpisodes.map((episode) =>
-                      setMediaPlayedStatus(true, episode.ratingKey),
-                    ),
-                  );
-                  refetchEpisodes();
-                  setSelectMode(false);
-                },
-                onCancel: () => {},
-              });
-            }}
-          >
-            Mark as Watched
-          </Button>
-          <Button
-            variant="contained"
-            sx={{
-              fontWeight: "bold",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              transition: "all 0.2s ease-in-out",
-            }}
-            onClick={async () => {
-              useConfirmModal.getState().setModal({
-                title: `Mark as unwatched`,
-                message: `Are you sure you want to mark ${selectedEpisodes.length} episodes as unwatched?`,
-                onConfirm: async () => {
-                  await Promise.all(
-                    selectedEpisodes.map((episode) =>
-                      setMediaPlayedStatus(false, episode.ratingKey),
-                    ),
-                  );
-                  refetchEpisodes();
-                  setSelectMode(false);
-                },
-                onCancel: () => {},
-              });
-            }}
-          >
-            Mark as Unwatched
-          </Button>
-        </Box>
-      </Collapse>
-      {data?.type === "show" && !episodes && (
-        <Box
-          sx={{
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "flex-start",
-            mt: 10,
-          }}
-        >
-          <CircularProgress />
-        </Box>
-      )}
-
-      {data?.type === "show" && episodes && (
-        <Box
-          component={motion.div}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.5 }}
-          sx={{
-            width: "100%",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            justifyContent: "flex-start",
-            gap: 1,
-          }}
-        >
-          {episodes?.map((episode) => (
-            <EpisodeItem
-              key={episode.ratingKey}
-              item={episode}
-              refetchData={refetchEpisodes}
-              selected={selectedEpisodes.some(
-                (selected) => selected.ratingKey === episode.ratingKey,
-              )}
-              setSelected={() => {
-                if (
-                  selectedEpisodes.some(
-                    (selected) => selected.ratingKey === episode.ratingKey,
-                  )
-                ) {
-                  setSelectedEpisodes(
-                    selectedEpisodes.filter(
-                      (selected) => selected.ratingKey !== episode.ratingKey,
-                    ),
-                  );
-                } else {
-                  setSelectedEpisodes([...selectedEpisodes, episode]);
-                }
-              }}
-              selectMode={selectMode}
-              setSelectMode={setSelectMode}
-            />
-          ))}
-        </Box>
-      )}
-    </>
-  );
-}
-
-function EpisodeItem({
-  item: sourceItem,
-  refetchData,
-  selected,
-  setSelected,
-  selectMode,
-  setSelectMode,
-}: {
-  item: Plex.Metadata;
-  refetchData: () => void;
-  selected?: boolean;
-  setSelected?: (selected: boolean) => void;
-  selectMode?: boolean;
-  setSelectMode?: (selectMode: boolean) => void;
-}): JSX.Element {
-  const [item, setItem] = useState(sourceItem);
-  const canManageServer = useCanManageServer();
-  const capabilities = getMediaActionCapabilities(item, {
-    localItem: true,
-    canManageServer,
-    allowDownloads: false,
-  });
-  useEffect(() => setItem(sourceItem), [sourceItem]);
-  const [contextMenu, setContextMenu] = useState<{
-    mouseX: number;
-    mouseY: number;
-  } | null>(null);
-
-  const handlePlay = async () => {
-    if (!item) return;
-    navigate(`/watch/${item.ratingKey}`);
-  };
-
-  const handleClose = () => {
-    setContextMenu(null);
-  };
-
-  const markWatched = (watched: boolean) => {
-    const label = watched ? "Watched" : "Unwatched";
-    useConfirmModal.getState().setModal({
-      title: `Mark as ${label}`,
-      message: `Are you sure you want to mark "${item.title}" as ${label}?`,
-      onConfirm: async () => {
-        await setMediaPlayedStatus(watched, item.ratingKey);
-        setItem((current) =>
-          current.ratingKey === item.ratingKey
-            ? applyMediaWatchedState(current, watched)
-            : current,
-        );
-        handleClose();
-        refetchData?.();
-      },
-      onCancel: handleClose,
-    });
-  };
-
-  const handleContextMenu = (event: React.MouseEvent) => {
-    event.preventDefault();
-    setContextMenu({
-      mouseX: event.clientX - 2,
-      mouseY: event.clientY - 4,
-    });
-  };
-
-  const navigate = useNavigate();
-
-  return (
-    <>
-      <Menu
-        open={contextMenu !== null}
-        onClose={handleClose}
-        anchorReference="anchorPosition"
-        anchorPosition={
-          contextMenu !== null
-            ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
-            : undefined
-        }
-      >
-        <Typography
-          sx={{
-            fontSize: "1rem",
-            fontWeight: "bold",
-            px: 1,
-            maxWidth: "200px",
-            textOverflow: "ellipsis",
-            overflow: "hidden",
-            whiteSpace: "nowrap",
-          }}
-        >
-          EP.{item.index}: {item.title}
-        </Typography>
-
-        <Divider
-          sx={{
-            my: 1,
-          }}
-        />
-
-        <MenuItem
-          onClick={async (e) => {
-            e.stopPropagation();
-            await handlePlay();
-            handleClose();
-          }}
-        >
-          <ListItemIcon>
-            <PlayArrowRounded fontSize="small" />
-          </ListItemIcon>
-          Play
-        </MenuItem>
-        {renderMediaListMenuItems({
-          capabilities,
-          onSelect: (kind) => {
-            handleClose();
-            openMediaListDialog(kind, item);
-          },
-        })}
-        <MenuItem
-          onClick={(e) => {
-            e.stopPropagation();
-            if (setSelectMode) setSelectMode(!selectMode);
-            if (setSelected) setSelected(!selected);
-            handleClose();
-          }}
-        >
-          <ListItemIcon>
-            {selectMode ? (
-              <CheckBoxRounded fontSize="small" />
-            ) : (
-              <CheckBoxOutlineBlankRounded fontSize="small" />
-            )}
-          </ListItemIcon>
-          {selectMode ? "Disable Selection" : "Enable Selection"}
-        </MenuItem>
-
-        <Divider
-          sx={{
-            my: 1,
-          }}
-        />
-
-        <MenuItem onClick={() => markWatched(true)}>
-          <ListItemIcon>
-            <CheckCircleRounded fontSize="small" />
-          </ListItemIcon>
-          Mark as Watched
-        </MenuItem>
-        <MenuItem onClick={() => markWatched(false)}>
-          <ListItemIcon>
-            <CheckCircleOutlineRounded fontSize="small" />
-          </ListItemIcon>
-          Mark as Unwatched
-        </MenuItem>
-      </Menu>
-      <Box
-        sx={{
-          width: "100%",
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "flex-start",
-          justifyContent: "flex-start",
-          gap: 2,
-          userSelect: "none",
-          cursor: "pointer",
-          borderRadius: "10px",
-          p: 1.5,
-          mb: 1,
-          transition: "all 0.5s ease",
-          position: "relative",
-          "&:hover": {
-            backgroundColor: (theme) =>
-              alpha(theme.palette.background.paper, 0.5),
-            transition: "all 0.2s ease",
-          },
-
-          // on hover get the 2nd child and then the 1st child of that
-          "&:hover > :nth-child(2)": {
-            "& > :nth-child(1)": {
-              opacity: 1,
-              transition: "all 0.2s ease-in",
-            },
-          },
-        }}
-        onContextMenu={handleContextMenu}
-      >
-        <StretchedLink to={mediaWatchTo(item)} label={`Play ${item.title}`} />
-        <Box
-          sx={{
-            minWidth: { xs: "30px", sm: "40px" },
-            width: "auto",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            alignSelf: "center",
-            position: "relative",
-            zIndex: 2,
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-          }}
-        >
-          {!selectMode && (
-            <Typography
-              sx={{
-                fontSize: { xs: "1rem", sm: "1.25rem" },
-                fontWeight: "bold",
-                color: (theme) => theme.palette.text.primary,
-                textAlign: "center",
-              }}
-            >
-              {item.index}
-            </Typography>
-          )}
-
-          {selectMode && (
-            <Checkbox
-              checked={selected}
-              onChange={() => {
-                if (setSelected) setSelected(!selected);
-              }}
-            />
-          )}
-        </Box>
-
-        <Box
-          sx={{
-            width: { xs: "120px", sm: "20%" },
-            flexShrink: 0,
-            borderRadius: "8px",
-            aspectRatio: "16/9",
-            backgroundImage: `url(${getTranscodeImageURL(
-              item.thumb,
-              380,
-              214,
-            )})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundBlendMode: "darken",
-            overflow: "hidden",
-            whiteSpace: "nowrap",
-            transition: "all 0.3s ease",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            justifyContent: "flex-start",
-            position: "relative",
-            boxShadow: (theme) =>
-              `0 4px 6px -1px ${alpha(theme.palette.common.black, 0.2)}`,
-          }}
-        >
-          <PlayArrowRounded
-            sx={{
-              color: "#FFFFFF",
-              fontSize: "400%",
-              m: "auto",
-              opacity: 0,
-              backgroundColor: "#00000088",
-              borderRadius: "50%",
-              transition: "all 0.3s ease-out",
-            }}
-          />
-
-          <Tooltip title="More actions">
-            <IconButton
-              aria-label={`More actions for ${item.title}`}
-              aria-haspopup="menu"
-              aria-expanded={Boolean(contextMenu)}
-              size="small"
-              sx={{
-                position: "absolute",
-                top: 4,
-                right: 4,
-                zIndex: 2,
-                bgcolor: "rgba(18,25,39,0.8)",
-                color: "#fff",
-              }}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                const bounds = event.currentTarget.getBoundingClientRect();
-                setContextMenu({ mouseX: bounds.left, mouseY: bounds.bottom });
-              }}
-            >
-              <MoreVertRounded fontSize="small" />
-            </IconButton>
-          </Tooltip>
-
-          {(item.viewOffset || isMediaWatched(item)) && (
-            <LinearProgress
-              value={
-                item.viewOffset ? (item.viewOffset / item.duration) * 100 : 100
-              }
-              variant="determinate"
-              sx={{
-                width: "100%",
-                height: "4px",
-                backgroundColor: (theme) =>
-                  alpha(theme.palette.common.black, 0.5),
-
-                position: "absolute",
-                bottom: 0,
-                "& .MuiLinearProgress-bar": {
-                  backgroundColor: (theme) => theme.palette.primary.main,
-                },
-              }}
-            />
-          )}
-        </Box>
-
-        <Box
-          sx={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            justifyContent: "flex-start",
-            ml: 1,
-            minWidth: 0,
-          }}
-        >
-          <Box
-            sx={{
-              width: "100%",
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <Typography
-              sx={{
-                fontSize: { xs: "1rem", sm: "1.5rem" },
-                fontWeight: "bold",
-                color: (theme) => theme.palette.text.primary,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                display: "-webkit-box",
-                WebkitLineClamp: 1,
-                WebkitBoxOrient: "vertical",
-                flex: 1,
-                mr: 1,
-              }}
-            >
-              {item.title}
-            </Typography>
-
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "flex-end",
-                gap: 1,
-                color: (theme) => theme.palette.text.secondary,
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-                fontSize: { xs: "0.85rem", sm: "1rem" },
-              }}
-            >
-              {durationInMinutes(item.duration)} Min.
-            </Box>
-          </Box>
-
-          <Typography
-            sx={{
-              fontSize: { xs: "0.85rem", sm: "1rem" },
-              fontWeight: "light",
-              color: (theme) => theme.palette.text.secondary,
-              mt: 0.5,
-              // make it so the text doesnt resize the parent nor overflow max 3 rows
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              display: "-webkit-box",
-              WebkitLineClamp: { xs: 2, sm: 3 },
-              WebkitBoxOrient: "vertical",
-            }}
-            title={item.summary}
-          >
-            {item.summary}
-          </Typography>
-        </Box>
-      </Box>
-    </>
-  );
-}
-
-function TabButton({
-  text,
-  onClick,
-  selected,
-}: {
-  text: string;
-  onClick: (event: React.MouseEvent) => void;
-  selected: boolean;
-}) {
-  return (
-    <Typography
-      sx={{
-        fontSize: { xs: "0.85rem", sm: "1.25rem" },
-        fontWeight: "bold",
-        textTransform: "uppercase",
-        letterSpacing: "0.05em",
-        whiteSpace: "nowrap",
-        flexShrink: 0,
-        color: selected
-          ? (theme) => theme.palette.primary.main
-          : (theme) => theme.palette.text.disabled,
-        cursor: "pointer",
-        userSelect: "none",
-        position: "relative",
-        pb: 0.5,
-
-        "&:after": {
-          content: '""',
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          width: selected ? "100%" : "0%",
-          height: "2px",
-          backgroundColor: (theme) => theme.palette.primary.main,
-          transition: "all 0.3s ease",
-        },
-
-        "&:hover": {
-          color: (theme) =>
-            selected ? theme.palette.primary.main : theme.palette.text.primary,
-
-          "&:after": {
-            width: "100%",
-          },
-        },
-
-        transition: "all 0.3s ease",
-      }}
-      onClick={onClick}
-    >
-      {text}
-    </Typography>
-  );
-}

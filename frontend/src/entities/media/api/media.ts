@@ -71,20 +71,30 @@ export async function getMediaByGuid(
   return metadata?.guid === guid ? metadata : null;
 }
 
-export async function setMediaPlayedStatus(watched: boolean, ratingKey: string): Promise<void> {
+export async function setMediaPlayedStatus(
+  watched: boolean,
+  ratingKey: string,
+  signal?: AbortSignal,
+): Promise<void> {
   const scope = getActiveServerScope();
-  await plexClient.get<void>(
-    `/:/${watched ? "scrobble" : "unscrobble"}?${queryBuilder({
-      key: ratingKey,
-      identifier: "com.plexapp.plugins.library",
-      ...getXPlexProps(),
-    })}`,
-  );
-  if (scope)
-    publishMediaChange({
-      ...scope,
-      kind: "item",
-      effect: "unknown",
-      id: ratingKey,
-    });
+  signal?.throwIfAborted();
+  try {
+    await plexClient.get<void>(
+      `/:/${watched ? "scrobble" : "unscrobble"}?${queryBuilder({
+        key: ratingKey,
+        identifier: "com.plexapp.plugins.library",
+        ...getXPlexProps(),
+      })}`,
+      signal,
+    );
+  } finally {
+    // Plex may accept a write even when its response fails or is cancelled.
+    if (scope)
+      publishMediaChange({
+        ...scope,
+        kind: "item",
+        effect: "unknown",
+        id: ratingKey,
+      });
+  }
 }

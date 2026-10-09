@@ -1,24 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import { getActiveServerScope, useActiveServerScope, useAuthSession } from "features/session/model";
+import {
+  getActiveServerScope,
+  useActiveServerScope,
+  useAuthSession,
+} from "features/session/model";
 import { serverQueryClient } from "shared/api/queryClient";
 import {
   getTrackChoices,
   mediaMetadataQueryOptions,
-  mediaChildrenQueryOptions,
   mediaGuidQueryOptions,
 } from "entities/media/model";
-import { type Dispatch, type SetStateAction, useCallback, useEffect, useState } from "react";
-
-export function selectInitialSeason(data: Plex.Metadata) {
-  const onDeckSeason = data.OnDeck?.Metadata?.parentIndex;
-  if (typeof onDeckSeason === "number") return onDeckSeason;
-
-  return (
-    [...(data.Children?.Metadata || [])]
-      .filter((season) => season.index !== 0)
-      .sort((left, right) => left.index - right.index)[0]?.index ?? 1
-  );
-}
+import { type Dispatch, type SetStateAction, useCallback } from "react";
+import { useTitleEpisodes } from "./useTitleEpisodes";
 
 export function trackLanguages(data: Plex.Metadata, streamType: 2 | 3) {
   return Array.from(
@@ -30,7 +23,10 @@ export function trackLanguages(data: Plex.Metadata, streamType: 2 | 3) {
   );
 }
 
-export function useTitleDetailsData(mediaID: string | null, plexGuid: string | null) {
+export function useTitleDetailsData(
+  mediaID: string | null,
+  plexGuid: string | null,
+) {
   const scope = useActiveServerScope();
   const revision = useAuthSession((state) => state.revision);
   const ready = Boolean(scope.serverId && scope.profileKey);
@@ -47,43 +43,9 @@ export function useTitleDetailsData(mediaID: string | null, plexGuid: string | n
     serverQueryClient,
   );
   const data = metadata.data;
-  const identity = JSON.stringify([...metadataOptions.queryKey, revision]);
-  const [season, setSeason] = useState({ identity: "", index: 0 });
-  const selectedSeason =
-    season.identity === identity ? season.index : data ? selectInitialSeason(data) : 0;
-  useEffect(() => {
-    if (data && season.identity !== identity)
-      setSeason({ identity, index: selectInitialSeason(data) });
-  }, [data, identity, season.identity]);
-  const setSelectedSeason = useCallback<Dispatch<SetStateAction<number>>>(
-    (value) => {
-      setSeason((previous) => ({
-        identity,
-        index:
-          typeof value === "function"
-            ? value(previous.identity === identity ? previous.index : selectedSeason)
-            : value,
-      }));
-    },
-    [identity, selectedSeason],
-  );
-  const selectedSeasonId = data?.Children?.Metadata?.find(
-    (item) => item.index === selectedSeason,
-  )?.ratingKey;
+  const episodeBrowser = useTitleEpisodes(data);
   const isShow = data?.type === "show";
-  const children = useQuery(
-    {
-      ...mediaChildrenQueryOptions(scope, selectedSeasonId ?? ""),
-      enabled: ready && isShow && Boolean(selectedSeasonId),
-    },
-    serverQueryClient,
-  );
-  const episodes = !isShow
-    ? null
-    : !selectedSeasonId
-      ? []
-      : (children.data ?? (children.isError ? [] : null));
-  const firstEpisodeId = episodes?.[0]?.ratingKey;
+  const firstEpisodeId = episodeBrowser.episodes[0]?.ratingKey;
   const episodeMetadata = useQuery(
     {
       ...mediaMetadataQueryOptions(scope, firstEpisodeId ?? ""),
@@ -91,14 +53,19 @@ export function useTitleDetailsData(mediaID: string | null, plexGuid: string | n
     },
     serverQueryClient,
   );
-  const tracks = data?.type === "movie" ? data : isShow ? episodeMetadata.data : undefined;
+  const tracks =
+    data?.type === "movie" ? data : isShow ? episodeMetadata.data : undefined;
   const trackList = (type: 2 | 3) =>
     tracks
       ? trackLanguages(tracks, type)
-      : isShow && (episodes?.length === 0 || episodeMetadata.isError)
+      : isShow &&
+          ((!episodeBrowser.loading && episodeBrowser.episodes.length === 0) ||
+            episodeMetadata.isError)
         ? []
         : null;
-  const setData = useCallback<Dispatch<SetStateAction<Plex.Metadata | undefined>>>(
+  const setData = useCallback<
+    Dispatch<SetStateAction<Plex.Metadata | undefined>>
+  >(
     (update) => {
       const active = getActiveServerScope();
       if (
@@ -124,17 +91,16 @@ export function useTitleDetailsData(mediaID: string | null, plexGuid: string | n
         : null;
   return {
     data,
-    episodes,
+    episodeBrowser,
     languages: trackList(2),
     subtitles: trackList(3),
     loadError,
-    loading: Boolean(mediaID || plexGuid) && (mediaID ? metadata.isPending : resolution.isPending),
-    resolvedRatingKey: !mediaID ? (resolution.data?.ratingKey.toString() ?? null) : null,
-    selectedSeason,
-    setSelectedSeason,
+    loading:
+      Boolean(mediaID || plexGuid) &&
+      (mediaID ? metadata.isPending : resolution.isPending),
+    resolvedRatingKey: !mediaID
+      ? (resolution.data?.ratingKey.toString() ?? null)
+      : null,
     setData,
-    refetchEpisodes: () => {
-      void children.refetch();
-    },
   };
 }

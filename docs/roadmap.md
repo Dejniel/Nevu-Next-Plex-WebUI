@@ -16,6 +16,9 @@ the README and release notes; implementation-only cleanup belongs in the
 
 ### Multiple selection and batch actions
 
+Episode selection already uses the shared scoped ID model; library integration
+and the actions below remain planned.
+
 - Add shared multiple selection to library grids and detailed lists for video,
   music and photos, with mouse, keyboard and touch support.
 - Apply existing actions to selected items according to media type and Plex
