@@ -1,7 +1,6 @@
 import { Alert, Box, Button, Skeleton } from "@mui/material";
 import { MovieItemSlider } from "features/library/public";
 import { useCanManageServer } from "features/session/public";
-import React from "react";
 import { useUserSettings } from "features/settings/model";
 import { useWatchlist } from "features/watchlist/model";
 import { useHomeDiscovery } from "../model/useHomeDiscovery";

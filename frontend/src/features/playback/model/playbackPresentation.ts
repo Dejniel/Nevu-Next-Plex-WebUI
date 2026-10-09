@@ -1,4 +1,4 @@
-export interface PlaybackQualityOption {
+interface PlaybackQualityOption {
   title: string;
   bitrate: number;
   extra: string;

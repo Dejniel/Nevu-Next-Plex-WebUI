@@ -1,6 +1,6 @@
-export type MusicRepeat = "off" | "all" | "one";
+type MusicRepeat = "off" | "all" | "one";
 
-export interface MusicSelection {
+interface MusicSelection {
   queueID: number;
   entryID: number;
   ratingKey: string;

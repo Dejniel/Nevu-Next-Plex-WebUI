@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { loadUserSettings, saveUserSetting } from "../api/userSettings";
 
-export type UserSettingsStatus = "idle" | "loading" | "ready" | "error";
+type UserSettingsStatus = "idle" | "loading" | "ready" | "error";
 export type UserSettings = Record<string, string>;
 
 export const defaultUserSettings: UserSettings = {

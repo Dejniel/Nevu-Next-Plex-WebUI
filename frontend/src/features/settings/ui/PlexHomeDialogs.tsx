@@ -6,7 +6,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import React, { useState } from "react";
+import { useState } from "react";
 import { HOME_RESTRICTION_PROFILES } from "features/session/model";
 import type { PlexHomeChange, PlexHomeMember } from "features/session/model";
 import { AppDialog } from "shared/ui";

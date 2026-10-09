@@ -20,7 +20,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import React, { useState } from "react";
+import { useState } from "react";
 import { useAuthSession, useCanManageServer } from "features/session/public";
 import {
   HOME_RESTRICTION_PROFILES,

@@ -1,5 +1,5 @@
 import type { Mock, MockInstance } from "vitest";
-import React, { act } from "react";
+import { act } from "react";
 import { createRoot, Root } from "react-dom/client";
 import { notifyManager } from "@tanstack/react-query";
 import { getMediaMetadata, mediaMetadataQueryOptions } from "entities/media/model";

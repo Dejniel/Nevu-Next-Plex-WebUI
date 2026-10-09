@@ -1,5 +1,5 @@
 import { Alert, Box, Button, CircularProgress } from "@mui/material";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import VideoPlayer from "shared/ui/VideoPlayer";
 import type { VideoPlayerProps } from "shared/ui/VideoPlayer";
 import type { VideoPlayerHandle, VideoSource } from "shared/lib/video/types";

@@ -1,4 +1,4 @@
-export type ExtraSource = "local" | "discover";
+type ExtraSource = "local" | "discover";
 
 export interface TitleExtra {
   source: ExtraSource;
@@ -47,7 +47,7 @@ export function mergeTitleExtras(
   return merged;
 }
 
-export function isTrailer(extra: TitleExtra): boolean {
+function isTrailer(extra: TitleExtra): boolean {
   return (
     extra.metadata.extraType === 1 ||
     extra.metadata.subtype?.toLowerCase() === "trailer"

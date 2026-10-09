@@ -1,4 +1,4 @@
-import React, { act, Profiler } from "react";
+import { act, Profiler } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { getLibraryPage, LibraryPageError } from "../api/libraryPage";
 import { serverQueryClient as client } from "shared/api/queryClient";

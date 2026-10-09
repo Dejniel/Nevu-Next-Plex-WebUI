@@ -1,5 +1,5 @@
 import { focusManager, notifyManager } from "@tanstack/react-query";
-import React, { act } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useAuthSession } from "features/session/model";
 import { useUserSettings } from "features/settings/model";

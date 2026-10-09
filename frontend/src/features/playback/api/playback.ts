@@ -49,12 +49,12 @@ export async function getTimelineUpdate(
   );
 }
 
-export async function getServerPreferences(): Promise<Plex.ServerPreferences> {
+async function getServerPreferences(): Promise<Plex.ServerPreferences> {
   const response = await authedGet("/");
   return response.MediaContainer;
 }
 
-export async function getPlayQueue(uri: string): Promise<Plex.Metadata[]> {
+async function getPlayQueue(uri: string): Promise<Plex.Metadata[]> {
   const response = await authedPost(
     `/playQueues?${queryBuilder({
       type: "video",

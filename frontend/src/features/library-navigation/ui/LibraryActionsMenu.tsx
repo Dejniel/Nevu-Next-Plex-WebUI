@@ -21,7 +21,7 @@ import {
   MenuItem,
   Snackbar,
 } from "@mui/material";
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ConfirmDialog } from "shared/ui";
 import { libraryViews, runLibraryAction } from "entities/library/model";

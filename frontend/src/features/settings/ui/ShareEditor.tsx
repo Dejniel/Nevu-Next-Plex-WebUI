@@ -9,7 +9,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import React, { useState } from "react";
+import { useState } from "react";
 import { AppDialog } from "shared/ui";
 import { useAuthSession, useActiveServerScope } from "features/session/model";
 import type { PlexShare, SharingLibrary } from "../api/sharing";

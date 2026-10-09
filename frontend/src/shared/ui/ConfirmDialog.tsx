@@ -5,7 +5,6 @@ import {
   DialogContentText,
 } from "@mui/material";
 import type { ButtonProps } from "@mui/material";
-import React from "react";
 import type { ReactNode } from "react";
 import AppDialog from "./AppDialog";
 

@@ -3,7 +3,7 @@ import { notifyManager } from "@tanstack/react-query";
 import { serverQueryClient } from "shared/api/queryClient";
 beforeAll(() => notifyManager.setScheduler(queueMicrotask));
 afterAll(() => notifyManager.setScheduler((callback) => setTimeout(callback, 0)));
-import React, { act } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useServerSession } from "features/session/model";
 import { applyAvailabilityChanges } from "./availabilitySync";

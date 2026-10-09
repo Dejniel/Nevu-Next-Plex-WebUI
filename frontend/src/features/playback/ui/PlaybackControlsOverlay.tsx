@@ -22,7 +22,7 @@ import {
   Typography,
   useTheme,
 } from "@mui/material";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { VideoSeekSlider } from "react-video-seek-slider";
 import "react-video-seek-slider/styles.css";
 import { getTranscodeImageURL } from "entities/media/model";

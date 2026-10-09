@@ -19,9 +19,9 @@ export type LibraryCardView = Omit<ReturnType<typeof useLibraryCardView>, "layou
   layout: LibraryCardLayout;
 };
 
-export const DEFAULT_CARD_SIZE = 40;
+const DEFAULT_CARD_SIZE = 40;
 
-export const normalizeCardSize = (value: string | undefined) => {
+const normalizeCardSize = (value: string | undefined) => {
   const parsed = Number(value);
   return Number.isFinite(parsed)
     ? Math.min(100, Math.max(0, parsed))

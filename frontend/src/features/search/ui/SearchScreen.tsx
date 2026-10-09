@@ -82,7 +82,7 @@ export default function SearchScreen() {
   );
 }
 
-export function DirectoryItem({
+function DirectoryItem({
   item,
   to,
 }: {

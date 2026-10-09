@@ -1,4 +1,4 @@
-export type MediaRatingKind = "critic" | "audience" | "user" | "rating";
+type MediaRatingKind = "critic" | "audience" | "user" | "rating";
 
 export interface MediaRating {
   value: number;

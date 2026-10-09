@@ -4,7 +4,7 @@ export function libraryRandomSeedKey(profileKey: string, sectionId: number) {
   return `${RANDOM_SEED_PREFIX}${JSON.stringify([profileKey, sectionId])}`;
 }
 
-export function createLibraryRandomSeed() {
+function createLibraryRandomSeed() {
   return globalThis.crypto?.randomUUID?.().replaceAll("-", "") ||
     `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
 }

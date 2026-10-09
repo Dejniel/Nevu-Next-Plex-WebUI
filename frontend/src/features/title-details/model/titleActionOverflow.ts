@@ -1,4 +1,4 @@
-export const TITLE_ACTION_PRIORITY = [
+const TITLE_ACTION_PRIORITY = [
   "watchlist",
   "watched",
   "rating",

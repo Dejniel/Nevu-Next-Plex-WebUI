@@ -8,7 +8,6 @@ export {
   HERO_IMAGE_WIDTHS,
   LANDSCAPE_IMAGE_WIDTHS,
   POSTER_IMAGE_WIDTHS,
-  transcodeHeight,
 } from "./model/mediaImages";
 export {
   getMediaByGuid,
@@ -21,7 +20,6 @@ export {
   findPreferredStream,
   getMediaVersions,
   getTrackChoices,
-  mediaQualityBadge,
   mediaVersionDetails,
   parseTrackPreference,
   preferenceFromStream,
@@ -35,7 +33,6 @@ export {
   mediaRatingLabel,
   validMediaRating,
 } from "./model/mediaRatings";
-export type { MediaRating, MediaRatingKind } from "./model/mediaRatings";
 export {
   matchesMediaScope,
   affectedMediaParents,
@@ -45,10 +42,8 @@ export {
 export {
   mediaMetadataQueryKey,
   mediaMetadataQueryOptions,
-  mediaChildrenQueryKey,
   mediaChildrenQueryOptions,
   mediaGuidQueryOptions,
-  readMediaQueryKey,
 } from "./model/mediaMetadataQuery";
 export { applyMediaDetailsChanges } from "./model/mediaDetailsSync";
 export { applyMediaMetadataChanges } from "./model/mediaMetadataSync";
@@ -65,7 +60,6 @@ export { useMediaPlaybackSource } from "./model/useMediaPlaybackSource";
 export type { PlexPlaybackSource } from "./model/mediaPlayback";
 export { fetchDiscoverExtras } from "./api/mediaExtras";
 export {
-  getDiscoverID,
   mergeTitleExtras,
   selectPrimaryTrailer,
   withoutExtra,

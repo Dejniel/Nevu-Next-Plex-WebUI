@@ -13,7 +13,7 @@ import { useServerSession } from "./serverSession";
 import { homeProfiles } from "./plexHome";
 import type { PlexHomeMember } from "./plexHome";
 
-export type AuthStatus =
+type AuthStatus =
   | "initializing"
   | "signedOut"
   | "selectingProfile"

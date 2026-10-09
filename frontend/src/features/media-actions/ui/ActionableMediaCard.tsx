@@ -39,7 +39,7 @@ const controlStyle = {
   "&:hover": { backgroundColor: "rgba(18, 25, 39, 0.8)" },
 } as const;
 
-export type ActionableMediaCardProps = Omit<
+type ActionableMediaCardProps = Omit<
   MediaCardProps,
   "item" | "overlayActions" | "onContextMenu"
 > & Pick<MediaCardProps, "item"> & {

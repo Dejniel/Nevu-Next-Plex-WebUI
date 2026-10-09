@@ -1,5 +1,4 @@
 import { Box, Typography } from "@mui/material";
-import React from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import SettingsInfo from "./SettingsInfo";
 import SettingsPlayback from "./SettingsPlayback";

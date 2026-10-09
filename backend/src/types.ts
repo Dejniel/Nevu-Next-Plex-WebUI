@@ -52,28 +52,6 @@ export namespace PerPlexed {
             isControllable: boolean;
             isRemote: boolean;
         }
-
-        export interface PlaybackState {
-            deviceID: DeviceID; // the device that is currently playing
-            state: "playing" | "paused" | "stopped";
-            position: number; // in seconds
-            itemRatingKey: string | null; // the rating key of the currently playing item
-            trackID?: number;
-
-            avaliableQualities?: number[]; // optional, available qualities for the item
-            currentQuality?: number; // optional, the currently playing quality
-
-            audioTracks?: MediaTrack[]; // optional, available audio tracks
-            subtitleTracks?: MediaTrack[]; // optional, available subtitle tracks
-
-            skipMarkerText?: string | null; // optional, text for the skip marker
-        }
-
-        export interface MediaTrack {
-            id: number;
-            title: string;
-            selected: boolean;
-        }
     }
 
     export namespace PlexTV {

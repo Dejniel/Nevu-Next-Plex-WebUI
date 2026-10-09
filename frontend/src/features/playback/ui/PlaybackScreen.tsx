@@ -5,7 +5,7 @@ import {
 } from "features/media-lists/model";
 import { AppDialog, CenteredSpinner, VideoPlayer } from "shared/ui";
 import { useWatchTogetherPlayback } from "features/watch-together/public";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { VideoPlayerHandle } from "shared/lib/video/types";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { usePlaybackCommands } from "../model/usePlaybackCommands";

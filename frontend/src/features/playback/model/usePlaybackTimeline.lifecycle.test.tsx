@@ -1,4 +1,4 @@
-import React, { act } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { getTimelineUpdate } from "../api/playback";
 import { pingMediaPlayback } from "entities/media/model";

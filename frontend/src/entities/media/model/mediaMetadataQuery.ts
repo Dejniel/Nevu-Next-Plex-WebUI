@@ -15,7 +15,7 @@ export function mediaMetadataQueryOptions(scope: MediaScope, id: string) {
   });
 }
 
-export const mediaChildrenQueryKey = (scope: MediaScope, id: string) =>
+const mediaChildrenQueryKey = (scope: MediaScope, id: string) =>
   ["media-children", scope.serverId, scope.profileKey, id] as const;
 export const mediaChildrenQueryOptions = (scope: MediaScope, id: string) =>
   queryOptions({

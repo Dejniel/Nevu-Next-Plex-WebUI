@@ -14,7 +14,7 @@ interface NavigableMedia {
   viewOffset?: number;
 }
 
-export type MediaDetailsTab =
+type MediaDetailsTab =
   | "overview"
   | "episodes"
   | "details"

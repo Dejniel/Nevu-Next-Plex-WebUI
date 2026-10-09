@@ -2,7 +2,7 @@ import { Socket } from "socket.io-client";
 import { create } from "zustand";
 import { createWatchTogetherSocket } from "../api/socket";
 
-export type WatchTogetherStatus =
+type WatchTogetherStatus =
   | "disconnected"
   | "connecting"
   | "connected";

@@ -1,4 +1,4 @@
-import React, { act } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useAudioPlaybackSource } from "./useAudioPlaybackSource";
 import type { AudioSource } from "../api/musicPlayback";

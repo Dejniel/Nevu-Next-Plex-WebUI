@@ -29,7 +29,7 @@ export const metadataTagFields = {
   tag: ["Tag", "Tags"],
 } as const;
 
-export type MetadataTextField = keyof typeof textFields;
+type MetadataTextField = keyof typeof textFields;
 export type MetadataTagField = keyof typeof metadataTagFields;
 export type ArtworkField = "thumb" | "art";
 export type MetadataField = MetadataTextField | MetadataTagField;

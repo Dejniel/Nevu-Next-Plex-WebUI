@@ -12,7 +12,7 @@ import {
   Typography,
 } from "@mui/material";
 import { MovieOutlined } from "@mui/icons-material";
-import React, { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import type { MediaItemData } from "entities/media/model";
 import { PlexRequestError } from "features/session/model";
 import { AppDialog } from "shared/ui";

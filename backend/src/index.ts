@@ -156,11 +156,11 @@ app.use(createPlexProxyRouter({
 }));
 app.use(express.json());
 
-app.get('/status', (req, res) => {
+app.get('/status', (_req, res) => {
     res.send(status);
 });
 
-app.get('/config', (req, res) => {
+app.get('/config', (_req, res) => {
     res.send({
         PLEX_SERVER: process.env.PLEX_SERVER,
         DEPLOYMENTID: deploymentID,

@@ -1,4 +1,4 @@
-export function searchableResults(results: Plex.SearchResult[]) {
+function searchableResults(results: Plex.SearchResult[]) {
   return results.filter(
     (result) =>
       Boolean(

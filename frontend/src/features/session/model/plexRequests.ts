@@ -29,10 +29,6 @@ export function authedPost(url: string, body?: unknown) {
   return plexClient.post(url, body).catch(() => null);
 }
 
-export function authedPut(url: string, body: unknown) {
-  return plexClient.put(url, body).catch(() => null);
-}
-
 export function getXPlexProps() {
   const serverSession = useServerSession.getState();
   const desktop = Boolean(platformCache.platform?.platform);

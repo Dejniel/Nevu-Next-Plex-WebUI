@@ -1,4 +1,3 @@
-export { useWatchlist } from "./model/watchlistQuery";
 export {
   HeroWatchlistButton,
   WatchlistButton,

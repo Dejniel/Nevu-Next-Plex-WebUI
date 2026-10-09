@@ -10,13 +10,6 @@ import { serverQueryClient } from "shared/api/queryClient";
 import { homeHeroOptions, homeWindowOptions } from "./homeQueries";
 import { shuffled } from "./homeDiscovery";
 
-export interface HomeShelf {
-  title: string;
-  libraryID: string;
-  dir: string;
-  link: string;
-}
-
 export function useHomeDiscovery(settings: UserSettings) {
   const scope = useActiveServerScope();
   const libraries = useLibraries();

@@ -1,5 +1,4 @@
 import { Box, Button, Paper, Typography } from "@mui/material";
-import React from "react";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import BugReportIcon from "@mui/icons-material/BugReport";

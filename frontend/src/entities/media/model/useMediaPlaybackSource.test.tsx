@@ -1,5 +1,5 @@
 import type { Mock } from "vitest";
-import React, { act } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { prepareMediaPlayback, releaseMediaPlayback } from "../api/mediaPlayback";
 import { planMediaPlayback } from "./mediaPlayback";

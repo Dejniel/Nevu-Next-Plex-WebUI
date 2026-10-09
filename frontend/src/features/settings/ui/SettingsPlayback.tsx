@@ -1,5 +1,4 @@
 import { Typography, Box } from "@mui/material";
-import React from "react";
 import { useUserSettings } from "../model/userSettings";
 import CheckBoxOption from "./CheckBoxOption";
 

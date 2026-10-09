@@ -9,7 +9,7 @@ import { PlexClient, PlexRequestError } from "shared/api/PlexClient";
 import type { MediaListEntry } from "../model/mediaLists";
 import { createMediaListSource } from "./mediaLists";
 
-export type PlaylistEntry = Pick<MediaListEntry, "playlistItemID" | "position">;
+type PlaylistEntry = Pick<MediaListEntry, "playlistItemID" | "position">;
 export type PlaylistEdit =
   | { type: "details"; title: string; summary: string }
   | { type: "delete" }

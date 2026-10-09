@@ -16,7 +16,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ConfirmDialog } from "shared/ui";
 import type { PlexShare } from "../api/sharing";
 import { useCanManageServer } from "features/session/public";

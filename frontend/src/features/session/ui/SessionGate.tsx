@@ -1,5 +1,5 @@
 import { Alert, Box, Button, CircularProgress } from "@mui/material";
-import React, { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect } from "react";
 import { useAuthSession } from "../model/authSession";
 import { PLEX_SESSION_INVALID_EVENT } from "../model/sessionEvents";
 import LoginScreen from "./LoginScreen";

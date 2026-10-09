@@ -1,5 +1,5 @@
 import { Alert, Box, CircularProgress, Grid } from "@mui/material";
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ActionableMediaCard } from "features/media-actions/public";
 import { useInView } from "react-intersection-observer";

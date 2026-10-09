@@ -7,7 +7,7 @@ import { addToWatchlist, getWatchlist, removeFromWatchlist } from "../api/watchl
 import { canWatchlist } from "./watchlistItem";
 
 export const watchlistQueryKey = (profileKey: string | null) => ["watchlist", profileKey] as const;
-export const watchlistQueryOptions = (profileKey: string | null) =>
+const watchlistQueryOptions = (profileKey: string | null) =>
   queryOptions({
     queryKey: watchlistQueryKey(profileKey),
     queryFn: ({ signal }) => getWatchlist(signal),

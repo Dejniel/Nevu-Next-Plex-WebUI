@@ -1,7 +1,7 @@
 import { notifyManager, useQuery } from "@tanstack/react-query";
 import { serverQueryClient } from "shared/api/queryClient";
 import type { Mock } from "vitest";
-import React, { act } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
   getMediaMetadata,

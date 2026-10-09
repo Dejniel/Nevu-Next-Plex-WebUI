@@ -1,5 +1,4 @@
 import { Stack, Checkbox, Typography, Box } from "@mui/material";
-import React from "react";
 
 function CheckBoxOption({
   title,

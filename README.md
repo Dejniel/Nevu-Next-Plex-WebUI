@@ -181,5 +181,7 @@ Checks:
 docker buildx build --load -t nevu-next:test .
 ```
 
+TypeScript checks reject unused locals and parameters in both packages.
+
 See the [testing guide](docs/testing.md) for check scope and a standalone Plex
 and Nevu environment.

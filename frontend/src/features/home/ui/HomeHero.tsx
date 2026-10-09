@@ -6,7 +6,7 @@ import {
   PauseRounded,
 } from "@mui/icons-material";
 import { Box, Typography, Button, IconButton, Skeleton } from "@mui/material";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { usePreviewAudio } from "entities/media/public";
 import { HeroWatchlistButton } from "features/watchlist/public";
