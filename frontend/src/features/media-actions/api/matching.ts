@@ -1,5 +1,6 @@
 import { publishMediaChange, type MediaItemData } from "entities/media/model";
 import { PlexClient } from "shared/api/PlexClient";
+import { plexArray, plexContainer } from "shared/api/plexResponse";
 import { createMetadataSession } from "./metadataSession";
 import {
   MetadataMatchCandidate,
@@ -12,20 +13,8 @@ import {
 } from "../model/matching";
 
 function entries(response: unknown, field: "Agent" | "SearchResult") {
-  const container =
-    response && typeof response === "object" && "MediaContainer" in response
-      ? response.MediaContainer
-      : null;
-  if (!container || typeof container !== "object" || Array.isArray(container))
-    throw new Error(
-      `Plex returned invalid ${field === "Agent" ? "metadata agents" : "match results"}.`,
-    );
-  const value = (container as Record<string, unknown>)[field];
-  if (value !== undefined && !Array.isArray(value))
-    throw new Error(
-      `Plex returned invalid ${field === "Agent" ? "metadata agents" : "match results"}.`,
-    );
-  return value;
+  const resource = field === "Agent" ? "metadata agents" : "match results";
+  return plexArray(plexContainer(response, resource)[field], resource);
 }
 
 function itemPath(ratingKey: string, suffix: string) {

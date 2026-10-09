@@ -1,3 +1,4 @@
+import type { PlaybackQueueItem } from "entities/media/model";
 import { SkipNextRounded } from "@mui/icons-material";
 import {
   Box,
@@ -14,7 +15,7 @@ export default function NextQueueButton({
   queue,
   onAdvance,
 }: {
-  queue?: Plex.Metadata[];
+  queue?: PlaybackQueueItem[];
   onAdvance: () => void;
 }) {
   const [anchorEl, setAnchorEl] = React.useState<HTMLElement | null>(null);
@@ -51,11 +52,13 @@ export default function NextQueueButton({
                 alignItems: "flex-start",
               }}
             >
-              <img
-                src={getTranscodeImageURL(next.thumb, 500, 500)}
-                alt=""
-                style={{ height: "100%", aspectRatio: "16/9", width: "auto" }}
-              />
+              {next.thumb && (
+                <img
+                  src={getTranscodeImageURL(next.thumb, 500, 500)}
+                  alt=""
+                  style={{ height: "100%", aspectRatio: "16/9", width: "auto" }}
+                />
+              )}
               <Box
                 sx={{
                   width: "100%",

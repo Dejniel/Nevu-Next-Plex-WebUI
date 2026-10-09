@@ -1,5 +1,3 @@
-import type { MediaItemData } from "entities/media/model";
-
 const textFields = {
   title: ["title", "Title", "text"],
   titleSort: ["titleSort", "Sort title", "text"],
@@ -14,7 +12,7 @@ const textFields = {
   parentIndex: ["parentIndex", "Disc number", "number"],
 } as const;
 
-export const metadataTagFields = {
+const metadataTagFields = {
   genre: ["Genre", "Genres"],
   collection: ["Collection", "Collections"],
   label: ["Label", "Labels"],
@@ -30,7 +28,7 @@ export const metadataTagFields = {
 } as const;
 
 type MetadataTextField = keyof typeof textFields;
-export type MetadataTagField = keyof typeof metadataTagFields;
+type MetadataTagField = keyof typeof metadataTagFields;
 export type ArtworkField = "thumb" | "art";
 export type MetadataField = MetadataTextField | MetadataTagField;
 export type MetadataValue = string | readonly string[];
@@ -40,9 +38,48 @@ export type MetadataUpdate = Partial<Record<MetadataTextField, string>> &
 export type MetadataLockUpdate = Partial<
   Record<MetadataField | ArtworkField, boolean>
 >;
+interface MetadataActor {
+  tag: string;
+  role?: string;
+}
+
+/** Only the identity, editable fields, associations and locks used by the editor. */
+export type MetadataEditingItem = {
+  ratingKey: string;
+  type: string;
+  librarySectionID?: number;
+  parentRatingKey?: string;
+  Role?: MetadataActor[];
+  Field?: { name: string; locked: boolean }[];
+} & Partial<
+  Record<
+    Exclude<MetadataTextField, "year" | "index" | "parentIndex"> | ArtworkField,
+    string
+  >
+> &
+  Partial<Record<"year" | "index" | "parentIndex", number>> &
+  Partial<
+    Record<
+      Exclude<(typeof metadataTagFields)[MetadataTagField][0], "Role">,
+      { tag: string }[]
+    >
+  >;
+
+export type MetadataCastSnapshot = Pick<
+  MetadataEditingItem,
+  "ratingKey" | "Role"
+>;
+
+export interface ArtworkOption {
+  url: string;
+  preview: string;
+  selected: boolean;
+  provider?: string;
+}
+
 export interface MetadataFieldDefinition {
   id: MetadataField;
-  property: keyof Plex.Metadata;
+  property: keyof MetadataEditingItem;
   label: string;
   kind: "text" | "multiline" | "number" | "date" | "tags";
 }
@@ -125,7 +162,7 @@ export function metadataFields(type: string): MetadataFieldDefinition[] {
   );
 }
 
-export function draftFromMetadata(data: Plex.Metadata): MetadataDraft {
+export function draftFromMetadata(data: MetadataEditingItem): MetadataDraft {
   return Object.fromEntries(
     metadataFields(data.type).map((field) => {
       const value = data[field.property];
@@ -182,7 +219,9 @@ export function metadataChanges(
   );
 }
 
-export function metadataLocks(data: Plex.Metadata): MetadataLockUpdate {
+export function metadataLocks(
+  data: Pick<MetadataEditingItem, "Field">,
+): MetadataLockUpdate {
   return Object.fromEntries(
     (data.Field ?? [])
       .filter((field) => field.locked)
@@ -216,7 +255,7 @@ export function metadataDraftErrors(type: string, draft: MetadataDraft) {
   return errors;
 }
 
-export function metadataArtworkLabel(type: MediaItemData["type"]) {
+export function metadataArtworkLabel(type: string) {
   return ["artist", "album", "track"].includes(type)
     ? "Cover"
     : ["photo", "photoalbum", "episode", "clip"].includes(type)

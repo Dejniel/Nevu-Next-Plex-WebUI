@@ -5,7 +5,11 @@ import {
 } from "features/session/model";
 import { PlexClient } from "shared/api/PlexClient";
 import { useUserSettings } from "features/settings/model";
-import { publishMediaChange } from "entities/media/model";
+import {
+  publishMediaChange,
+  readPlaybackQueueItem,
+  type PlaybackQueueItem,
+} from "entities/media/model";
 import {
   assertMediaListItem,
   playlistTypeForItem,
@@ -283,11 +287,11 @@ export async function getPlaylistQueue(
   context: PlaylistPlaybackContext,
   currentID: string,
   signal?: AbortSignal,
-): Promise<Plex.Metadata[]> {
+): Promise<PlaybackQueueItem[]> {
   const entries = await readPlaylistSelection(context, currentID, 2, signal);
   if (entries.some((entry) => !["movie", "episode"].includes(entry.item.type)))
     throw new Error("The next playlist item cannot be played on this server.");
-  return entries.map((entry) => entry.item);
+  return entries.map((entry) => readPlaybackQueueItem(entry.item));
 }
 
 export async function getMediaListChoices(

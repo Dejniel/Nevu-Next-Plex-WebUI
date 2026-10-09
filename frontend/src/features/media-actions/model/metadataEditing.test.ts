@@ -50,11 +50,12 @@ it("offers music and photo fields without video-only values", () => {
 });
 it("keeps untouched tag fields absent from changes and ignores tag ordering and duplicate names", () => {
   const data = {
+    ratingKey: "42",
     type: "movie",
     title: "Movie",
     Genre: [{ tag: "Drama" }, { tag: "Comedy" }],
     Role: [{ tag: "Actor", role: "Character" }],
-  } as Plex.Metadata;
+  };
   const initial = draftFromMetadata(data);
   expect(
     metadataChanges(initial, {
@@ -76,7 +77,7 @@ it("retains sparse locks for artwork and tags", () => {
         { name: "genre", locked: true },
         { name: "title", locked: false },
       ],
-    } as Plex.Metadata),
+    }),
   ).toEqual({ thumb: true, genre: true });
 });
 

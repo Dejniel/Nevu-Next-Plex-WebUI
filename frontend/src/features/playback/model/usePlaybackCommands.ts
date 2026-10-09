@@ -1,3 +1,4 @@
+import type { PlaybackQueueItem } from "entities/media/model";
 import { useCallback, useEffect, useRef } from "react";
 import {
   activePlaybackMarker,
@@ -20,7 +21,7 @@ interface PlaybackSyncCommands {
 
 interface PlaybackCommandOptions {
   metadata: Plex.Metadata | null;
-  playQueue: Plex.Metadata[] | null;
+  playQueue: PlaybackQueueItem[] | null;
   playlistContext?: PlaylistPlaybackContext;
   isGuest: boolean;
   runtime: PlaybackRuntimeController;

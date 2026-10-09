@@ -21,7 +21,7 @@ const data = {
   title: "Movie",
   Genre: [{ id: 1, tag: "Drama" }],
   Role: [{ id: 2, tag: "Actor", role: "Character", thumb: "/actor.jpg" }],
-} as Plex.Metadata;
+};
 const signal = () => new AbortController().signal;
 beforeEach(() => {
   vi.resetAllMocks();
@@ -155,6 +155,27 @@ it("does not write artwork or cast names when the current cast cannot be read", 
   ).rejects.toThrow();
   expect(transport.mock.calls.map((call) => call[1])).toEqual(["GET"]);
 });
+
+it.each([{}, [null], [{ tag: "Actor", role: {} }]])(
+  "rejects malformed fresh cast before any artwork or metadata write (%j)",
+  async (Role) => {
+    transport.mockResolvedValueOnce({
+      status: 200,
+      data: {
+        MediaContainer: { Metadata: [{ ratingKey: data.ratingKey, Role }] },
+      },
+    });
+    await expect(
+      createMetadataEditor(data).save(
+        { actor: ["Actor"] },
+        {},
+        { thumb: { type: "remove" } },
+        signal(),
+      ),
+    ).rejects.toThrow("invalid current cast information");
+    expect(transport.mock.calls.map((call) => call[1])).toEqual(["GET"]);
+  },
+);
 
 it("uses the captured administrator session and applies final locks after artwork", async () => {
   const abort = signal();

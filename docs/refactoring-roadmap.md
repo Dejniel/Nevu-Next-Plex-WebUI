@@ -12,6 +12,7 @@ It is not a second rewrite and should not drive file movement for its own sake.
 
 - Reduce large composition components where it clarifies a workflow or supports
   planned product work.
+- Migrate endpoint-specific Plex contracts alongside the affected workflows.
 
 ### Later
 
@@ -80,11 +81,17 @@ Rows render Query metadata directly. `shared/lib/useItemSelection`
 stores scoped IDs and supplies the foundation for future library selection.
 Static hero composition remains in the screen.
 
-### 5. Improve Plex contracts gradually
+### 5. Improve Plex contracts gradually — in progress
 
 Replace global `Plex` types with imported request and view models one endpoint
 family at a time. Start where a product change already requires understanding a
 response shape; avoid a repository-wide type-only rewrite.
+
+Video queue occurrences, timeline replies, artwork choices and current-cast
+snapshots now have checked response contracts. The metadata editor uses its own
+editable-field model; video and playlist queues share occurrence validation.
+Envelope/collection checks are shared with Match. Full metadata, child lists,
+availability, Discover extras and music queues still need endpoint-specific work.
 
 ### 6. Make Plex notification updates more selective — complete
 

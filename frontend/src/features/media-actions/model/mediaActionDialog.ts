@@ -9,10 +9,11 @@ import {
   useServerSession,
 } from "features/session/model";
 import { metadataMatchType } from "./matching";
+import type { MetadataEditingItem } from "./metadataEditing";
 
 export type WatchedTarget = Pick<MediaItemData, "ratingKey" | "type" | "title">;
 type DialogIntent =
-  | { kind: "edit"; data: Plex.Metadata; onSaved?: () => void }
+  | { kind: "edit"; data: MetadataEditingItem; onSaved?: () => void }
   | { kind: "match"; data: MediaItemData; onSaved?: () => void }
   | { kind: "unmatch"; data: WatchedTarget }
   | {
@@ -62,7 +63,10 @@ export function closeMediaActionDialog(selection: MediaActionSelection | null) {
   if (selection && useMediaActionDialog.getState().selection === selection)
     useMediaActionDialog.setState({ selection: null });
 }
-export function openMetadataDialog(data: Plex.Metadata, onSaved?: () => void) {
+export function openMetadataDialog(
+  data: MetadataEditingItem,
+  onSaved?: () => void,
+) {
   openDialog({ kind: "edit", data, onSaved });
 }
 export function openMetadataMatchDialog(

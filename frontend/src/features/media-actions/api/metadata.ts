@@ -9,13 +9,14 @@ import { serverQueryClient } from "shared/api/queryClient";
 import { createMetadataSession } from "./metadataSession";
 import {
   metadataFields,
-  metadataTagFields,
   normalizeTags,
   type ArtworkField,
   type MetadataLockUpdate,
-  type MetadataTagField,
+  type MetadataEditingItem,
+  type ArtworkOption,
   type MetadataUpdate,
 } from "../model/metadataEditing";
+import { readArtworkChoices, readMetadataCast } from "./metadataResponses";
 
 export type ArtworkUpdate =
   | { type: "existing"; url: string; preview: string }
@@ -23,13 +24,6 @@ export type ArtworkUpdate =
   | { type: "file"; file: File }
   | { type: "remove" };
 export type ArtworkChanges = Partial<Record<ArtworkField, ArtworkUpdate>>;
-export interface ArtworkOption {
-  url: string;
-  preview: string;
-  selected: boolean;
-  provider?: string;
-}
-
 export class MetadataSaveError extends Error {
   constructor(
     message: string,
@@ -41,7 +35,7 @@ export class MetadataSaveError extends Error {
 }
 
 export function buildMetadataUpdatePath(
-  data: Plex.Metadata,
+  data: MetadataEditingItem,
   changes: MetadataUpdate,
   locks: MetadataLockUpdate = {},
 ) {
@@ -64,14 +58,10 @@ export function buildMetadataUpdatePath(
       // Replace only this edited association set. Keep retained cast characters;
       // Plex resolves the original tag identities and artwork by their names.
       params.set(`${field}[].tag`, "");
-      const property = metadataTagFields[field as MetadataTagField]?.[0];
-      const original = property ? data[property] : undefined;
       normalizeTags(value).forEach((tag, index) => {
         params.set(`${field}[${index}].tag.tag`, tag);
-        if (field === "actor" && Array.isArray(original)) {
-          const actor = original.find((item) => item.tag === tag) as
-            | Plex.Role
-            | undefined;
+        if (field === "actor") {
+          const actor = data.Role?.find((item) => item.tag === tag);
           if (actor?.role)
             params.set(`${field}[${index}].tagging.text`, actor.role);
         }
@@ -107,7 +97,7 @@ export function validArtworkURL(value: string) {
 }
 
 /** One captured editing session for native metadata, artwork choices and binary uploads. */
-export function createMetadataEditor(data: Plex.Metadata) {
+export function createMetadataEditor(data: MetadataEditingItem) {
   const session = createMetadataSession();
   const { scope, token, revision } = session;
   const client = new PlexClient(
@@ -144,32 +134,12 @@ export function createMetadataEditor(data: Plex.Metadata) {
       signal: AbortSignal,
     ): Promise<ArtworkOption[]> {
       assertCurrent(signal);
-      const response = await client.get<{
-        MediaContainer?: {
-          Metadata?: {
-            ratingKey: string;
-            key?: string;
-            thumb?: string;
-            selected?: boolean;
-            provider?: string;
-          }[];
-        };
-      }>(`${path}/${field === "thumb" ? "posters" : "arts"}`, signal);
-      assertCurrent(signal);
-      if (!response.MediaContainer)
-        throw new Error("Plex returned invalid artwork choices.");
-      return (response.MediaContainer.Metadata ?? []).flatMap((item) =>
-        item.ratingKey && (item.thumb || item.key)
-          ? [
-              {
-                url: item.ratingKey,
-                preview: item.thumb || item.key!,
-                selected: Boolean(item.selected),
-                provider: item.provider,
-              },
-            ]
-          : [],
+      const response = await client.get(
+        `${path}/${field === "thumb" ? "posters" : "arts"}`,
+        signal,
       );
+      assertCurrent(signal);
+      return readArtworkChoices(response);
     },
     async save(
       changes: MetadataUpdate,
@@ -211,15 +181,9 @@ export function createMetadataEditor(data: Plex.Metadata) {
         if (changes.actor !== undefined) {
           // Cast names are editable; their character information is not. Read
           // it at save time so an intervening refresh cannot lose those values.
-          const response = await client.get<{
-            MediaContainer?: { Metadata?: Plex.Metadata[] };
-          }>(`${path}?includeDetails=1`, signal);
+          const response = await client.get(`${path}?includeDetails=1`, signal);
           assertCurrent(signal);
-          const latest = response.MediaContainer?.Metadata?.[0];
-          if (latest?.ratingKey !== data.ratingKey)
-            throw new Error(
-              "Plex could not load the current cast information.",
-            );
+          const latest = readMetadataCast(response, data.ratingKey);
           metadataPath = buildMetadataUpdatePath(
             { ...data, Role: latest.Role },
             changes,

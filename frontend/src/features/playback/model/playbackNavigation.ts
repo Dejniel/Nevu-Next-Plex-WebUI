@@ -1,3 +1,4 @@
+import type { PlaybackQueueItem } from "entities/media/model";
 import { queryBuilder } from "shared/lib/query";
 import {
   playlistReturnPath,
@@ -19,7 +20,7 @@ export function playbackBrowsePath(
 
 export function playbackAdvancePath(
   metadata: Plex.Metadata,
-  playQueue: Plex.Metadata[] | null,
+  playQueue: PlaybackQueueItem[] | null,
   restartNext = false,
   playlist?: PlaylistPlaybackContext,
 ) {

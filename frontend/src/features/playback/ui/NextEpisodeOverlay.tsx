@@ -1,3 +1,4 @@
+import type { PlaybackQueueItem } from "entities/media/model";
 import { SkipNext } from "@mui/icons-material";
 import { alpha, Box, Button, Typography, useTheme } from "@mui/material";
 import { useState, useEffect } from "react";
@@ -11,7 +12,7 @@ function NextEpisodeOverlay({
 }: {
   playing: boolean;
   metadata: Plex.Metadata;
-  playQueue: Plex.Metadata[] | null;
+  playQueue: PlaybackQueueItem[] | null;
   onAdvance: () => void;
 }) {
   const theme = useTheme();
@@ -37,7 +38,8 @@ function NextEpisodeOverlay({
 
   // Handle countdown timer
   useEffect(() => {
-    if (countdown === null || !showWatchCredits || !playing || !enableAutoNext) return;
+    if (countdown === null || !showWatchCredits || !playing || !enableAutoNext)
+      return;
 
     if (countdown <= 0) {
       // Auto-navigate when timer reaches 0

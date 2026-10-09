@@ -29,6 +29,8 @@ export type {
   TrackPreference,
 } from "./model/mediaVersions";
 export type { MediaItemData } from "./model/media";
+export type { PlaybackQueueItem } from "./model/mediaQueue";
+export { readPlaybackQueueItem } from "./api/mediaQueue";
 export {
   formatMediaRating,
   getMediaRatings,

@@ -175,6 +175,10 @@ excludes hidden values and validates edits against freshly read descriptors.
 Server groups and field availability come from PMS; known effects and restart
 requirements use a small explicit annotation map. Metadata editing keeps its
 own type-specific value/tag/lock model rather than treating metadata as preferences.
+API readers accept unknown responses and validate the fields their models promise.
+Video queue occurrences, timeline replies, artwork choices and current cast use
+specific contracts; missing optional fields remain optional. Shared envelope checks
+distinguish empty collections from malformed data, without copying full metadata.
 One application-level editor handles video, music and photos, independently of
 virtualized cards and responsive grid rows. Native library writes preserve unedited
 fields and retained cast characters; artwork uses Plex's choices/import operations,

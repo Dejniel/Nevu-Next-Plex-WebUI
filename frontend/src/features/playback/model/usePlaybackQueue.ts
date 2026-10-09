@@ -1,3 +1,4 @@
+import type { PlaybackQueueItem } from "entities/media/model";
 import { useEffect, useState } from "react";
 import {
   getPlaylistQueue,
@@ -23,7 +24,7 @@ export function usePlaybackQueue(
   const [revision, setRevision] = useState(0);
   const [state, setState] = useState<{
     key: string;
-    queue: Plex.Metadata[] | null;
+    queue: PlaybackQueueItem[] | null;
     error: string | null;
   }>({ key, queue: null, error: null });
 
@@ -44,11 +45,12 @@ export function usePlaybackQueue(
           setState({
             key,
             queue: null,
-            error: error instanceof Error
-              ? error.message
-              : playlist
-                ? "Plex could not load the playlist order."
-                : "Plex could not load the playback queue.",
+            error:
+              error instanceof Error
+                ? error.message
+                : playlist
+                  ? "Plex could not load the playlist order."
+                  : "Plex could not load the playback queue.",
           });
       });
     return () => {

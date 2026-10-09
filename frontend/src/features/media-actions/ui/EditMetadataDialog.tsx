@@ -36,12 +36,13 @@ import {
   type MetadataField,
   type MetadataValue,
   type MetadataLockUpdate,
+  type MetadataEditingItem,
 } from "../model/metadataEditing";
 import { MetadataArtworkEditor } from "./MetadataArtworkEditor";
 import { MetadataLockButton } from "./MetadataLockButton";
 
 interface Props {
-  data: Plex.Metadata;
+  data: MetadataEditingItem;
   open: boolean;
   onClose: () => void;
   onSaved?: () => void;
