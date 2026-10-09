@@ -71,6 +71,15 @@ it("creates an album queue at a selected track and reads bounded windows", async
     ),
   ).toBe("50");
 });
+
+it("carries the queue operation's cancellation through creation and timeline reporting", async () => {
+  const api = musicAPI({}, "server");
+  const signal = new AbortController().signal;
+  await api.create({ kind: "library", id: "10" }, "12", false, signal);
+  expect(transport.post.mock.calls[0][2]).toBe(signal);
+  await api.timeline(entry, 3, "playing", 5, 60, signal);
+  expect(transport.get.mock.calls[0][1]).toBe(signal);
+});
 it("uses entry IDs for removal and ordering and native next semantics", async () => {
   const api = musicAPI({}, "server");
   await api.add(3, { kind: "library", id: "12" }, true);

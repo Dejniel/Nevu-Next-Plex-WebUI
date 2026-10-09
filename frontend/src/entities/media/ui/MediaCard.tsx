@@ -37,8 +37,13 @@ import {
 } from "../model/mediaArtwork";
 import { mediaCardText } from "../model/mediaCardText";
 import { isMediaWatched } from "../model/mediaWatchedState";
-import { alpha, keyframes } from "@mui/material/styles";
-import { catalogItemTo, mediaDetailsTo, mediaWatchTo } from "shared/lib/navigation";
+import { alpha } from "@mui/material/styles";
+import { useImageLoading, imageFadeSx } from "shared/ui/useImageLoading";
+import {
+  catalogItemTo,
+  mediaDetailsTo,
+  mediaWatchTo,
+} from "shared/lib/navigation";
 import type { MediaItemData } from "../model/media";
 import { MediaRow } from "./MediaRow";
 import {
@@ -46,8 +51,6 @@ import {
   getPrimaryMediaRating,
   mediaRatingLabel,
 } from "../model/mediaRatings";
-
-const artworkFadeIn = keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
 
 export interface MediaCardProps {
   item: MediaItemData;
@@ -63,7 +66,11 @@ export interface MediaCardProps {
 }
 
 function MediaCard(props: MediaCardProps) {
-  return props.presentation === "list" ? <MediaRow {...props} /> : <GridMediaCard {...props} />;
+  return props.presentation === "list" ? (
+    <MediaRow {...props} />
+  ) : (
+    <GridMediaCard {...props} />
+  );
 }
 
 function GridMediaCard({
@@ -110,18 +117,12 @@ function GridMediaCard({
         fallbackWidth: layout === "poster" ? 480 : 640,
       })
     : null;
-  const artworkUrl = artwork?.src || null;
-  const [artworkResult, setArtworkResult] = React.useState<{
-    url: string;
-    status: "loaded" | "missing";
-  } | null>(null);
-  const artworkStatus = !artworkUrl
-    ? "missing"
-    : artworkResult?.url === artworkUrl
-      ? artworkResult.status
-      : "loading";
-  const detailsTarget = video ? mediaDetailsTo(location, item, PlexTvSource)
-    : item.type === "clip" ? mediaWatchTo(item) : catalogItemTo(location, item);
+  const { status: artworkStatus, imageProps } = useImageLoading(artwork?.src);
+  const detailsTarget = video
+    ? mediaDetailsTo(location, item, PlexTvSource)
+    : item.type === "clip"
+      ? mediaWatchTo(item)
+      : catalogItemTo(location, item);
 
   return (
     <Box
@@ -216,12 +217,7 @@ function GridMediaCard({
             draggable={false}
             loading={imageLoading}
             decoding="async"
-            onLoad={() =>
-              setArtworkResult({ url: artwork.src, status: "loaded" })
-            }
-            onError={() =>
-              setArtworkResult({ url: artwork.src, status: "missing" })
-            }
+            {...imageProps}
             sx={{
               position: "absolute",
               inset: 0,
@@ -229,12 +225,7 @@ function GridMediaCard({
               height: "100%",
               objectFit: "cover",
               objectPosition: layout === "poster" ? "center top" : "center",
-              opacity: artworkStatus === "loaded" ? 1 : 0,
-              animation:
-                artworkStatus === "loaded"
-                  ? `${artworkFadeIn} 500ms ease-out`
-                  : "none",
-              "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+              ...imageFadeSx(artworkStatus === "loaded"),
             }}
           />
         )}

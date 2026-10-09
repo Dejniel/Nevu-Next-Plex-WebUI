@@ -2,6 +2,23 @@
 
 Status: structural migration completed on 2026-09-29
 
+## Cross-library architecture review — 2026-10-09
+
+- Reused the common collection viewport for saved lists, including page-scoped
+  failures/retries; replaced artificial list dimensions with explicit geometry.
+- Shared image loading, cached-image detection and reduced-motion-aware fades.
+- Kept usable catalog data after failed refreshes and observed toolbar geometry
+  consistently across media types; retained range subscriptions during retries.
+- Carried music-operation cancellation through playlist validation, queue creation
+  and timeline reporting; ignored callbacks from previous queue occurrences.
+- Prevented photo navigation across unloaded pages or stale positions. Corrected
+  album ordering to Plex's native `track.absoluteIndex` after reproducing HTTP 500
+  for the previous metadata-field sort on a multi-disc album.
+
+Verification: 998 frontend and 84 backend tests, types/lint, Docker build and
+read-only Chromium checks against the local test Plex, including cached-data
+retention, folders/history, album tracks, collections/playlists and photo zoom.
+
 ## Segmented Plex playback — 2026-10-06
 
 Removed automatic original-file playback from the Plex model and API. One

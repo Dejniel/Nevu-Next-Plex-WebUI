@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import type {
   VideoPlaybackFailure,
@@ -46,6 +46,25 @@ export function useMusicPlayback() {
       time: music.session?.startTime ?? 0,
       duration: 0,
     };
+  const remember = useCallback(
+    (seconds: number) => {
+      if (progressRef.current.playbackID !== playbackID) return;
+      const entryID = music.session?.entryID;
+      if (entryID !== undefined)
+        musicRef.current.rememberPosition(entryID, seconds);
+      progressRef.current.time = seconds;
+      setPosition(seconds);
+    },
+    [playbackID, music.session?.entryID],
+  );
+  const seek = useCallback(
+    (seconds: number) => {
+      if (progressRef.current.playbackID !== playbackID) return;
+      player.current?.seekTo(seconds);
+      remember(seconds);
+    },
+    [playbackID, remember],
+  );
   useEffect(() => {
     if (location.pathname.startsWith("/watch/")) music.pause();
     // oxlint-disable-next-line react/exhaustive-deps
@@ -137,7 +156,7 @@ export function useMusicPlayback() {
       session.metadata = null;
       for (const action of registered) session.setActionHandler(action, null);
     };
-  }, [track]);
+  }, [track, seek]);
   useEffect(() => {
     if (navigator.mediaSession)
       navigator.mediaSession.playbackState = music.session?.playing
@@ -145,25 +164,18 @@ export function useMusicPlayback() {
         : "paused";
   }, [music.session?.playing]);
 
-  function remember(seconds: number) {
-    const entryID = musicRef.current.session?.entryID;
-    if (entryID !== undefined)
-      musicRef.current.rememberPosition(entryID, seconds);
-    progressRef.current.time = seconds;
-    setPosition(seconds);
-  }
-  function seek(seconds: number) {
-    player.current?.seekTo(seconds);
-    remember(seconds);
-  }
   return {
     player,
     source,
     position,
     seek,
     startTime: playback.startTime,
-    onEnded: () => setEndedFor(playbackID),
+    onEnded: () => {
+      if (progressRef.current.playbackID === playbackID)
+        setEndedFor(playbackID);
+    },
     onProgress: (progress: VideoProgress) => {
+      if (progressRef.current.playbackID !== playbackID) return;
       progressRef.current.duration = player.current?.getDuration() ?? 0;
       remember(progress.playedSeconds);
     },

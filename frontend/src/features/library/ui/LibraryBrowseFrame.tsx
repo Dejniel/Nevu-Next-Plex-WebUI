@@ -11,6 +11,7 @@ export default function LibraryBrowseFrame({
   filters,
   description,
   showOrientation = true,
+  showCardControls = true,
   children,
 }: {
   toolbarRef: React.RefObject<HTMLDivElement | null>;
@@ -20,6 +21,7 @@ export default function LibraryBrowseFrame({
   filters: React.ReactNode;
   description?: React.ReactNode;
   showOrientation?: boolean;
+  showCardControls?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -31,6 +33,7 @@ export default function LibraryBrowseFrame({
           pageNavigation={pageNavigation}
           showLeadingOnMobile
           showOrientation={showOrientation}
+          showCardControls={showCardControls}
         />
         <Box
           sx={{

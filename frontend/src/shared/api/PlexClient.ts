@@ -41,7 +41,8 @@ export class PlexClient {
       signal,
     );
 
-    if (response.status >= 200 && response.status < 300) return response.data as T;
+    if (response.status >= 200 && response.status < 300)
+      return response.data as T;
     throw new PlexRequestError(response.status, response.data);
   }
 
@@ -49,8 +50,8 @@ export class PlexClient {
     return this.request<T>(url, "GET", undefined, signal);
   }
 
-  post<T = any>(url: string, body?: unknown) {
-    return this.request<T>(url, "POST", body);
+  post<T = any>(url: string, body?: unknown, signal?: AbortSignal) {
+    return this.request<T>(url, "POST", body, signal);
   }
 
   put<T = any>(url: string, body?: unknown, signal?: AbortSignal) {

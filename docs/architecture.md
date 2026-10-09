@@ -90,11 +90,19 @@ contexts use existing Query identities and separate sort preferences.
 The browse selector binds source, media type and presentation: cards use grids,
 tracks and folders use detailed lists, and photos use the specialized gallery.
 `useLibraryViewport` shares paging and geometry; `CollectionViewport` renders common
-loading, empty and error states. Folder entries have filesystem IDs separate from
+loading, empty and error states, also for collections and playlists. Virtualization
+models grids and full-width lists explicitly. Failed refreshes retain cached data;
+inconsistent windows retain viewport geometry and range subscriptions for a retry,
+without displaying mixed pages. Folder entries have filesystem IDs separate from
 media metadata IDs. Their URL trail keeps breadcrumbs/history, while only the final
 folder ID keys the existing page cache. Plex's folder endpoint supplies native order
 and ignores filters/sorting, so those controls are hidden. Video and track rows reuse
 their existing action owners.
+
+Cards, detailed rows and photo previews share source-scoped image loading and a
+500 ms fade that respects reduced motion. Late events cannot change a newer image;
+cached images are recognized when mounted. Photo neighbors follow contiguous loaded
+catalog positions and validate the selected identity before navigating.
 
 `features/media-actions` owns the shared rating control, rating writes and personal
 menus for music/photos. Menus lazily read canonical metadata to list every original

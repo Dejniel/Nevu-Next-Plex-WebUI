@@ -1,4 +1,5 @@
 import { Box } from "@mui/material";
+import type React from "react";
 import { libraryEntryKey } from "@nevu/contracts";
 import { useLibraryViewport, type LibraryQuery } from "features/library/model";
 import { CollectionViewport } from "shared/ui/CollectionViewport";
@@ -7,14 +8,16 @@ import { TrackRow } from "./TrackRow";
 export function TrackList({
   query,
   album = false,
+  observeRef,
 }: {
   query: LibraryQuery | null;
   album?: boolean;
+  observeRef?: React.RefObject<HTMLElement | null>;
 }) {
   const { grid, range, hasData } = useLibraryViewport(query, {
-    itemWidth: 1_000_000,
-    imageAspectRatio: Infinity,
-    footerHeight: album ? 60 : 68,
+    layout: "list",
+    itemHeight: album ? 60 : 68,
+    observeRef,
   });
   return (
     <Box role="list" aria-label={album ? "Album tracks" : "Tracks"}>

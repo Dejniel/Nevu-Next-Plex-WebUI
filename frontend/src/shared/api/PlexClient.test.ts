@@ -38,6 +38,13 @@ it("passes request cancellation through to the HTTP transport", async () => {
   expect(transport.mock.calls[0][4]).toBe(controller.signal);
 });
 
+it("passes cancellation through POST requests as well as reads", async () => {
+  transport.mockResolvedValue({ status: 201, data: {} });
+  const signal = new AbortController().signal;
+  await client.post("/playQueues", undefined, signal);
+  expect(transport.mock.calls[0][4]).toBe(signal);
+});
+
 it.each([200, 201, 204])("accepts successful writes (%s), including empty DELETE responses", async (status) => {
   transport.mockResolvedValue({ status, data: "" });
   const signal = new AbortController().signal;

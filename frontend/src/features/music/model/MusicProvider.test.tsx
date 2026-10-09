@@ -131,6 +131,7 @@ it("does not publish a late queue after a profile switch", async () => {
   await act(async () => {
     pending = controller.play(track(1, 100));
   });
+  const signal = mocks.create.mock.calls[0][3] as AbortSignal;
   mocks.scope = { serverId: "server", profileKey: "managed" };
   await act(async () =>
     root.render(
@@ -139,6 +140,7 @@ it("does not publish a late queue after a profile switch", async () => {
       </MusicProvider>,
     ),
   );
+  expect(signal.aborted).toBe(true);
   await act(async () => {
     resolve(queue);
     await pending;
@@ -159,11 +161,16 @@ it("validates the selected playlist occurrence and creates an audio queue from t
   );
   const context = { id: "20", index: 8, itemID: "81" };
   await act(async () => controller.playPlaylist(context, track(1, 100)));
-  expect(mocks.playlistEntry).toHaveBeenCalledWith(context, "1");
+  expect(mocks.playlistEntry).toHaveBeenCalledWith(
+    context,
+    "1",
+    expect.any(AbortSignal),
+  );
   expect(mocks.create).toHaveBeenCalledWith(
     { kind: "playlist", id: "20" },
     "1",
     false,
+    expect.any(AbortSignal),
   );
   expect(controller.session?.queueID).toBe(10);
   await act(async () => controller.playPlaylist(context, track(1, 100), true));
@@ -171,7 +178,38 @@ it("validates the selected playlist occurrence and creates an audio queue from t
     { kind: "playlist", id: "20" },
     undefined,
     true,
+    expect.any(AbortSignal),
   );
+});
+
+it("cancels a timeline read on Stop before it can continue into a queue mutation", async () => {
+  await act(async () =>
+    root.render(
+      <MusicProvider>
+        <Probe />
+      </MusicProvider>,
+    ),
+  );
+  await act(async () => controller.play(track(1, 100)));
+  let finish!: () => void;
+  mocks.timeline.mockReturnValue(
+    new Promise<void>((resolve) => {
+      finish = resolve;
+    }),
+  );
+  let pending!: Promise<void>;
+  await act(async () => {
+    pending = controller.shuffle();
+  });
+  const signal = mocks.timeline.mock.calls[0][5] as AbortSignal;
+  await act(async () => controller.stop());
+  expect(signal.aborted).toBe(true);
+  await act(async () => {
+    finish();
+    await pending;
+  });
+  expect(mocks.shuffle).not.toHaveBeenCalled();
+  expect(controller.session).toBeNull();
 });
 
 it("keeps the playing queue when the saved playlist selection changed", async () => {
@@ -308,6 +346,7 @@ it("reports the active occurrence before shuffle and keeps playback and position
     "playing",
     23,
     0,
+    expect.any(AbortSignal),
   );
   expect(mocks.timeline.mock.invocationCallOrder[0]).toBeLessThan(
     mocks.shuffle.mock.invocationCallOrder[0],

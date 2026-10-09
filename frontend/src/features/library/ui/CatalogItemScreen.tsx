@@ -26,7 +26,8 @@ import { MusicActions, TrackList } from "features/music/public";
 import { PhotoAlbumBrowse } from "./PhotoAlbumBrowse";
 import { WindowLibraryCollectionGrid } from "./LibraryCollectionGrid";
 import { useLibraryCardView } from "./LibraryCardViewControls";
-import type { LibraryQuery } from "../model/libraryQuery";
+import { musicChildrenQuery } from "../model/libraryQuery";
+import { QueryErrorAlert } from "shared/ui/QueryErrorAlert";
 
 export default function CatalogItemScreen() {
   const { libraryID = "", itemID = "" } = useParams();
@@ -42,18 +43,7 @@ export default function CatalogItemScreen() {
   const [description, setDescription] = useState(false);
   const cardView = useLibraryCardView();
   const item = metadata.data;
-  const query: LibraryQuery | null =
-    item && (item.type === "artist" || item.type === "album")
-      ? {
-          profileKey: scope.profileKey,
-          sectionId: Number(libraryID),
-          source: "children",
-          parentId: itemID,
-          type: item.type === "artist" ? "album" : "track",
-          sort:
-            item.type === "album" ? "parentIndex,index" : "year:desc,titleSort",
-        }
-      : null;
+  const query = musicChildrenQuery(scope.profileKey, Number(libraryID), item);
   const count =
     item?.type === "artist"
       ? item.childCount
@@ -89,18 +79,15 @@ export default function CatalogItemScreen() {
           <Typography>{item?.title || "Loading…"}</Typography>
         </Breadcrumbs>
       </Stack>
+      <QueryErrorAlert
+        error={metadata.error}
+        hasData={Boolean(item)}
+        onRetry={metadata.refetch}
+      />
       {metadata.isPending ? (
         <CircularProgress />
-      ) : metadata.error ? (
-        <Alert
-          severity="error"
-          action={
-            <Button onClick={() => void metadata.refetch()}>Retry</Button>
-          }
-        >
-          {metadata.error.message}
-        </Alert>
-      ) : item && ["artist", "album", "photoalbum"].includes(item.type) ? (
+      ) : metadata.error && !item ? null : item &&
+        ["artist", "album", "photoalbum"].includes(item.type) ? (
         <>
           <Stack
             direction={{ xs: "column", sm: "row" }}

@@ -53,7 +53,7 @@ export default function VirtualGrid({
               <Box
                 key={itemKey?.(index) ?? index}
                 sx={{
-                  width: columnWeights ? "100%" : `min(100%, ${itemWidth}px)`,
+                  width: grid.list || columnWeights ? "100%" : `min(100%, ${itemWidth}px)`,
                   justifySelf: "center",
                 }}
               >

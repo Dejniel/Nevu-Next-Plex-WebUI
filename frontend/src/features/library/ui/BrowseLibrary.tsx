@@ -24,6 +24,7 @@ import { librarySectionQueryOptions } from "../model/libraryDirectories";
 import { useLibraryWindow } from "../model/useLibraryPages";
 import { useLibraryBrowseState } from "../model/useLibraryBrowseState";
 import { FolderBrowse } from "./FolderBrowse";
+import { QueryErrorAlert } from "shared/ui/QueryErrorAlert";
 
 interface BrowseLibraryProps {
   pageNavigation: React.ReactNode;
@@ -54,7 +55,6 @@ function BrowseLibraryContent({
     serverQueryClient,
   );
   const library = section.data;
-  const libraryError = section.error?.message;
   const state = useLibraryBrowseState(libraryID, library, { allPhotos });
   const {
     activeItemType,
@@ -130,35 +130,33 @@ function BrowseLibraryContent({
 
       <Box sx={{ width: "100%", px: { xs: 1, md: 6 }, pb: 2 }}>
         <Box sx={{ width: "100%", mt: 2 }}>
-          {libraryError ? (
-            <Alert
-              severity="error"
-              action={
-                <Button
-                  color="inherit"
-                  onClick={() => {
-                    void section.refetch();
-                  }}
-                >
-                  Retry
-                </Button>
-              }
-            >
-              {libraryError}
-            </Alert>
-          ) : unsupportedLibrary ? (
+          <QueryErrorAlert
+            error={section.error}
+            hasData={Boolean(library)}
+            onRetry={section.refetch}
+          />
+          {section.error && !library ? null : unsupportedLibrary ? (
             <Alert severity="info">
               This library type is not supported yet.
             </Alert>
           ) : state.folders ? (
-            <FolderBrowse key={range.queryKey} state={state} />
+            <FolderBrowse
+              key={range.queryKey}
+              state={state}
+              observeRef={toolbarRef}
+            />
           ) : activeItemType === "track" ? (
-            <TrackList key={range.queryKey} query={query} />
+            <TrackList
+              key={range.queryKey}
+              query={query}
+              observeRef={toolbarRef}
+            />
           ) : activeItemType === "photo" ? (
             <PhotoGallery
               key={range.queryKey}
               query={query}
               cardSize={cardView.size}
+              observeRef={toolbarRef}
             />
           ) : (
             <WindowLibraryCollectionGrid

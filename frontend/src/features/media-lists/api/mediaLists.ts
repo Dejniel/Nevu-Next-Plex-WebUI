@@ -247,11 +247,15 @@ async function readPlaylistSelection(
   context: PlaylistPlaybackContext,
   currentID: string,
   size: number,
+  signal?: AbortSignal,
 ) {
-  const page = await createMediaListSource({
-    kind: "playlist",
-    id: context.id,
-  }).page(context.index, size);
+  const page = await createMediaListSource(
+    {
+      kind: "playlist",
+      id: context.id,
+    },
+    signal,
+  ).page(context.index, size);
   const entries = page.items.filter(
     (item): item is MediaListEntry => item.kind === "media",
   );
@@ -270,15 +274,17 @@ async function readPlaylistSelection(
 export async function getPlaylistEntry(
   context: PlaylistPlaybackContext,
   currentID: string,
+  signal?: AbortSignal,
 ) {
-  return (await readPlaylistSelection(context, currentID, 1))[0].item;
+  return (await readPlaylistSelection(context, currentID, 1, signal))[0].item;
 }
 
 export async function getPlaylistQueue(
   context: PlaylistPlaybackContext,
   currentID: string,
+  signal?: AbortSignal,
 ): Promise<Plex.Metadata[]> {
-  const entries = await readPlaylistSelection(context, currentID, 2);
+  const entries = await readPlaylistSelection(context, currentID, 2, signal);
   if (entries.some((entry) => !["movie", "episode"].includes(entry.item.type)))
     throw new Error("The next playlist item cannot be played on this server.");
   return entries.map((entry) => entry.item);

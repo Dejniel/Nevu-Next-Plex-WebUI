@@ -93,7 +93,12 @@ export function musicAPI(context: Record<string, unknown>, serverID: string) {
     return get(id, undefined, signal);
   };
   return {
-    async create(source: MusicQueueSource, startID?: string, shuffle = false) {
+    async create(
+      source: MusicQueueSource,
+      startID?: string,
+      shuffle = false,
+      signal?: AbortSignal,
+    ) {
       return readMusicQueue(
         await client.post(
           `/playQueues?${params({
@@ -105,6 +110,8 @@ export function musicAPI(context: Record<string, unknown>, serverID: string) {
             includeRelated: 0,
             window: 50,
           })}`,
+          undefined,
+          signal,
         ),
       );
     },
@@ -159,6 +166,7 @@ export function musicAPI(context: Record<string, unknown>, serverID: string) {
       state: string,
       time: number,
       duration: number,
+      signal?: AbortSignal,
     ) {
       await client.get(
         `/:/timeline?${params({
@@ -172,6 +180,7 @@ export function musicAPI(context: Record<string, unknown>, serverID: string) {
           duration: Math.floor(duration * 1000),
           context: "library",
         })}`,
+        signal,
       );
     },
   };

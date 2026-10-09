@@ -161,7 +161,7 @@ it("shares the first page across consumers and ignores playlist navigation libra
   await act(async () => second.unmount());
   expect(signal.aborted).toBe(false);
   await act(async () => pending.resolve(response(0)));
-  expect(state.total).toBe(500);
+  expect(state.totalSize).toBe(500);
 });
 
 it("cancels the last consumer's request and discards responses from an old profile", async () => {
@@ -172,7 +172,7 @@ it("cancels the last consumer's request and discards responses from an old profi
   await act(async () => useUserSettings.setState({ profileKey: "owner:2" }));
   expect(signal.aborted).toBe(true);
   await act(async () => old.resolve(response(0, 1)));
-  expect(state.total).toBe(500);
+  expect(state.totalSize).toBe(500);
   expect(state.items.size).toBe(100);
 });
 
@@ -192,13 +192,34 @@ it("retains page zero through a failed later page and retries that range", async
   await render();
   page.mockRejectedValueOnce(new Error("offline"));
   await demand(100);
-  expect(state.error).toBe("offline");
+  expect(state.errors.get(100)?.message).toBe("offline");
+  expect(state.errors.has(0)).toBe(false);
   expect(state.items.size).toBe(100);
   await act(async () => {
-    await state.retry();
+    await state.retry(100);
   });
-  expect(state.error).toBeNull();
+  expect(state.errors.size).toBe(0);
   expect(state.items.size).toBe(200);
+});
+
+it("keeps errors scoped to their pages and retries only the requested failure", async () => {
+  await render();
+  const failed = new Set([100, 200]);
+  page.mockImplementation(async (offset) => {
+    if (failed.has(offset)) throw new Error(`Offline ${offset}`);
+    return response(offset);
+  });
+  await demand(100, 299);
+  expect([...state.errors.keys()]).toEqual([100, 200]);
+  expect(state.hasData).toBe(true);
+  failed.delete(100);
+  await act(async () => {
+    await state.retry(100);
+  });
+  expect([...state.errors.keys()]).toEqual([200]);
+  expect(state.items.has(100)).toBe(true);
+  expect(page.mock.calls.filter(([offset]) => offset === 0)).toHaveLength(1);
+  expect(page.mock.calls.filter(([offset]) => offset === 200)).toHaveLength(1);
 });
 
 it("discovers the end of a list whose first page has no total", async () => {
@@ -208,13 +229,13 @@ it("discovers the end of a list whose first page has no total", async () => {
     items: records(offset, offset === 0 ? 100 : 5),
   }));
   await render();
-  expect(state.total).toBeNull();
+  expect(state.totalSize).toBeNull();
   await demand(100);
-  expect(state.total).toBe(105);
+  expect(state.totalSize).toBe(105);
   expect(state.knownSize).toBe(105);
   expect(state.items.size).toBe(105);
   await demand(0);
-  expect(state.total).toBe(105);
+  expect(state.totalSize).toBe(105);
   await demand(200);
   expect(page.mock.calls.map(([offset]) => offset)).toEqual([0, 100]);
 });
@@ -225,13 +246,13 @@ it("retries first-page failures and completes an empty result", async () => {
   });
   await render();
   expect(state.loading).toBe(false);
-  expect(state.error).toBe("missing session");
+  expect(state.errors.get(0)?.message).toBe("missing session");
   page.mockResolvedValueOnce(response(0, 0));
   await act(async () => {
-    await state.retry();
+    await state.retry(0);
   });
-  expect(state.total).toBe(0);
-  expect(state.error).toBeNull();
+  expect(state.totalSize).toBe(0);
+  expect(state.errors.size).toBe(0);
 });
 
 it("bounds page work and stops after the known last page", async () => {
@@ -280,7 +301,7 @@ it("publishes pages and summary together after reordering the current window", a
     last.resolve(response(300, 400));
     await pending;
   });
-  expect(state.total).toBe(400);
+  expect(state.totalSize).toBe(400);
   expect(state.summary?.title).toBe("Updated");
   expect(state.items.size).toBe(200);
   expect(state.items.has(100)).toBe(false);
@@ -297,15 +318,15 @@ it("retains a failed replacement and retries its complete visible window", async
   await act(async () => {
     await refresh();
   });
-  expect(state.error).toBe("offline");
+  expect(state.errors.get(0)?.message).toBe("offline");
   expect([...state.items]).toEqual(before);
   expect(state.loading).toBe(false);
   page.mockImplementation(async (offset) => response(offset, 200));
   await act(async () => {
-    await state.retry();
+    await state.retry(0);
   });
-  expect(state.error).toBeNull();
-  expect(state.total).toBe(200);
+  expect(state.errors.size).toBe(0);
+  expect(state.totalSize).toBe(200);
 });
 
 it("refreshes the requested list without touching another list or profile", async () => {
@@ -408,7 +429,7 @@ it("cancels an older range before a structural change can replace its positions"
   });
   expect(signal.aborted).toBe(true);
   await act(async () => old.resolve(response(100, 101)));
-  expect(state.total).toBe(500);
+  expect(state.totalSize).toBe(500);
 });
 
 it("does not deduplicate repeated playlist titles but rejects repeated playlist-entry IDs", async () => {
@@ -418,6 +439,6 @@ it("does not deduplicate repeated playlist titles but rejects repeated playlist-
     items: records(0, 2).map((record) => ({ ...record, playlistItemID: "same" })),
   }));
   await render();
-  expect(state.error).toContain("changed while loading");
+  expect(state.errors.get(0)?.message).toContain("changed while loading");
   expect(state.items.size).toBe(0);
 });

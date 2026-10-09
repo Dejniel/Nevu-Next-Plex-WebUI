@@ -2,9 +2,11 @@ import { hashKey, useQueries, useQuery } from "@tanstack/react-query";
 import { useServerSession } from "features/session/model";
 import { useUserSettings } from "features/settings/model";
 import { serverQueryClient } from "shared/api/queryClient";
+import { PlexRequestError } from "shared/api/PlexClient";
 import type { GridRange } from "shared/lib/useVirtualGrid";
 import {
   type ListPage,
+  LIST_PAGE_SIZE,
   listPageOptions,
   listRangeOffsets,
   listWindowOptions,
@@ -88,19 +90,37 @@ export function useMediaList(list: ReturnType<typeof useMediaListWindow>, range 
     pages.forEach((page) =>
       page.items.forEach((item, index) => items.set(page.offset + index, item)),
     );
+  const pageError = (failure: Error) => ({
+    message: failure.message,
+    retryable: !(
+      failure instanceof PlexRequestError &&
+      [400, 401, 403, 404].includes(failure.status)
+    ),
+  });
+  const errors = new Map<number, ReturnType<typeof pageError>>();
+  if (enabled && first.error) errors.set(0, pageError(first.error));
+  results.forEach((result, index) => {
+    if (result.error) errors.set(offsets[index], pageError(result.error));
+  });
+  if (error) errors.set(0, pageError(error));
   return {
     key: list.key,
     items,
     summary: enabled ? (first.data?.summary ?? null) : null,
-    total: list.total,
-    knownSize: Math.max(list.knownSize, ...pages.map((page) => page.offset + page.items.length)),
-    error: (error ?? first.error ?? results.find((result) => result.error)?.error)?.message ?? null,
+    totalSize: list.total,
+    pageSize: LIST_PAGE_SIZE,
+    errors,
+    hasData: enabled && first.data !== undefined,
+    knownSize: Math.max(
+      list.knownSize,
+      ...pages.map((page) => page.offset + page.items.length),
+    ),
     loading: Boolean(enabled && !first.data && !error && first.isPending),
-    retry: () =>
+    retry: (offset: number) =>
       error
         ? window.refetch()
-        : Promise.all(
-            [first, ...results].filter((result) => result.error).map((result) => result.refetch()),
-          ),
+        : offset === 0
+          ? first.refetch()
+          : results[offsets.indexOf(offset)]?.refetch(),
   };
 }

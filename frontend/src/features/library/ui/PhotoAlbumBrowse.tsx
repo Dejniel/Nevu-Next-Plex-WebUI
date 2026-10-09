@@ -1,5 +1,6 @@
 import React from "react";
-import { Alert, Button } from "@mui/material";
+import { Box } from "@mui/material";
+import { QueryErrorAlert } from "shared/ui/QueryErrorAlert";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveServerScope } from "features/session/model";
 import { serverQueryClient } from "shared/api/queryClient";
@@ -27,30 +28,37 @@ export function PhotoAlbumBrowse({
   );
   const state = useLibraryBrowseState(libraryID, section.data, { parentId });
   const collection = useLibraryWindow(state.query);
-  if (section.error)
-    return (
-      <Alert
-        severity="error"
-        action={<Button onClick={() => void section.refetch()}>Retry</Button>}
-      >
-        {section.error.message}
-      </Alert>
-    );
+  const toolbarRef = React.useRef<HTMLDivElement>(null);
   return (
     <>
-      <LibraryViewToolbar
-        cardView={cardView}
-        showOrientation={false}
-        showLeadingOnMobile
-        leading={
-          <LibraryBrowseControls
-            state={state}
-            itemCount={collection.totalSize?.toLocaleString()}
-          />
-        }
-        pageNavigation={null}
+      <QueryErrorAlert
+        error={section.error}
+        hasData={Boolean(section.data)}
+        onRetry={section.refetch}
       />
-      <PhotoGallery query={state.query} cardSize={cardView.size} />
+      {(!section.error || section.data) && (
+        <>
+          <Box ref={toolbarRef}>
+            <LibraryViewToolbar
+              cardView={cardView}
+              showOrientation={false}
+              showLeadingOnMobile
+              leading={
+                <LibraryBrowseControls
+                  state={state}
+                  itemCount={collection.totalSize?.toLocaleString()}
+                />
+              }
+              pageNavigation={null}
+            />
+          </Box>
+          <PhotoGallery
+            query={state.query}
+            cardSize={cardView.size}
+            observeRef={toolbarRef}
+          />
+        </>
+      )}
     </>
   );
 }

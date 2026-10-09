@@ -9,6 +9,7 @@ import {
 } from "entities/media/model";
 import { catalogItemTo } from "shared/lib/navigation";
 import { durationToClock } from "shared/lib/duration";
+import { useImageLoading, imageFadeSx } from "shared/ui/useImageLoading";
 import { useMusic } from "../model/MusicProvider";
 import { MusicMenu } from "./MusicActions";
 
@@ -36,6 +37,8 @@ export const TrackRow = memo(function TrackRow({
     });
   const active = music.track?.ratingKey === item.ratingKey;
   const cover = mediaArtworkPath(item, "square");
+  const src = cover ? getTranscodeImageURL(cover, 96, 96) : null;
+  const { status, imageProps } = useImageLoading(src);
   const artist =
     item.grandparentRatingKey &&
     catalogItemTo(location, {
@@ -94,16 +97,21 @@ export const TrackRow = memo(function TrackRow({
           {item.index ?? index + 1}
         </Typography>
       ) : (
-        cover && (
+        src &&
+        status !== "missing" && (
           <Box
             component="img"
-            src={getTranscodeImageURL(cover, 96, 96)}
+            key={src}
+            src={src}
             alt=""
+            decoding="async"
+            {...imageProps}
             sx={{
               width: 44,
               height: 44,
               borderRadius: 0.5,
               display: { xs: "none", sm: "block" },
+              ...imageFadeSx(status === "loaded"),
             }}
           />
         )

@@ -8,30 +8,36 @@ export interface GridRange {
   visibleEnd: number;
 }
 
-interface VirtualGridOptions {
-  count: number | null;
-  minimumCount?: number;
-  itemWidth: number;
-  imageAspectRatio: number;
-  footerHeight?: number;
-  resetKey?: string | null;
+export type VirtualGridGeometry = {
   observeRef?: React.RefObject<HTMLElement | null>;
   scrollElementRef?: React.RefObject<HTMLDivElement | null>;
-}
+} & (
+  | { layout: "list"; itemHeight: number }
+  | {
+      layout?: "grid";
+      itemWidth: number;
+      imageAspectRatio: number;
+      footerHeight?: number;
+    }
+);
+
+type VirtualGridOptions = VirtualGridGeometry & {
+  count: number | null;
+  minimumCount?: number;
+  resetKey?: string | null;
+};
 
 export const VIRTUAL_GRID_GAP = 16;
 
 /** Compute the current range before the caller reads its pages. */
-export function useVirtualGrid({
-  count,
-  minimumCount = 0,
-  itemWidth,
-  imageAspectRatio,
-  footerHeight = 68,
-  resetKey,
-  observeRef,
-  scrollElementRef,
-}: VirtualGridOptions) {
+export function useVirtualGrid(options: VirtualGridOptions) {
+  const {
+    count,
+    minimumCount = 0,
+    resetKey,
+    observeRef,
+    scrollElementRef,
+  } = options;
   const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null);
   const [geometry, setGeometry] = useState({ width: 0, top: 0 });
   const [activeKey, setActiveKey] = useState<string | null | undefined>(
@@ -75,25 +81,33 @@ export function useVirtualGrid({
     };
   }, [gridElement, observeRef, scrollElementRef]);
 
-  const columns = Math.max(
-    1,
-    Math.floor(
-      (geometry.width + VIRTUAL_GRID_GAP) / (itemWidth + VIRTUAL_GRID_GAP),
-    ),
-  );
-  const cardWidth =
-    geometry.width > 0
+  const list = options.layout === "list";
+  const itemWidth = list ? geometry.width : options.itemWidth;
+  const columns = list
+    ? 1
+    : Math.max(
+        1,
+        Math.floor(
+          (geometry.width + VIRTUAL_GRID_GAP) / (itemWidth + VIRTUAL_GRID_GAP),
+        ),
+      );
+  const cardWidth = list
+    ? geometry.width
+    : geometry.width > 0
       ? Math.min(
           itemWidth,
           (geometry.width - VIRTUAL_GRID_GAP * (columns - 1)) / columns,
         )
       : itemWidth;
   const rowHeight = Math.ceil(
-    cardWidth / imageAspectRatio + footerHeight + VIRTUAL_GRID_GAP,
+    (list
+      ? options.itemHeight
+      : cardWidth / options.imageAspectRatio + (options.footerHeight ?? 68)) +
+      VIRTUAL_GRID_GAP,
   );
   const displayCount = count ?? Math.max(minimumCount, columns * 6);
   const rowCount = Math.ceil(displayCount / columns);
-  const options = {
+  const virtualizerOptions = {
     count: rowCount,
     estimateSize: () => rowHeight,
     overscan: 3,
@@ -101,11 +115,11 @@ export function useVirtualGrid({
     useFlushSync: false,
   };
   const windowGrid = useWindowVirtualizer({
-    ...options,
+    ...virtualizerOptions,
     enabled: Boolean(gridElement) && positioned && !scrollElementRef,
   });
   const containedGrid = useVirtualizer<HTMLDivElement, HTMLDivElement>({
-    ...options,
+    ...virtualizerOptions,
     enabled: Boolean(gridElement && scrollElementRef) && positioned,
     getScrollElement: () => scrollElementRef?.current ?? null,
   });
@@ -156,6 +170,7 @@ export function useVirtualGrid({
     displayCount,
     cardWidth,
     itemWidth,
+    list,
     top: geometry.top,
     height: virtualizer.getTotalSize(),
     measureElement: virtualizer.measureElement,

@@ -36,14 +36,16 @@ import {
 import { serverQueryClient } from "shared/api/queryClient";
 import { MediaItemMenu } from "features/media-actions/public";
 import { overlayContainer } from "shared/lib/overlayContainer";
+import { useImageLoading, imageFadeSx } from "shared/ui/useImageLoading";
+import { QueryErrorAlert } from "shared/ui/QueryErrorAlert";
+import { adjacentPhoto, photoIndex } from "../model/photos";
 
 export function PhotoViewer({ query }: { query: LibraryQuery | null }) {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
   const id = params.get("photo") ?? "";
-  const rawIndex = params.get("photoIndex");
-  const index = rawIndex && /^\d+$/.test(rawIndex) ? Number(rawIndex) : null;
+  const index = photoIndex(params.get("photoIndex"));
   const scope = useActiveServerScope();
   const metadata = useQuery(
     { ...mediaMetadataQueryOptions(scope, id), enabled: Boolean(id) },
@@ -61,10 +63,6 @@ export function PhotoViewer({ query }: { query: LibraryQuery | null }) {
   const [info, setInfo] = useState(false);
   const [filmstrip, setFilmstrip] = useState(false);
   const [slideshow, setSlideshow] = useState(false);
-  const [imageState, setImageState] = useState<{
-    id: string;
-    failed: boolean;
-  } | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const imageViewport = useRef<HTMLDivElement>(null);
   const pan = useRef<{
@@ -75,15 +73,8 @@ export function PhotoViewer({ query }: { query: LibraryQuery | null }) {
   } | null>(null);
   const touch = useRef<{ x: number; y: number } | null>(null);
   const item = metadata.data;
-  const neighbors = [...range.items.entries()]
-    .filter(([, item]) => item.type === "photo")
-    .sort((a, b) => a[0] - b[0]);
-  const previousEntry =
-    index !== null
-      ? neighbors.filter(([offset]) => offset < index).at(-1)
-      : undefined;
-  const nextEntry =
-    index !== null ? neighbors.find(([offset]) => offset > index) : undefined;
+  const previousEntry = adjacentPhoto(range.items, id, index, -1);
+  const nextEntry = adjacentPhoto(range.items, id, index, 1);
   const previous = previousEntry?.[1];
   const next = nextEntry?.[1];
   const openAt = (target: number) => {
@@ -175,8 +166,16 @@ export function PhotoViewer({ query }: { query: LibraryQuery | null }) {
       viewport.scrollTop = (viewport.scrollHeight - viewport.clientHeight) / 2;
     }
   }, [zoom]);
-  const failed = imageState?.id === id && imageState.failed;
-  const loaded = imageState?.id === id && !imageState.failed;
+  const src = artwork
+    ? getTranscodeImageURL(
+        artwork,
+        zoom > 1 ? 4096 : 2560,
+        zoom > 1 ? 4096 : 2560,
+      )
+    : null;
+  const { status: imageStatus, imageProps } = useImageLoading(src);
+  const failed = imageStatus === "missing";
+  const loaded = imageStatus === "loaded";
   return (
     <Dialog
       container={overlayContainer}
@@ -243,7 +242,9 @@ export function PhotoViewer({ query }: { query: LibraryQuery | null }) {
           >
             <FullscreenRounded />
           </IconButton>
-          {item && <MediaItemMenu item={item} onOpen={() => setSlideshow(false)} />}
+          {item && (
+            <MediaItemMenu item={item} onOpen={() => setSlideshow(false)} />
+          )}
           <IconButton aria-label="Close photo" onClick={close}>
             <CloseRounded />
           </IconButton>
@@ -308,33 +309,29 @@ export function PhotoViewer({ query }: { query: LibraryQuery | null }) {
             {(metadata.isPending || (artwork && !loaded && !failed)) && (
               <CircularProgress sx={{ position: "absolute" }} />
             )}
-            {metadata.error && (
-              <Alert severity="error">{metadata.error.message}</Alert>
-            )}
-            {(failed || (item && !artwork)) && (
+            <QueryErrorAlert
+              error={metadata.error}
+              hasData={Boolean(item)}
+              onRetry={metadata.refetch}
+            />
+            {item && failed && (
               <Alert severity="warning">This photo could not be loaded.</Alert>
             )}
-            {artwork && !failed && (
+            {src && !failed && (
               <Box
                 component="img"
-                key={id}
-                src={getTranscodeImageURL(
-                  artwork,
-                  zoom > 1 ? 4096 : 2560,
-                  zoom > 1 ? 4096 : 2560,
-                )}
+                key={src}
+                src={src}
                 alt={item?.title || "Photo"}
                 draggable={false}
-                onLoad={() => setImageState({ id, failed: false })}
-                onError={() => setImageState({ id, failed: true })}
+                {...imageProps}
                 sx={{
                   width: zoom > 1 ? "200%" : "100%",
                   height: zoom > 1 ? "200%" : "100%",
                   maxWidth: "none",
                   flexShrink: 0,
                   objectFit: "contain",
-                  opacity: loaded ? 1 : 0,
-                  transition: "opacity 500ms ease",
+                  ...imageFadeSx(loaded),
                 }}
               />
             )}
@@ -438,6 +435,7 @@ export function PhotoViewer({ query }: { query: LibraryQuery | null }) {
                 ([offset, photo]) =>
                   photo.type === "photo" && Math.abs(offset - position) <= 3,
               )
+              .sort(([left], [right]) => left - right)
               .map(([offset, photo]) => {
                 if (photo.type !== "photo") return null;
                 const thumb = mediaArtworkPath(photo, "landscape");

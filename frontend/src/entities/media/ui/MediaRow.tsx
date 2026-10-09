@@ -1,7 +1,7 @@
 import { Box, Stack, Typography } from "@mui/material";
 import { MovieOutlined, StarRounded } from "@mui/icons-material";
 import { Link, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { useImageLoading, imageFadeSx } from "shared/ui/useImageLoading";
 import { mediaDetailsTo } from "shared/lib/navigation";
 import {
   formatMediaRating,
@@ -22,9 +22,7 @@ export function MediaRow({
   const location = useLocation();
   const artwork = mediaArtworkPath(item, "poster");
   const src = artwork ? getTranscodeImageURL(artwork, 120, 180) : null;
-  const [result, setResult] = useState<{ src: string; loaded: boolean } | null>(
-    null,
-  );
+  const { status, imageProps } = useImageLoading(src);
   const text = mediaCardText(item, "landscape");
   const rating = getPrimaryMediaRating(item);
   return (
@@ -67,21 +65,20 @@ export function MediaRow({
             justifyContent: "center",
           }}
         >
-          {src && !(result?.src === src && !result.loaded) ? (
+          {src && status !== "missing" ? (
             <Box
               component="img"
+              key={src}
               src={src}
               alt=""
               loading="eager"
               decoding="async"
-              onLoad={() => setResult({ src, loaded: true })}
-              onError={() => setResult({ src, loaded: false })}
+              {...imageProps}
               sx={{
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
-                opacity: result?.src === src && result.loaded ? 1 : 0,
-                transition: "opacity 500ms ease",
+                ...imageFadeSx(status === "loaded"),
               }}
             />
           ) : (

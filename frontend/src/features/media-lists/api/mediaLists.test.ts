@@ -28,6 +28,15 @@ beforeEach(() => {
   });
 });
 
+it("cancels the selected playlist read with its owning playback operation", async () => {
+  transport.mockResolvedValue(
+    response([{ ...movie("5", 80), type: "track" }], { totalSize: 10 }),
+  );
+  const signal = new AbortController().signal;
+  await getPlaylistEntry({ id: "20", index: 8 }, "5", signal);
+  expect(transport.mock.calls[0][4]).toBe(signal);
+});
+
 it("reads collection and video-playlist indexes through their own endpoints", async () => {
   transport
     .mockResolvedValueOnce(

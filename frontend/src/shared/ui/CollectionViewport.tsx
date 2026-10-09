@@ -1,10 +1,11 @@
-import { Alert, Box, Button, Skeleton } from "@mui/material";
+import { Box, Button, Skeleton } from "@mui/material";
 import type React from "react";
 import {
   VIRTUAL_GRID_GAP,
   type useVirtualGrid,
 } from "shared/lib/useVirtualGrid";
 import VirtualGrid from "./VirtualGrid";
+import { QueryErrorAlert } from "./QueryErrorAlert";
 
 interface Range<T> {
   items: ReadonlyMap<number, T>;
@@ -33,22 +34,18 @@ export function CollectionViewport<T>({
   renderItem: (item: T, index: number, imageSizes: string) => React.ReactNode;
   renderPlaceholder?: () => React.ReactNode;
   columnWeights?: (start: number, columns: number) => readonly number[];
-  emptyMessage: string;
+  emptyMessage: React.ReactNode;
   emptyAction?: React.ReactNode;
 }) {
   const initialError = range.errors.get(0);
-  const errorAlert = initialError && (
-    <Alert
-      severity={hasData ? "warning" : "error"}
-      sx={{ mb: 2 }}
-      action={
-        initialError.retryable && (
-          <Button onClick={() => range.retry(0)}>Retry</Button>
-        )
-      }
-    >
-      {initialError.message}
-    </Alert>
+  // Keep established geometry mounted through refresh/consistency failures.
+  // Unmounting it would drop range subscriptions before a window retry.
+  const errorAlert = (
+    <QueryErrorAlert
+      error={initialError}
+      hasData={hasData && (range.items.size > 0 || range.totalSize === 0)}
+      onRetry={initialError?.retryable ? () => range.retry(0) : undefined}
+    />
   );
   if (initialError && !hasData) return errorAlert;
   return (
@@ -81,7 +78,9 @@ export function CollectionViewport<T>({
             const item = range.items.get(index);
             if (item) return renderItem(item, index, sizes);
             const offset = Math.floor(index / range.pageSize) * range.pageSize;
-            const error = range.errors.get(offset);
+            const error =
+              range.errors.get(offset) ??
+              (range.items.size === 0 ? initialError : undefined);
             return error ? (
               <Box
                 role="status"

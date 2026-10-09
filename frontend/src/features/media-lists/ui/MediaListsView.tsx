@@ -6,14 +6,11 @@ import {
   PlaylistPlayRounded,
 } from "@mui/icons-material";
 import {
-  Alert,
   Box,
   Button,
-  CircularProgress,
   IconButton,
   MenuItem,
   Select,
-  Skeleton,
   TextField,
   Typography,
 } from "@mui/material";
@@ -32,7 +29,7 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
-import VirtualGrid from "shared/ui/VirtualGrid";
+import { CollectionViewport } from "shared/ui/CollectionViewport";
 import { useVirtualGrid } from "shared/lib/useVirtualGrid";
 import {
   playlistWatchPath,
@@ -104,13 +101,13 @@ export default function MediaListsView({
   const grid = useVirtualGrid({
     count: list.total,
     minimumCount: list.knownSize + (list.total === null ? 1 : 0),
-    itemWidth: trackRows
-      ? 1_000_000
-      : getLibraryCardWidth(cardView.layout, cardView.size),
-    imageAspectRatio: trackRows
-      ? Infinity
-      : mediaCardAspectRatio(cardView.layout),
-    footerHeight: trackRows ? 68 : 94,
+    ...(trackRows
+      ? { layout: "list" as const, itemHeight: 68 }
+      : {
+          itemWidth: getLibraryCardWidth(cardView.layout, cardView.size),
+          imageAspectRatio: mediaCardAspectRatio(cardView.layout),
+          footerHeight: 94,
+        }),
     observeRef: toolbarRef,
     resetKey: list.key,
   });
@@ -168,6 +165,7 @@ export default function MediaListsView({
       toolbarRef={toolbarRef}
       cardView={cardView}
       showOrientation={!audio}
+      showCardControls={!trackRows}
       leading={
         <Box
           sx={{
@@ -238,7 +236,7 @@ export default function MediaListsView({
                 <PlaylistEditor
                   key={editorKey}
                   playlist={data.summary}
-                  total={data.total ?? data.summary.count}
+                  total={data.totalSize ?? data.summary.count}
                   scope={list.scope}
                   selected={
                     selection?.key === editorKey ? selection.action : null
@@ -289,11 +287,11 @@ export default function MediaListsView({
             role="status"
             sx={{ color: "text.secondary", ml: "auto" }}
           >
-            {data.total === null
+            {data.totalSize === null
               ? data.loading
                 ? "Loading…"
                 : `${data.items.size}+ items`
-              : `${data.total} ${id ? "items" : title.toLowerCase()}`}
+              : `${data.totalSize} ${id ? "items" : title.toLowerCase()}`}
           </Typography>
         </>
       }
@@ -324,140 +322,93 @@ export default function MediaListsView({
         </>
       }
     >
-      {data.error && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2 }}
-          action={
-            <Button color="inherit" onClick={data.retry}>
-              Retry
-            </Button>
-          }
-        >
-          {data.error}
-        </Alert>
-      )}
-      {data.loading ? (
-        <Box sx={{ minHeight: 220, display: "grid", placeItems: "center" }}>
-          <CircularProgress aria-label={`Loading ${title.toLowerCase()}`} />
-        </Box>
-      ) : data.total === 0 ? (
-        <Box
-          sx={{
-            minHeight: 280,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-            gap: 1,
-          }}
-        >
-          {kind === "playlist" ? (
-            <PlaylistPlayRounded
-              sx={{ fontSize: 72, color: "text.secondary" }}
+      <CollectionViewport
+        grid={grid}
+        range={data}
+        hasData={data.hasData}
+        itemKey={(record) =>
+          record.kind === "media"
+            ? `${record.position}:${record.playlistItemID ?? record.item.ratingKey}`
+            : record.id
+        }
+        emptyMessage={
+          <>
+            {kind === "playlist" ? (
+              <PlaylistPlayRounded
+                sx={{ fontSize: 72, color: "text.secondary" }}
+              />
+            ) : (
+              <CollectionsBookmarkRounded
+                sx={{ fontSize: 72, color: "text.secondary" }}
+              />
+            )}
+            <Typography variant="h5">
+              {id
+                ? "This list is empty"
+                : search
+                  ? "No matching lists"
+                  : `No ${title.toLowerCase()} yet`}
+            </Typography>
+            <Typography sx={{ color: "text.secondary" }}>
+              {search && !id
+                ? "Try a different search."
+                : id
+                  ? "Items added in Plex will appear here."
+                  : kind === "collection"
+                    ? "Collections created in this Plex library will appear here."
+                    : `Your Plex ${audio ? "music" : "video"} playlists will appear here. Add an item to a playlist from its menu.`}
+            </Typography>
+          </>
+        }
+        renderItem={(record, _index, imageSizes) => {
+          if (record.kind !== "media")
+            return (
+              <MediaListCard
+                list={record}
+                to={listTarget(record.id)}
+                layout={cardView.layout}
+                imageSizes={imageSizes}
+              />
+            );
+          if (kind === "playlist" && id)
+            return (
+              <PlaylistEntryCard
+                entry={record}
+                layout={cardView.layout}
+                imageSizes={imageSizes}
+                editable={data.summary?.smart === false}
+                onEdit={selectPlaylistAction}
+                onPlay={record.item.type === "track" ? playAudio : undefined}
+                playbackTo={
+                  ["movie", "episode"].includes(record.item.type)
+                    ? playlistWatchPath(record.item, {
+                        id,
+                        index: record.position,
+                        libraryID,
+                      })
+                    : undefined
+                }
+              />
+            );
+          if (!record.supported)
+            return (
+              <Box sx={{ p: 2, bgcolor: "action.hover", borderRadius: 1 }}>
+                <Typography>{record.item.title}</Typography>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  This item cannot be opened on this server.
+                </Typography>
+              </Box>
+            );
+          return (
+            <ActionableMediaCard
+              item={record.item}
+              layout={cardView.layout}
+              imageSizes={imageSizes}
+              imageLoading="eager"
             />
-          ) : (
-            <CollectionsBookmarkRounded
-              sx={{ fontSize: 72, color: "text.secondary" }}
-            />
-          )}
-          <Typography variant="h5">
-            {id
-              ? "This list is empty"
-              : search
-                ? "No matching lists"
-                : `No ${title.toLowerCase()} yet`}
-          </Typography>
-          <Typography sx={{ color: "text.secondary" }}>
-            {search && !id
-              ? "Try a different search."
-              : id
-                ? "Items added in Plex will appear here."
-                : kind === "collection"
-                  ? "Collections created in this Plex library will appear here."
-                  : `Your Plex ${audio ? "music" : "video"} playlists will appear here. Add an item to a playlist from its menu.`}
-          </Typography>
-        </Box>
-      ) : (
-        Boolean(list.first.data?.items.length) && (
-          <VirtualGrid
-            grid={grid}
-            itemKey={(index) => {
-              const record = data.items.get(index);
-              return record?.kind === "media"
-                ? `${index}:${record.playlistItemID ?? record.item.ratingKey}`
-                : (record?.id ?? index);
-            }}
-            renderItem={(index, imageSizes) => {
-              const record = data.items.get(index);
-              if (!record)
-                return (
-                  <Skeleton
-                    variant="rounded"
-                    sx={{
-                      aspectRatio: trackRows
-                        ? undefined
-                        : mediaCardAspectRatio(cardView.layout),
-                      height: trackRows ? 68 : undefined,
-                    }}
-                  />
-                );
-              if (record.kind !== "media")
-                return (
-                  <MediaListCard
-                    list={record}
-                    to={listTarget(record.id)}
-                    layout={cardView.layout}
-                    imageSizes={imageSizes}
-                  />
-                );
-              if (kind === "playlist" && id)
-                return (
-                  <PlaylistEntryCard
-                    entry={record}
-                    layout={cardView.layout}
-                    imageSizes={imageSizes}
-                    editable={data.summary?.smart === false}
-                    onEdit={selectPlaylistAction}
-                    onPlay={
-                      record.item.type === "track" ? playAudio : undefined
-                    }
-                    playbackTo={
-                      ["movie", "episode"].includes(record.item.type)
-                        ? playlistWatchPath(record.item, {
-                            id,
-                            index: record.position,
-                            libraryID,
-                          })
-                        : undefined
-                    }
-                  />
-                );
-              if (!record.supported)
-                return (
-                  <Box sx={{ p: 2, bgcolor: "action.hover", borderRadius: 1 }}>
-                    <Typography>{record.item.title}</Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "text.secondary" }}
-                    >
-                      This item cannot be opened on this server.
-                    </Typography>
-                  </Box>
-                );
-              return (
-                <ActionableMediaCard
-                  item={record.item}
-                  layout={cardView.layout}
-                  imageSizes={imageSizes}
-                  imageLoading="eager"
-                />
-              );
-            }}
-          />
-        )
-      )}
+          );
+        }}
+      />
     </LibraryBrowseFrame>
   );
 }

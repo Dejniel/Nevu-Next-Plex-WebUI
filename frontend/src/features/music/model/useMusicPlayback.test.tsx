@@ -210,6 +210,30 @@ it("advances exactly once when a song ends during a queue edit", async () => {
   expect(mocks.step).toHaveBeenCalledTimes(1);
 });
 
+it("ignores late progress and end callbacks from a previous occurrence of the same song", async () => {
+  const previous = runtime;
+  mocks.entryID = 101;
+  await act(async () =>
+    root.render(
+      <MemoryRouter>
+        <Probe />
+      </MemoryRouter>,
+    ),
+  );
+  mocks.rememberPosition.mockClear();
+  await act(async () => {
+    previous.onProgress({ playedSeconds: 59, loadedSeconds: 60 });
+    previous.onEnded();
+  });
+  expect(runtime.position).toBe(0);
+  expect(mocks.rememberPosition).not.toHaveBeenCalled();
+  expect(mocks.step).not.toHaveBeenCalled();
+  await act(async () =>
+    runtime.onProgress({ playedSeconds: 4, loadedSeconds: 10 }),
+  );
+  expect(mocks.rememberPosition).toHaveBeenLastCalledWith(101, 4);
+});
+
 it("discards deferred advancement when queue editing replaces the ended song", async () => {
   mocks.busy = true;
   await act(async () =>

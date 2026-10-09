@@ -1,5 +1,33 @@
-import { libraryRootQueryType, libraryResultQueryKey } from "./libraryQuery";
+import { libraryRootQueryType, libraryResultQueryKey, musicChildrenQuery } from "./libraryQuery";
 import { libraryEntryKey } from "@nevu/contracts";
+
+it("uses Plex's disc-aware indexed order for album tracks", () => {
+  expect(
+    musicChildrenQuery("owner", 4, { type: "album", ratingKey: "47" }),
+  ).toEqual({
+    profileKey: "owner",
+    sectionId: 4,
+    source: "children",
+    parentId: "47",
+    type: "track",
+    sort: "track.absoluteIndex",
+  });
+});
+it("keeps an artist's albums ordered by year and title", () => {
+  expect(
+    musicChildrenQuery("owner", 4, { type: "artist", ratingKey: "38" }),
+  ).toMatchObject({
+    type: "album",
+    sort: "year:desc,titleSort",
+    parentId: "38",
+  });
+});
+it("does not create music child queries for an unloaded or unrelated item", () => {
+  expect(musicChildrenQuery("owner", 4, undefined)).toBeNull();
+  expect(
+    musicChildrenQuery("owner", 5, { type: "photoalbum", ratingKey: "60" }),
+  ).toBeNull();
+});
 
 it("isolates filesystem folders from metadata parents and keeps their identities separate", () => {
   const query = { profileKey: "owner", sectionId: 4, source: "folders" as const, sort: "titleSort" };

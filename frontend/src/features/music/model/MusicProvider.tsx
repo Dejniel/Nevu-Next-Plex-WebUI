@@ -215,11 +215,12 @@ function useMusicController() {
         ? item.parentRatingKey
         : item.ratingKey;
     return update(
-      () =>
+      (signal) =>
         api.create(
           { kind: "library", id: source },
           item.type === "track" ? item.ratingKey : undefined,
           shuffle,
+          signal,
         ),
       true,
     );
@@ -230,7 +231,7 @@ function useMusicController() {
     shuffle = false,
   ) {
     return update(async (signal) => {
-      const entry = await getPlaylistEntry(context, item.ratingKey);
+      const entry = await getPlaylistEntry(context, item.ratingKey, signal);
       signal.throwIfAborted();
       if (entry.type !== "track")
         throw new Error("This is not a music playlist.");
@@ -238,6 +239,7 @@ function useMusicController() {
         { kind: "playlist", id: context.id },
         shuffle ? undefined : entry.ratingKey,
         shuffle,
+        signal,
       );
     }, true);
   }
@@ -285,7 +287,7 @@ function useMusicController() {
     setError(null);
     setBusy(false);
   }
-  async function reportCurrent() {
+  async function reportCurrent(signal: AbortSignal) {
     const active = current.current.session;
     if (!active) return;
     const item =
@@ -300,6 +302,7 @@ function useMusicController() {
       active.playing ? "playing" : "paused",
       position.current,
       (item?.duration ?? 0) / 1000,
+      signal,
     );
   }
   return {
@@ -337,7 +340,7 @@ function useMusicController() {
     shuffle: () =>
       session && queue.data
         ? update(async (signal) => {
-            await reportCurrent();
+            await reportCurrent(signal);
             signal.throwIfAborted();
             return api.shuffle(session.queueID, !queue.data!.shuffled, signal);
           })
@@ -345,7 +348,7 @@ function useMusicController() {
     add: (item: MediaItemData, next: boolean) =>
       session
         ? update(async (signal) => {
-            await reportCurrent();
+            await reportCurrent(signal);
             signal.throwIfAborted();
             return api.add(
               session.queueID,
@@ -369,7 +372,7 @@ function useMusicController() {
       session
         ? perform(async (signal) => {
             if (entryID === session.entryID) {
-              await reportCurrent();
+              await reportCurrent(signal);
               signal.throwIfAborted();
             }
             const result = await api.remove(session.queueID, entryID, signal);

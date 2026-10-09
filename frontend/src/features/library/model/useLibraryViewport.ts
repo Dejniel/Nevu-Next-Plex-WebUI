@@ -1,14 +1,14 @@
-import { useVirtualGrid } from "shared/lib/useVirtualGrid";
+import {
+  useVirtualGrid,
+  type VirtualGridGeometry,
+} from "shared/lib/useVirtualGrid";
 import type { LibraryQuery } from "./libraryQuery";
 import { useLibraryPages, useLibraryWindow } from "./useLibraryPages";
 
 /** All catalog presentations observe the same bounded pages and viewport geometry. */
 export function useLibraryViewport(
   query: LibraryQuery | null,
-  options: Omit<
-    Parameters<typeof useVirtualGrid>[0],
-    "count" | "minimumCount" | "resetKey"
-  > & { loading?: boolean },
+  options: VirtualGridGeometry & { loading?: boolean },
 ) {
   const collection = useLibraryWindow(query);
   const { loading = !query, ...geometry } = options;

@@ -12,6 +12,7 @@ import {
 } from "entities/media/model";
 import type { To } from "react-router-dom";
 import { StretchedLink } from "shared/ui";
+import { useImageLoading, imageFadeSx } from "shared/ui/useImageLoading";
 import type { MediaListSummary } from "../model/mediaLists";
 
 export default function MediaListCard({
@@ -25,6 +26,16 @@ export default function MediaListCard({
   layout: MediaArtworkLayout;
   imageSizes: string;
 }) {
+  const artwork = list.image
+    ? getResponsiveTranscodeImageProps(list.image, {
+        widths:
+          layout === "poster" ? POSTER_IMAGE_WIDTHS : LANDSCAPE_IMAGE_WIDTHS,
+        aspectRatio: mediaCardAspectRatio(layout),
+        sizes: imageSizes,
+        fallbackWidth: 480,
+      })
+    : null;
+  const { status, imageProps } = useImageLoading(artwork?.src);
   const icon =
     list.kind === "playlist" ? (
       <PlaylistPlayRounded sx={{ fontSize: 64 }} />
@@ -52,21 +63,21 @@ export default function MediaListCard({
           color: "text.secondary",
         }}
       >
-        {list.image ? (
+        {artwork && status !== "missing" ? (
           <Box
             component="img"
+            key={artwork.src}
             alt=""
             loading="lazy"
-            {...getResponsiveTranscodeImageProps(list.image, {
-              widths:
-                layout === "poster"
-                  ? POSTER_IMAGE_WIDTHS
-                  : LANDSCAPE_IMAGE_WIDTHS,
-              aspectRatio: mediaCardAspectRatio(layout),
-              sizes: imageSizes,
-              fallbackWidth: 480,
-            })}
-            sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+            decoding="async"
+            {...artwork}
+            {...imageProps}
+            sx={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              ...imageFadeSx(status === "loaded"),
+            }}
           />
         ) : (
           icon

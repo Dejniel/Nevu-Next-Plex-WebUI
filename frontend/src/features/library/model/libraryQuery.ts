@@ -20,6 +20,23 @@ export interface LibraryQuery {
   seed?: string;
 }
 
+/** Album tracks use Plex's disc-aware indexed order, rather than metadata fields. */
+export function musicChildrenQuery(
+  profileKey: string,
+  sectionId: number,
+  item: Pick<Plex.Metadata, "ratingKey" | "type"> | undefined,
+): LibraryQuery | null {
+  if (!item || (item.type !== "artist" && item.type !== "album")) return null;
+  return {
+    profileKey,
+    sectionId,
+    source: "children",
+    parentId: item.ratingKey,
+    type: item.type === "artist" ? "album" : "track",
+    sort: item.type === "album" ? "track.absoluteIndex" : "year:desc,titleSort",
+  };
+}
+
 /** Plex's root photo catalog includes albums; a photo-only search hides them. */
 export function libraryRootQueryType(type: LibraryItemType, allPhotos = false): LibraryItemType | undefined {
   return type === "photo" && !allPhotos ? undefined : type;

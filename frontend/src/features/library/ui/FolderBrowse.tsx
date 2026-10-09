@@ -4,6 +4,7 @@ import {
   ArrowUpwardRounded,
 } from "@mui/icons-material";
 import { Box, Breadcrumbs, Button, Stack, Typography } from "@mui/material";
+import type React from "react";
 import { libraryEntryKey } from "@nevu/contracts";
 import { ActionableMediaCard } from "features/media-actions/public";
 import { TrackRow } from "features/music/public";
@@ -11,12 +12,18 @@ import { CollectionViewport } from "shared/ui/CollectionViewport";
 import { useLibraryViewport } from "../model/useLibraryViewport";
 import type { LibraryBrowseState } from "../model/useLibraryBrowseState";
 
-export function FolderBrowse({ state }: { state: LibraryBrowseState }) {
+export function FolderBrowse({
+  state,
+  observeRef,
+}: {
+  state: LibraryBrowseState;
+  observeRef?: React.RefObject<HTMLElement | null>;
+}) {
   const { folderPath, setFolderPath } = state;
   const { grid, range, hasData } = useLibraryViewport(state.query, {
-    itemWidth: 1_000_000,
-    imageAspectRatio: Infinity,
-    footerHeight: 76,
+    layout: "list",
+    itemHeight: 76,
+    observeRef,
   });
   return (
     <>

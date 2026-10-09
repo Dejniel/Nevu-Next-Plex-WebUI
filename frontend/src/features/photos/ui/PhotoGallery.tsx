@@ -11,15 +11,18 @@ import {
 } from "entities/media/model";
 import { catalogItemTo, mediaWatchTo } from "shared/lib/navigation";
 import { CollectionViewport } from "shared/ui/CollectionViewport";
+import { useImageLoading, imageFadeSx } from "shared/ui/useImageLoading";
 import { photoAspectRatio, photoMonth } from "../model/photos";
 import { PhotoViewer } from "./PhotoViewer";
 
 export function PhotoGallery({
   query,
   cardSize = 40,
+  observeRef,
 }: {
   query: LibraryQuery | null;
   cardSize?: number;
+  observeRef?: React.RefObject<HTMLElement | null>;
 }) {
   const [information, setInformation] = useState(false);
   const [params] = useSearchParams();
@@ -28,6 +31,7 @@ export function PhotoGallery({
     itemWidth: 160 + cardSize * 2,
     imageAspectRatio: 1.5,
     footerHeight: information ? 52 : 24,
+    observeRef,
   });
   const mediaAt = (index: number) => {
     const item = range.items.get(index);
@@ -157,33 +161,31 @@ function PhotoThumbnail({
   ratio: number;
   sizes: string;
 }) {
-  const [loaded, setLoaded] = useState(false);
-  const [failed, setFailed] = useState(false);
   const image = getResponsiveTranscodeImageProps(artwork, {
     widths: LANDSCAPE_IMAGE_WIDTHS,
     aspectRatio: ratio,
     sizes,
     fallbackWidth: 480,
   });
-  return failed ? (
+  const { status, imageProps } = useImageLoading(image.src);
+  return status === "missing" ? (
     <Typography sx={{ p: 1 }} color="text.secondary">
       Image unavailable
     </Typography>
   ) : (
     <Box
       component="img"
+      key={image.src}
       {...image}
       alt=""
       loading="eager"
       decoding="async"
-      onLoad={() => setLoaded(true)}
-      onError={() => setFailed(true)}
+      {...imageProps}
       sx={{
         width: "100%",
         height: "100%",
         objectFit: "contain",
-        opacity: loaded ? 1 : 0,
-        transition: "opacity 500ms ease",
+        ...imageFadeSx(status === "loaded"),
       }}
     />
   );
