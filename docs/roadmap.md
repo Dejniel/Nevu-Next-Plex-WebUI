@@ -17,18 +17,34 @@ the README and release notes; implementation-only cleanup belongs in the
 
 ## Next
 
+### Multiple selection and batch actions
+
+- Add shared multiple selection to library grids and detailed lists for video,
+  music and photos, with mouse, keyboard and touch support.
+- Apply existing actions to selected items according to media type and Plex
+  permissions, such as adding to lists or marking video watched/unwatched.
+- Reuse selection when adding photos to user-created albums.
+
 ### Music and photo workflows
 
 - Add user-created photo albums through Plex photo playlists, reusing list management.
-- Extend photo zoom with pinch/actual size, slideshow settings and multiple selection.
+- Extend photo zoom with pinch/actual size and add slideshow settings.
 - Extend metadata/artwork editing to music and photos through existing workflows.
 
 ## Later
 
+### Search and smart lists
+
+- Extend global search to artists, albums, tracks and photos; this remains
+  deferred while the basic music/photo workflows are completed.
+- Add creation and editing of smart playlist/collection rules, with Plex
+  evaluating list membership.
+
 ### Experience improvements
 
 - Consider gapless music playback, lyrics and music recommendations as separate extensions.
-
+- Refine artist/album pages, the persistent music player and queue, and the photo
+  gallery for desktop and mobile.
 - Extend Plex Home editing with profile pictures and custom rating/label restrictions;
   preserve existing restrictions when changing library access.
 - Add removal of a written Plex review while preserving ratings and watch history.
