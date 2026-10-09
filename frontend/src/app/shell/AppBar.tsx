@@ -87,6 +87,7 @@ function ApplicationBar() {
         px: { xs: 2, sm: 3, md: 6 },
         py: 0,
         height: 64,
+        gap: { xs: 1, md: 3 },
         transition: "all 0.5s ease-in-out",
 
         bgcolor: (theme) => (scrollAtTop ? "#00000000" : theme.palette.background.default + "88"),
@@ -240,6 +241,7 @@ S - Skip onscreen markers (intro, credits, etc)
         sx={{
           justifyContent: "flex-start",
           minWidth: 0,
+          flex: "1 1 0",
           ...barSideSx,
         }}
       >
@@ -251,7 +253,7 @@ S - Skip onscreen markers (intro, credits, etc)
             display: "flex",
             alignItems: "center",
             minWidth: 0,
-            flexShrink: 1,
+            flexShrink: isMobile ? 1 : 0,
             borderRadius: 0.5,
             "&:focus-visible": {
               outline: "2px solid",
@@ -282,9 +284,11 @@ S - Skip onscreen markers (intro, credits, etc)
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "flex-start",
-              gap: { md: 4.5, xl: 5 },
-              ml: 6,
+              gap: { md: 1.5, lg: 2.5 },
+              ml: { md: 3, lg: 4 },
               height: "100%",
+              flex: 1,
+              minWidth: 0,
             }}
           >
             <Link
@@ -293,6 +297,7 @@ S - Skip onscreen markers (intro, credits, etc)
               }`}
               to="/"
               aria-current={location.pathname === "/" ? "page" : undefined}
+              style={{ flexShrink: 0 }}
             >
               Home
             </Link>
@@ -304,6 +309,7 @@ S - Skip onscreen markers (intro, credits, etc)
       <Box
         sx={{
           justifyContent: "flex-end",
+          flexShrink: 0,
           ...barSideSx,
           gap: { xs: 1, md: 2 },
         }}

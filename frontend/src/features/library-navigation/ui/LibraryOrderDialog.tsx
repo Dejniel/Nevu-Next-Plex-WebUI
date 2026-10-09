@@ -5,6 +5,9 @@ import {
   ListItemText,
   Button,
   Tooltip,
+  FormControlLabel,
+  Switch,
+  Alert,
 } from "@mui/material";
 import {
   DragIndicatorRounded,
@@ -12,7 +15,7 @@ import {
   PushPinRounded,
 } from "@mui/icons-material";
 import { Reorder, useDragControls } from "motion/react";
-import React, { useEffect, useState } from "react";
+import { useState } from "react";
 import { AppDialog } from "shared/ui";
 import {
   LIBRARY_NAVIGATION_SETTING,
@@ -31,10 +34,12 @@ interface Props {
 function OrderRow({
   library,
   pinned,
+  disabled,
   onTogglePinned,
 }: {
   library: NavigationLibrary;
   pinned: boolean;
+  disabled: boolean;
   onTogglePinned: () => void;
 }) {
   const controls = useDragControls();
@@ -55,13 +60,17 @@ function OrderRow({
       >
         <ListItemIcon sx={{ minWidth: 40 }}>
           <DragIndicatorRounded
-            onPointerDown={(event) => controls.start(event)}
-            sx={{ cursor: "grab", touchAction: "none" }}
+            onPointerDown={(event) => !disabled && controls.start(event)}
+            sx={{ cursor: disabled ? "default" : "grab", touchAction: "none" }}
           />
         </ListItemIcon>
         <ListItemText primary={library.title} secondary={library.type} />
         <Tooltip title={pinned ? "Unpin library" : "Pin library"}>
-          <IconButton onClick={onTogglePinned} aria-label={pinned ? "Unpin library" : "Pin library"}>
+          <IconButton
+            disabled={disabled}
+            onClick={onTogglePinned}
+            aria-label={pinned ? "Unpin library" : "Pin library"}
+          >
             {pinned ? <PushPinRounded /> : <PushPinOutlined />}
           </IconButton>
         </Tooltip>
@@ -70,30 +79,53 @@ function OrderRow({
   );
 }
 
-export default function LibraryOrderDialog({ open, libraries, onClose }: Props) {
-  const { settings, setSetting } = useUserSettings();
-  const [ordered, setOrdered] = useState<NavigationLibrary[]>([]);
-  const [pinned, setPinned] = useState<string[]>([]);
-  const [saving, setSaving] = useState(false);
+export default function LibraryOrderDialog({
+  open,
+  libraries,
+  onClose,
+}: Props) {
+  const profileKey = useUserSettings((state) => state.profileKey);
+  return open ? (
+    <LibraryOrderEditor
+      key={profileKey}
+      libraries={libraries}
+      onClose={onClose}
+    />
+  ) : null;
+}
 
-  useEffect(() => {
-    if (!open) return;
-    const navigation = normalizeLibraryNavigation(libraries, settings);
-    setOrdered(navigation.ordered);
-    setPinned(navigation.preference.pinned);
-  }, [libraries, open, settings]);
+function LibraryOrderEditor({ libraries, onClose }: Omit<Props, "open">) {
+  const { profileKey, setSetting } = useUserSettings();
+  const [draft, setDraft] = useState(() => {
+    const navigation = normalizeLibraryNavigation(
+      libraries,
+      useUserSettings.getState().settings,
+    );
+    return {
+      ordered: navigation.ordered,
+      pinned: navigation.preference.pinned,
+      iconsOnly: navigation.preference.iconsOnly,
+    };
+  });
+  const { ordered, pinned, iconsOnly } = draft;
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const save = async () => {
     setSaving(true);
+    setFailed(false);
     try {
-      await setSetting(
+      const saved = await setSetting(
         LIBRARY_NAVIGATION_SETTING,
         serializeLibraryNavigation({
           order: ordered.map((library) => library.uuid),
           pinned,
+          iconsOnly,
         }),
       );
-      onClose();
+      if (saved && useUserSettings.getState().profileKey === profileKey)
+        onClose();
+      else setFailed(true);
     } finally {
       setSaving(false);
     }
@@ -101,7 +133,7 @@ export default function LibraryOrderDialog({ open, libraries, onClose }: Props) 
 
   return (
     <AppDialog
-      open={open}
+      open
       title="Arrange libraries"
       size="compact"
       busy={saving}
@@ -113,10 +145,30 @@ export default function LibraryOrderDialog({ open, libraries, onClose }: Props) 
         </Button>
       }
     >
+      <FormControlLabel
+        control={
+          <Switch
+            checked={iconsOnly}
+            disabled={saving}
+            onChange={(_, value) =>
+              setDraft((current) => ({ ...current, iconsOnly: value }))
+            }
+          />
+        }
+        label="Show only library icons in the top bar"
+        sx={{ mb: 1 }}
+      />
+      {failed && (
+        <Alert severity="error" sx={{ mb: 1 }}>
+          Library preferences could not be saved. Please try again.
+        </Alert>
+      )}
       <Reorder.Group
         axis="y"
         values={ordered}
-        onReorder={setOrdered}
+        onReorder={(ordered) =>
+          setDraft((current) => ({ ...current, ordered }))
+        }
         style={{ margin: 0, padding: 0 }}
       >
         {ordered.map((library) => (
@@ -124,12 +176,14 @@ export default function LibraryOrderDialog({ open, libraries, onClose }: Props) 
             key={library.uuid}
             library={library}
             pinned={pinned.includes(library.uuid)}
+            disabled={saving}
             onTogglePinned={() =>
-              setPinned((current) =>
-                current.includes(library.uuid)
-                  ? current.filter((id) => id !== library.uuid)
-                  : [...current, library.uuid],
-              )
+              setDraft((current) => ({
+                ...current,
+                pinned: current.pinned.includes(library.uuid)
+                  ? current.pinned.filter((id) => id !== library.uuid)
+                  : [...current.pinned, library.uuid],
+              }))
             }
           />
         ))}

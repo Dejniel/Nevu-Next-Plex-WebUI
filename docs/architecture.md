@@ -137,6 +137,10 @@ editing and matching, original-file downloads, and playback-target resolution
 while the shared `MediaCard` remains presentation-focused. `entities/library`
 owns reusable library data and administration requests.
 
+Library navigation and title actions share toolbar measurement and focus handling;
+each feature owns its overflow rules. Library order, pins and icon mode share one
+profile setting; mobile navigation always keeps full names.
+
 Server and library preferences share the normalized `Setting` contract and
 validation in `contracts/preferences`; `entities/plex-preferences` owns the field
 renderer and sparse local drafts. Settings uses native profile/server-scoped

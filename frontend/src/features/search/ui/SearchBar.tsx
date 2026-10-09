@@ -146,7 +146,7 @@ export default function SearchBar({
           backgroundColor: "#121212AA",
           transition: "width 0.2s ease-in-out",
           zIndex: 11000,
-          width: inDrawer ? "100%" : open ? "20vw" : 300,
+          width: inDrawer ? "100%" : open ? "clamp(160px, 20vw, 400px)" : "clamp(160px, 20vw, 300px)",
         }}
       />
       <Popper
@@ -162,7 +162,7 @@ export default function SearchBar({
           display: "flex",
           flexDirection: "column",
           gap: "10px",
-          width: inDrawer ? "260px" : open ? "20vw" : "300px",
+          width: inDrawer ? "260px" : "clamp(160px, 20vw, 400px)",
           zIndex: 11000,
         }}
         onClick={(event) => event.stopPropagation()}

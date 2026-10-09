@@ -118,6 +118,9 @@ refresh library access, while PINs stay outside storage and the mutation cache.
 
 For list browsing, create a collection and video/audio playlists in test Plex using
 the samples. Check their library views, search, empty states, and back links.
+Check the top bar at narrow desktop widths, long library names, overflow-menu
+keyboard focus, and profile-specific pins/order/icon mode. Mobile should retain
+full names and keep its drawer open while arranging libraries.
 Verify playlist order with Next, playback completion, and returning to the list;
 include repeated titles, episodes, and another profile when available. For large
 lists, check the last item and retry a failed page or playback queue.

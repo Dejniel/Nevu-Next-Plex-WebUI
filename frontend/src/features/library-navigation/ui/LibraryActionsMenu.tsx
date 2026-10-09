@@ -40,9 +40,10 @@ interface Props {
   library: NavigationLibrary | null;
   libraries: NavigationLibrary[];
   onClose: () => void;
+  onNavigate?: () => void;
 }
 
-export default function LibraryActionsMenu({ anchorEl, library, libraries, onClose }: Props) {
+export default function LibraryActionsMenu({ anchorEl, library, libraries, onClose, onNavigate }: Props) {
   const canManageServer = useCanManageServer();
   const { settings, setSetting } = useUserSettings();
   const [orderOpen, setOrderOpen] = useState(false);
@@ -55,6 +56,10 @@ export default function LibraryActionsMenu({ anchorEl, library, libraries, onClo
   const closeAnd = (callback: () => void) => {
     onClose();
     callback();
+  };
+  const navigate = () => {
+    onClose();
+    onNavigate?.();
   };
 
   const togglePinned = async () => {
@@ -94,7 +99,7 @@ export default function LibraryActionsMenu({ anchorEl, library, libraries, onClo
           { view: "collections", label: "Collections", icon: <CollectionsBookmarkRounded /> },
           { view: "playlists", label: "Playlists", icon: <PlaylistPlayRounded /> },
         ].filter(entry => libraryViews(library.type).some(view => view === entry.view))
-        .map((entry) => <MenuItem key={entry.view} component={Link} to={`/browse/${library.key}?view=${entry.view}`} onClick={onClose}>
+        .map((entry) => <MenuItem key={entry.view} component={Link} to={`/browse/${library.key}?view=${entry.view}`} onClick={navigate}>
           <ListItemIcon>{entry.icon}</ListItemIcon>
           <ListItemText>{entry.label}</ListItemText>
         </MenuItem>)}
@@ -105,7 +110,7 @@ export default function LibraryActionsMenu({ anchorEl, library, libraries, onClo
         </MenuItem>
         <MenuItem onClick={() => closeAnd(() => setOrderOpen(true))}>
           <ListItemIcon><DriveFileMoveRounded /></ListItemIcon>
-          <ListItemText>Reorder libraries</ListItemText>
+          <ListItemText>Arrange libraries</ListItemText>
         </MenuItem>
 
         {canManageServer && library && (
@@ -114,7 +119,7 @@ export default function LibraryActionsMenu({ anchorEl, library, libraries, onClo
             <MenuItem
               component={Link}
               to={`/settings/manage-libraries?edit=${library.key}`}
-              onClick={onClose}
+              onClick={navigate}
             >
               <ListItemIcon><EditRounded /></ListItemIcon>
               <ListItemText>Edit library</ListItemText>
@@ -138,7 +143,7 @@ export default function LibraryActionsMenu({ anchorEl, library, libraries, onClo
             <MenuItem
               component={Link}
               to={`/settings/manage-libraries?delete=${library.key}`}
-              onClick={onClose}
+              onClick={navigate}
             >
               <ListItemIcon><MoreHorizRounded /></ListItemIcon>
               <ListItemText>Delete library</ListItemText>

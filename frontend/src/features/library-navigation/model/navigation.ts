@@ -1,3 +1,5 @@
+import type { ToolbarMeasurements } from "shared/lib/useToolbarOverflow";
+
 export const LIBRARY_NAVIGATION_SETTING = "LIBRARY_NAVIGATION";
 
 export type NavigationLibrary = Pick<
@@ -8,6 +10,7 @@ export type NavigationLibrary = Pick<
 export interface LibraryNavigationPreference {
   order: string[];
   pinned: string[];
+  iconsOnly?: boolean;
 }
 
 export function isLibraryRouteActive(pathname: string, libraryKey: string) {
@@ -25,12 +28,18 @@ export function parseLibraryNavigation(
   if (!value) return null;
   try {
     const parsed = JSON.parse(value) as Partial<LibraryNavigationPreference>;
-    if (!Array.isArray(parsed.order) || !Array.isArray(parsed.pinned)) return null;
+    if (!Array.isArray(parsed.order) || !Array.isArray(parsed.pinned))
+      return null;
     if (
       !parsed.order.every((id) => typeof id === "string") ||
       !parsed.pinned.every((id) => typeof id === "string")
-    ) return null;
-    return { order: unique(parsed.order), pinned: unique(parsed.pinned) };
+    )
+      return null;
+    return {
+      order: unique(parsed.order),
+      pinned: unique(parsed.pinned),
+      iconsOnly: parsed.iconsOnly === true,
+    };
   } catch {
     return null;
   }
@@ -57,7 +66,11 @@ export function normalizeLibraryNavigation(
   const pinnedSet = new Set(pinned);
 
   return {
-    preference: { order, pinned } satisfies LibraryNavigationPreference,
+    preference: {
+      order,
+      pinned,
+      iconsOnly: stored?.iconsOnly ?? false,
+    } satisfies LibraryNavigationPreference,
     ordered,
     pinned: ordered.filter((library) => pinnedSet.has(library.uuid)),
     unpinned: ordered.filter((library) => !pinnedSet.has(library.uuid)),
@@ -68,5 +81,24 @@ export function serializeLibraryNavigation(value: LibraryNavigationPreference) {
   return JSON.stringify({
     order: unique(value.order),
     pinned: unique(value.pinned),
+    ...(value.iconsOnly && { iconsOnly: true }),
   });
+}
+
+/** Preserve pin order and reserve the selector only when some libraries need it. */
+export function libraryNavigationOverflow(
+  { width, gap, items }: ToolbarMeasurements,
+  keys: readonly string[],
+  hasUnpinned: boolean,
+) {
+  let visible = keys.length;
+  let linksWidth = keys.reduce((sum, key) => sum + items[key], 0);
+  const requiredWidth = () => {
+    const menu = hasUnpinned || visible < keys.length;
+    const count = visible + Number(menu);
+    return linksWidth + (menu ? items.more : 0) + Math.max(0, count - 1) * gap;
+  };
+  while (visible > 0 && requiredWidth() > width)
+    linksWidth -= items[keys[--visible]];
+  return keys.slice(visible);
 }

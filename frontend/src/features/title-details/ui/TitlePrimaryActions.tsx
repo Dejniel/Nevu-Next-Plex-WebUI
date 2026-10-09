@@ -71,7 +71,7 @@ function ActionSlot({
   return (
     <Box
       component="span"
-      data-title-action={id}
+      data-overflow-item={id}
       aria-hidden={hidden || undefined}
       inert={hidden || undefined}
       sx={{
