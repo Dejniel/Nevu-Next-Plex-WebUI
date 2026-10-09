@@ -24,7 +24,7 @@ Nevu Next is a modified fork of [Ipmake/NevuForPlex](https://github.com/Ipmake/N
 - **Movie and TV discovery** with search, Continue Watching, watchlists, recommendations, recently added media, new releases, and related-title rows.
 - **Configurable library browsing** with watched-state and type filters, multiple sort orders, adjustable card sizes, and landscape or poster layouts saved per Plex Home profile. The type selector includes TV seasons and folder browsing for movie, TV and music libraries; tracks and folders use detailed lists.
 - **Plex Watchlist** inside libraries with an optional library filter, search, sorting, and local availability labels; the same view opens the full list from Home.
-- **Collections and video/music playlists** alongside library views, with search, sorting, paged contents, and playlist playback in Plex order. Card and title menus add media to existing or new lists. Own playlists support name/description editing, moving and removing individual entries, and deletion; collection editing follows library management permissions. Library menus provide direct links to lists and Watchlist.
+- **Collections, video/music playlists and personal photo albums** alongside library views, with search, sorting, paged contents, and playlist playback in Plex order. Card and title menus add media to existing or new lists. Personal lists support name/description editing, moving and removing individual entries, and deletion; collection editing follows library management permissions. Library menus provide direct links to lists and Watchlist.
 - **Personalized navigation** with library pinning, ordering, and optional icons only for each profile. The top bar fits available space and groups remaining libraries in a compact selector with full names.
 - **Richer title pages** with adaptive trailers, ratings, critic and community reviews, cast, related titles, extras, media details, and technical information.
 - **Ratings and reviews** on a consistent 0–10 scale with provider labels, individual friend ratings, community reviews with spoiler protection, and writing or editing your own Plex review.
@@ -50,7 +50,10 @@ queue entry and position paused. Artist, album and track menus create or extend 
 playlists; saved playlists play from a selected song or shuffled. Photo libraries
 offer album browsing and a chronological `All photos` view, with shared filters
 and sorting. Their gallery supports fullscreen viewing, zoom, slideshows and
-photo information. Music and photos also support personal ratings stored on Plex
+photo information. `My albums` stores personal photo selections as native Plex
+playlists, with shared name/description editing, reordering, removal and deletion.
+Create an album or add a photo to an existing one from its menu. Music and photos
+also support personal ratings stored on Plex
 for the active profile. It is not an official Plex product and is
 not affiliated with Plex, Inc.
 

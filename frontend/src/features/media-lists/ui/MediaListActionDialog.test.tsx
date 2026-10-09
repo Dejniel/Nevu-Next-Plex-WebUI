@@ -119,3 +119,29 @@ it("does not show a previous profile's delayed save result", async () => {
   expect(document.body.textContent).not.toContain("Added to");
   expect(document.querySelector('[role="dialog"]')).toBeNull();
 });
+
+it("creates a photo album in the shared dialog and links to its library album view", async () => {
+  const photo = { ...movie, type: "photo" as const, librarySectionID: 5 };
+  save.mockResolvedValue({ ...saved, playlistType: "photo" });
+  await act(async () => openMediaListDialog("playlist", photo));
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+    "Add to album",
+  );
+  expect(document.body.textContent).toContain("Album name");
+  const input = document.querySelector("input")!;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )!.set!.call(input, "Trip");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  const button = Array.from(document.querySelectorAll("button")).find(
+    (button) => button.textContent === "Create and add",
+  )!;
+  await act(async () => button.click());
+  expect(save).toHaveBeenCalledWith("playlist", photo, { title: "Trip" });
+  expect(document.querySelector("a")?.getAttribute("href")).toBe(
+    "/browse/5?list=20&view=playlists",
+  );
+});

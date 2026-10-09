@@ -76,9 +76,11 @@ does not support queues with an Up Next area; a rejected change leaves playback
 intact and suggests starting a shuffled album/playlist selection.
 Audio conversions and video share `shared/api/plexPlayback`: decision validation,
 identical preparation/start parameters and captured credentials for session control.
-`features/photos` keeps preview identity in the URL and reads nearby catalog
-pages in the current filter/sort order. Neither workflow adds a second catalog
-cache. Video clips in photo albums use the existing video playback screen.
+`features/photos` shares source-independent gallery/viewer presentation between
+library catalogs and personal photo albums. Source adapters keep ownership of
+paging; preview identity stays in the URL, and nearby pages follow the source order.
+Neither workflow adds a second catalog cache. Video clips in photo albums use the
+existing video playback screen.
 Root photo browsing retains Plex's mixed album/photo catalog; its presentation
 type is separate from the photo-only search filter used by Plex.
 The `All photos` view requests `type=13&clusterZoomLevel=1` for photos across
@@ -180,10 +182,12 @@ views reuse the card toolbar and `shared/ui/VirtualGrid`.
 adapters, mutations, profile-scoped paging, and the shared add-to-list dialog;
 playlist positions remain distinct even when titles repeat. Its headless model
 supplies playlist playback, return links, and list-action capabilities.
-Video and audio playlists share paging, editing and synchronization; index keys
-include their media type. Music uses native Plex playlist sources for its queue,
+Video, audio and photo playlists share paging, editing and synchronization;
+index keys include their media type. Music uses native Plex playlist sources for its queue,
 validating the selected saved entry before playback. Track rows are shared with
-album browsing; playlist entries add their position and editing actions.
+album browsing; playlist entries add their position and editing actions. Photo
+playlists appear as `My albums`; their entries use the shared gallery, viewer and
+playlist occurrence menus. Personal music/photo menus share add-to-list actions.
 Playlist editing uses the active profile's token and Plex entry IDs. Reordering
 reads only the source and destination entries, checking their current positions.
 Native Query mutations reuse list synchronization before closing the editor;

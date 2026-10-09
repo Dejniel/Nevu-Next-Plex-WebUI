@@ -15,7 +15,7 @@ const videoViews: readonly LibraryView[] = [
 ];
 const catalogViews: readonly LibraryView[] = ["browse"];
 const musicViews: readonly LibraryView[] = ["browse", "playlists"];
-const photoViews: readonly LibraryView[] = ["browse", "photos"];
+const photoViews: readonly LibraryView[] = ["browse", "photos", "playlists"];
 
 export function isBrowsableLibraryType(type: string) {
   return ["movie", "show", "artist", "photo"].includes(type);

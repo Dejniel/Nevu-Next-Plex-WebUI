@@ -1,5 +1,5 @@
 export type MediaListKind = "collection" | "playlist";
-export type PlaylistType = "video" | "audio";
+export type PlaylistType = "video" | "audio" | "photo";
 
 export interface MediaListSummary {
   kind: MediaListKind;
@@ -95,4 +95,12 @@ export function playlistReturnPath(context: PlaylistPlaybackContext) {
   if (!context.libraryID) return `/playlists?${params}`;
   params.set("view", "playlists");
   return `/browse/${context.libraryID}?${params}`;
+}
+
+export function playlistPhoto(record: MediaListRecord) {
+  return record.kind === "media" &&
+    record.supported &&
+    record.item.type === "photo"
+    ? record.item
+    : undefined;
 }

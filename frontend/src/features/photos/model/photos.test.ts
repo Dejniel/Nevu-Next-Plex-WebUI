@@ -3,6 +3,8 @@ import {
   photoMonth,
   photoIndex,
   adjacentPhoto,
+  photoItems,
+  photoViewerRange,
 } from "./photos";
 import type { LibraryEntryDto } from "@nevu/contracts";
 
@@ -73,4 +75,24 @@ it("uses the photo date for month groups, with an explicit undated group", () =>
   expect(photoMonth({ ratingKey: "1", type: "photo", title: "P" })).toBe(
     "Undated",
   );
+});
+
+it("keeps the offsets and repeated occurrences from a personal album", () => {
+  const records = new Map([
+    [0, { item: photo("same") }],
+    [1, { item: photo("same") }],
+    [100, { item: photo("tail") }],
+  ]);
+  const items = photoItems(records, (record) =>
+    record.item.type === "folder" ? undefined : record.item,
+  );
+  expect(items.size).toBe(3);
+  expect(adjacentPhoto(items, "same", 0, 1)?.[0]).toBe(1);
+  expect(adjacentPhoto(items, "same", 1, 1)).toBeUndefined();
+  expect(photoViewerRange(new URLSearchParams("photoIndex=10000"))).toEqual({
+    start: 9936,
+    end: 10064,
+    visibleStart: 10000,
+    visibleEnd: 10000,
+  });
 });

@@ -265,3 +265,42 @@ it("validates one selected audio occurrence without downloading the playlist", a
   transport.mockResolvedValue(response([{ ...movie("42", 81), type: "track", sourceURI: "server://other/library/metadata/42" }], { offset: 10000 }));
   await expect(getPlaylistEntry(context, "42")).rejects.toThrow("cannot be played");
 });
+
+it("reads native photo playlists with distinct occurrences and keeps foreign photos unavailable", async () => {
+  transport
+    .mockResolvedValueOnce(
+      response([
+        {
+          type: "playlist",
+          playlistType: "photo",
+          ratingKey: "20",
+          title: "Trip",
+          leafCount: 3,
+        },
+      ]),
+    )
+    .mockResolvedValueOnce(
+      response(
+        [
+          { ...movie("54", 177), type: "photo", librarySectionID: 5 },
+          { ...movie("54", 178), type: "photo", librarySectionID: 5 },
+          {
+            ...movie("55", 179),
+            type: "photo",
+            sourceURI: "server://other/library/metadata/55",
+          },
+        ],
+        { totalSize: 3 },
+      ),
+    );
+  const source = createMediaListSource({ kind: "playlist", id: "20" });
+  expect(await source.summary()).toMatchObject({
+    playlistType: "photo",
+    count: 3,
+  });
+  expect((await source.page(0, 100)).items).toMatchObject([
+    { supported: true, position: 0, playlistItemID: "177" },
+    { supported: true, position: 1, playlistItemID: "178" },
+    { supported: false, position: 2, playlistItemID: "179" },
+  ]);
+});

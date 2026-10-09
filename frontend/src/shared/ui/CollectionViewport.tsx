@@ -7,7 +7,7 @@ import {
 import VirtualGrid from "./VirtualGrid";
 import { QueryErrorAlert } from "./QueryErrorAlert";
 
-interface Range<T> {
+export interface CollectionRange<T> {
   items: ReadonlyMap<number, T>;
   errors: ReadonlyMap<number, { message: string; retryable: boolean }>;
   pageSize: number;
@@ -28,7 +28,7 @@ export function CollectionViewport<T>({
   emptyAction,
 }: {
   grid: ReturnType<typeof useVirtualGrid>;
-  range: Range<T>;
+  range: CollectionRange<T>;
   hasData: boolean;
   itemKey: (item: T) => React.Key;
   renderItem: (item: T, index: number, imageSizes: string) => React.ReactNode;

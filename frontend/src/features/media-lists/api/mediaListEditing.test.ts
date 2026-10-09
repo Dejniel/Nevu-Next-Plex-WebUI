@@ -235,3 +235,53 @@ it.each([
   await expect(saveMediaListItem("playlist", { ...movie, type }, { id: "20" })).rejects.toThrow("same media type");
   expect(transport.mock.calls.map((call) => call[1])).toEqual(["GET"]);
 });
+
+it("creates a personal photo album and adds a photo using the shared playlist operations", async () => {
+  const photo = { ...movie, type: "photo" as const };
+  useServerSession.setState({ canManageServer: false });
+  transport.mockResolvedValueOnce(
+    response([list("playlist", { playlistType: "photo" })]),
+  );
+  await expect(
+    saveMediaListItem("playlist", photo, { title: "Trip" }),
+  ).resolves.toMatchObject({ playlistType: "photo" });
+  expect(params(0).get("type")).toBe("photo");
+  expect(params(0).get("uri")).toBe(
+    "server://local/com.plexapp.plugins.library/library/metadata/3",
+  );
+  transport
+    .mockResolvedValueOnce(
+      response([list("playlist", { playlistType: "photo" })]),
+    )
+    .mockResolvedValueOnce({ status: 200, data: {} });
+  await saveMediaListItem("playlist", photo, { id: "20" });
+  expect(transport.mock.calls[2].slice(0, 2)).toEqual([
+    expect.stringContaining("/playlists/20/items?"),
+    "PUT",
+  ]);
+});
+
+it("offers only photo albums for photos and refuses mixing an existing music playlist", async () => {
+  const photo = { ...movie, type: "photo" as const };
+  transport.mockResolvedValue(
+    response([
+      list("playlist", { playlistType: "video", ratingKey: "21" }),
+      list("playlist", { playlistType: "audio", ratingKey: "22" }),
+      list("playlist", { playlistType: "photo", ratingKey: "23" }),
+    ]),
+  );
+  const choices = await getMediaListChoices(
+    "playlist",
+    photo,
+    new AbortController().signal,
+  );
+  expect(params(0).get("playlistType")).toBe("photo");
+  expect(choices.map((choice) => choice.id)).toEqual(["23"]);
+  transport.mockResolvedValue(
+    response([list("playlist", { playlistType: "audio" })]),
+  );
+  await expect(
+    saveMediaListItem("playlist", photo, { id: "20" }),
+  ).rejects.toThrow("same media type");
+  expect(transport.mock.calls.map((call) => call[1])).toEqual(["GET", "GET"]);
+});

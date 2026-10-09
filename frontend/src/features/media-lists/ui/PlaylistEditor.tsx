@@ -43,11 +43,13 @@ export default function PlaylistEditor({
   onClose: () => void;
   onDeleted: () => void;
 }) {
+  const noun = playlist.playlistType === "photo" ? "album" : "playlist";
+  const name = playlist.playlistType === "photo" ? "Album" : "Playlist";
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   return (
     <>
       <IconButton
-        aria-label="Playlist actions"
+        aria-label={`${name} actions`}
         aria-haspopup="menu"
         aria-expanded={Boolean(anchor)}
         onClick={(event) => setAnchor(event.currentTarget)}
@@ -68,7 +70,7 @@ export default function PlaylistEditor({
           <ListItemIcon>
             <EditRounded fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Edit playlist…</ListItemText>
+          <ListItemText>{`Edit ${noun}…`}</ListItemText>
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -79,7 +81,7 @@ export default function PlaylistEditor({
           <ListItemIcon>
             <DeleteOutlineRounded fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Delete playlist…</ListItemText>
+          <ListItemText>{`Delete ${noun}…`}</ListItemText>
         </MenuItem>
       </Menu>
       {selected && (
@@ -112,6 +114,8 @@ function PlaylistEditDialog({
   onClose: () => void;
   onDeleted: () => void;
 }) {
+  const noun = playlist.playlistType === "photo" ? "album" : "playlist";
+  const name = playlist.playlistType === "photo" ? "Album" : "Playlist";
   const [title, setTitle] = useState(playlist.title);
   const [summary, setSummary] = useState(playlist.summary);
   const [position, setPosition] = useState(
@@ -136,7 +140,7 @@ function PlaylistEditDialog({
         ? "Move"
         : action.type === "remove"
           ? "Remove"
-          : "Delete playlist";
+          : `Delete ${noun}`;
   const submit = () => {
     if (!valid || mutation.isPending) return;
     const edit: PlaylistEdit =
@@ -162,12 +166,12 @@ function PlaylistEditDialog({
       onClose={onClose}
       title={
         action.type === "details"
-          ? "Edit playlist"
+          ? `Edit ${noun}`
           : moving
-            ? "Move playlist item"
+            ? `Move ${noun} item`
             : action.type === "remove"
-              ? "Remove from playlist?"
-              : "Delete playlist?"
+              ? `Remove from ${noun}?`
+              : `Delete ${noun}?`
       }
       actions={
         <>
@@ -201,7 +205,7 @@ function PlaylistEditDialog({
             <TextField
               autoFocus
               fullWidth
-              label="Playlist name"
+              label={`${name} name`}
               value={title}
               disabled={mutation.isPending}
               onChange={(event) => setTitle(event.target.value)}
@@ -217,7 +221,7 @@ function PlaylistEditDialog({
             />
             {playlist.smart && (
               <Typography variant="body2" color="text.secondary">
-                Items in this smart playlist are managed by its filters in Plex.
+                Items in this smart {noun} are managed by its filters in Plex.
               </Typography>
             )}
           </>
@@ -255,8 +259,8 @@ function PlaylistEditDialog({
         ) : (
           <Typography sx={{ overflowWrap: "anywhere" }}>
             {action.type === "remove"
-              ? `Remove “${action.entry.item.title}” (position ${action.entry.position + 1}) from “${playlist.title}”? The title stays in your library.`
-              : `Delete “${playlist.title}” for this profile? Titles in your library will be kept.`}
+              ? `Remove “${action.entry.item.title}” (position ${action.entry.position + 1}) from “${playlist.title}”? The item stays in your library.`
+              : `Delete “${playlist.title}” for this profile? Items in your library will be kept.`}
           </Typography>
         )}
       </Stack>

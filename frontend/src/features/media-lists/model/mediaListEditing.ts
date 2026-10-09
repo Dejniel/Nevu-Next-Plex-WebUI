@@ -15,6 +15,7 @@ export interface MediaListCapabilities {
 }
 
 export function playlistTypeForItem(type: string): PlaylistType | null {
+  if (type === "photo") return "photo";
   if (["artist", "album", "track"].includes(type)) return "audio";
   if (["movie", "show", "season", "episode"].includes(type)) return "video";
   return null;

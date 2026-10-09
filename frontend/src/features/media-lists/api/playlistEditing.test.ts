@@ -20,10 +20,12 @@ const entry = (position: number) => ({
 });
 let total: number;
 let smart: boolean;
+let playlistType: "video" | "photo";
 beforeEach(() => {
   vi.resetAllMocks();
   total = 20_000;
   smart = false;
+  playlistType = "video";
   AuthStorage.saveActiveSession({
     profile: null,
     accountToken: "account",
@@ -43,7 +45,7 @@ beforeEach(() => {
         {
           ratingKey: "20",
           type: "playlist",
-          playlistType: "video",
+          playlistType,
           title: "Weekend",
           leafCount: total,
           smart,
@@ -55,7 +57,7 @@ beforeEach(() => {
       [
         {
           ratingKey: "3",
-          type: "movie",
+          type: playlistType === "photo" ? "photo" : "movie",
           title: "Movie",
           playlistItemID: 100 + position,
         },
@@ -274,3 +276,24 @@ it("rejects malformed identities and out-of-range positions before contacting Pl
     await expect(editPlaylist(id, edit, signal())).rejects.toThrow();
   expect(transport).not.toHaveBeenCalled();
 });
+
+it.each<PlaylistEdit>([
+  { type: "details", title: "Photo trip", summary: "Description" },
+  { type: "move", entry: entry(9), position: 0, total: 20_000 },
+  { type: "remove", entry: entry(9) },
+  { type: "delete" },
+])(
+  "edits a native photo album through the shared $type operation",
+  async (edit) => {
+    playlistType = "photo";
+    await expect(editPlaylist("20", edit, signal())).resolves.toMatchObject({
+      kind: "list",
+      listKind: "playlist",
+      id: "20",
+      profileKey: "owner:2",
+    });
+    expect(
+      transport.mock.calls.filter((call) => call[1] !== "GET"),
+    ).toHaveLength(1);
+  },
+);

@@ -112,7 +112,7 @@ function listSummary(
     !item.ratingKey ||
     !item.title ||
     (kind === "playlist" &&
-      !["video", "audio"].includes(item.playlistType ?? ""))
+      !["video", "audio", "photo"].includes(item.playlistType ?? ""))
   )
     throw new Error("Plex returned an unsupported media list.");
   return {
@@ -129,7 +129,7 @@ function listSummary(
         : String(item.librarySectionID),
     itemType: item.subtype,
     ...(kind === "playlist" && {
-      playlistType: item.playlistType as "video" | "audio",
+      playlistType: item.playlistType as MediaListSummary["playlistType"],
     }),
   };
 }
@@ -152,7 +152,7 @@ function itemEntry(
     item: { ...item, librarySectionID: item.librarySectionID ?? section ?? 0 },
     supported:
       (kind === "playlist"
-        ? ["movie", "show", "episode", "track"]
+        ? ["movie", "show", "episode", "track", "photo"]
         : ["movie", "show", "episode"]
       ).includes(item.type) &&
       /^\d+$/.test(item.ratingKey) &&

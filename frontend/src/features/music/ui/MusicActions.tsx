@@ -3,11 +3,6 @@ import { MediaItemMenu } from "features/media-actions/public";
 import { Button, Divider, MenuItem, Stack } from "@mui/material";
 import { PlayArrowRounded, ShuffleRounded } from "@mui/icons-material";
 import type { MediaItemData } from "entities/media/model";
-import { getMediaListCapabilities } from "features/media-lists/model";
-import {
-  openMediaListDialog,
-  renderMediaListMenuItems,
-} from "features/media-lists/public";
 import { useMusic } from "../model/MusicProvider";
 
 export function MusicMenu({
@@ -20,10 +15,6 @@ export function MusicMenu({
   renderMenuItems?: (onClose: () => void) => React.ReactNode;
 }) {
   const music = useMusic();
-  const capabilities = getMediaListCapabilities(item, {
-    localItem: true,
-    canManageServer: false,
-  });
   return (
     <MediaItemMenu
       item={item}
@@ -59,14 +50,6 @@ export function MusicMenu({
         >
           Add to queue
         </MenuItem>,
-        capabilities.canAddToPlaylist && <Divider key="lists" />,
-        ...renderMediaListMenuItems({
-          capabilities,
-          onSelect: (kind) => {
-            close();
-            openMediaListDialog(kind, item);
-          },
-        }),
         renderMenuItems && <Divider key="custom" />,
         renderMenuItems?.(close),
       ]}

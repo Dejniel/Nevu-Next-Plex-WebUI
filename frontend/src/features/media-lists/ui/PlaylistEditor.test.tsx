@@ -42,12 +42,13 @@ let root: Root;
 let host: HTMLDivElement;
 let initial: PlaylistAction | null;
 let profile: string;
+let photoAlbum: boolean;
 function Harness() {
   const [selected, setSelected] = useState(initial);
   return (
     <PlaylistEditor
       key={profile}
-      playlist={playlist}
+      playlist={{ ...playlist, playlistType: photoAlbum ? "photo" : "video" }}
       total={40}
       scope={{ serverId: "local", profileKey: profile }}
       selected={selected}
@@ -97,6 +98,7 @@ beforeEach(() => {
   serverQueryClient.clear();
   initial = null;
   profile = "owner:2";
+  photoAlbum = false;
   AuthStorage.saveActiveSession({
     profile: null,
     accountToken: "account",
@@ -126,31 +128,36 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
-it("opens editing from the playlist menu and saves name and description", async () => {
-  await render();
-  await act(async () =>
-    (
-      document.querySelector('[aria-label="Playlist actions"]') as HTMLElement
-    ).click(),
-  );
-  const edit = Array.from(document.querySelectorAll('[role="menuitem"]')).find(
-    (element) => element.textContent === "Edit playlist…",
-  )!;
-  await act(async () => (edit as HTMLElement).click());
-  expect(input("Playlist name").value).toBe("Weekend");
-  expect(input("Description").value).toBe("Description");
-  await type("Playlist name", " ");
-  expect(button("Save").disabled).toBe(true);
-  await type("Playlist name", "New name");
-  await type("Description", "New description");
-  await click("Save");
-  expect(save).toHaveBeenCalledWith(
-    "20",
-    { type: "details", title: "New name", summary: "New description" },
-    expect.any(AbortSignal),
-  );
-  expect(document.querySelector('[role="dialog"]')).toBeNull();
-});
+it.each(["playlist", "album"])(
+  "opens editing from the %s menu and saves name and description",
+  async (noun) => {
+    photoAlbum = noun === "album";
+    const name = photoAlbum ? "Album" : "Playlist";
+    await render();
+    await act(async () =>
+      (
+        document.querySelector(`[aria-label="${name} actions"]`) as HTMLElement
+      ).click(),
+    );
+    const edit = Array.from(
+      document.querySelectorAll('[role="menuitem"]'),
+    ).find((element) => element.textContent === `Edit ${noun}…`)!;
+    await act(async () => (edit as HTMLElement).click());
+    expect(input(`${name} name`).value).toBe("Weekend");
+    expect(input("Description").value).toBe("Description");
+    await type(`${name} name`, " ");
+    expect(button("Save").disabled).toBe(true);
+    await type(`${name} name`, "New name");
+    await type("Description", "New description");
+    await click("Save");
+    expect(save).toHaveBeenCalledWith(
+      "20",
+      { type: "details", title: "New name", summary: "New description" },
+      expect.any(AbortSignal),
+    );
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+  },
+);
 
 it("supports arbitrary positions and first/last on keyboard and touch without accepting invalid or unchanged values", async () => {
   initial = { type: "move", entry };

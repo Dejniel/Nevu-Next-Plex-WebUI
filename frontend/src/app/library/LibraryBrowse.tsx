@@ -40,13 +40,20 @@ function BrowsePageSelector({
   page,
   setPage,
   availableViews,
+  photoLibrary,
 }: {
   page: BrowsePages;
   setPage: (page: BrowsePages) => void;
   availableViews: readonly LibraryView[];
+  photoLibrary: boolean;
 }) {
   const location = useLocation();
-  const visibleViews = views.filter((view) => availableViews.includes(view.id));
+  const visibleViews = views
+    .filter((view) => availableViews.includes(view.id))
+    .map((view) => ({
+      ...view,
+      label: photoLibrary && view.id === "playlists" ? "My albums" : view.label,
+    }));
   return (
     <>
       <Select
@@ -163,6 +170,7 @@ function LibraryBrowse() {
       page={page}
       setPage={setPage}
       availableViews={availableViews}
+      photoLibrary={library?.type === "photo"}
     />
   );
 
@@ -208,7 +216,13 @@ function LibraryBrowse() {
             key={page}
             kind={page === "collections" ? "collection" : "playlist"}
             libraryID={libraryID}
-            playlistType={library?.type === "artist" ? "audio" : "video"}
+            playlistType={
+              library?.type === "artist"
+                ? "audio"
+                : library?.type === "photo"
+                  ? "photo"
+                  : "video"
+            }
             pageNavigation={pageSelector}
           />
         )}

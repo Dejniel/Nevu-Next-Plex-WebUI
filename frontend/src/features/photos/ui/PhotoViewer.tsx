@@ -22,25 +22,28 @@ import {
   ZoomOutRounded,
 } from "@mui/icons-material";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import {
-  useLibraryPages,
-  useLibraryWindow,
-  type LibraryQuery,
-} from "features/library/model";
 import { useActiveServerScope } from "features/session/model";
 import {
   getTranscodeImageURL,
   mediaArtworkPath,
   mediaMetadataQueryOptions,
+  type MediaItemData,
 } from "entities/media/model";
 import { serverQueryClient } from "shared/api/queryClient";
 import { MediaItemMenu } from "features/media-actions/public";
 import { overlayContainer } from "shared/lib/overlayContainer";
 import { useImageLoading, imageFadeSx } from "shared/ui/useImageLoading";
 import { QueryErrorAlert } from "shared/ui/QueryErrorAlert";
+import type { CollectionRange } from "shared/ui/CollectionViewport";
 import { adjacentPhoto, photoIndex } from "../model/photos";
 
-export function PhotoViewer({ query }: { query: LibraryQuery | null }) {
+export function PhotoViewer({
+  range,
+  renderMenuItems,
+}: {
+  range: Pick<CollectionRange<MediaItemData>, "items" | "errors" | "retry">;
+  renderMenuItems?: (position: number, close: () => void) => React.ReactNode;
+}) {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -51,14 +54,7 @@ export function PhotoViewer({ query }: { query: LibraryQuery | null }) {
     { ...mediaMetadataQueryOptions(scope, id), enabled: Boolean(id) },
     serverQueryClient,
   );
-  const collection = useLibraryWindow(query);
   const position = index ?? 0;
-  const range = useLibraryPages(collection, {
-    start: Math.max(0, position - 64),
-    end: position + 64,
-    visibleStart: position,
-    visibleEnd: position,
-  });
   const [zoom, setZoom] = useState(1);
   const [info, setInfo] = useState(false);
   const [filmstrip, setFilmstrip] = useState(false);
@@ -243,7 +239,17 @@ export function PhotoViewer({ query }: { query: LibraryQuery | null }) {
             <FullscreenRounded />
           </IconButton>
           {item && (
-            <MediaItemMenu item={item} onOpen={() => setSlideshow(false)} />
+            <MediaItemMenu
+              item={item}
+              onOpen={() => setSlideshow(false)}
+              renderMenuItems={
+                index !== null &&
+                range.items.get(index)?.ratingKey === id &&
+                renderMenuItems
+                  ? (close) => renderMenuItems(index, close)
+                  : undefined
+              }
+            />
           )}
           <IconButton aria-label="Close photo" onClick={close}>
             <CloseRounded />
@@ -309,6 +315,11 @@ export function PhotoViewer({ query }: { query: LibraryQuery | null }) {
             {(metadata.isPending || (artwork && !loaded && !failed)) && (
               <CircularProgress sx={{ position: "absolute" }} />
             )}
+            <QueryErrorAlert
+              error={range.errors.values().next().value}
+              hasData={range.items.size > 0}
+              onRetry={() => range.retry(range.errors.keys().next().value ?? 0)}
+            />
             <QueryErrorAlert
               error={metadata.error}
               hasData={Boolean(item)}
@@ -443,13 +454,16 @@ export function PhotoViewer({ query }: { query: LibraryQuery | null }) {
                   thumb && (
                     <Box
                       component="button"
-                      key={photo.ratingKey}
+                      key={offset}
                       aria-label={`View ${photo.title}`}
                       onClick={() => openAt(offset)}
                       sx={{
                         p: 0,
                         flexShrink: 0,
-                        border: photo.ratingKey === id ? "2px solid" : 0,
+                        border:
+                          offset === index && photo.ratingKey === id
+                            ? "2px solid"
+                            : 0,
                         borderColor: "primary.main",
                         bgcolor: "transparent",
                         cursor: "pointer",

@@ -97,7 +97,7 @@ export default function LibraryActionsMenu({ anchorEl, library, libraries, onClo
           { view: "photos", label: "All photos", icon: <PhotoLibraryRounded /> },
           { view: "watchlist", label: "Watchlist", icon: <BookmarkRounded /> },
           { view: "collections", label: "Collections", icon: <CollectionsBookmarkRounded /> },
-          { view: "playlists", label: "Playlists", icon: <PlaylistPlayRounded /> },
+          { view: "playlists", label: library.type === "photo" ? "My albums" : "Playlists", icon: library.type === "photo" ? <PhotoLibraryRounded /> : <PlaylistPlayRounded /> },
         ].filter(entry => libraryViews(library.type).some(view => view === entry.view))
         .map((entry) => <MenuItem key={entry.view} component={Link} to={`/browse/${library.key}?view=${entry.view}`} onClick={navigate}>
           <ListItemIcon>{entry.icon}</ListItemIcon>

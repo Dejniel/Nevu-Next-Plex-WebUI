@@ -8,7 +8,7 @@ it.each(["movie", "show"])("keeps video views available for %s", type => {
 
 it.each(["artist", "photo"])("exposes catalog browsing for %s libraries", type => {
   expect(isBrowsableLibraryType(type)).toBe(true);
-  expect(libraryViews(type)).toEqual(type === "artist" ? ["browse", "playlists"] : ["browse", "photos"]);
+  expect(libraryViews(type)).toEqual(type === "artist" ? ["browse", "playlists"] : ["browse", "photos", "playlists"]);
 });
 
 it("separates supported media items from root libraries and rejects unknown types", () => {

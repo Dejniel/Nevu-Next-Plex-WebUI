@@ -1,23 +1,12 @@
-import {
-  DeleteOutlineRounded,
-  MoreVertRounded,
-  SwapVertRounded,
-} from "@mui/icons-material";
-import {
-  Box,
-  IconButton,
-  ListItemIcon,
-  ListItemText,
-  Menu,
-  MenuItem,
-  Typography,
-} from "@mui/material";
+import { MoreVertRounded } from "@mui/icons-material";
+import { Box, IconButton, Menu, Typography } from "@mui/material";
 import { ActionableMediaCard } from "features/media-actions/public";
 import { TrackRow } from "features/music/public";
 import type { MediaArtworkLayout } from "entities/media/model";
 import { memo, useCallback, useState } from "react";
 import type { MediaListEntry } from "../model/mediaLists";
 import type { PlaylistAction } from "./PlaylistEditor";
+import { renderPlaylistEntryMenuItems } from "./PlaylistEntryMenuItems";
 
 interface PlaylistEntryCardProps {
   entry: MediaListEntry;
@@ -38,32 +27,8 @@ function PlaylistEntryCard({
 }: PlaylistEntryCardProps) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const renderMenuItems = useCallback(
-    (onClose: () => void) => [
-      <MenuItem
-        key="move"
-        onClick={() => {
-          onClose();
-          onEdit({ type: "move", entry });
-        }}
-      >
-        <ListItemIcon>
-          <SwapVertRounded fontSize="small" />
-        </ListItemIcon>
-        <ListItemText>Move to position…</ListItemText>
-      </MenuItem>,
-      <MenuItem
-        key="remove"
-        onClick={() => {
-          onClose();
-          onEdit({ type: "remove", entry });
-        }}
-      >
-        <ListItemIcon>
-          <DeleteOutlineRounded fontSize="small" />
-        </ListItemIcon>
-        <ListItemText>Remove from playlist…</ListItemText>
-      </MenuItem>,
-    ],
+    (onClose: () => void) =>
+      renderPlaylistEntryMenuItems(entry, onEdit, onClose),
     [entry, onEdit],
   );
   const canEdit = editable && Boolean(entry.playlistItemID);

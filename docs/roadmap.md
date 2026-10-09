@@ -27,7 +27,6 @@ the README and release notes; implementation-only cleanup belongs in the
 
 ### Music and photo workflows
 
-- Add user-created photo albums through Plex photo playlists, reusing list management.
 - Extend photo zoom with pinch/actual size and add slideshow settings.
 - Extend metadata/artwork editing to music and photos through existing workflows.
 

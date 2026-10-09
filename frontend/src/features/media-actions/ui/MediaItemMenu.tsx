@@ -24,6 +24,10 @@ import {
 } from "features/session/model";
 import { useRef, useState, type ReactNode } from "react";
 import { overlayContainer } from "shared/lib/overlayContainer";
+import {
+  openMediaListDialog,
+  renderMediaListMenuItems,
+} from "features/media-lists/public";
 import { getOriginalDownloads } from "../model/downloads";
 import { getMediaActionCapabilities } from "../model/mediaActionCapabilities";
 import { useLazyMediaMetadata } from "../model/useLazyMediaMetadata";
@@ -94,6 +98,18 @@ function ItemMenu({ item, onOpen, renderMenuItems }: Props) {
       >
         {renderMenuItems?.(close)}
         {renderMenuItems &&
+          (capabilities.canAddToPlaylist ||
+            capabilities.canRate ||
+            capabilities.canDownload) && <Divider />}
+        {renderMediaListMenuItems({
+          capabilities,
+          playlistType: item.type === "photo" ? "photo" : undefined,
+          onSelect: (kind) => {
+            close();
+            openMediaListDialog(kind, item);
+          },
+        })}
+        {capabilities.canAddToPlaylist &&
           (capabilities.canRate || capabilities.canDownload) && <Divider />}
         {capabilities.canRate && (
           <MenuItem

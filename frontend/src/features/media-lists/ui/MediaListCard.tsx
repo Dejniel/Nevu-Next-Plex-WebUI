@@ -1,6 +1,7 @@
 import {
   CollectionsBookmarkRounded,
   PlaylistPlayRounded,
+  PhotoAlbumRounded,
 } from "@mui/icons-material";
 import { Box, Typography } from "@mui/material";
 import {
@@ -37,7 +38,9 @@ export default function MediaListCard({
     : null;
   const { status, imageProps } = useImageLoading(artwork?.src);
   const icon =
-    list.kind === "playlist" ? (
+    list.playlistType === "photo" ? (
+      <PhotoAlbumRounded sx={{ fontSize: 64 }} />
+    ) : list.kind === "playlist" ? (
       <PlaylistPlayRounded sx={{ fontSize: 64 }} />
     ) : (
       <CollectionsBookmarkRounded sx={{ fontSize: 64 }} />
@@ -87,7 +90,14 @@ export default function MediaListCard({
         {list.title}
       </Typography>
       <Typography noWrap variant="body2" sx={{ color: "text.secondary" }}>
-        {list.count} {list.count === 1 ? "item" : "items"}
+        {list.count}{" "}
+        {list.playlistType === "photo"
+          ? list.count === 1
+            ? "photo"
+            : "photos"
+          : list.count === 1
+            ? "item"
+            : "items"}
         {list.smart ? " · Smart" : ""}
       </Typography>
     </Box>

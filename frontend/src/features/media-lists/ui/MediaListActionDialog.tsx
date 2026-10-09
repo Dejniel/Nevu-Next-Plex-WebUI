@@ -1,6 +1,7 @@
 import {
   CollectionsBookmarkRounded,
   PlaylistPlayRounded,
+  PhotoAlbumRounded,
 } from "@mui/icons-material";
 import {
   Alert,
@@ -100,6 +101,8 @@ function AddToMediaListForm({
   onClose: () => void;
   onSaved: (list: MediaListSummary) => void;
 }) {
+  const noun = kind === "playlist" && item.type === "photo" ? "album" : kind;
+  const name = noun[0].toUpperCase() + noun.slice(1);
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [lists, setLists] = useState<MediaListSummary[]>([]);
   const [selected, setSelected] = useState<MediaListSummary | null>(null);
@@ -128,15 +131,13 @@ function AddToMediaListForm({
       })
       .catch(() => {
         if (!controller.signal.aborted)
-          setLoadError(
-            `Plex could not load your ${kind === "playlist" ? "playlists" : "collections"}.`,
-          );
+          setLoadError(`Plex could not load your ${noun}s.`);
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [kind, item, revision]);
+  }, [kind, item, revision, noun]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -168,7 +169,7 @@ function AddToMediaListForm({
   return (
     <AppDialog
       open
-      title={`Add to ${kind}`}
+      title={`Add to ${noun}`}
       size="compact"
       busy={busy}
       onClose={onClose}
@@ -201,7 +202,7 @@ function AddToMediaListForm({
         </Typography>
         <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {kind === "playlist"
-            ? "Add to the end of a playlist for your current profile."
+            ? `Add to the end of ${noun === "album" ? "an album" : "a playlist"} for your current profile.`
             : "Collections organize titles in this library for everyone with access."}
         </Typography>
         <Tabs
@@ -235,7 +236,7 @@ function AddToMediaListForm({
           <TextField
             autoFocus
             fullWidth
-            label={`${kind === "playlist" ? "Playlist" : "Collection"} name`}
+            label={`${name} name`}
             value={title}
             disabled={busy}
             onChange={(event) => setTitle(event.target.value)}
@@ -254,14 +255,12 @@ function AddToMediaListForm({
             getOptionDisabled={(option) => option.smart}
             isOptionEqualToValue={(a, b) => a.id === b.id}
             noOptionsText={
-              loading
-                ? "Loading…"
-                : `No ${kind === "playlist" ? "playlists" : "collections"} yet. Create a new one.`
+              loading ? "Loading…" : `No ${noun}s yet. Create a new one.`
             }
             renderInput={(params) => (
               <TextField
                 {...params}
-                label={`Choose ${kind}`}
+                label={`Choose ${noun}`}
                 helperText={
                   selected?.smart
                     ? "Smart lists add items automatically."
@@ -271,7 +270,9 @@ function AddToMediaListForm({
             )}
             renderOption={(props, option) => (
               <Box component="li" {...props} key={option.id} sx={{ gap: 1.5 }}>
-                {kind === "playlist" ? (
+                {noun === "album" ? (
+                  <PhotoAlbumRounded color="action" />
+                ) : kind === "playlist" ? (
                   <PlaylistPlayRounded color="action" />
                 ) : (
                   <CollectionsBookmarkRounded color="action" />
@@ -280,7 +281,10 @@ function AddToMediaListForm({
                   <Typography sx={{ overflowWrap: "anywhere" }}>
                     {option.title}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary" }}
+                  >
                     {option.smart
                       ? "Smart · managed by filters"
                       : `${option.count} items`}

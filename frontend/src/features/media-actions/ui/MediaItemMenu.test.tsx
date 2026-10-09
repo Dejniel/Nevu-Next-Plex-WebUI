@@ -13,10 +13,15 @@ import {
 import { serverQueryClient as client } from "shared/api/queryClient";
 import { setMediaRating } from "../api/rating";
 import { MediaItemMenu } from "./MediaItemMenu";
+import { openMediaListDialog } from "features/media-lists/public";
 
 vi.mock("entities/media/api/media", async (original) => ({
   ...(await original<typeof import("entities/media/api/media")>()),
   getMediaMetadata: vi.fn(),
+}));
+vi.mock("features/media-lists/public", async (original) => ({
+  ...(await original<typeof import("features/media-lists/public")>()),
+  openMediaListDialog: vi.fn(),
 }));
 vi.mock("../api/rating", () => ({ setMediaRating: vi.fn() }));
 const item = { ratingKey: "42", type: "track", title: "Song" } as MediaItemData;
@@ -230,4 +235,16 @@ it("keeps menus and rating controls inside the fullscreen overlay host", async (
   expect(host.querySelector(".MuiMenu-root")).toBeTruthy();
   await click(menuItem("Rate"));
   expect(host.querySelector(".MuiPopover-root")).toBeTruthy();
+});
+
+it("opens the shared photo-album action from the personal photo menu", async () => {
+  const photo = { ...item, type: "photo" as const, title: "Photo" };
+  await act(async () => root.render(<MediaItemMenu item={photo} />));
+  await act(async () => (host.querySelector("button") as HTMLElement).click());
+  const action = Array.from(
+    document.querySelectorAll('[role="menuitem"]'),
+  ).find((element) => element.textContent === "Add to album…");
+  expect(action).toBeDefined();
+  await act(async () => (action as HTMLElement).click());
+  expect(openMediaListDialog).toHaveBeenCalledWith("playlist", photo);
 });
