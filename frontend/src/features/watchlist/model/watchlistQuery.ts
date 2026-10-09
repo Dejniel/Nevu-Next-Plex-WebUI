@@ -4,7 +4,11 @@ import {
   useMutation,
   useQuery,
 } from "@tanstack/react-query";
-import type { MediaMetadata, MediaItemData } from "entities/media/model";
+import {
+  readDiscoverTitle,
+  type DiscoverTitle,
+  type MediaItemData,
+} from "entities/media/model";
 import { useAuthSession } from "features/session/model";
 import { useUserSettings } from "features/settings/model";
 import { serverQueryClient } from "shared/api/queryClient";
@@ -15,7 +19,8 @@ import {
 } from "../api/watchlist";
 import { canWatchlist } from "./watchlistItem";
 
-export const watchlistQueryKey = (profileKey: string | null) => ["watchlist", profileKey] as const;
+export const watchlistQueryKey = (profileKey: string | null) =>
+  ["watchlist", profileKey] as const;
 const watchlistQueryOptions = (profileKey: string | null) =>
   queryOptions({
     queryKey: watchlistQueryKey(profileKey),
@@ -45,8 +50,13 @@ function isCurrent(edit: MembershipEdit) {
 export function useWatchlistAction(item: MediaItemData) {
   const profileKey = useUserSettings((state) => state.profileKey);
   const result = useWatchlist();
-  const mutationKey = [...watchlistQueryKey(profileKey), "membership", item.guid] as const;
-  const pending = useIsMutating({ mutationKey, exact: true }, serverQueryClient) > 0;
+  const mutationKey = [
+    ...watchlistQueryKey(profileKey),
+    "membership",
+    item.guid,
+  ] as const;
+  const pending =
+    useIsMutating({ mutationKey, exact: true }, serverQueryClient) > 0;
   const mutation = useMutation(
     {
       mutationKey,
@@ -56,21 +66,27 @@ export function useWatchlistAction(item: MediaItemData) {
           exact: true,
         }),
       mutationFn: async (edit: MembershipEdit) => {
-        if (!isCurrent(edit)) throw new Error("The active Plex profile changed.");
-        if (!canWatchlist(edit.item)) throw new Error("This item cannot be added to Watchlist.");
+        if (!isCurrent(edit))
+          throw new Error("The active Plex profile changed.");
+        if (!canWatchlist(edit.item))
+          throw new Error("This item cannot be added to Watchlist.");
+        const added = edit.included ? readDiscoverTitle(edit.item) : null;
         if (edit.included) await addToWatchlist(edit.item.guid);
         else await removeFromWatchlist(edit.item.guid);
+        return added;
       },
-      onSuccess: async (_, edit) => {
+      onSuccess: async (added, edit) => {
         if (!isCurrent(edit)) return;
         const key = watchlistQueryKey(edit.profileKey);
         // A read started while the write was pending must not restore old membership.
         await serverQueryClient.cancelQueries({ queryKey: key, exact: true });
         if (!isCurrent(edit)) return;
-        serverQueryClient.setQueryData<MediaMetadata[]>(key, (previous) => {
+        serverQueryClient.setQueryData<DiscoverTitle[]>(key, (previous) => {
           if (!previous) return previous;
-          const items = previous.filter((entry) => entry.guid !== edit.item.guid);
-          return edit.included ? [edit.item as MediaMetadata, ...items] : items;
+          const items = previous.filter(
+            (entry) => entry.guid !== edit.item.guid,
+          );
+          return added ? [added, ...items] : items;
         });
       },
     },
@@ -89,13 +105,18 @@ export function useWatchlistAction(item: MediaItemData) {
         included: false,
       };
       const key = watchlistQueryKey(profileKey);
-      let data = serverQueryClient.getQueryData<MediaMetadata[]>(key);
+      let data = serverQueryClient.getQueryData<DiscoverTitle[]>(key);
       if (!data) {
         const loaded = await result.refetch();
-        if (!loaded.data) throw loaded.error ?? new Error("Could not read your Watchlist.");
+        if (!loaded.data)
+          throw loaded.error ?? new Error("Could not read your Watchlist.");
         data = loaded.data;
       }
-      if (!isCurrent(edit) || serverQueryClient.isMutating({ mutationKey, exact: true })) return;
+      if (
+        !isCurrent(edit) ||
+        serverQueryClient.isMutating({ mutationKey, exact: true })
+      )
+        return;
       edit.included = !data.some((entry) => entry.guid === item.guid);
       await mutation.mutateAsync(edit);
     },

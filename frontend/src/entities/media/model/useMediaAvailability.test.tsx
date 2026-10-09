@@ -1,9 +1,11 @@
-import type { MediaMetadata } from "plex/media";
+import type { LocalMediaMatch } from "./mediaAvailability";
 import type { Mock } from "vitest";
 import { notifyManager } from "@tanstack/react-query";
 import { serverQueryClient } from "shared/api/queryClient";
 beforeAll(() => notifyManager.setScheduler(queueMicrotask));
-afterAll(() => notifyManager.setScheduler((callback) => setTimeout(callback, 0)));
+afterAll(() =>
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0)),
+);
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useServerSession } from "features/session/model";
@@ -15,11 +17,13 @@ vi.mock("../api/mediaAvailability", () => ({
   getLocalMediaMatches: vi.fn(),
 }));
 const lookup = getLocalMediaMatches as Mock;
-const movie = {
-  guid: "one",
+const movie: LocalMediaMatch = {
+  guid: "plex://movie/one",
   ratingKey: "1",
   librarySectionID: 1,
-} as MediaMetadata;
+  title: "Movie",
+  type: "movie",
+};
 let root: Root;
 let element: HTMLDivElement;
 let guids: string[];
@@ -39,9 +43,11 @@ beforeEach(() => {
   (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  guids = ["one"];
+  guids = ["plex://movie/one"];
   profile = "owner:1";
-  useServerSession.setState({ server: { machineIdentifier: "server" } as Plex.ServerPreferences });
+  useServerSession.setState({
+    server: { machineIdentifier: "server" } as Plex.ServerPreferences,
+  });
   element = document.createElement("div");
   root = createRoot(element);
   lookup.mockResolvedValue([movie]);
@@ -53,16 +59,16 @@ afterEach(async () => {
 });
 
 it("reuses availability when a caller only reorders the same GUIDs", async () => {
-  guids = ["one", "two", "one"];
+  guids = ["plex://movie/one", "plex://movie/two", "plex://movie/one"];
   await render();
-  guids = ["two", "one"];
+  guids = ["plex://movie/two", "plex://movie/one"];
   await render();
   expect(lookup).toHaveBeenCalledTimes(1);
-  expect(state.items.get("one")?.localItems).toEqual([movie]);
+  expect(state.items.get("plex://movie/one")?.localItems).toEqual([movie]);
 });
 
 it("ignores responses after changing the active profile", async () => {
-  let resolveOld!: (items: MediaMetadata[]) => void;
+  let resolveOld!: (items: LocalMediaMatch[]) => void;
   lookup.mockReturnValueOnce(
     new Promise((resolve) => {
       resolveOld = resolve;
@@ -79,18 +85,20 @@ it("ignores responses after changing the active profile", async () => {
 });
 
 it("ignores an earlier list's response after changing items", async () => {
-  let resolveOld!: (items: MediaMetadata[]) => void;
+  let resolveOld!: (items: LocalMediaMatch[]) => void;
   lookup.mockReturnValueOnce(
     new Promise((resolve) => {
       resolveOld = resolve;
     }),
   );
   await render();
-  guids = ["two"];
-  lookup.mockResolvedValueOnce([{ ...movie, guid: "two", ratingKey: "2" }]);
+  guids = ["plex://movie/two"];
+  lookup.mockResolvedValueOnce([
+    { ...movie, guid: "plex://movie/two", ratingKey: "2" },
+  ]);
   await render();
   await act(async () => resolveOld([movie]));
-  expect([...state.items.keys()]).toEqual(["two"]);
+  expect([...state.items.keys()]).toEqual(["plex://movie/two"]);
 });
 
 it("surfaces failures, retries and refreshes after a scoped recovery", async () => {
@@ -100,11 +108,17 @@ it("surfaces failures, retries and refreshes after a scoped recovery", async () 
   expect(state.loading).toBe(false);
   await act(async () => state.retry());
   expect(state.error).toBeNull();
-  expect(state.items.has("one")).toBe(true);
+  expect(state.items.has("plex://movie/one")).toBe(true);
   await act(async () => {
-    await applyAvailabilityChanges(serverQueryClient, [{ change: {
-      serverId: "server", profileKey: "owner:1", kind: "recovery",
-    } }]);
+    await applyAvailabilityChanges(serverQueryClient, [
+      {
+        change: {
+          serverId: "server",
+          profileKey: "owner:1",
+          kind: "recovery",
+        },
+      },
+    ]);
   });
   expect(lookup).toHaveBeenCalledTimes(3);
 });
@@ -126,19 +140,25 @@ it("keeps checked availability through background loading and a failed retry", a
   );
   await act(async () => state.retry());
   expect(state.loading).toBe(false);
-  expect(state.items.get("one")?.localItems).toEqual([movie]);
+  expect(state.items.get("plex://movie/one")?.localItems).toEqual([movie]);
   await act(async () => reject(new Error("offline")));
   expect(state.error).toBeTruthy();
-  expect(state.items.get("one")?.localItems).toEqual([movie]);
+  expect(state.items.get("plex://movie/one")?.localItems).toEqual([movie]);
 });
 
 it("refreshes unchanged GUIDs on the visible interval and ignores another profile's invalidation", async () => {
   vi.useFakeTimers();
   await render();
   await act(async () => {
-    await applyAvailabilityChanges(serverQueryClient, [{ change: {
-      serverId: "server", profileKey: "owner:2", kind: "recovery",
-    } }]);
+    await applyAvailabilityChanges(serverQueryClient, [
+      {
+        change: {
+          serverId: "server",
+          profileKey: "owner:2",
+          kind: "recovery",
+        },
+      },
+    ]);
   });
   expect(lookup).toHaveBeenCalledTimes(1);
   lookup.mockResolvedValueOnce([]);

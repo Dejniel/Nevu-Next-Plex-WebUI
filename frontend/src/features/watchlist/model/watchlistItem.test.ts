@@ -1,4 +1,4 @@
-import { canWatchlist, getWatchlistID } from "./watchlistItem";
+import { canWatchlist } from "./watchlistItem";
 
 it("allows matched films and shows but not episodes, seasons or local-only identifiers", () => {
   expect(canWatchlist({ type: "movie", guid: "plex://movie/123" })).toBe(true);
@@ -15,6 +15,8 @@ it("allows matched films and shows but not episodes, seasons or local-only ident
       guid: "com.plexapp.agents.none://local?lang=en",
     }),
   ).toBe(false);
-  expect(getWatchlistID("plex://movie/")).toBeNull();
-  expect(getWatchlistID("https://example.com/movie/123")).toBeNull();
+});
+
+it("rejects a GUID identifying a different media type", () => {
+  expect(canWatchlist({ type: "movie", guid: "plex://show/123" })).toBe(false);
 });

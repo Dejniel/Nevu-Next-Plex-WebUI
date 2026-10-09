@@ -1,4 +1,5 @@
-import type { MediaMetadata } from "entities/media/model";
+import type { MediaItemData } from "entities/media/model";
+import type { DiscoverTitle } from "entities/media/model";
 import { focusManager, notifyManager } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -22,10 +23,17 @@ vi.mock("../api/watchlist", () => ({
   removeFromWatchlist: vi.fn(),
 }));
 beforeAll(() => notifyManager.setScheduler(queueMicrotask));
-afterAll(() => notifyManager.setScheduler((callback) => setTimeout(callback, 0)));
-const movie = (id: string) =>
-  ({ guid: `plex://movie/${id}`, ratingKey: id, type: "movie", title: id }) as MediaMetadata;
+afterAll(() =>
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0)),
+);
+const movie = (id: string): DiscoverTitle => ({
+  guid: `plex://movie/${id}`,
+  ratingKey: id,
+  type: "movie",
+  title: id,
+});
 const target = movie("added");
+let actionItem: MediaItemData;
 const read = vi.mocked(getWatchlist);
 const add = vi.mocked(addToWatchlist);
 const remove = vi.mocked(removeFromWatchlist);
@@ -35,7 +43,7 @@ let action: ReturnType<typeof useWatchlistAction>;
 let other: ReturnType<typeof useWatchlistAction>;
 function Harness() {
   data = useWatchlist();
-  action = useWatchlistAction(target);
+  action = useWatchlistAction(actionItem);
   other = useWatchlistAction(movie("other"));
   return null;
 }
@@ -51,6 +59,7 @@ function deferred<T>() {
 }
 beforeEach(() => {
   vi.resetAllMocks();
+  actionItem = target;
   client.clear();
   client.mount();
   focusManager.setFocused(true);
@@ -72,7 +81,7 @@ afterEach(async () => {
 });
 
 it("shares a pending cloud read between the screen and several membership controls", async () => {
-  const pending = deferred<MediaMetadata[]>();
+  const pending = deferred<DiscoverTitle[]>();
   read.mockReturnValue(pending.promise);
   await render();
   expect(read).toHaveBeenCalledTimes(1);
@@ -142,11 +151,14 @@ it("keeps independent confirmed writes when different titles finish out of order
     first.resolve();
     await one;
   });
-  expect(data.data?.map((item) => item.guid)).toEqual([target.guid, movie("other").guid]);
+  expect(data.data?.map((item) => item.guid)).toEqual([
+    target.guid,
+    movie("other").guid,
+  ]);
 });
 
 it("shares a cold read and rechecks duplicate writes after that read completes", async () => {
-  const pending = deferred<MediaMetadata[]>();
+  const pending = deferred<DiscoverTitle[]>();
   const writing = deferred<void>();
   read.mockReturnValueOnce(pending.promise);
   add.mockReturnValueOnce(writing.promise);
@@ -170,9 +182,11 @@ it("shares a cold read and rechecks duplicate writes after that read completes",
 it.each([false, true])(
   "cancels an old read before it can restore membership, initially selected=%s",
   async (selected) => {
-    read.mockResolvedValueOnce(selected ? [target, movie("kept")] : [movie("kept")]);
+    read.mockResolvedValueOnce(
+      selected ? [target, movie("kept")] : [movie("kept")],
+    );
     await render();
-    const pending = deferred<MediaMetadata[]>();
+    const pending = deferred<DiscoverTitle[]>();
     read.mockReturnValueOnce(pending.promise);
     let refreshing!: ReturnType<typeof data.refetch>;
     await act(async () => {
@@ -188,7 +202,9 @@ it.each([false, true])(
       await refreshing;
     });
     expect(action.selected).toBe(!selected);
-    expect(data.data?.some((item) => item.guid === movie("kept").guid)).toBe(true);
+    expect(data.data?.some((item) => item.guid === movie("kept").guid)).toBe(
+      true,
+    );
   },
 );
 
@@ -201,7 +217,7 @@ it("cancels a read started during a pending write", async () => {
   await act(async () => {
     mutation = action.toggle();
   });
-  const pending = deferred<MediaMetadata[]>();
+  const pending = deferred<DiscoverTitle[]>();
   read.mockReturnValueOnce(pending.promise);
   await act(async () => {
     refreshing = data.refetch();
@@ -239,7 +255,7 @@ it("does not change another profile after a previous profile's write finishes", 
 });
 
 it("ignores an old cloud response after changing profiles and aborts its transport", async () => {
-  const pending = deferred<MediaMetadata[]>();
+  const pending = deferred<DiscoverTitle[]>();
   read.mockReturnValueOnce(pending.promise);
   await render();
   const signal = read.mock.calls[0][0]!;
@@ -306,4 +322,35 @@ it("does not read or mutate without a profile", async () => {
   expect(read).not.toHaveBeenCalled();
   expect(add).not.toHaveBeenCalled();
   expect(action.loading).toBe(false);
+});
+
+it("publishes a Discover title after adding a local edition, without leaking file or watched state", async () => {
+  actionItem = {
+    ...target,
+    ratingKey: "123",
+    librarySectionID: 4,
+    viewCount: 3,
+    viewOffset: 1000,
+    Media: [{ Part: [{ key: "/library/parts/123/file.mkv" }] }],
+  };
+  await render();
+  await act(async () => {
+    await action.toggle();
+  });
+  expect(add).toHaveBeenCalledWith(target.guid);
+  expect(data.data).toEqual([target]);
+  expect(data.data?.[0]).not.toHaveProperty("librarySectionID");
+  expect(data.data?.[0]).not.toHaveProperty("Media");
+  expect(data.data?.[0]).not.toHaveProperty("viewCount");
+  expect(action.selected).toBe(true);
+});
+
+it("validates the projected entry before sending a membership write", async () => {
+  actionItem = { ...target, Genre: [{ tag: "Drama", id: -1 }] };
+  await render();
+  await act(async () => {
+    await expect(action.toggle()).rejects.toThrow("invalid");
+  });
+  expect(add).not.toHaveBeenCalled();
+  expect(data.data).toEqual([]);
 });

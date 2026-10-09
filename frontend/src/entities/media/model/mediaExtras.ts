@@ -1,4 +1,5 @@
 import type { MediaMetadata } from "plex/media";
+import { getPlexTitleIdentity } from "./mediaIdentity";
 type ExtraSource = "local" | "discover";
 
 export interface TitleExtra {
@@ -11,8 +12,7 @@ export function getDiscoverID(
 ): string | null {
   const plexGuid = item.Guid?.find((guid) => guid.id.startsWith("plex://"))?.id;
   const guid = plexGuid || item.guid;
-  const match = guid?.match(/^plex:\/\/(?:movie|show)\/([a-f0-9]+)$/i);
-  return match?.[1] ?? null;
+  return getPlexTitleIdentity(guid)?.id ?? null;
 }
 
 function extraIdentity(extra: MediaMetadata): string[] {

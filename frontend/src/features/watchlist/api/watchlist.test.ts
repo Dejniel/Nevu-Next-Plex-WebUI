@@ -1,4 +1,4 @@
-import type { MediaMetadata } from "entities/media/model";
+import type { DiscoverTitle } from "entities/media/model";
 import type { Mocked } from "vitest";
 import axios from "axios";
 import { AuthStorage } from "features/session/model";
@@ -86,7 +86,9 @@ const movies = (count: number, start = 0) =>
       ({
         guid: `plex://movie/${start + index}`,
         ratingKey: String(start + index),
-      }) as MediaMetadata,
+        type: "movie",
+        title: `Movie ${start + index}`,
+      }) satisfies DiscoverTitle,
   );
 
 it("loads a Watchlist larger than 300 using accepted 100-item pages", async () => {
@@ -151,7 +153,7 @@ it("rejects incomplete pagination rather than replacing the list with a partial 
       data: { MediaContainer: { totalSize: 101, Metadata: movies(100) } },
     })
     .mockResolvedValueOnce({ data: { MediaContainer: { totalSize: 101 } } });
-  await expect(getWatchlist()).rejects.toThrow("remaining watchlist");
+  await expect(getWatchlist()).rejects.toThrow("incomplete watchlist");
 });
 
 it("passes cancellation to every page and rejects a failed later page", async () => {
@@ -170,6 +172,107 @@ it("rejects a repeated final page even if its raw offset reaches totalSize", asy
   mockedAxios.get.mockResolvedValue({
     data: { MediaContainer: { totalSize: 101, Metadata: movies(100) } },
   });
-  await expect(getWatchlist()).rejects.toThrow("remaining watchlist");
+  await expect(getWatchlist()).rejects.toThrow("incomplete watchlist");
   expect(mockedAxios.get).toHaveBeenCalledTimes(2);
+});
+
+it.each([
+  { MediaContainer: null },
+  { MediaContainer: [] },
+  { MediaContainer: { Metadata: {} } },
+  { MediaContainer: { Metadata: null } },
+  { MediaContainer: { totalSize: "1" } },
+  { MediaContainer: { totalSize: -1 } },
+  { MediaContainer: { offset: "0" } },
+  { MediaContainer: { size: 2, Metadata: movies(1) } },
+])("rejects malformed watchlist envelopes and pagination: %j", async (data) => {
+  mockedAxios.get.mockResolvedValue({ data });
+  await expect(getWatchlist()).rejects.toThrow("invalid");
+});
+
+it.each([
+  { guid: undefined },
+  { guid: 42 },
+  { guid: "plex://movie/" },
+  { guid: "plex://show/0" },
+  { type: "episode" },
+  { title: undefined },
+  { title: 3 },
+  { ratingKey: undefined },
+  { year: "2024" },
+  { thumb: 42 },
+])("rejects malformed watchlist entries: %j", async (invalid) => {
+  mockedAxios.get.mockResolvedValue({
+    data: { MediaContainer: { Metadata: [{ ...movies(1)[0], ...invalid }] } },
+  });
+  await expect(getWatchlist()).rejects.toThrow("invalid");
+});
+
+it("fails the complete read when a later page contains invalid entries", async () => {
+  mockedAxios.get
+    .mockResolvedValueOnce({
+      data: { MediaContainer: { totalSize: 101, Metadata: movies(100) } },
+    })
+    .mockResolvedValueOnce({
+      data: {
+        MediaContainer: {
+          totalSize: 101,
+          Metadata: [{ ...movies(1, 100)[0], guid: "local-only" }],
+        },
+      },
+    });
+  await expect(getWatchlist()).rejects.toThrow("identity");
+});
+
+it("continues through capped pages when Plex supplies a total", async () => {
+  mockedAxios.get.mockImplementation(async (_, options) => {
+    const offset = (options!.params as Record<string, number>)[
+      "X-Plex-Container-Start"
+    ];
+    return {
+      data: {
+        MediaContainer: {
+          offset,
+          totalSize: 5,
+          Metadata: movies(5).slice(offset, offset + 2),
+        },
+      },
+    };
+  });
+  await expect(getWatchlist()).resolves.toEqual(movies(5));
+  expect(mockedAxios.get).toHaveBeenCalledTimes(3);
+});
+
+it.each([
+  { offset: 0, totalSize: 101, Metadata: movies(1, 100) },
+  { offset: 100, totalSize: 102, Metadata: movies(1, 100) },
+])("rejects displaced or changed pagination: %j", async (container) => {
+  mockedAxios.get
+    .mockResolvedValueOnce({
+      data: {
+        MediaContainer: { offset: 0, totalSize: 101, Metadata: movies(100) },
+      },
+    })
+    .mockResolvedValueOnce({ data: { MediaContainer: container } });
+  await expect(getWatchlist()).rejects.toThrow("incomplete");
+});
+
+it("does not request an already cancelled Watchlist or continue after cancellation", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  await expect(getWatchlist(controller.signal)).rejects.toMatchObject({
+    name: "AbortError",
+  });
+  expect(mockedAxios.get).not.toHaveBeenCalled();
+  const next = new AbortController();
+  mockedAxios.get.mockImplementationOnce(async () => {
+    next.abort();
+    return {
+      data: { MediaContainer: { totalSize: 101, Metadata: movies(100) } },
+    };
+  });
+  await expect(getWatchlist(next.signal)).rejects.toMatchObject({
+    name: "AbortError",
+  });
+  expect(mockedAxios.get).toHaveBeenCalledTimes(1);
 });

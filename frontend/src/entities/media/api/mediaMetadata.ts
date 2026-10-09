@@ -12,6 +12,8 @@ import {
 import type { MediaMetadata, MediaStream } from "plex/media";
 import { normalizeLibraryRecord } from "@nevu/contracts";
 
+import { readTitleFields, readMediaTag as readTag } from "./mediaTitle";
+
 const resource = "media metadata";
 const text = (value: unknown) => plexString(value, resource);
 const number = (value: unknown) => plexNumber(value, resource);
@@ -122,13 +124,6 @@ function readRendition(value: unknown) {
   });
 }
 
-function readTag(value: unknown) {
-  const row = object(value);
-  return {
-    tag: text(row.tag),
-    ...plexFields(row, { id: integer, filter: text }),
-  };
-}
 function readRole(value: unknown) {
   const row = object(value);
   return {
@@ -161,6 +156,7 @@ export function readMediaMetadata(
   const common = {
     ratingKey,
     title: text(row.title),
+    ...readTitleFields(row),
     ...plexFields(row, {
       key: identity,
       guid: text,
@@ -171,7 +167,6 @@ export function readMediaMetadata(
       grandparentRatingKey: identity,
       slug: text,
       studio: text,
-      titleSort: text,
       librarySectionTitle: text,
       librarySectionID: integer,
       librarySectionKey: text,
@@ -184,42 +179,22 @@ export function readMediaMetadata(
       composite: text,
       originalTitle: text,
       contentRating: text,
-      summary: text,
       index: integer,
       parentIndex: integer,
-      rating: number,
-      audienceRating: number,
       userRating: number,
-      Rating: array((value) => {
-        const rating = object(value);
-        return {
-          value: number(rating.value),
-          ...plexFields(rating, { image: text, type: text }),
-        };
-      }),
       viewOffset: integer,
       viewCount: integer,
       lastViewedAt: integer,
-      year: integer,
       tagline: text,
-      thumb: text,
-      art: text,
       theme: text,
-      duration: integer,
       originallyAvailableAt: text,
       leafCount: integer,
       viewedLeafCount: integer,
-      childCount: integer,
-      seasonCount: integer,
-      addedAt: integer,
       updatedAt: integer,
-      audienceRatingImage: text,
       primaryExtraKey: text,
       extraType: integer,
       subtype: text,
-      ratingImage: text,
       Media: array(readRendition),
-      Genre: array(readTag),
       Collection: array(readTag),
       Label: array(readTag),
       Producer: array(readTag),

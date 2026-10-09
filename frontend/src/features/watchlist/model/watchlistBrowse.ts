@@ -1,13 +1,13 @@
 import {
-  type MediaMetadata,
   isMediaInLibrary,
   type MediaAvailability,
+  type DiscoverTitle,
 } from "entities/media/model";
 
 export type WatchlistSort = "added" | "title" | "year";
 
 export function selectWatchlistItems(
-  items: readonly MediaMetadata[],
+  items: readonly DiscoverTitle[],
   availability: ReadonlyMap<string, MediaAvailability>,
   options: { libraryID?: string; search: string; sort: WatchlistSort },
 ) {
@@ -15,7 +15,7 @@ export function selectWatchlistItems(
   const selected = items.filter(
     (item) =>
       (!options.libraryID ||
-        Boolean(item.guid && isMediaInLibrary(item.guid, availability, options.libraryID))) &&
+        isMediaInLibrary(item.guid, availability, options.libraryID)) &&
       (!search || item.title.toLocaleLowerCase().includes(search)),
   );
   if (options.sort === "title")

@@ -6,15 +6,18 @@ import { notifyManager } from "@tanstack/react-query";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
-  type MediaMetadata,
+  type MediaItemData,
   indexMediaAvailability,
   useMediaAvailability,
 } from "entities/media/model";
+import type { DiscoverTitle } from "entities/media/model";
 import { getWatchlist } from "../api/watchlist";
 import WatchlistView from "./WatchlistView";
 
 beforeAll(() => notifyManager.setScheduler(queueMicrotask));
-afterAll(() => notifyManager.setScheduler(callback => setTimeout(callback, 0)));
+afterAll(() =>
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0)),
+);
 
 vi.mock("react-router-dom", async () => {
   const { useState } = await import("react");
@@ -32,14 +35,18 @@ vi.mock("entities/media/model", async () => ({
   useMediaAvailability: vi.fn(),
 }));
 vi.mock("entities/library/model", () => ({
-  useLibraries: () => ({ data: [
-    { key: "1", title: "Movies" },
-    { key: "2", title: "Other movies" },
-  ] }),
+  useLibraries: () => ({
+    data: [
+      { key: "1", title: "Movies" },
+      { key: "2", title: "Other movies" },
+    ],
+  }),
 }));
 vi.mock("features/settings/model", () => ({
-  useUserSettings: Object.assign((select: (state: unknown) => unknown) =>
-    select({ profileKey: "user:1" }), { getState: () => ({ profileKey: "user:1" }) }),
+  useUserSettings: Object.assign(
+    (select: (state: unknown) => unknown) => select({ profileKey: "user:1" }),
+    { getState: () => ({ profileKey: "user:1" }) },
+  ),
 }));
 vi.mock("features/library/public", () => ({
   getLibraryCardWidth: () => 200,
@@ -65,19 +72,20 @@ vi.mock("features/media-actions/public", () => ({
     item,
     canPlay,
   }: {
-    item: MediaMetadata;
+    item: MediaItemData;
     canPlay: boolean;
   }) => {
     const action = useWatchlistAction(item);
     return (
-    <div data-rating-key={item.ratingKey}>
-      {item.title}
-      <button disabled={!canPlay}>Play {item.title}</button>
-      <button onClick={() => void action.toggle()}>
-        Remove {item.title}
-      </button>
-    </div>
-  ); },
+      <div data-rating-key={item.ratingKey}>
+        {item.title}
+        <button disabled={!canPlay}>Play {item.title}</button>
+        <button onClick={() => void action.toggle()}>
+          Remove {item.title}
+        </button>
+      </div>
+    );
+  },
 }));
 vi.mock("shared/lib/useVirtualGrid", () => ({
   useVirtualGrid: (options: { count: number }) => options,
@@ -99,10 +107,27 @@ vi.mock("shared/ui/VirtualGrid", () => ({
 }));
 
 const items = [
-  { guid: "plex://movie/one", type: "movie", ratingKey: "one", title: "Alpha", year: 2024 },
-  { guid: "plex://movie/two", type: "movie", ratingKey: "two", title: "Beta", year: 2020 },
-  { guid: "plex://movie/three", type: "movie", ratingKey: "three", title: "Remote" },
-] as MediaMetadata[];
+  {
+    guid: "plex://movie/one",
+    type: "movie",
+    ratingKey: "one",
+    title: "Alpha",
+    year: 2024,
+  },
+  {
+    guid: "plex://movie/two",
+    type: "movie",
+    ratingKey: "two",
+    title: "Beta",
+    year: 2020,
+  },
+  {
+    guid: "plex://movie/three",
+    type: "movie",
+    ratingKey: "three",
+    title: "Remote",
+  },
+] satisfies DiscoverTitle[];
 const copies = [
   { ...items[0], ratingKey: "10", librarySectionID: 1 },
   { ...items[0], ratingKey: "20", librarySectionID: 2 },

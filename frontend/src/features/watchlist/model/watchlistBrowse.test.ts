@@ -1,19 +1,34 @@
 import {
-  type MediaMetadata,
+  type LocalMediaMatch,
   indexMediaAvailability,
   selectLocalMedia,
 } from "entities/media/model";
+import type { DiscoverTitle } from "entities/media/model";
 import { selectWatchlistItems } from "./watchlistBrowse";
 
-const movie = (guid: string, title: string, year = 2020) =>
-  ({ guid, title, year }) as MediaMetadata;
+const movie = (id: string, title: string, year = 2020): DiscoverTitle => ({
+  guid: `plex://movie/${id}`,
+  ratingKey: id,
+  type: "movie",
+  title,
+  year,
+});
 const items = [
   movie("one", "Zoo", 2024),
   movie("two", "Alpha"),
   movie("three", "Remote"),
 ];
-const local = (guid: string, ratingKey: string, librarySectionID: number) =>
-  ({ guid, ratingKey, librarySectionID }) as MediaMetadata;
+const local = (
+  id: string,
+  ratingKey: string,
+  librarySectionID: number,
+): LocalMediaMatch => ({
+  guid: `plex://movie/${id}`,
+  title: id,
+  type: "movie",
+  ratingKey,
+  librarySectionID,
+});
 const copies = [
   local("one", "10", 1),
   local("one", "20", 2),
@@ -42,7 +57,7 @@ it("filters by actual library membership and keeps unavailable titles in the ful
 });
 
 it("chooses the copy in the current library without losing other copies", () => {
-  expect(availability.get("one")?.localItems).toHaveLength(2);
+  expect(availability.get("plex://movie/one")?.localItems).toHaveLength(2);
   expect(selectLocalMedia(items[0], availability, "2")?.ratingKey).toBe("20");
   expect(selectLocalMedia(items[0], availability)?.ratingKey).toBe("10");
   expect(selectLocalMedia(items[2], availability)).toBeNull();

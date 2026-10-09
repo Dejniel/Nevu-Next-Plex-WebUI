@@ -87,7 +87,13 @@ export {
   isMediaInLibrary,
   selectLocalMedia,
 } from "./model/mediaAvailability";
-export type { MediaAvailability } from "./model/mediaAvailability";
+export type {
+  MediaAvailability,
+  LocalMediaMatch,
+} from "./model/mediaAvailability";
+export { getPlexTitleIdentity } from "./model/mediaIdentity";
+export type { DiscoverTitle } from "./model/mediaIdentity";
+export { readDiscoverTitle } from "./api/mediaTitle";
 export { useMediaAvailability } from "./model/useMediaAvailability";
 export { applyAvailabilityChanges } from "./model/availabilitySync";
 export { availabilityQueryOptions } from "./model/availabilityQuery";

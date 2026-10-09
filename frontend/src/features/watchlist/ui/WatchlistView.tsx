@@ -14,7 +14,7 @@ import {
 } from "@mui/material";
 import { useLibraries } from "entities/library/model";
 import {
-  type MediaMetadata,
+  type DiscoverTitle,
   selectLocalMedia,
   useMediaAvailability,
 } from "entities/media/model";
@@ -35,7 +35,7 @@ import {
 } from "../model/watchlistBrowse";
 import { useWatchlist } from "../model/watchlistQuery";
 
-const empty: MediaMetadata[] = [];
+const empty: DiscoverTitle[] = [];
 
 export default function WatchlistView({
   libraryID,
@@ -46,11 +46,13 @@ export default function WatchlistView({
 }) {
   const watchlist = useWatchlist();
   const items = watchlist.data ?? empty;
-  const error = watchlist.isError ? "Could not refresh your Plex Watchlist. Please try again." : null;
+  const error = watchlist.isError
+    ? "Could not refresh your Plex Watchlist. Please try again."
+    : null;
   const profileKey = useUserSettings((state) => state.profileKey);
   const { data: libraries } = useLibraries();
   const availability = useMediaAvailability(
-    items.flatMap((item) => item.guid ? [item.guid] : []),
+    items.map((item) => item.guid),
     profileKey,
   );
   const cardView = useLibraryCardView();
@@ -136,7 +138,11 @@ export default function WatchlistView({
             <MenuItem value="title">Title</MenuItem>
             <MenuItem value="year">Newest releases</MenuItem>
           </Select>
-          <Typography variant="body2" role="status" sx={{ color: "text.secondary", ml: "auto" }}>
+          <Typography
+            variant="body2"
+            role="status"
+            sx={{ color: "text.secondary", ml: "auto" }}
+          >
             {unavailableScope
               ? "Availability unknown"
               : waiting
@@ -179,7 +185,7 @@ export default function WatchlistView({
       ) : selected.length > 0 ? (
         <VirtualGrid
           grid={grid}
-          itemKey={(index) => selected[index].guid ?? selected[index].ratingKey}
+          itemKey={(index) => selected[index].guid}
           renderItem={(index, imageSizes) => {
             const remote = selected[index];
             const local = selectLocalMedia(
@@ -189,7 +195,7 @@ export default function WatchlistView({
             );
             const known = !availability.loading && !availability.error;
             const copies =
-              remote.guid ? availability.items.get(remote.guid)?.localItems ?? [] : [];
+              availability.items.get(remote.guid)?.localItems ?? [];
             const names = [
               ...new Set(
                 copies.map(

@@ -93,7 +93,9 @@ editable-field model; video and playlist queues share occurrence validation.
 Envelope/collection checks are shared with Match. Full video/music/photo metadata,
 file/stream details and child records now share one decoder with canonical sync;
 the old global metadata/file types are removed. Playback decisions have a separate
-checked contract. Availability, Discover extras, music queue occurrences and
+checked contract. Availability and Watchlist now share title identity, checked
+pagination and display-field decoding; local copies retain their own ratingKeys,
+libraries and canonical metadata. Discover extras, music queue occurrences and
 browse/list response contracts remain to migrate.
 
 ### 6. Make Plex notification updates more selective — complete

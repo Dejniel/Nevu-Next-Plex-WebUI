@@ -228,8 +228,11 @@ reads only the source and destination entries, checking their current positions.
 Native Query mutations reuse list synchronization before closing the editor;
 deletion removes the matching detail cache and refreshes playlist listings.
 Card menus accept additional items without owning playlist-editing rules.
-`entities/media` resolves accessible local copies by GUID; Watchlist retains its
-account API and profile-scoped Query resource, separate from library paging.
+`entities/media` owns Discover title identity and checked local copies. A title GUID
+can resolve to several server ratingKeys across libraries; editions stay distinct.
+Watchlist retains its account API and profile-scoped Query resource. Its title
+projection excludes server files and local watch state. Both reads share checked
+Plex pagination; incomplete or malformed responses leave existing Query data intact.
 
 `architectureBoundaries.test.ts` checks the current entry-point and dependency
 conventions. Update those checks alongside intentional architecture changes.
@@ -265,7 +268,7 @@ Filter values select from the same directory queries as discovery. Full metadata
 dependencies remain separate from fields provable by the smaller card projection.
 
 Watchlist reads and confirmed membership mutations use Query directly; local
-availability caches plain metadata arrays, with GUID indexes derived by consumers.
+availability caches checked local-copy arrays, with GUID indexes derived by consumers.
 Native stale mount/focus/reconnect and visible intervals replace the scheduler.
 Cloud Watchlist freshness remains distinct from local server notifications.
 The old paged controller, refresh buses and Zustand Watchlist mirror are removed.

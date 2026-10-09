@@ -14,6 +14,7 @@ import {
 import { startBrowseSynchronization } from "./browseSynchronization";
 import {
   type MediaMetadata,
+  type LocalMediaMatch,
   availabilityQueryOptions,
   mediaMetadataQueryKey,
   mediaChildrenQueryOptions,
@@ -106,9 +107,9 @@ it.each(["library", "directory", "playlist", "availability", "onDeck"])(
       ratingKey: "101", type: "episode", librarySectionID: 1,
       parentRatingKey: "100", grandparentRatingKey: "99",
     } as MediaMetadata;
-    const show = { ratingKey: "99", type: "show", librarySectionID: 1, leafCount: 1,
-      ...(source === "onDeck" && { OnDeck: { Metadata: episode } }),
-    } as MediaMetadata;
+    const show: LocalMediaMatch = { ratingKey: "99", type: "show", guid: "plex://show/show", title: "Show", librarySectionID: 1, leafCount: 1,
+      ...((source === "onDeck" || source === "availability") && { OnDeck: { Metadata: episode } }),
+    };
     if (source === "library") client.setQueryData(libraryPageOptions("server", {
       profileKey: "owner", sectionId: 1, type: "episode", sort: "titleSort",
     }, 0, 0).queryKey, { offset: 0, size: 1, totalSize: 1, hasMore: false, items: [episode as LibraryCardDto] });
@@ -118,7 +119,7 @@ it.each(["library", "directory", "playlist", "availability", "onDeck"])(
     if (source === "playlist") client.setQueryData(listPageOptions(scope,
       { kind: "playlist", id: "20" }, 0, 0,
     ).queryKey, { offset: 0, total: 1, summary: null, items: [{ kind: "media", supported: true, position: 0, item: episode }] });
-    if (source === "availability") client.setQueryData(availabilityQueryOptions(scope, ["episode"]).queryKey, [episode]);
+    if (source === "availability") client.setQueryData(availabilityQueryOptions(scope, [show.guid]).queryKey, [show]);
     const read = vi.fn(async () => ({ ...show, OnDeck: undefined, leafCount: 0 }));
     const stop = new QueryObserver(client, {
       queryKey: mediaMetadataQueryKey(scope, "99"), queryFn: read, initialData: show, staleTime: Infinity,
@@ -324,7 +325,7 @@ it("reuses one canonical read for the library, repeated playlist entries, detail
     title: "Movie",
     librarySectionID: 1,
   };
-  const metadata = { ...card, summary: "Old" } as MediaMetadata;
+  const metadata: LocalMediaMatch = { ...card, type: "movie", guid: card.guid, librarySectionID: 1, summary: "Old" };
   const library = libraryPageOptions(
     "server",
     { profileKey: "owner", sectionId: 1, sort: "titleSort" },
