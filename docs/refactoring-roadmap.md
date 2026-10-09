@@ -93,6 +93,15 @@ compatible cached occurrences; membership/dependency changes stage scoped window
 Backend random catalogs share those decisions. Unknown predicates and missed
 notifications still require recovery, with measured scan and request limits.
 
+### 7. Separate library administration workflows — complete
+
+`SettingsLibrariesAdmin` composes the URL-driven editor and managed list.
+`LibraryEditorDialog` and `LibraryFolderBrowser` have separate lifetimes;
+`useLibraryEditor` owns sparse fields, validation and payload construction.
+Existing administration queries/mutations and Plex preference fields remain the
+request/advanced-setting owners. Untouched fields follow background reads;
+failed saves retain edits, and session changes cancel obsolete requests.
+
 ## Verification
 
 Choose checks for the affected behavior using [testing.md](testing.md). Record

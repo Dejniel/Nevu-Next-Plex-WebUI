@@ -59,12 +59,12 @@ export function useManagedLibrary(id: string | null) {
   );
 }
 
-export function useLibraryFolders(key: string, enabled: boolean) {
+export function useLibraryFolders(key: string) {
   const session = useLibrarySession();
   return useQuery(
     {
       queryKey: [...session.queryKey, "folders", key],
-      enabled: enabled && session.ready && session.canManage,
+      enabled: session.ready && session.canManage,
       queryFn: ({ signal }) =>
         browseLibraryFolders(key, { signal, token: session.token! }),
     },

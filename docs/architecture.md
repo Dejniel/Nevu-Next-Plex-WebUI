@@ -164,7 +164,11 @@ Server and library preferences share the normalized `Setting` contract and
 validation in `contracts/preferences`; `entities/plex-preferences` owns the field
 renderer and sparse local drafts. Settings uses native profile/server-scoped
 queries for server preferences, library administration and server folders. Drafts
-retain edits across background reads without copying server responses. Writes
+retain edits across background reads without copying server responses. Library
+administration separates URL composition, the managed list, the editor and folder
+navigation. `useLibraryEditor` owns the sparse draft, changed-field payloads and
+validation; advanced values reuse Plex preference descriptors. Folder navigation
+exists only while its dialog is open. Writes
 use captured credentials, reject obsolete sessions and revalidate affected
 resources. The backend verifies the active account and PMS management permission,
 excludes hidden values and validates edits against freshly read descriptors.
