@@ -230,6 +230,13 @@ declare namespace Plex {
         ratingImage?: string;
         Media?: Media[];
         Genre?: Tag[];
+        Collection?: Tag[];
+        Label?: Tag[];
+        Producer?: Tag[];
+        Style?: Tag[];
+        Mood?: Tag[];
+        Similar?: Tag[];
+        Tag?: Tag[];
         Country?: Tag[];
         Director?: Tag[];
         Writer?: Tag[];

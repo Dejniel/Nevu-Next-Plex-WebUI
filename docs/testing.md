@@ -146,5 +146,12 @@ page. Delete an episode in test Plex and check season/show counts and On Deck.
 Check that edited genre/actor tags refresh filter options, while description-only
 edits preserve unaffected discovery directories.
 
+Check **Edit metadata** from video, music and photo menus as a server manager:
+type-specific fields, tag add/remove, field locks, native image choices, file/URL
+uploads and artwork removal. Save an image with its lock disabled and verify it
+stays unlocked. A background refresh must retain the draft; failed saves must keep
+edits and retry without repeating acknowledged uploads. Change profile/server
+during a save and check that stale completion cannot update the new session.
+
 Stop with `docker compose -f compose.test.yaml down`. Adding `-v` resets the
 test stack's volumes; sample media remains in the host directory.

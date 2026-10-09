@@ -12,6 +12,7 @@ export { useAuthSession } from "./model/authSession";
 export { plexProfileKey } from "./model/profileIdentity";
 export type { ActivePlexSession, HomeProfile } from "./model/authStorage";
 export { useServerSession } from "./model/serverSession";
+export { canManageServer, useCanManageServer } from "./model/serverAccess";
 export {
   getActiveServerScope,
   useActiveServerScope,

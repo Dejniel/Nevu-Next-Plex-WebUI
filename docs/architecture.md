@@ -161,7 +161,15 @@ resources. The backend verifies the active account and PMS management permission
 excludes hidden values and validates edits against freshly read descriptors.
 Server groups and field availability come from PMS; known effects and restart
 requirements use a small explicit annotation map. Metadata editing keeps its
-own value/lock model rather than treating metadata as preferences.
+own type-specific value/tag/lock model rather than treating metadata as preferences.
+One application-level editor handles video, music and photos, independently of
+virtualized cards and responsive grid rows. Native library writes preserve unedited
+fields and retained cast characters; artwork uses Plex's choices/import operations,
+with binary files streamed through the existing proxy. Each edit captures its
+session, cancels obsolete requests and retains its draft across canonical refreshes.
+Accepted writes revalidate the existing metadata/artwork queries and publish the
+shared synchronization event, including partial failures; retries skip artwork
+already acknowledged by Plex.
 
 Plex Home membership and permissions come from Plex's Home API, using the active
 profile's account token. Settings observes one native Query resource and revalidates

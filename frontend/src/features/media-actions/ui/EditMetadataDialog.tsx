@@ -1,315 +1,336 @@
+import { useMutation } from "@tanstack/react-query";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   CircularProgress,
-  IconButton,
   InputAdornment,
+  Tab,
+  Tabs,
   TextField,
-  Tooltip,
 } from "@mui/material";
-import { LockOpenRounded, LockRounded } from "@mui/icons-material";
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  EDITABLE_METADATA_FIELDS,
-  getMetadataLocks,
-  MetadataField,
-  MetadataLocks,
-  MetadataLockUpdate,
-  MetadataUpdate,
-  updateMetadata,
-} from "../api/metadata";
+  useActiveServerScope,
+  useAuthSession,
+  useCanManageServer,
+} from "features/session/model";
+import { serverQueryClient } from "shared/api/queryClient";
 import { AppDialog } from "shared/ui";
+import {
+  createMetadataEditor,
+  MetadataSaveError,
+  validArtworkURL,
+  type ArtworkChanges,
+} from "../api/metadata";
+import {
+  draftFromMetadata,
+  metadataArtworkLabel,
+  metadataChanges,
+  metadataDraftErrors,
+  metadataFields,
+  metadataLocks,
+  sameMetadataValue,
+  type ArtworkField,
+  type MetadataField,
+  type MetadataValue,
+  type MetadataLockUpdate,
+} from "../model/metadataEditing";
+import { MetadataArtworkEditor } from "./MetadataArtworkEditor";
+import { MetadataLockButton } from "./MetadataLockButton";
 
-interface MetadataDraft {
-  title: string;
-  sortTitle: string;
-  originalTitle: string;
-  summary: string;
-  tagline: string;
-  studio: string;
-  contentRating: string;
-  originallyAvailableAt: string;
-  year: string;
-}
-
-const fieldLabels: Record<MetadataField, string> = {
-  title: "Title",
-  sortTitle: "Sort title",
-  originalTitle: "Original title",
-  originallyAvailableAt: "Release date",
-  year: "Year",
-  studio: "Studio",
-  contentRating: "Content rating",
-  tagline: "Tagline",
-  summary: "Summary",
-};
-
-function draftFromMetadata(data: Plex.Metadata): MetadataDraft {
-  return {
-    title: data.title || "",
-    sortTitle: data.titleSort || "",
-    originalTitle: data.originalTitle || "",
-    summary: data.summary || "",
-    tagline: data.tagline || "",
-    studio: data.studio || "",
-    contentRating: data.contentRating || "",
-    originallyAvailableAt: data.originallyAvailableAt || "",
-    year: data.year ? String(data.year) : "",
-  };
-}
-
-function changedFields(
-  initial: MetadataDraft,
-  draft: MetadataDraft,
-): MetadataUpdate {
-  return Object.fromEntries(
-    Object.entries(draft).filter(
-      ([field, value]) => value !== initial[field as keyof MetadataDraft],
-    ),
-  ) as MetadataUpdate;
-}
-
-export default function EditMetadataDialog({
-  data,
-  open,
-  onClose,
-  onSaved,
-}: {
+interface Props {
   data: Plex.Metadata;
   open: boolean;
   onClose: () => void;
-  onSaved: (
-    changes: MetadataUpdate,
-    lockChanges: MetadataLockUpdate,
-  ) => void;
-}) {
-  const initial = useMemo(() => draftFromMetadata(data), [data]);
-  const initialLocks = useMemo(() => getMetadataLocks(data), [data]);
-  const [draft, setDraft] = useState(initial);
-  const [locks, setLocks] = useState<MetadataLocks>(initialLocks);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  onSaved?: () => void;
+}
 
-  useEffect(() => {
-    if (open) {
-      setDraft(initial);
-      setLocks(initialLocks);
-      setError(null);
-    }
-  }, [initial, initialLocks, open]);
+export default function EditMetadataDialog(props: Props) {
+  const scope = useActiveServerScope();
+  const revision = useAuthSession((state) => state.revision);
+  const allowed = useCanManageServer();
+  return props.open && allowed ? (
+    <MetadataEditor
+      key={`${scope.serverId}:${scope.profileKey}:${revision}:${props.data.ratingKey}`}
+      {...props}
+    />
+  ) : null;
+}
 
-  const changes = changedFields(initial, draft);
-  const lockChanges = Object.fromEntries(
-    EDITABLE_METADATA_FIELDS.filter(
-      (field) =>
-        changes[field] !== undefined || locks[field] !== initialLocks[field],
-    ).map((field) => [field, locks[field]]),
-  ) as MetadataLockUpdate;
+function MetadataEditor({ data, onClose, onSaved }: Props) {
+  // Canonical refreshes keep flowing outside the dialog. This opened edit has
+  // a stable baseline, so those refreshes cannot erase the user's draft.
+  const [initial] = useState(() => data);
+  const [source] = useState(() => createMetadataEditor(initial));
+  const [baseline] = useState(() => draftFromMetadata(initial));
+  const [initialLocks, setInitialLocks] = useState(() =>
+    metadataLocks(initial),
+  );
+  const [draft, setDraft] = useState(baseline);
+  const [locks, setLocks] = useState(initialLocks);
+  const [artwork, setArtwork] = useState<ArtworkChanges>({});
+  const [tab, setTab] = useState<"general" | "tags" | ArtworkField>("general");
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => () => request.current?.abort(), []);
+  const mutation = useMutation(
+    {
+      mutationKey: [
+        "metadata-edit",
+        source.scope?.serverId,
+        source.scope?.profileKey,
+        source.revision,
+        source.id,
+      ],
+      mutationFn: async (values: {
+        changes: ReturnType<typeof metadataChanges>;
+        locks: MetadataLockUpdate;
+        artwork: ArtworkChanges;
+      }) => {
+        source.assertCurrent();
+        const controller = new AbortController();
+        request.current = controller;
+        await source.save(
+          values.changes,
+          values.locks,
+          values.artwork,
+          controller.signal,
+        );
+        source.assertCurrent(controller.signal);
+      },
+      retry: false,
+      onSuccess: () => {
+        try {
+          source.assertCurrent(request.current?.signal);
+        } catch {
+          return;
+        }
+        onSaved?.();
+        onClose();
+      },
+      onError: (error) => {
+        if (error instanceof MetadataSaveError) {
+          setArtwork((current) =>
+            Object.fromEntries(
+              Object.entries(current).filter(
+                ([field]) =>
+                  !error.completedArtwork.includes(field as ArtworkField),
+              ),
+            ),
+          );
+          setInitialLocks((current) => ({
+            ...current,
+            ...Object.fromEntries(
+              error.completedArtwork.map((field) => [field, true]),
+            ),
+          }));
+        }
+      },
+    },
+    serverQueryClient,
+  );
+  const fields = metadataFields(initial.type);
+  const changes = metadataChanges(baseline, draft);
+  const lockChanges: MetadataLockUpdate = Object.fromEntries(
+    [...fields.map((field) => field.id), "thumb", "art"]
+      .filter(
+        (field) =>
+          changes[field as MetadataField] !== undefined ||
+          Object.hasOwn(artwork, field) ||
+          Boolean(locks[field as keyof MetadataLockUpdate]) !==
+            Boolean(initialLocks[field as keyof MetadataLockUpdate]),
+      )
+      .map((field) => [
+        field,
+        Boolean(locks[field as keyof MetadataLockUpdate]),
+      ]),
+  );
+  const errors = metadataDraftErrors(initial.type, draft);
   const dirty =
-    Object.keys(changes).length > 0 || Object.keys(lockChanges).length > 0;
-  const year = draft.year ? Number(draft.year) : null;
-  const invalidYear =
-    year !== null &&
-    (!Number.isInteger(year) || year < 1800 || year > new Date().getFullYear() + 10);
-  const invalidTitle = draft.title.trim().length === 0;
-
-  const setField = (field: keyof MetadataDraft, value: string) => {
+    Object.keys(changes).length > 0 ||
+    Object.keys(lockChanges).length > 0 ||
+    Object.keys(artwork).length > 0;
+  const valid =
+    Object.keys(errors).length === 0 &&
+    !Object.values(artwork).some(
+      (value) => value.type === "url" && !validArtworkURL(value.url),
+    );
+  const setField = (field: MetadataField, value: MetadataValue) => {
     setDraft((current) => ({ ...current, [field]: value }));
     setLocks((current) => ({
       ...current,
-      [field]: value === initial[field] ? initialLocks[field] : true,
+      [field]: sameMetadataValue(baseline[field], value)
+        ? Boolean(initialLocks[field])
+        : true,
     }));
   };
-
-  const lockAdornment = (field: MetadataField, alignTop = false) => {
-    const locked = locks[field];
-    const label = fieldLabels[field];
-
-    return (
-      <InputAdornment
-        position="end"
-        sx={alignTop ? { alignSelf: "flex-start", mt: 1 } : undefined}
-      >
-        <Tooltip
-          title={
-            locked
-              ? "Keep this field during metadata refresh"
-              : "Allow Plex to update this field"
-          }
-        >
-          <span>
-            <IconButton
-              edge="end"
-              size="small"
-              disabled={saving}
-              aria-label={`${locked ? "Unlock" : "Lock"} ${label} metadata`}
-              onClick={() =>
-                setLocks((current) => ({
-                  ...current,
-                  [field]: !current[field],
-                }))
-              }
-              sx={
-                locked
-                  ? { color: "primary.main" }
-                  : { color: "text.disabled" }
-              }
-            >
-              {locked ? <LockRounded /> : <LockOpenRounded />}
-            </IconButton>
-          </span>
-        </Tooltip>
-      </InputAdornment>
-    );
+  const lock = (field: MetadataField, label: string) => (
+    <InputAdornment position="end">
+      <MetadataLockButton
+        label={label}
+        locked={Boolean(locks[field])}
+        disabled={mutation.isPending}
+        onChange={(value) =>
+          setLocks((current) => ({ ...current, [field]: value }))
+        }
+      />
+    </InputAdornment>
+  );
+  const save = () => {
+    if (dirty && valid && !mutation.isPending)
+      mutation.mutate({ changes, locks: lockChanges, artwork });
   };
-
-  const save = async () => {
-    if (!dirty || invalidTitle || invalidYear) return;
-    setSaving(true);
-    setError(null);
-
-    const normalized: MetadataUpdate = { ...changes };
-    if (normalized.title !== undefined)
-      normalized.title = normalized.title.trim();
-    if (normalized.year !== undefined) normalized.year = normalized.year.trim();
-
-    try {
-      await updateMetadata(data.ratingKey, normalized, lockChanges);
-      onSaved(normalized, lockChanges);
-      onClose();
-    } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Nevu could not update this item.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
+  const artworkLabel =
+    tab === "thumb" ? metadataArtworkLabel(initial.type) : "Background";
   return (
     <AppDialog
-      open={open}
+      open
       title="Edit metadata"
+      busy={mutation.isPending}
       onClose={onClose}
-      busy={saving}
       actions={
-        <Button
-          variant="contained"
-          onClick={save}
-          disabled={!dirty || invalidTitle || invalidYear || saving}
-          startIcon={saving ? <CircularProgress size={16} /> : undefined}
-        >
-          Save
-        </Button>
+        <>
+          <Button onClick={onClose} disabled={mutation.isPending}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={save}
+            disabled={!dirty || !valid || mutation.isPending}
+            startIcon={
+              mutation.isPending ? <CircularProgress size={16} /> : undefined
+            }
+          >
+            Save
+          </Button>
+        </>
       }
     >
-      {error && (
+      <Tabs
+        value={tab}
+        onChange={(_, value) => setTab(value)}
+        variant="scrollable"
+        sx={{ mb: 2 }}
+      >
+        <Tab label="General" value="general" />
+        <Tab label="Tags" value="tags" />
+        <Tab label={metadataArtworkLabel(initial.type)} value="thumb" />
+        <Tab label="Background" value="art" />
+      </Tabs>
+      {mutation.error && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
+          {mutation.error.message}
         </Alert>
       )}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-          gap: 2,
-          pt: 1,
-        }}
-      >
-        <TextField
-          autoFocus
-          required
-          label="Title"
-          value={draft.title}
-          disabled={saving}
-          error={invalidTitle}
-          helperText={invalidTitle ? "Title is required." : undefined}
-          onChange={(event) => setField("title", event.target.value)}
-          slotProps={{ input: { endAdornment: lockAdornment("title") } }}
-          sx={{ gridColumn: "1 / -1" }}
-        />
-        <TextField
-          label="Sort title"
-          value={draft.sortTitle}
-          disabled={saving}
-          onChange={(event) => setField("sortTitle", event.target.value)}
-          slotProps={{ input: { endAdornment: lockAdornment("sortTitle") } }}
-        />
-        <TextField
-          label="Original title"
-          value={draft.originalTitle}
-          disabled={saving}
-          onChange={(event) => setField("originalTitle", event.target.value)}
-          slotProps={{
-            input: { endAdornment: lockAdornment("originalTitle") },
-          }}
-        />
-        <TextField
-          label="Release date"
-          type="date"
-          value={draft.originallyAvailableAt}
-          disabled={saving}
-          slotProps={{
-            input: { endAdornment: lockAdornment("originallyAvailableAt") },
-            inputLabel: { shrink: true },
-          }}
-          onChange={(event) =>
-            setField("originallyAvailableAt", event.target.value)
+      {tab === "thumb" || tab === "art" ? (
+        <MetadataArtworkEditor
+          key={tab}
+          source={source}
+          field={tab}
+          label={artworkLabel}
+          currentImage={data[tab]}
+          value={artwork[tab]}
+          locked={Boolean(locks[tab])}
+          disabled={mutation.isPending}
+          onLockChange={(value) =>
+            setLocks((current) => ({ ...current, [tab]: value }))
           }
-        />
-        <TextField
-          label="Year"
-          type="number"
-          value={draft.year}
-          disabled={saving}
-          error={invalidYear}
-          helperText={invalidYear ? "Enter a valid year." : undefined}
-          slotProps={{
-            input: { endAdornment: lockAdornment("year") },
-            htmlInput: { min: 1800, max: new Date().getFullYear() + 10 },
-          }}
-          onChange={(event) => setField("year", event.target.value)}
-        />
-        <TextField
-          label="Studio"
-          value={draft.studio}
-          disabled={saving}
-          onChange={(event) => setField("studio", event.target.value)}
-          slotProps={{ input: { endAdornment: lockAdornment("studio") } }}
-        />
-        <TextField
-          label="Content rating"
-          value={draft.contentRating}
-          disabled={saving}
-          onChange={(event) => setField("contentRating", event.target.value)}
-          slotProps={{
-            input: { endAdornment: lockAdornment("contentRating") },
+          onChange={(value) => {
+            setArtwork((current) => {
+              const next = { ...current };
+              if (value) next[tab] = value;
+              else delete next[tab];
+              return next;
+            });
+            setLocks((current) => ({
+              ...current,
+              [tab]: value ? true : Boolean(initialLocks[tab]),
+            }));
           }}
         />
-        <TextField
-          label="Tagline"
-          value={draft.tagline}
-          disabled={saving}
-          onChange={(event) => setField("tagline", event.target.value)}
-          slotProps={{ input: { endAdornment: lockAdornment("tagline") } }}
-          sx={{ gridColumn: "1 / -1" }}
-        />
-        <TextField
-          label="Summary"
-          value={draft.summary}
-          disabled={saving}
-          multiline
-          minRows={5}
-          onChange={(event) => setField("summary", event.target.value)}
-          slotProps={{
-            input: { endAdornment: lockAdornment("summary", true) },
+      ) : (
+        <Box
+          component="form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            save();
           }}
-          sx={{ gridColumn: "1 / -1" }}
-        />
-      </Box>
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+            gap: 2,
+            pt: 1,
+          }}
+        >
+          {fields
+            .filter((field) => (field.kind === "tags") === (tab === "tags"))
+            .map((field) =>
+              field.kind === "tags" ? (
+                <Autocomplete
+                  key={field.id}
+                  multiple
+                  freeSolo
+                  options={[]}
+                  value={[...((draft[field.id] as readonly string[]) ?? [])]}
+                  disabled={mutation.isPending}
+                  onChange={(_, values) => setField(field.id, values)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={field.label}
+                      helperText="Type a name and press Enter."
+                      slotProps={{
+                        ...params.slotProps,
+                        input: {
+                          ...params.slotProps.input,
+                          endAdornment: (
+                            <>
+                              {params.slotProps.input.endAdornment}
+                              {lock(field.id, field.label)}
+                            </>
+                          ),
+                        },
+                      }}
+                    />
+                  )}
+                />
+              ) : (
+                <TextField
+                  key={field.id}
+                  autoFocus={field.id === "title"}
+                  required={field.id === "title"}
+                  label={field.label}
+                  value={draft[field.id] ?? ""}
+                  disabled={mutation.isPending}
+                  type={
+                    field.kind === "date"
+                      ? "date"
+                      : field.kind === "number"
+                        ? "number"
+                        : "text"
+                  }
+                  multiline={field.kind === "multiline"}
+                  minRows={field.kind === "multiline" ? 5 : undefined}
+                  error={Boolean(errors[field.id])}
+                  helperText={errors[field.id]}
+                  onChange={(event) => setField(field.id, event.target.value)}
+                  slotProps={{
+                    input: { endAdornment: lock(field.id, field.label) },
+                    inputLabel:
+                      field.kind === "date" ? { shrink: true } : undefined,
+                  }}
+                  sx={{
+                    gridColumn:
+                      field.kind === "multiline" || field.id === "title"
+                        ? "1 / -1"
+                        : undefined,
+                  }}
+                />
+              ),
+            )}
+        </Box>
+      )}
     </AppDialog>
   );
 }

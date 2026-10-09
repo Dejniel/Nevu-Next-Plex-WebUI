@@ -13,6 +13,8 @@ import {
 import { serverQueryClient as client } from "shared/api/queryClient";
 import { setMediaRating } from "../api/rating";
 import { MediaItemMenu } from "./MediaItemMenu";
+import { MetadataDialogHost } from "./MetadataDialogHost";
+import { useMetadataDialog } from "../model/metadataDialog";
 import { openMediaListDialog } from "features/media-lists/public";
 
 vi.mock("entities/media/api/media", async (original) => ({
@@ -28,6 +30,7 @@ const item = { ratingKey: "42", type: "track", title: "Song" } as MediaItemData;
 const metadata = (type = "track") =>
   ({
     ...item,
+    librarySectionID: 3,
     type,
     userRating: 8,
     Media: [
@@ -62,6 +65,7 @@ let host: HTMLDivElement;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.clearAllMocks();
+  useMetadataDialog.setState({ selection: null });
   client.clear();
   localStorage.clear();
   sessionStorage.clear();
@@ -74,6 +78,7 @@ beforeEach(() => {
     status: "ready",
     revision: 1,
     ownerUser: { id: 1 } as Plex.UserData,
+    activeUser: { id: 1, restricted: false } as Plex.UserData,
     activeProfile: {
       id: 1,
       title: "Owner",
@@ -83,6 +88,7 @@ beforeEach(() => {
     },
   });
   useServerSession.setState({
+    canManageServer: false,
     server: {
       machineIdentifier: "server",
       allowSync: true,
@@ -108,7 +114,7 @@ const settle = async () => {
   });
 };
 const render = async (value = item) => {
-  await act(async () => root.render(<MediaItemMenu item={value} />));
+  await act(async () => root.render(<><MediaItemMenu item={value} /><MetadataDialogHost /></>));
 };
 const click = async (element: Element | null | undefined) => {
   expect(element).toBeTruthy();
@@ -121,6 +127,22 @@ const menuItem = (text: string) =>
   );
 const downloads = () =>
   Array.from(document.querySelectorAll<HTMLAnchorElement>("a[download]"));
+
+it.each(["artist", "album", "track", "photo", "photoalbum"])(
+  "opens the shared metadata editor from the %s menu only for server managers",
+  async type => {
+    vi.mocked(getMediaMetadata).mockResolvedValue(metadata(type));
+    await render({ ...item, type } as MediaItemData);
+    await click(host.querySelector("button"));
+    expect(menuItem("Edit metadata")).toBeUndefined();
+    await click(document.body);
+    await act(async () => useServerSession.setState({ canManageServer: true }));
+    await click(host.querySelector("button"));
+    await click(menuItem("Edit metadata"));
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Edit metadata");
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain(["photo", "photoalbum"].includes(type) ? "Thumbnail" : "Cover");
+  },
+);
 
 it("loads metadata only when opened, keeps every original file and reuses the canonical query", async () => {
   await render();

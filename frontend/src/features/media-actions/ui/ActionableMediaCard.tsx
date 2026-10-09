@@ -20,9 +20,8 @@ import {
   StaleMediaMetadataRequestError,
   useLazyMediaMetadata,
 } from "../model/useLazyMediaMetadata";
-import { applyMetadataUpdate } from "../api/metadata";
 import { unmatchMetadata } from "../api/matching";
-import EditMetadataDialog from "./EditMetadataDialog";
+import { openMetadataDialog } from "../model/metadataDialog";
 import MatchMetadataDialog from "./MatchMetadataDialog";
 import MediaActionsMenu, {
   MediaMenuAnchor,
@@ -72,7 +71,6 @@ function VideoMediaCard({
   const [displayItem, setDisplayItem] = useState(item);
   const [anchor, setAnchor] = useState<MediaMenuAnchor | null>(null);
   const [playLoading, setPlayLoading] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
   const [matchOpen, setMatchOpen] = useState(false);
   const {
     data: fullMetadata,
@@ -89,9 +87,10 @@ function VideoMediaCard({
 
   useEffect(() => {
     setDisplayItem(item);
-    setEditOpen(false);
-    setMatchOpen(false);
   }, [item]);
+  useEffect(() => {
+    setMatchOpen(false);
+  }, [item.ratingKey]);
 
   const menuOpen = anchor !== null;
   const openMenu = (nextAnchor: MediaMenuAnchor) => {
@@ -152,8 +151,8 @@ function VideoMediaCard({
 
   const editMetadata = async () => {
     try {
-      await loadFullMetadata();
-      setEditOpen(true);
+      const data = await loadFullMetadata();
+      openMetadataDialog(data);
     } catch (error) {
       if (error instanceof StaleMediaMetadataRequestError) return;
       useBigReader.getState().setBigReader(
@@ -274,23 +273,6 @@ function VideoMediaCard({
           canPlay={canPlay}
           onSetWatched={setWatched}
           onUnmatch={unmatch}
-        />
-      )}
-
-      {capabilities.canEditMetadata && editOpen && fullMetadata && (
-        <EditMetadataDialog
-          data={fullMetadata}
-          open
-          onClose={() => setEditOpen(false)}
-          onSaved={(changes, lockChanges) => {
-            const updated = applyMetadataUpdate(
-              fullMetadata,
-              changes,
-              lockChanges,
-            );
-            updateMetadata(updated);
-            setDisplayItem(updated);
-          }}
         />
       )}
 

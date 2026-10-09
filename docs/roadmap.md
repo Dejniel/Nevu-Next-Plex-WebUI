@@ -11,8 +11,6 @@ the README and release notes; implementation-only cleanup belongs in the
 ### Complete metadata workflows
 
 - Add the remaining editable fields exposed by Plex for each media type.
-- Support posters, backgrounds, tags, and other multi-value fields without
-  overwriting values the user did not edit.
 - Extend manual matching with external identifiers and provider selection.
 
 ## Next
@@ -28,7 +26,6 @@ the README and release notes; implementation-only cleanup belongs in the
 ### Music and photo workflows
 
 - Extend photo zoom with pinch/actual size and add slideshow settings.
-- Extend metadata/artwork editing to music and photos through existing workflows.
 
 ## Later
 

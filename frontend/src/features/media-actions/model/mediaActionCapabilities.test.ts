@@ -167,7 +167,7 @@ it.each(["artist", "album", "track", "photoalbum", "photo"] as const)(
   "keeps personal actions separate from video workflows for a %s", type => {
     const item: LibraryCardDto = { ratingKey: "10", type, title: "Catalog item" };
     expect(getMediaActionCapabilities(item, manager))
-      .toEqual({ canEditMetadata: false, canMatch: false, canUnmatch: false,
+      .toEqual({ canEditMetadata: true, canMatch: false, canUnmatch: false,
         canDownload: ["track", "photo"].includes(type), canRate: true, canSetWatched: false, similarRatingKey: null,
         canAddToCollection: false, canAddToPlaylist: ["artist", "album", "track", "photo"].includes(type) });
   },

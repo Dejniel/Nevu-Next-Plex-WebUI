@@ -154,26 +154,24 @@ export function PhotoGalleryView<T>({
                     />
                   )}
                 </Box>
-                {item.type === "photo" && (
-                  <Box
-                    sx={{
-                      position: "absolute",
-                      bottom: 4,
-                      right: 4,
-                      bgcolor: "rgba(0,0,0,.6)",
-                      borderRadius: "50%",
-                    }}
-                  >
-                    <MediaItemMenu
-                      item={item}
-                      renderMenuItems={
-                        renderMenuItems
-                          ? (close) => renderMenuItems(record, close)
-                          : undefined
-                      }
-                    />
-                  </Box>
-                )}
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bottom: 4,
+                    right: 4,
+                    bgcolor: "rgba(0,0,0,.6)",
+                    borderRadius: "50%",
+                  }}
+                >
+                  <MediaItemMenu
+                    item={item}
+                    renderMenuItems={
+                      renderMenuItems
+                        ? (close) => renderMenuItems(record, close)
+                        : undefined
+                    }
+                  />
+                </Box>
               </Box>
               {(information || album) && (
                 <Typography

@@ -1,5 +1,6 @@
 import {
   MoreVertRounded,
+  EditRounded,
   RefreshRounded,
   StarOutlineRounded,
 } from "@mui/icons-material";
@@ -21,6 +22,7 @@ import {
   useActiveServerScope,
   useAuthSession,
   useServerSession,
+  useCanManageServer,
 } from "features/session/model";
 import { useRef, useState, type ReactNode } from "react";
 import { overlayContainer } from "shared/lib/overlayContainer";
@@ -31,6 +33,7 @@ import {
 import { getOriginalDownloads } from "../model/downloads";
 import { getMediaActionCapabilities } from "../model/mediaActionCapabilities";
 import { useLazyMediaMetadata } from "../model/useLazyMediaMetadata";
+import { openMetadataDialog } from "../model/metadataDialog";
 import MediaRatingButton from "./MediaRatingButton";
 import { renderOriginalDownloadMenuItems } from "./OriginalDownloadMenuItems";
 
@@ -56,15 +59,17 @@ function ItemMenu({ item, onOpen, renderMenuItems }: Props) {
   const allowDownloads = useServerSession(
     (state) => state.server?.allowSync === true,
   );
+  const canManageServer = useCanManageServer();
   const capabilities = getMediaActionCapabilities(item, {
     localItem: true,
-    canManageServer: false,
+    canManageServer,
     allowDownloads,
   });
   const metadata = useLazyMediaMetadata(item);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const rating = useRef<{ open: (anchor: HTMLElement) => void }>(null);
   const data = metadata.data;
+  const needsMetadata = capabilities.canEditMetadata || capabilities.canRate || capabilities.canDownload;
   const downloads = data
     ? getOriginalDownloads(data, capabilities.canDownload)
     : [];
@@ -82,7 +87,7 @@ function ItemMenu({ item, onOpen, renderMenuItems }: Props) {
         onClick={(event) => {
           onOpen?.();
           setAnchor(event.currentTarget);
-          if (capabilities.canRate || capabilities.canDownload) load();
+          if (needsMetadata) load();
         }}
       >
         <MoreVertRounded />
@@ -96,6 +101,21 @@ function ItemMenu({ item, onOpen, renderMenuItems }: Props) {
           if (event.key.startsWith("Arrow")) event.stopPropagation();
         }}
       >
+        {capabilities.canEditMetadata && (
+          <MenuItem
+            disabled={!data}
+            onClick={() => {
+              close();
+              if (data) openMetadataDialog(data);
+            }}
+          >
+            <ListItemIcon>
+              <EditRounded fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Edit metadata…</ListItemText>
+          </MenuItem>
+        )}
+        {capabilities.canEditMetadata && <Divider />}
         {renderMenuItems?.(close)}
         {renderMenuItems &&
           (capabilities.canAddToPlaylist ||
@@ -132,7 +152,7 @@ function ItemMenu({ item, onOpen, renderMenuItems }: Props) {
             />
           </MenuItem>
         )}
-        {(capabilities.canRate || capabilities.canDownload) &&
+        {needsMetadata &&
           metadata.status === "loading" &&
           !data && (
             <MenuItem disabled>
@@ -142,7 +162,7 @@ function ItemMenu({ item, onOpen, renderMenuItems }: Props) {
               <ListItemText>Loading media details…</ListItemText>
             </MenuItem>
           )}
-        {(capabilities.canRate || capabilities.canDownload) &&
+        {needsMetadata &&
           metadata.status === "failed" && (
             <MenuItem onClick={load}>
               <ListItemIcon>

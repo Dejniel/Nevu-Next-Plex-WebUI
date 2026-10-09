@@ -51,12 +51,9 @@ import TitleOverview from "./TitleOverview";
 import TitleDetails from "./TitleDetails";
 import TitleMedia from "./TitleMedia";
 import {
-  applyMetadataUpdate,
-  EditMetadataDialog,
+  openMetadataDialog,
   MatchMetadataDialog,
   getMediaActionCapabilities,
-  type MetadataLockUpdate,
-  type MetadataUpdate,
 } from "features/media-actions/public";
 import { withoutExtra } from "entities/media/model";
 import {
@@ -94,7 +91,6 @@ function TitleDetailsScreen() {
   const posterRef = React.useRef<HTMLDivElement>(null);
 
   const [page, setPage] = useState<number>(0);
-  const [editMetadataOpen, setEditMetadataOpen] = useState(false);
   const [matchOpen, setMatchOpen] = useState(false);
   const [reviewTarget, setReviewTarget] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -160,7 +156,6 @@ function TitleDetailsScreen() {
   }, [mid, plexGuid, requestedPage]);
 
   useEffect(() => {
-    setEditMetadataOpen(false);
     setMatchOpen(false);
     setReviewTarget(null);
     setNotice(null);
@@ -189,18 +184,7 @@ function TitleDetailsScreen() {
       })
     : null;
 
-  const metadataWasSaved = (
-    changes: MetadataUpdate,
-    lockChanges: MetadataLockUpdate,
-  ) => {
-    setData((current) =>
-      current ? applyMetadataUpdate(current, changes, lockChanges) : current,
-    );
-    setNotice("Metadata saved");
-
-    if (mid)
-      void refetchMetadata();
-  };
+  const metadataWasSaved = () => setNotice("Metadata saved");
 
   if (!mid && !plexGuid) return <></>;
 
@@ -518,7 +502,9 @@ function TitleDetailsScreen() {
                     capabilities={capabilities}
                     data={data}
                     onDataChanged={setData}
-                    onEditMetadata={() => setEditMetadataOpen(true)}
+                    onEditMetadata={() => {
+                      if (data) openMetadataDialog(data, metadataWasSaved);
+                    }}
                     onMatch={() => setMatchOpen(true)}
                     onWriteReview={writeReview}
                   />
@@ -776,14 +762,6 @@ function TitleDetailsScreen() {
             key={reviewIdentity}
             item={data}
             onClose={() => setReviewTarget(null)}
-          />
-        )}
-        {data && capabilities?.canEditMetadata && (
-          <EditMetadataDialog
-            data={data}
-            open={editMetadataOpen}
-            onClose={() => setEditMetadataOpen(false)}
-            onSaved={metadataWasSaved}
           />
         )}
         {data && capabilities?.canMatch && matchOpen && (

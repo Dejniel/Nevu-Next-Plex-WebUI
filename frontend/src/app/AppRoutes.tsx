@@ -8,6 +8,7 @@ import LibraryBrowse from "./library/LibraryBrowse";
 import { WatchlistView } from "features/watchlist/routes";
 import { MediaListsView } from "features/media-lists/routes";
 import { MediaListActionDialog } from "features/media-lists/public";
+import { MetadataDialogHost } from "features/media-actions/public";
 import { SearchScreen } from "features/search/public";
 import { SettingsScreen } from "features/settings/public";
 import { PlaybackScreen } from "features/playback/public";
@@ -36,6 +37,7 @@ export default function AppRoutes() {
       </Box>
       <MusicPlayer />
       <MediaListActionDialog />
+      <MetadataDialogHost />
     </>
   );
 }
