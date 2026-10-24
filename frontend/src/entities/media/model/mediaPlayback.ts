@@ -25,7 +25,7 @@ export interface PlexPlaybackPlan {
   copyAudio: boolean;
   videoCodec: string;
   audioCodec: string;
-  subtitles: "none" | "sidecar" | "burn";
+  subtitles: "none" | "text" | "burn";
   subtitle?: MediaStream;
 }
 
@@ -129,7 +129,7 @@ export async function planMediaPlayback(
   const hasMSE = probe.mediaSourceSupported('video/mp4; codecs="avc1.640028"');
   if (!hasMSE && !probe.canPlayType("application/vnd.apple.mpegurl"))
     throw new Error("This browser does not support Plex streaming playback.");
-  const subtitles = !subtitle ? "none" : isTextSubtitle(subtitle) ? "sidecar" : "burn";
+  const subtitles = !subtitle ? "none" : isTextSubtitle(subtitle) ? "text" : "burn";
   const dynamicRange = media.videoDynamicRange?.toLowerCase() ?? "sdr";
   const preservePicture =
     intent === "initial" &&

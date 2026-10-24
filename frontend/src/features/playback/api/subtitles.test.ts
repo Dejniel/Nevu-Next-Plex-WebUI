@@ -63,11 +63,12 @@ it("builds the Plex Web compatible download request", () => {
 
   expect(Object.fromEntries(url.searchParams)).toEqual({
     key: "/library/streams/77",
-    codec: "srt",
-    language: "pol",
+    transient: "0",
+    mediaItemID: "44",
     hearingImpaired: "1",
     forced: "0",
-    mediaItemID: "44",
+    codec: "srt",
+    language: "pol",
     providerTitle: "OpenSubtitles",
   });
 });
@@ -103,7 +104,7 @@ it("searches and downloads with the active server token", async () => {
     expect.stringContaining("/library/metadata/42/subtitles?"),
     "PUT",
     expect.objectContaining({ "X-Plex-Token": "server-token" }),
-    {},
+    undefined,
     undefined,
   );
 });
@@ -111,26 +112,109 @@ it("searches and downloads with the active server token", async () => {
 it("passes cancellation to subtitle search and download", async () => {
   request.mockResolvedValue({ status: 200, data: { MediaContainer: {} } });
   const signal = new AbortController().signal;
-  await searchSubtitles("42", { language: "pl", mediaItemID: 44, hearingImpaired: 0, forced: 0 }, signal);
+  await searchSubtitles(
+    "42",
+    { language: "pl", mediaItemID: 44, hearingImpaired: 0, forced: 0 },
+    signal,
+  );
   await downloadSubtitle("42", 44, result, signal);
   expect(request.mock.calls.map((args) => args[4])).toEqual([signal, signal]);
 });
 
 it("keeps subtitle permission errors readable and preserves their cause", async () => {
   request.mockResolvedValue({ status: 403, data: "denied" });
-  await expect(searchSubtitles("42", { language: "pl", mediaItemID: 44, hearingImpaired: 0, forced: 0 })).rejects.toMatchObject({
-    message: "This Plex profile cannot search for subtitles.", status: 403, cause: { status: 403, response: "denied" },
+  await expect(
+    searchSubtitles("42", {
+      language: "pl",
+      mediaItemID: 44,
+      hearingImpaired: 0,
+      forced: 0,
+    }),
+  ).rejects.toMatchObject({
+    message: "This Plex profile cannot search for subtitles.",
+    status: 403,
+    cause: { status: 403, response: "denied" },
   });
 });
 
 it("does not convert subtitle cancellation into a search error", async () => {
   const controller = new AbortController();
   controller.abort();
-  await expect(searchSubtitles("42", { language: "pl", mediaItemID: 44, hearingImpaired: 0, forced: 0 }, controller.signal)).rejects.toMatchObject({ name: "AbortError" });
+  await expect(
+    searchSubtitles(
+      "42",
+      { language: "pl", mediaItemID: 44, hearingImpaired: 0, forced: 0 },
+      controller.signal,
+    ),
+  ).rejects.toMatchObject({ name: "AbortError" });
   expect(request).not.toHaveBeenCalled();
 });
 
-it.each([{}, { MediaContainer: "invalid" }, { MediaContainer: [] }, { MediaContainer: { Stream: null } }, { MediaContainer: { Stream: {} } }])("rejects malformed subtitle search results (%j)", async (data) => {
+it.each([
+  {},
+  { MediaContainer: "invalid" },
+  { MediaContainer: [] },
+  { MediaContainer: { Stream: null } },
+  { MediaContainer: { Stream: {} } },
+])("rejects malformed subtitle search results (%j)", async (data) => {
   request.mockResolvedValue({ status: 200, data });
-  await expect(searchSubtitles("42", { language: "pl", mediaItemID: 44, hearingImpaired: 0, forced: 0 })).rejects.toThrow("invalid subtitle search results");
+  await expect(
+    searchSubtitles("42", {
+      language: "pl",
+      mediaItemID: 44,
+      hearingImpaired: 0,
+      forced: 0,
+    }),
+  ).rejects.toThrow("invalid subtitle search results");
+});
+
+it("preserves provider identity and normalizes native flags without assuming optional ids", async () => {
+  const row = {
+    ...result,
+    id: undefined,
+    sourceKey: "provider://release?language=pol",
+    hearingImpaired: 1,
+    forced: 0,
+    downloaded: 0,
+    perfectMatch: 1,
+  };
+  request.mockResolvedValue({
+    status: 200,
+    data: { MediaContainer: { Stream: [row] } },
+  });
+  const [subtitle] = await searchSubtitles("42", {
+    language: "pl",
+    mediaItemID: 44,
+    forced: 0,
+    hearingImpaired: 0,
+  });
+  expect(subtitle).toMatchObject({
+    sourceKey: row.sourceKey,
+    hearingImpaired: true,
+    forced: false,
+    downloaded: false,
+    perfectMatch: true,
+  });
+  expect(subtitle.id).toBeUndefined();
+});
+it.each([
+  { key: undefined },
+  { key: "" },
+  { sourceKey: 42 },
+  { codec: 3 },
+  { streamType: 2 },
+  { forced: "false" },
+])("rejects malformed subtitle rows %j", async (invalid) => {
+  request.mockResolvedValue({
+    status: 200,
+    data: { MediaContainer: { Stream: [{ ...result, ...invalid }] } },
+  });
+  await expect(
+    searchSubtitles("42", {
+      language: "pl",
+      mediaItemID: 44,
+      forced: 0,
+      hearingImpaired: 0,
+    }),
+  ).rejects.toThrow("invalid");
 });

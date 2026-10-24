@@ -39,7 +39,8 @@ function playbackRequestParams(
     fastSeek: 0,
     audioBoost: 100,
     subtitleSize: 100,
-    subtitles: plan.subtitles,
+    // Segmented video uses its own subtitle output; sidecar is for Direct Play.
+    subtitles: plan.subtitles === "text" ? "auto" : plan.subtitles,
     autoAdjustQuality: 0,
     ...(quality.bitrate && quality.bitrate > 0 ? { maxVideoBitrate: quality.bitrate } : {}),
   };
@@ -67,14 +68,14 @@ export async function prepareMediaPlayback(
     // Copied fragments can begin between keyframes. Read preceding media on seek.
     seekPreRoll: plan.protocol === "dash" && plan.copyVideo ? 2 * DASH_SEGMENT_SECONDS : undefined,
   };
-  if (plan.subtitle?.id !== undefined && plan.subtitles === "sidecar") {
+  if (plan.subtitle?.id !== undefined && plan.subtitles === "text") {
     source.textTracks = [
       {
-        url: plexMediaURL(`/library/streams/${plan.subtitle.id}`, {
-          ...source.requestContext,
-          encoding: "utf-8",
-        }),
-        language: plan.subtitle.languageCode || "und",
+        url: plan.subtitle.key
+          ? plexMediaURL(plan.subtitle.key, { ...source.requestContext, format: "srt", encoding: "utf-8" })
+          : source.url.replace(/\/start\.(mpd|m3u8)\?/, "/subtitles?"),
+        format: plan.subtitle.key ? "srt" : "webvtt",
+        language: plan.subtitle.languageTag || plan.subtitle.languageCode || "und",
         label: plan.subtitle.displayTitle || plan.subtitle.language || "Subtitles",
       },
     ];

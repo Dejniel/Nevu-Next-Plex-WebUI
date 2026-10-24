@@ -161,21 +161,22 @@ it("releases a successful audio-only decision without publishing a playable sour
   expect(stop.pathname).toBe("/dynproxy/video/:/transcode/universal/stop");
   expect(stop.searchParams.get("session")).toBe("session-42");
 });
-it("loads text subtitles directly from the Plex stream after video preparation", async () => {
+it("reads embedded text from the prepared video session without a second conversion reservation", async () => {
   (uuidV4 as Mock).mockReturnValueOnce("video-session");
   const { source } = await prepare(
     {
       ...request,
-      subtitles: "sidecar",
+      subtitles: "text",
       subtitle: { id: 6, streamType: 3, languageCode: "eng" } as MediaStream,
     },
     { bitrate: 240 },
   );
-  expect(source.loadTextTracks).toBeUndefined();
+  expect(source.textTracks).toHaveLength(1);
   expect(ProxiedRequest).toHaveBeenCalledTimes(1);
   const track = new URL(source.textTracks![0].url);
-  expect(track.pathname).toBe("/dynproxy/library/streams/6");
-  expect(track.searchParams.get("encoding")).toBe("utf-8");
+  expect(track.pathname).toBe("/dynproxy/video/:/transcode/universal/subtitles");
+  expect([...track.searchParams]).toEqual([...new URL(source.url).searchParams]);
+  expect(track.searchParams.get("subtitles")).toBe("auto");
   expect(track.searchParams.get("X-Plex-Token")).toBe("owning-profile");
   await releaseMediaPlayback(source);
   expect(
@@ -260,4 +261,25 @@ it("pings the source's owning session", async () => {
   expect(ping.pathname).toBe("/dynproxy/video/:/transcode/universal/ping");
   expect(ping.searchParams.get("session")).toBe(source.id);
   expect(ping.searchParams.get("X-Plex-Token")).toBe("owning-profile");
+});
+
+it("uses the server's external stream key and declares SRT for conversion", async () => {
+  const { source } = await prepare({
+    ...request,
+    subtitles: "text",
+    subtitle: {
+      id: 88,
+      streamType: 3,
+      key: "/library/streams/88",
+      codec: "srt",
+      languageTag: "pl",
+    },
+  });
+  const track = source.textTracks![0];
+  const url = new URL(track.url);
+  expect(url.pathname).toBe("/dynproxy/library/streams/88");
+  expect(url.searchParams.get("format")).toBe("srt");
+  expect(url.searchParams.get("X-Plex-Token")).toBe("owning-profile");
+  expect(track).toMatchObject({ format: "srt", language: "pl" });
+  expect(ProxiedRequest).toHaveBeenCalledTimes(1);
 });

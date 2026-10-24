@@ -1,4 +1,5 @@
-const CUE_TIMING = /^(\s*(?:\d+:)?\d{2}:\d{2})[,.](\d{3})(\s+-->\s+)((?:\d+:)?\d{2}:\d{2})[,.](\d{3})(.*)$/gm;
+const CUE_TIMING =
+  /^(\s*(?:\d+:)?\d{2}:\d{2})[,.](\d{3})(\s+-->\s+)((?:\d+:)?\d{2}:\d{2})[,.](\d{3})(.*)$/gm;
 
 export function toWebVTT(input: string) {
   const text = input.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
@@ -12,6 +13,7 @@ export function toWebVTT(input: string) {
       return `${start}.${startMillis}${arrow}${end}.${endMillis}${settings}`;
     },
   );
-  if (!cues) throw new Error("Plex returned an unsupported subtitle document.");
+  if (!cues)
+    throw new Error("The subtitle document is not valid WebVTT or SRT.");
   return `WEBVTT\n\n${body}`;
 }

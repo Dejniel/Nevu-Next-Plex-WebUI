@@ -4,6 +4,11 @@ export interface MediaStream {
   id?: number;
   index?: number;
   codec?: string;
+  key?: string;
+  sourceKey?: string;
+  forced?: boolean;
+  hearingImpaired?: boolean;
+  providerTitle?: string;
   default?: boolean;
   selected?: boolean;
   bitrate?: number;

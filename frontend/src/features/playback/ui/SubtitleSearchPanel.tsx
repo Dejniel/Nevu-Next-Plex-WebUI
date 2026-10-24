@@ -183,6 +183,7 @@ export default function SubtitleSearchPanel({
         ) ?? current,
       );
     } catch (downloadError) {
+      if (downloadError instanceof Error && downloadError.name === "AbortError") return;
       setError(
         downloadError instanceof Error
           ? downloadError.message

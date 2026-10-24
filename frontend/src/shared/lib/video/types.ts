@@ -2,6 +2,8 @@ export interface VideoTextTrack {
   url: string;
   language: string;
   label: string;
+  /** Native WebVTT may stream; SRT needs conversion before attachment. */
+  format?: "webvtt" | "srt";
 }
 
 export interface VideoSource {
@@ -13,9 +15,6 @@ export interface VideoSource {
   /** Earlier media needed to decode a seek into non-independent fragments. */
   seekPreRoll?: number;
   textTracks?: VideoTextTrack[];
-  loadTextTracks?: (
-    signal: AbortSignal,
-  ) => Promise<{ tracks: VideoTextTrack[] } | { error: VideoPlaybackError }>;
 }
 
 export interface VideoPlayerHandle {

@@ -29,6 +29,11 @@ function engine() {
 }
 
 beforeEach(() => {
+  const tracks = new WeakMap<HTMLTrackElement, { mode: string }>();
+  Object.defineProperty(HTMLTrackElement.prototype, "track", { configurable: true, get() {
+    if (!tracks.has(this)) tracks.set(this, { mode: "disabled" });
+    return tracks.get(this);
+  }});
   vi.resetAllMocks();
   (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -102,21 +107,18 @@ it("does not load Shaka for a direct-play file", async () => {
 });
 
 it("loads text tracks after video readiness without restarting the video", async () => {
-  const loadTextTracks = vi.fn().mockResolvedValue({
-    tracks: [{ url: "/subs.vtt", language: "eng", label: "English" }],
-  });
   props.source = {
     id: "file",
     url: "/movie.mp4",
     type: "file",
-    loadTextTracks,
+    textTracks: [{ url: "/subs.vtt", language: "eng", label: "English", format: "srt" }],
   };
   await render();
-  expect(loadTextTracks).not.toHaveBeenCalled();
+  expect(fetch).not.toHaveBeenCalled();
   await act(async () =>
     element.querySelector("video")!.dispatchEvent(new Event("loadedmetadata")),
   );
-  expect(loadTextTracks).toHaveBeenCalledTimes(1);
+
   expect(fetch).toHaveBeenCalledWith(
     "/subs.vtt",
     expect.objectContaining({ signal: expect.any(AbortSignal) }),
@@ -127,18 +129,11 @@ it("loads text tracks after video readiness without restarting the video", async
 });
 
 it("cancels late text-track loading when the source changes", async () => {
-  let finish!: (value: { tracks: [] }) => void;
-  let signal!: AbortSignal;
+  let finish!: (value: { ok: boolean; text: () => Promise<string> }) => void;
+  (fetch as Mock).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
   props.source = {
-    id: "file",
-    url: "/movie.mp4",
-    type: "file",
-    loadTextTracks: (requestSignal) => {
-      signal = requestSignal;
-      return new Promise((resolve) => {
-        finish = resolve;
-      });
-    },
+    id: "file", url: "/movie.mp4", type: "file",
+    textTracks: [{ url: "/subs.vtt", language: "eng", label: "English", format: "srt" }],
   };
   await render();
   await act(async () =>
@@ -146,8 +141,9 @@ it("cancels late text-track loading when the source changes", async () => {
   );
   props.source = { id: "second", url: "/second.mp4", type: "file" };
   await render();
+  const signal = (fetch as Mock).mock.calls[0][1].signal as AbortSignal;
   expect(signal.aborted).toBe(true);
-  await act(async () => finish({ tracks: [] }));
+  await act(async () => finish({ ok: true, text: async () => "WEBVTT\n" }));
   expect(element.querySelector("track")).toBeNull();
 });
 
@@ -157,7 +153,7 @@ it("reports native track warnings separately and detaches the listener", async (
     id: "file",
     url: "/movie.mp4",
     type: "file",
-    textTracks: [{ url: "/subs.vtt", language: "eng", label: "English" }],
+    textTracks: [{ url: "/subs.vtt", language: "eng", label: "English", format: "srt" }],
   };
   props.onSubtitleError = onSubtitleError;
   props.onError = vi.fn();
@@ -170,6 +166,7 @@ it("reports native track warnings separately and detaches the listener", async (
     video.dispatchEvent(new Event("timeupdate"));
   });
   const track = element.querySelector("track")!;
+  expect(track.track.mode).toBe("showing");
   track.dispatchEvent(new Event("error"));
   expect(onSubtitleError).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -198,7 +195,7 @@ it("keeps video ready while subtitle data is pending and cancels stale downloads
     id: "file",
     url: "/movie.mp4",
     type: "file",
-    textTracks: [{ url: "/subs.vtt", language: "eng", label: "English" }],
+    textTracks: [{ url: "/subs.vtt", language: "eng", label: "English", format: "srt" }],
   };
   props.onSubtitleError = vi.fn();
   props.onReady = vi.fn();
@@ -222,7 +219,7 @@ it("reports subtitle download denial without failing or restarting video", async
   (fetch as Mock).mockResolvedValue({ ok: false, status: 403 });
   props.source = {
     ...props.source!,
-    textTracks: [{ url: "/subs.vtt", language: "eng", label: "English" }],
+    textTracks: [{ url: "/subs.vtt", language: "eng", label: "English", format: "srt" }],
   };
   props.onSubtitleError = vi.fn();
   props.onError = vi.fn();
@@ -235,18 +232,12 @@ it("reports subtitle download denial without failing or restarting video", async
   expect(createStreamingPlayer).toHaveBeenCalledTimes(1);
 });
 
-it("retains the playhead when lazy subtitle preparation fails", async () => {
-  let finish!: (value: {
-    error: { kind: "network"; message: string; httpStatus: number };
-  }) => void;
+it("retains the playhead when subtitle loading fails", async () => {
+  let finish!: (value: { ok: boolean; status: number }) => void;
+  (fetch as Mock).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
   props.source = {
-    id: "file",
-    url: "/movie.mp4",
-    type: "file",
-    loadTextTracks: () =>
-      new Promise((resolve) => {
-        finish = resolve;
-      }),
+    id: "file", url: "/movie.mp4", type: "file",
+    textTracks: [{ url: "/subs.vtt", language: "eng", label: "English", format: "srt" }],
   };
   props.onError = vi.fn();
   props.onSubtitleError = vi.fn();
@@ -256,13 +247,7 @@ it("retains the playhead when lazy subtitle preparation fails", async () => {
   await act(async () => video.dispatchEvent(new Event("loadedmetadata")));
   video.currentTime = 24;
   await act(async () =>
-    finish({
-      error: {
-        kind: "network",
-        message: "Subtitles unavailable",
-        httpStatus: 403,
-      },
-    }),
+    finish({ ok: false, status: 403 }),
   );
   expect(props.onSubtitleError).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -435,4 +420,34 @@ it("cancels a native HTTP check and ignores its response after switching sources
   await act(async () => complete({ ok: false, status: 403 }));
   expect(props.onError).not.toHaveBeenCalled();
   vi.unstubAllGlobals();
+});
+
+it("attaches streaming WebVTT after video readiness without waiting for a complete document", async () => {
+  props.source = {
+    id: "streaming",
+    type: "file",
+    url: "/movie.mp4",
+    textTracks: [
+      {
+        url: "/streaming.vtt",
+        language: "en",
+        label: "English",
+        format: "webvtt",
+      },
+    ],
+  };
+  await render();
+  expect(element.querySelector("track")).toBeNull();
+  await act(async () =>
+    element.querySelector("video")!.dispatchEvent(new Event("loadedmetadata")),
+  );
+  const track = element.querySelector("track")!;
+  expect(track.src).toContain("/streaming.vtt");
+  expect(track.track.mode).toBe("showing");
+  expect(fetch).not.toHaveBeenCalled();
+  props.volume = 0.2; await render();
+  expect(track.src).toContain("/streaming.vtt");
+  props.source = { id: "next", type: "file", url: "/next.mp4" };
+  await render();
+  expect(track.hasAttribute("src")).toBe(false);
 });

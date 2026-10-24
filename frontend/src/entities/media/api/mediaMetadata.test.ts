@@ -188,3 +188,42 @@ it("preserves last valid Query data when a refreshed response is malformed", asy
     client.clear();
   }
 });
+
+it("retains attached subtitle file and provider identities separately", () => {
+  const metadata = readMediaMetadata({
+    ratingKey: "42",
+    type: "movie",
+    title: "Movie",
+    Media: [
+      {
+        id: 44,
+        Part: [
+          {
+            id: 5,
+            key: "/library/parts/5/file.mkv",
+            Stream: [
+              {
+                id: 88,
+                streamType: 3,
+                codec: "srt",
+                key: "/library/streams/88",
+                sourceKey: "provider://release",
+                forced: 0,
+                hearingImpaired: 1,
+                providerTitle: "OpenSubtitles",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+  expect(metadata.Media![0].Part![0].Stream![0]).toMatchObject({
+    id: 88,
+    key: "/library/streams/88",
+    sourceKey: "provider://release",
+    forced: false,
+    hearingImpaired: true,
+    providerTitle: "OpenSubtitles",
+  });
+});

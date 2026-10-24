@@ -146,10 +146,10 @@ it("retains sidecar subtitles in both negotiated and compatible playback", async
   } as MediaStream;
   sample.part.Stream!.push(subtitle);
   expect(await plan(sample)).toMatchObject({
-    subtitles: "sidecar", subtitle,
+    subtitles: "text", subtitle,
   });
   expect(await plan(sample, {}, "compatible")).toMatchObject({
-    subtitles: "sidecar",
+    subtitles: "text",
     subtitle,
     copyVideo: false,
     copyAudio: false,

@@ -174,22 +174,23 @@ it("keeps the episode playable when optional series information cannot be read",
   expect(callbacks.setError).toHaveBeenLastCalledWith(false);
 });
 
-const subtitle = { id: 77, key: "/library/streams/77", streamType: 3, codec: "srt", languageCode: "pol", title: "Example" } satisfies SubtitleSearchResult;
+const subtitle = { id: 77, sourceKey: "provider://release", key: "/library/streams/77", streamType: 3, codec: "srt", languageCode: "pol", title: "Example" } satisfies SubtitleSearchResult;
 
 it("can download and select a subtitle after temporary Original recovery", async () => {
   await render();
   await act(async () => { media.tryOriginal(); });
   const version = media.activeVersion!;
-  const stream: MediaStream = { ...subtitle, index: 2, default: false, bitrate: 0, language: "Polish", languageTag: "pl", displayTitle: subtitle.title, extendedDisplayTitle: subtitle.title };
+  const stream: MediaStream = { ...subtitle, id: 88, key: "/library/streams/88", index: 2, default: false, bitrate: 0, language: "Polish", languageTag: "pl", displayTitle: subtitle.title, extendedDisplayTitle: subtitle.title };
   const attached = { ...media.metadata!, Media: [{ ...version.media, Part: [{ ...version.part, Stream: [stream] }] }] };
   vi.mocked(getMediaMetadata).mockResolvedValue(attached);
   vi.mocked(downloadSubtitle).mockImplementation(async (_id, _mediaID, _subtitle, signal) => signal?.throwIfAborted());
   await act(async () => { await media.downloadOnDemandSubtitle(subtitle); });
   const signal = vi.mocked(downloadSubtitle).mock.calls[0][3]!;
   expect(signal).toBeInstanceOf(AbortSignal);
-  expect(putSubtitleStream).toHaveBeenCalledWith(20, 77, expect.any(AbortSignal));
+  expect(signal.aborted).toBe(false);
+  expect(putSubtitleStream).toHaveBeenCalledWith(20, 88, expect.any(AbortSignal));
   expect(media.activeVersion?.part.Stream?.[0]).toMatchObject({
-    id: 77,
+    id: 88,
     selected: true,
   });
   expect(media.quality).toEqual({ bitrate: -1 });
@@ -204,8 +205,81 @@ it("cancels a subtitle download and ignores its late failure after navigation", 
   const signal = vi.mocked(downloadSubtitle).mock.calls[0][3]!;
   itemID = "43";
   await render();
-  await act(async () => { reject(new Error("old failure")); await downloading; });
+  await act(async () => { reject(new Error("old failure")); await expect(downloading).rejects.toMatchObject({ name: "AbortError" }); });
   expect(signal.aborted).toBe(true);
   expect(media.metadata?.ratingKey).toBe("43");
   expect(callbacks.setError).toHaveBeenLastCalledWith(false);
+});
+
+it("reports a failed selection to the download UI without cancelling or stopping video", async () => {
+  await render();
+  const version = media.activeVersion!;
+  vi.mocked(getMediaMetadata).mockResolvedValue({
+    ...media.metadata!,
+    Media: [
+      {
+        ...version.media,
+        Part: [
+          {
+            ...version.part,
+            Stream: [{ ...subtitle, id: 88, key: "/library/streams/88" }],
+          },
+        ],
+      },
+    ],
+  });
+  vi.mocked(putSubtitleStream).mockRejectedValueOnce(new Error("HTTP 400"));
+  const changes = callbacks.onSourceChanging.mock.calls.length;
+  await act(async () => {
+    await expect(media.downloadOnDemandSubtitle(subtitle)).rejects.toThrow(
+      "HTTP 400",
+    );
+  });
+  expect(vi.mocked(downloadSubtitle).mock.calls[0][3]?.aborted).toBe(false);
+  expect(callbacks.onSourceChanging).toHaveBeenCalledTimes(changes);
+  expect(callbacks.requestResumeAt).not.toHaveBeenCalled();
+  expect(callbacks.setError).toHaveBeenLastCalledWith(false);
+});
+
+it("keeps a rejected subtitle choice as a warning without persisting its preference", async () => {
+  const warning = vi.fn();
+  (useMediaPlaybackSource as Mock).mockReturnValue({
+    source: { id: "current" },
+    error: null,
+    reportSubtitleError: warning,
+  });
+  await render();
+  const stream = {
+    streamType: 3 as const,
+    id: 88,
+    key: "/library/streams/88",
+    codec: "srt",
+  };
+  vi.mocked(putSubtitleStream).mockRejectedValueOnce(new Error("HTTP 400"));
+  await act(async () => {
+    expect(
+      await media.selectSubtitleTrack({ ...media.activeVersion!, stream }),
+    ).toBe(false);
+  });
+  expect(warning).toHaveBeenCalledWith(
+    expect.objectContaining({
+      sourceId: "current",
+      kind: "subtitle",
+      message: "HTTP 400",
+    }),
+  );
+  expect(userSettings.setSetting).not.toHaveBeenCalled();
+  expect(callbacks.setError).toHaveBeenLastCalledWith(false);
+});
+
+it("rejects an old download callback before it can cancel the next item's operation", async () => {
+  await render();
+  const staleDownload = media.downloadOnDemandSubtitle;
+  itemID = "43";
+  await render();
+  await expect(staleDownload(subtitle)).rejects.toMatchObject({
+    name: "AbortError",
+  });
+  expect(downloadSubtitle).not.toHaveBeenCalled();
+  expect(media.metadata?.ratingKey).toBe("43");
 });

@@ -305,12 +305,19 @@ fragments using its own parser; copied video reads preceding fragments when seek
 Browsers without MSE negotiate HLS; Shaka chooses MSE or native playback.
 Identified source events prevent old attempts from affecting a new item/profile;
 each attempt releases its sessions and retains playback position and pause.
-Text subtitles load after video readiness; Plex requires separate read
-authorization for WebVTT extraction, which never gates the video's initial source.
-Complete WebVTT is attached through owned blob URLs; pending native tracks cannot
-block video readiness. Source cleanup aborts downloads and releases these URLs.
+Text subtitles load after video readiness. Embedded text uses the active video
+session's subtitle output, with the same parameters and `subtitles=auto`;
+external files use their PMS-provided stream keys.
+Native WebVTT attaches after video readiness and displays streamed cues without
+waiting for a long video's complete subtitle output. External SRT is normalized
+to WebVTT through owned blob URLs. Source cleanup cancels reads and releases URLs.
 Subtitle failures show a separate warning and keep the video running.
-Image/styled subtitles use burn-in.
+Image/styled subtitles use burn-in. Subtitle search responses retain provider
+`sourceKey`; downloaded library streams may have different IDs. Download,
+attachment polling and selection share one cancellable operation. Library
+subtitles are downloaded with `transient=0`, so restarting video retains them.
+Acknowledged selections update playback snapshots without inventing streams;
+failed downloads/selections retain playback and remain visible for retry.
 Local extras, Discover trailers, card previews, and full playback share this
 engine. Local extras use the same fallback controller; Discover has its own source
 resolver. Plex supplies conversions; Nevu has no separate transcoder.

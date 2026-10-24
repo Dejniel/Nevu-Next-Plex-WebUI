@@ -46,48 +46,45 @@ export function getTrackChoices(
   );
 }
 
-/** Preserve an explicit track selection independently of Plex read timing. */
+/** Project an acknowledged selection onto the playback snapshot. Never invent
+ * streams missing from the server's inventory. Zero means subtitles disabled. */
 export function withSelectedTrack(
   data: MediaMetadata,
   choice: TrackChoice,
 ): MediaMetadata {
-  if (choice.stream.id === undefined) return data;
-  let changed = false;
-  const Media = data.Media?.map((media, mediaIndex) => {
-    if (
-      mediaIndex !== choice.mediaIndex ||
-      (media.id !== undefined &&
-        choice.media.id !== undefined &&
-        media.id !== choice.media.id)
-    )
-      return media;
-    const Part = media.Part?.map((part, partIndex) => {
+  const id = choice.stream.id;
+  if (id === undefined)
+    throw new Error("Plex did not identify the selected track.");
+  let found = false;
+  const Media = data.Media?.map((media) => ({
+    ...media,
+    Part: media.Part?.map((part) => {
+      if (part.key !== choice.part.key || part.id !== choice.part.id)
+        return part;
       if (
-        partIndex !== choice.partIndex ||
-        (part.id !== undefined &&
-          choice.part.id !== undefined &&
-          part.id !== choice.part.id)
+        id !== 0 &&
+        !part.Stream?.some(
+          (stream) =>
+            stream.id === id && stream.streamType === choice.stream.streamType,
+        )
       )
         return part;
-      const streams = part.Stream || [];
-      const streamsWithChoice = streams.some(
-        (stream) => stream.id === choice.stream.id,
-      )
-        ? streams
-        : [...streams, choice.stream];
-      changed = true;
+      found = true;
       return {
         ...part,
-        Stream: streamsWithChoice.map((stream) =>
+        Stream: part.Stream?.map((stream) =>
           stream.streamType === choice.stream.streamType
-            ? { ...stream, selected: stream.id === choice.stream.id }
+            ? { ...stream, selected: stream.id === id }
             : stream,
         ),
       };
-    });
-    return { ...media, Part };
-  });
-  return changed ? { ...data, Media } : data;
+    }),
+  }));
+  if (!found)
+    throw new Error(
+      "The selected track is no longer available in this media file.",
+    );
+  return { ...data, Media };
 }
 
 export function parseTrackPreference(value?: string): TrackPreference | null {

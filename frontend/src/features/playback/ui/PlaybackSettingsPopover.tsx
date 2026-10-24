@@ -223,7 +223,7 @@ export default function PlaybackSettingsPopover({
             ))}
             <Divider />
             <TuneAction
-              disabled={!activeVersion.media.id}
+              disabled={!activeVersion.media.id || !activeVersion.part.id}
               icon={<SearchRounded fontSize="small" />}
               primary="Find subtitles…"
               secondary="Search Plex subtitle providers"

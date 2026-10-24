@@ -91,9 +91,14 @@ For copied video, check seeking outside the buffer: decoded frames/audio
 must resume near the requested position, including files with long GOPs.
 Check continuous video buffering across segment boundaries and playback while
 subtitle extraction is still pending; subtitle downloads must not stall video.
+Match a standalone sample and search/download real provider subtitles. Verify
+attachment when the provider ID differs from the library stream ID, selection,
+visible cues, disabling and retention after a quality/session change. A failed
+selection must remain retryable; navigation/profile changes cancel stale work.
+Include embedded text with cues near the beginning and end of a long sample.
 Inspect stream parameters and Plex's active session to distinguish copying from
-conversion; a decision alone does not prove playback. Text subtitle extraction
-authorizes its own read after video readiness. Browser/device codec support,
+conversion; a decision alone does not prove playback. Text subtitle output loads
+after video readiness. Browser/device codec support,
 native Safari HLS, HDR, and hardware transcoding require suitable environments.
 
 On title pages, resize through desktop/mobile layouts and change text size.
