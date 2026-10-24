@@ -1,13 +1,10 @@
 import type { MediaMetadata } from "plex/media";
-import { PlexClient, PlexRequestError } from "shared/api/PlexClient";
 import {
   preparePlexPlayback,
   plexMediaURL,
   releasePlexSessions,
   pingPlexSession,
 } from "shared/api/plexPlayback";
-import { queryBuilder } from "shared/lib/query";
-import { uuidV4 } from "shared/lib/identifiers";
 import type { MediaVersion } from "../model/mediaVersions";
 import { playbackProfile, playbackDecisionPlan } from "../model/mediaPlayback";
 import type {
@@ -48,10 +45,6 @@ function playbackRequestParams(
   };
 }
 
-function playbackClient(context: Record<string, unknown>) {
-  return new PlexClient(() => String(context["X-Plex-Token"] ?? ""));
-}
-
 export async function prepareMediaPlayback(
   metadata: MediaMetadata,
   version: MediaVersion,
@@ -74,66 +67,19 @@ export async function prepareMediaPlayback(
     // Copied fragments can begin between keyframes. Read preceding media on seek.
     seekPreRoll: plan.protocol === "dash" && plan.copyVideo ? 2 * DASH_SEGMENT_SECONDS : undefined,
   };
-  if (plan.subtitle && plan.subtitles === "sidecar") {
-    source.subtitleSessionID = uuidV4();
-    source.loadTextTracks = (signal) => loadSubtitleTracks(metadata, version, plan, source, signal);
-  }
-  return { source, plan };
-}
-
-async function loadSubtitleTracks(
-  metadata: MediaMetadata,
-  version: MediaVersion,
-  plan: PlexPlaybackPlan,
-  source: PlexPlaybackSource,
-  signal: AbortSignal,
-): ReturnType<NonNullable<PlexPlaybackSource["loadTextTracks"]>> {
-  if (!source.subtitleSessionID || !plan.subtitle) return { tracks: [] };
-  const params = {
-    ...source.requestContext,
-    "X-Plex-Session-Identifier": source.subtitleSessionID,
-    session: source.subtitleSessionID,
-    path: `/library/metadata/${metadata.ratingKey}`,
-    mediaIndex: version.mediaIndex,
-    partIndex: version.partIndex,
-    subtitleStreamID: plan.subtitle.id,
-    "X-Plex-Client-Profile-Name": "Generic",
-    "X-Plex-Client-Profile-Extra":
-      "add-transcode-target(type=subtitleProfile&context=all&protocol=http&container=webvtt&subtitleCodec=webvtt&replace=true)",
-    protocol: "http",
-    hasMDE: 1,
-    directPlay: 1,
-  };
-  // PMS requires read authorization for subtitle extraction. This runs after
-  // video readiness, independently of the video's fallback decision.
-  try {
-    await playbackClient(source.requestContext).get(
-      `/subtitles/:/transcode/universal/decision?${queryBuilder(params)}`,
-      signal,
-    );
-  } catch (reason) {
-    return {
-      error: {
-        kind: "subtitle",
-        httpStatus: reason instanceof PlexRequestError ? reason.status : undefined,
-        message: "The selected subtitles could not be loaded.",
-      },
-    };
-  }
-  return {
-    tracks: [
+  if (plan.subtitle?.id !== undefined && plan.subtitles === "sidecar") {
+    source.textTracks = [
       {
-        url: plexMediaURL("/subtitles/:/transcode/universal/start", {
-          ...params,
-          directPlay: 0,
-          format: "webvtt",
-          subtitleCodec: "webvtt",
+        url: plexMediaURL(`/library/streams/${plan.subtitle.id}`, {
+          ...source.requestContext,
+          encoding: "utf-8",
         }),
         language: plan.subtitle.languageCode || "und",
         label: plan.subtitle.displayTitle || plan.subtitle.language || "Subtitles",
       },
-    ],
-  };
+    ];
+  }
+  return { source, plan };
 }
 
 export async function releaseMediaPlayback(source: PlexPlaybackSource | null, keepalive = false) {
@@ -141,7 +87,7 @@ export async function releaseMediaPlayback(source: PlexPlaybackSource | null, ke
   await releasePlexSessions(
     "video",
     source.requestContext,
-    [source.id, source.subtitleSessionID].filter((id): id is string => Boolean(id)),
+    [source.id],
     keepalive,
   );
 }

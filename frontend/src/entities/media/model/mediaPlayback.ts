@@ -29,9 +29,7 @@ export interface PlexPlaybackPlan {
   subtitle?: MediaStream;
 }
 
-export interface PlexPlaybackSource extends PlexStreamSource {
-  subtitleSessionID?: string;
-}
+export type PlexPlaybackSource = PlexStreamSource;
 
 function videoCodecString(stream: MediaStream | undefined, codec: string) {
   const depth = stream?.bitDepth ?? 8;

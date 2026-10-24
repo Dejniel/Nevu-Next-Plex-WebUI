@@ -161,48 +161,26 @@ it("releases a successful audio-only decision without publishing a playable sour
   expect(stop.pathname).toBe("/dynproxy/video/:/transcode/universal/stop");
   expect(stop.searchParams.get("session")).toBe("session-42");
 });
-it("reserves independent lazy subtitle extraction after video preparation", async () => {
-  (uuidV4 as Mock).mockReturnValueOnce("video-session").mockReturnValueOnce("subtitle-session");
+it("loads text subtitles directly from the Plex stream after video preparation", async () => {
+  (uuidV4 as Mock).mockReturnValueOnce("video-session");
   const { source } = await prepare(
     {
       ...request,
       subtitles: "sidecar",
-      subtitle: { id: 6, languageCode: "eng" } as MediaStream,
+      subtitle: { id: 6, streamType: 3, languageCode: "eng" } as MediaStream,
     },
     { bitrate: 240 },
   );
-  expect(source.textTracks).toBeUndefined();
+  expect(source.loadTextTracks).toBeUndefined();
   expect(ProxiedRequest).toHaveBeenCalledTimes(1);
-  const result = await source.loadTextTracks!(new AbortController().signal);
-  if ("error" in result) throw new Error(result.error.message);
-  const start = new URL(result.tracks[0].url);
-  expect(start.pathname).toBe("/dynproxy/subtitles/:/transcode/universal/start");
-  expect(start.searchParams.get("session")).toBe("subtitle-session");
-  expect(start.searchParams.get("subtitleStreamID")).toBe("6");
-  expect(start.searchParams.get("format")).toBe("webvtt");
-  expect(start.searchParams.has("maxVideoBitrate")).toBe(false);
-  const authorization = new URL((ProxiedRequest as Mock).mock.calls[1][0], "http://plex");
-  expect(authorization.pathname).toBe("/subtitles/:/transcode/universal/decision");
-  expect(authorization.searchParams.get("session")).toBe("subtitle-session");
+  const track = new URL(source.textTracks![0].url);
+  expect(track.pathname).toBe("/dynproxy/library/streams/6");
+  expect(track.searchParams.get("encoding")).toBe("utf-8");
+  expect(track.searchParams.get("X-Plex-Token")).toBe("owning-profile");
   await releaseMediaPlayback(source);
   expect(
     (fetch as Mock).mock.calls.map(([url]) => new URL(url).searchParams.get("session")),
-  ).toEqual(["video-session", "subtitle-session"]);
-});
-it("keeps subtitle HTTP failures separate from video failure", async () => {
-  const { source } = await prepare({
-    ...request,
-    subtitles: "sidecar",
-    subtitle: { id: 6 } as MediaStream,
-  });
-  (ProxiedRequest as Mock).mockResolvedValue({
-    status: 403,
-    data: "Forbidden",
-  });
-  expect(await source.loadTextTracks!(new AbortController().signal)).toMatchObject({
-    error: { kind: "subtitle", httpStatus: 403 },
-  });
-  expect((ProxiedRequest as Mock).mock.lastCall?.[2]["X-Plex-Token"]).toBe("owning-profile");
+  ).toEqual(["video-session"]);
 });
 it("cleans its reservation on a decision refusal without producing a source", async () => {
   (ProxiedRequest as Mock).mockResolvedValue({

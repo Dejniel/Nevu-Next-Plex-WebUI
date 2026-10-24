@@ -14,6 +14,7 @@ import {
   createStreamingPlayer,
   streamingMimeType,
 } from "shared/lib/video/shaka";
+import { toWebVTT } from "shared/lib/video/subtitles";
 import type {
   VideoPlaybackError,
   VideoPlaybackFailure,
@@ -151,7 +152,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
                 httpStatus: response.status,
                 message: "The selected subtitles could not be loaded.",
               });
-            const text = await response.text();
+            const text = toWebVTT(await response.text());
             if (cancelled || failed) return;
             // A pending native <track> can gate video readiness. Publish only
             // complete WebVTT, so slow subtitle extraction cannot stop playback.
