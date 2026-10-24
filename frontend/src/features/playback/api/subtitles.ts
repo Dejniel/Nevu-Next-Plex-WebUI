@@ -15,22 +15,23 @@ import type {
   SubtitleSearchCriteria,
   SubtitleSearchResult,
 } from "../model/subtitles";
+import { subtitleFileFormat } from "../model/subtitles";
 
-class SubtitleSearchError extends Error {
+class SubtitleError extends Error {
   constructor(
     message: string,
     public readonly status?: number,
     cause?: unknown,
   ) {
     super(message, { cause });
-    this.name = "SubtitleSearchError";
+    this.name = "SubtitleError";
   }
 }
 
 function subtitleClient() {
   const token = AuthStorage.getServerToken();
   if (!token)
-    throw new SubtitleSearchError(
+    throw new SubtitleError(
       "The Plex session has expired. Sign in again.",
       401,
     );
@@ -40,30 +41,32 @@ function subtitleClient() {
 
 function subtitleError(
   error: PlexRequestError,
-  operation: "search" | "download",
+  operation: "search" | "download" | "upload",
 ) {
   const status = error.status;
   if (status === 401 || status === 403)
-    return new SubtitleSearchError(
+    return new SubtitleError(
       operation === "search"
         ? "This Plex profile cannot search for subtitles."
-        : "This Plex profile cannot download subtitles.",
+        : `This Plex profile cannot ${operation} subtitles.`,
       status,
       error,
     );
   if (status === 404)
-    return new SubtitleSearchError(
+    return new SubtitleError(
       operation === "search"
         ? "Subtitle search is not available for this item."
-        : "This subtitle is no longer available. Search again.",
+        : operation === "upload"
+          ? "Subtitle uploads are not available for this item."
+          : "This subtitle is no longer available. Search again.",
       status,
       error,
     );
 
-  return new SubtitleSearchError(
+  return new SubtitleError(
     operation === "search"
       ? "Plex could not search for subtitles."
-      : "Plex could not download this subtitle.",
+      : `Plex could not ${operation} this subtitle.`,
     status,
     error,
   );
@@ -95,9 +98,7 @@ export function buildSubtitleDownloadPath(
     mediaItemID <= 0 ||
     !subtitle.key.trim()
   )
-    throw new SubtitleSearchError(
-      "Plex did not identify this subtitle download.",
-    );
+    throw new SubtitleError("Plex did not identify this subtitle download.");
   const params = new URLSearchParams({
     key: subtitle.key,
     transient: "0",
@@ -183,6 +184,33 @@ export async function downloadSubtitle(
   } catch (error) {
     if (error instanceof PlexRequestError)
       throw subtitleError(error, "download");
+    throw error;
+  }
+}
+
+export async function uploadSubtitle(
+  ratingKey: string,
+  mediaItemID: number,
+  file: File,
+  signal?: AbortSignal,
+): Promise<void> {
+  const format = subtitleFileFormat(file);
+  if (!Number.isSafeInteger(mediaItemID) || mediaItemID <= 0)
+    throw new SubtitleError("Plex did not identify this media version.");
+  const client = subtitleClient();
+  const params = new URLSearchParams({
+    title: file.name,
+    format,
+    mediaItemID: String(mediaItemID),
+  });
+  try {
+    await client.upload(
+      `/library/metadata/${encodeURIComponent(ratingKey)}/subtitles?${params}`,
+      file,
+      signal,
+    );
+  } catch (error) {
+    if (error instanceof PlexRequestError) throw subtitleError(error, "upload");
     throw error;
   }
 }

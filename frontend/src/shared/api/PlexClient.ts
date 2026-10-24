@@ -1,4 +1,4 @@
-import { ProxiedRequest, type PlexHttpMethod } from "./backend";
+import { getBackendURL, ProxiedRequest, type PlexHttpMethod } from "./backend";
 
 type PlexTransport = (
   url: string,
@@ -62,5 +62,25 @@ export class PlexClient {
 
   delete<T = void>(url: string, signal?: AbortSignal) {
     return this.request<T>(url, "DELETE", undefined, signal);
+  }
+
+  /** Native Plex uploads take the file itself, not JSON or multipart data. */
+  async upload(url: string, file: Blob, signal?: AbortSignal) {
+    signal?.throwIfAborted();
+    const response = await fetch(`${getBackendURL()}/dynproxy${url}`, {
+      method: "POST",
+      headers: {
+        "X-Plex-Token": this.tokenProvider() ?? "",
+        Accept: "application/json",
+        "Content-Type": file.type || "application/octet-stream",
+      },
+      body: file,
+      signal,
+    });
+    // The status acknowledges the write. Discarding its response body must not
+    // turn an accepted upload into a repeatable failed upload.
+    await response.body?.cancel().catch(() => undefined);
+    signal?.throwIfAborted();
+    if (!response.ok) throw new PlexRequestError(response.status, null);
   }
 }

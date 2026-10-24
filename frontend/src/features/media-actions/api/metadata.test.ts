@@ -12,7 +12,7 @@ import {
   MetadataSaveError,
 } from "./metadata";
 
-vi.mock("shared/api/backend", () => ({ ProxiedRequest: vi.fn() }));
+vi.mock("shared/api/backend", () => ({ ProxiedRequest: vi.fn(), getBackendURL: () => "" }));
 const transport = vi.mocked(ProxiedRequest);
 const data = {
   ratingKey: "42",

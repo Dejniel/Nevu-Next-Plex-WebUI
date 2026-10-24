@@ -6,10 +6,11 @@ import {
   buildSubtitleSearchPath,
   downloadSubtitle,
   searchSubtitles,
+  uploadSubtitle,
 } from "./subtitles";
 import type { SubtitleSearchResult } from "../model/subtitles";
 
-vi.mock("shared/api/backend", () => ({ ProxiedRequest: vi.fn() }));
+vi.mock("shared/api/backend", () => ({ ProxiedRequest: vi.fn(), getBackendURL: () => "" }));
 
 const request = ProxiedRequest as Mock;
 const result: SubtitleSearchResult = {
@@ -33,6 +34,37 @@ beforeEach(() => {
     accountToken: "account-token",
     serverToken: "server-token",
   });
+});
+afterEach(() => vi.unstubAllGlobals());
+
+it("uploads the original file to the selected media version with a safely encoded filename", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+  vi.stubGlobal("fetch", fetchMock);
+  const file = new File(["subtitle"], "A title & release.pl.SRT");
+  const signal = new AbortController().signal;
+  await uploadSubtitle("12/3", 44, file, signal);
+  const [path, options] = fetchMock.mock.calls[0];
+  const url = new URL(path, "http://plex.local");
+  expect(url.pathname).toBe("/dynproxy/library/metadata/12%2F3/subtitles");
+  expect(Object.fromEntries(url.searchParams)).toEqual({ title: file.name, format: "srt", mediaItemID: "44" });
+  expect(options).toMatchObject({ method: "POST", body: file, signal, headers: { "X-Plex-Token": "server-token" } });
+  expect(request).not.toHaveBeenCalled();
+});
+
+it.each([401, 403])("explains subtitle upload permission errors (%s)", async (status) => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status })));
+  await expect(uploadSubtitle("42", 44, new File(["subtitle"], "movie.srt"))).rejects.toMatchObject({
+    message: "This Plex profile cannot upload subtitles.", status, cause: { status },
+  });
+});
+
+it("rejects empty or unsupported files and invalid versions before sending an upload", async () => {
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+  await expect(uploadSubtitle("42", 44, new File([], "movie.srt"))).rejects.toThrow("empty");
+  await expect(uploadSubtitle("42", 44, new File(["archive"], "movie.zip"))).rejects.toThrow("Choose an SRT");
+  await expect(uploadSubtitle("42", 0, new File(["subtitle"], "movie.srt"))).rejects.toThrow("media version");
+  expect(fetchMock).not.toHaveBeenCalled();
 });
 
 it("builds Plex subtitle search criteria", () => {

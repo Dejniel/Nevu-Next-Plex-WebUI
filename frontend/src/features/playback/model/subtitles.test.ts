@@ -5,6 +5,7 @@ import {
 } from "entities/media/model";
 import {
   defaultSubtitleSearchTitle,
+  subtitleFileFormat,
   findAttachedSubtitle,
   waitForAttachedSubtitle,
   type SubtitleSearchResult,
@@ -18,6 +19,7 @@ const result: SubtitleSearchResult = {
   languageCode: "pol",
   title: "Movie.Release.2024",
 };
+const attachment = { type: "download" as const, subtitle: result };
 const snapshot = (streams: MediaStream[] = []): MediaMetadata => ({
   ratingKey: "42",
   title: "Movie",
@@ -46,22 +48,65 @@ it("uses the release filename as editable search text", () => {
   );
   expect(defaultSubtitleSearchTitle("D:\\Movies\\A.Film.mp4")).toBe("A.Film");
 });
+it.each(["srt", "vtt", "ass", "ssa", "smi"])(
+  "accepts Plex subtitle file formats (%s), regardless of browser MIME type",
+  (extension) => {
+    expect(
+      subtitleFileFormat(
+        new File(["subtitle"], `Movie.${extension.toUpperCase()}`, {
+          type: "application/octet-stream",
+        }),
+      ),
+    ).toBe(extension);
+  },
+);
+
+it("finds an uploaded file by its new stream identity within the active media version", () => {
+  const old = { ...attached, id: 87, title: "Movie.pl", sourceKey: undefined };
+  const before = getMediaVersions(snapshot([old]))[0];
+  const uploaded = { ...old, id: 90, key: "/library/streams/90" };
+  const file = { type: "upload" as const, filename: "Movie.pl.srt" };
+  expect(
+    findAttachedSubtitle(snapshot([old, uploaded]), before, file)?.stream.id,
+  ).toBe(90);
+  expect(findAttachedSubtitle(snapshot([old]), before, file)).toBeUndefined();
+  expect(
+    findAttachedSubtitle(snapshot([uploaded]), version, {
+      ...file,
+      filename: "Other.pl.srt",
+    }),
+  ).toBeUndefined();
+  expect(
+    findAttachedSubtitle(
+      snapshot([uploaded]),
+      { ...version, media: { id: 99 } },
+      file,
+    ),
+  ).toBeUndefined();
+  expect(
+    findAttachedSubtitle(
+      snapshot([uploaded, { ...uploaded, id: 91 }]),
+      version,
+      file,
+    ),
+  ).toBeUndefined();
+});
 it("matches the provider identity despite a different attached stream id", () => {
   expect(
-    findAttachedSubtitle(snapshot([attached]), version, result)?.stream,
+    findAttachedSubtitle(snapshot([attached]), version, attachment)?.stream,
   ).toEqual(attached);
   expect(
     findAttachedSubtitle(
       snapshot([attached]),
       { ...version, media: { ...version.media, id: 45 } },
-      result,
+      attachment,
     ),
   ).toBeUndefined();
   expect(
     findAttachedSubtitle(
       snapshot([attached]),
       { ...version, part: { ...version.part, id: 6 } },
-      result,
+      attachment,
     ),
   ).toBeUndefined();
 });
@@ -69,30 +114,30 @@ it("never mistakes a coincidentally equal provider id for the attached stream", 
   const existing = { ...attached, id: 77, sourceKey: "provider://other" };
   const before = getMediaVersions(snapshot([existing]))[0];
   expect(
-    findAttachedSubtitle(snapshot([existing, attached]), before, result)?.stream
-      .id,
+    findAttachedSubtitle(snapshot([existing, attached]), before, attachment)
+      ?.stream.id,
   ).toBe(88);
   expect(
-    findAttachedSubtitle(snapshot([existing]), before, result),
+    findAttachedSubtitle(snapshot([existing]), before, attachment),
   ).toBeUndefined();
 });
 it("only accepts an unambiguous newly attached file when a provider omits its source key", () => {
   const stream = { ...attached, sourceKey: undefined };
   expect(
-    findAttachedSubtitle(snapshot([stream]), version, result)?.stream.id,
+    findAttachedSubtitle(snapshot([stream]), version, attachment)?.stream.id,
   ).toBe(88);
   expect(
     findAttachedSubtitle(
       snapshot([stream, { ...stream, id: 89 }]),
       version,
-      result,
+      attachment,
     ),
   ).toBeUndefined();
   expect(
     findAttachedSubtitle(
       snapshot([{ ...stream, key: undefined }]),
       version,
-      result,
+      attachment,
     ),
   ).toBeUndefined();
 });
@@ -104,7 +149,7 @@ it("waits for actual attachment and cancels the polling delay immediately", asyn
     const waiting = waitForAttachedSubtitle(
       load,
       version,
-      result,
+      attachment,
       controller.signal,
     );
     await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(1));
@@ -124,7 +169,7 @@ it("fails rather than publishing a partial download after the polling limit", as
     const waiting = waitForAttachedSubtitle(
       load,
       version,
-      result,
+      attachment,
       new AbortController().signal,
     );
     const failed = waiting.catch((error: Error) => error);
@@ -143,7 +188,7 @@ it("does not accept a newly attached release with a different explicit provider 
     findAttachedSubtitle(
       snapshot([{ ...attached, sourceKey: "provider://wrong-release" }]),
       version,
-      result,
+      attachment,
     ),
   ).toBeUndefined();
 });

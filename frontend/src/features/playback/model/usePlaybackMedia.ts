@@ -18,14 +18,14 @@ import { useAuthSession } from "features/session/model";
 import { useUserSettings } from "features/settings/model";
 import type { PlaylistPlaybackContext } from "features/media-lists/model";
 import { putAudioStream, putSubtitleStream } from "../api/playback";
-import { downloadSubtitle } from "../api/subtitles";
+import { downloadSubtitle, uploadSubtitle } from "../api/subtitles";
 import {
   parseStoredPlaybackQuality,
   persistPlaybackQuality,
 } from "./playbackQuality";
 import type { PlaybackQuality } from "./playbackQuality";
-import { waitForAttachedSubtitle } from "./subtitles";
-import type { SubtitleSearchResult } from "./subtitles";
+import { subtitleFileFormat, waitForAttachedSubtitle } from "./subtitles";
+import type { SubtitleAttachment, SubtitleSearchResult } from "./subtitles";
 import { usePlaybackQueue } from "./usePlaybackQueue";
 
 interface PlaybackMediaOptions {
@@ -406,7 +406,14 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     return true;
   };
 
-  const downloadOnDemandSubtitle = async (subtitle: SubtitleSearchResult) => {
+  const addSubtitle = async (
+    attachment: SubtitleAttachment,
+    add: (
+      itemID: string,
+      mediaItemID: number,
+      signal: AbortSignal,
+    ) => Promise<void>,
+  ) => {
     const itemID = callbacks.current.itemID;
     if (!itemID || !metadata || !activeVersion)
       throw new Error("No active media file is available.");
@@ -414,23 +421,34 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     const mediaItemID = activeVersion.media.id;
     if (mediaItemID === undefined || activeVersion.part.id === undefined)
       throw new Error(
-        "Plex did not identify this media version for subtitle downloads.",
+        "Plex did not identify this media version for adding subtitles.",
       );
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
     const { signal } = controller;
     try {
-      // Download, attachment and selection are one operation. Selecting must not
-      // abort the request which is still waiting for that same download.
-      await downloadSubtitle(metadata.ratingKey, mediaItemID, subtitle, signal);
+      // Refresh the inventory before writing: a previous attempt may have
+      // attached the file successfully even if its later selection failed.
+      const before = await getMediaMetadata(itemID, signal);
+      const version = getMediaVersions(before).find(
+        (candidate) =>
+          candidate.media.id === mediaItemID &&
+          candidate.part.id === activeVersion.part.id &&
+          candidate.part.key === activeVersion.part.key,
+      );
+      if (!version)
+        throw new Error("The active media file is no longer available.");
+      assertCurrentPlayback(signal);
+      // Adding, attachment and selection share one owner and cancellation scope.
+      await add(itemID, mediaItemID, signal);
       const attached = await waitForAttachedSubtitle(
         () => {
           assertCurrentPlayback(signal);
           return getMediaMetadata(itemID, signal);
         },
-        activeVersion,
-        subtitle,
+        version,
+        attachment,
         signal,
       );
       assertCurrentPlayback(signal);
@@ -466,6 +484,20 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     }
   };
 
+  const downloadOnDemandSubtitle = (subtitle: SubtitleSearchResult) =>
+    addSubtitle({ type: "download", subtitle }, (itemID, mediaItemID, signal) =>
+      downloadSubtitle(itemID, mediaItemID, subtitle, signal),
+    );
+
+  const uploadSubtitleFile = async (file: File) => {
+    subtitleFileFormat(file);
+    await addSubtitle(
+      { type: "upload", filename: file.name },
+      (itemID, mediaItemID, signal) =>
+        uploadSubtitle(itemID, mediaItemID, file, signal),
+    );
+  };
+
   return {
     metadata,
     showMetadata,
@@ -495,6 +527,7 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     selectSubtitleTrack,
     disableSubtitles,
     downloadOnDemandSubtitle,
+    uploadSubtitleFile,
   };
 }
 

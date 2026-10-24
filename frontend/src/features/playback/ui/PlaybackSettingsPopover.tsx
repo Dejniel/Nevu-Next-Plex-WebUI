@@ -6,6 +6,7 @@ import { mediaVersionDetails } from "entities/media/model";
 import { getPlaybackQualityOptions } from "../model/playbackPresentation";
 import type { PlaybackMediaController } from "../model/usePlaybackMedia";
 import SubtitleSearchPanel from "./SubtitleSearchPanel";
+import SubtitleUploadAction from "./SubtitleUploadAction";
 import {
   tuneSettingTab,
   TuneAction,
@@ -27,6 +28,7 @@ type PlaybackSettingsMedia = Pick<
   | "selectSubtitleTrack"
   | "disableSubtitles"
   | "downloadOnDemandSubtitle"
+  | "uploadSubtitleFile"
 >;
 
 interface PlaybackSettingsPopoverProps {
@@ -57,6 +59,7 @@ export default function PlaybackSettingsPopover({
     selectSubtitleTrack,
     disableSubtitles,
     downloadOnDemandSubtitle,
+    uploadSubtitleFile,
   } = media;
 
   useEffect(() => {
@@ -228,6 +231,11 @@ export default function PlaybackSettingsPopover({
               primary="Find subtitles…"
               secondary="Search Plex subtitle providers"
               onClick={() => setPage(4)}
+            />
+            <SubtitleUploadAction
+              key={`${metadata?.ratingKey}:${activeVersion.media.id}:${activeVersion.part.id}`}
+              disabled={!activeVersion.media.id || !activeVersion.part.id}
+              onUpload={uploadSubtitleFile}
             />
           </>
         )}

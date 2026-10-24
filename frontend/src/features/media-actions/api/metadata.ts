@@ -209,23 +209,11 @@ export function createMetadataEditor(data: MetadataEditingItem) {
               signal,
             );
           else {
-            const response = await fetch(
-              `/dynproxy${path}/${field === "thumb" ? "posters" : "arts"}`,
-              {
-                method: "POST",
-                headers: {
-                  "X-Plex-Token": token!,
-                  Accept: "application/json",
-                  "Content-Type": update.file.type,
-                },
-                body: update.file,
-                signal,
-              },
+            await client.upload(
+              `${path}/${field === "thumb" ? "posters" : "arts"}`,
+              update.file,
+              signal,
             );
-            if (!response.ok) throw new PlexRequestError(response.status, null);
-            // The status acknowledges the upload; discarding its response body
-            // must not turn accepted artwork into a repeatable failed upload.
-            await response.body?.cancel().catch(() => undefined);
           }
           completed.push(field);
         }

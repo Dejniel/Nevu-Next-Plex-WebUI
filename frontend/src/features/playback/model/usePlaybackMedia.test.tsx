@@ -8,7 +8,7 @@ import {
   useMediaPlaybackSource,
 } from "entities/media/model";
 import { putAudioStream, putSubtitleStream } from "../api/playback";
-import { downloadSubtitle } from "../api/subtitles";
+import { downloadSubtitle, uploadSubtitle } from "../api/subtitles";
 import type { SubtitleSearchResult } from "./subtitles";
 import { usePlaybackMedia } from "./usePlaybackMedia";
 
@@ -25,7 +25,7 @@ vi.mock("features/settings/model", () => ({
 vi.mock("../api/playback", () => ({
   putAudioStream: vi.fn(), putSubtitleStream: vi.fn(),
 }));
-vi.mock("../api/subtitles", () => ({ downloadSubtitle: vi.fn() }));
+vi.mock("../api/subtitles", () => ({ downloadSubtitle: vi.fn(), uploadSubtitle: vi.fn() }));
 vi.mock("./usePlaybackQueue", () => ({ usePlaybackQueue: () => ({ playQueue: null }) }));
 
 let root: Root, itemID: string;
@@ -281,5 +281,69 @@ it("rejects an old download callback before it can cancel the next item's operat
     name: "AbortError",
   });
   expect(downloadSubtitle).not.toHaveBeenCalled();
+  expect(media.metadata?.ratingKey).toBe("43");
+});
+
+const uploadedFile = new File(["1\n00:00:01,000 --> 00:00:08,000\nSubtitle"], "Movie.pl.srt");
+const withUploadedSubtitle = (metadata: MediaMetadata, id: number): MediaMetadata => ({
+  ...metadata,
+  Media: metadata.Media?.map((version) => ({
+    ...version,
+    Part: version.Part?.map((part) => ({
+      ...part,
+      Stream: [...(part.Stream ?? []), { streamType: 3 as const, id, key: `/library/streams/${id}`, codec: "srt", title: "Movie.pl" }],
+    })),
+  })),
+});
+
+it("uploads and selects a new subtitle using one request without interrupting the video while uploading", async () => {
+  await render();
+  const before = media.metadata!;
+  const attached = withUploadedSubtitle(before, 88);
+  let finish!: () => void;
+  vi.mocked(uploadSubtitle).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+  vi.mocked(getMediaMetadata).mockResolvedValueOnce(before).mockResolvedValue(attached);
+  const changes = callbacks.onSourceChanging.mock.calls.length;
+  let uploading!: Promise<void>;
+  await act(async () => { uploading = media.uploadSubtitleFile(uploadedFile); });
+  expect(callbacks.onSourceChanging).toHaveBeenCalledTimes(changes);
+  callbacks.getCurrentTime.mockReturnValue(49);
+  await act(async () => { finish(); await uploading; });
+  const signal = vi.mocked(uploadSubtitle).mock.calls[0][3]!;
+  expect(uploadSubtitle).toHaveBeenCalledWith("42", 44, uploadedFile, signal);
+  expect(signal.aborted).toBe(false);
+  expect(putSubtitleStream).toHaveBeenCalledWith(20, 88, signal);
+  expect(media.subtitleChoices.find((choice) => choice.stream.id === 88)?.stream.selected).toBe(true);
+  expect(callbacks.requestResumeAt).toHaveBeenLastCalledWith(49);
+  expect(userSettings.setSetting).toHaveBeenCalledWith("MEDIA_PREF_SUBTITLE-42", expect.stringContaining("Movie.pl"));
+});
+
+it("can retry the same filename after attachment succeeded but selection failed", async () => {
+  await render();
+  const initial = media.metadata!;
+  const first = withUploadedSubtitle(initial, 88);
+  const second = withUploadedSubtitle(first, 89);
+  vi.mocked(getMediaMetadata).mockResolvedValueOnce(initial).mockResolvedValueOnce(first);
+  vi.mocked(putSubtitleStream).mockRejectedValueOnce(new Error("HTTP 400"));
+  await act(async () => { await expect(media.uploadSubtitleFile(uploadedFile)).rejects.toThrow("HTTP 400"); });
+  expect(userSettings.setSetting).not.toHaveBeenCalled();
+  vi.mocked(getMediaMetadata).mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+  await act(async () => { await media.uploadSubtitleFile(uploadedFile); });
+  expect(putSubtitleStream).toHaveBeenLastCalledWith(20, 89, expect.any(AbortSignal));
+  expect(media.subtitleChoices.find((choice) => choice.stream.id === 89)?.stream.selected).toBe(true);
+});
+
+it("cancels an upload after navigation and prevents late attachment or selection", async () => {
+  await render();
+  let finish!: () => void;
+  vi.mocked(uploadSubtitle).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+  let uploading!: Promise<void>;
+  await act(async () => { uploading = media.uploadSubtitleFile(uploadedFile); });
+  const signal = vi.mocked(uploadSubtitle).mock.calls[0][3]!;
+  itemID = "43";
+  await render();
+  await act(async () => { finish(); await expect(uploading).rejects.toMatchObject({ name: "AbortError" }); });
+  expect(signal.aborted).toBe(true);
+  expect(putSubtitleStream).not.toHaveBeenCalled();
   expect(media.metadata?.ratingKey).toBe("43");
 });
