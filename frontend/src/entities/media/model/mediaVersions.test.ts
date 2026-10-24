@@ -8,6 +8,7 @@ import {
   mediaVersionDetails,
   parseTrackPreference,
   preferenceFromStream,
+  withSelectedTrack,
 } from "./mediaVersions";
 
 function stream(
@@ -112,6 +113,27 @@ it("collects tracks from every media version", () => {
     [0, 1],
     [1, 2],
   ]);
+});
+
+it("keeps an explicit track selected when refreshed Plex metadata is stale", () => {
+  const downloaded = getTrackChoices(metadata(), 3)[0];
+  const stale = metadata();
+  const part = stale.Media![1].Part![0];
+  part.Stream = [
+    part.Stream![0],
+    { ...stream(4, 3, "Old Polish SRT", "pol"), selected: true },
+  ];
+
+  const selected = withSelectedTrack(stale, downloaded);
+  const subtitles = selected.Media![1].Part![0].Stream!.filter(
+    (candidate) => candidate.streamType === 3,
+  );
+
+  expect(subtitles).toEqual([
+    expect.objectContaining({ id: 4, selected: false }),
+    expect.objectContaining({ id: 3, selected: true }),
+  ]);
+  expect(stale.Media![1].Part![0].Stream).toHaveLength(2);
 });
 
 it("round-trips a stored track preference", () => {

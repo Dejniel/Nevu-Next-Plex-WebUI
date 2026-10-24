@@ -46,6 +46,50 @@ export function getTrackChoices(
   );
 }
 
+/** Preserve an explicit track selection independently of Plex read timing. */
+export function withSelectedTrack(
+  data: MediaMetadata,
+  choice: TrackChoice,
+): MediaMetadata {
+  if (choice.stream.id === undefined) return data;
+  let changed = false;
+  const Media = data.Media?.map((media, mediaIndex) => {
+    if (
+      mediaIndex !== choice.mediaIndex ||
+      (media.id !== undefined &&
+        choice.media.id !== undefined &&
+        media.id !== choice.media.id)
+    )
+      return media;
+    const Part = media.Part?.map((part, partIndex) => {
+      if (
+        partIndex !== choice.partIndex ||
+        (part.id !== undefined &&
+          choice.part.id !== undefined &&
+          part.id !== choice.part.id)
+      )
+        return part;
+      const streams = part.Stream || [];
+      const streamsWithChoice = streams.some(
+        (stream) => stream.id === choice.stream.id,
+      )
+        ? streams
+        : [...streams, choice.stream];
+      changed = true;
+      return {
+        ...part,
+        Stream: streamsWithChoice.map((stream) =>
+          stream.streamType === choice.stream.streamType
+            ? { ...stream, selected: stream.id === choice.stream.id }
+            : stream,
+        ),
+      };
+    });
+    return { ...media, Part };
+  });
+  return changed ? { ...data, Media } : data;
+}
+
 export function parseTrackPreference(value?: string): TrackPreference | null {
   if (!value) return null;
   try {

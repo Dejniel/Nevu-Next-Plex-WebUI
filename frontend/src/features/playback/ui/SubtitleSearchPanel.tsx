@@ -175,12 +175,20 @@ export default function SubtitleSearchPanel({
     setError(null);
     try {
       await onDownload(subtitle);
+      setResults((current) =>
+        current?.map((result) =>
+          result.key === subtitle.key
+            ? { ...result, downloaded: true }
+            : result,
+        ) ?? current,
+      );
     } catch (downloadError) {
       setError(
         downloadError instanceof Error
           ? downloadError.message
           : "Plex could not download this subtitle.",
       );
+    } finally {
       setDownloadingKey(null);
     }
   };

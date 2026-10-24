@@ -12,6 +12,7 @@ import {
   TrackChoice,
   TrackPreference,
   useMediaPlaybackSource,
+  withSelectedTrack,
 } from "entities/media/model";
 import { useAuthSession } from "features/session/model";
 import { useUserSettings } from "features/settings/model";
@@ -221,6 +222,7 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
     version: MediaVersion,
     nextQuality = quality,
     configure?: (signal: AbortSignal) => Promise<void>,
+    selectedTrack?: TrackChoice,
   ) => {
     const itemID = callbacks.current.itemID;
     if (!itemID || !metadata) return false;
@@ -232,7 +234,10 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
 
     try {
       if (configure) await configure(controller.signal);
-      const loaded = await getMediaMetadata(itemID, controller.signal);
+      const response = await getMediaMetadata(itemID, controller.signal);
+      const loaded = selectedTrack
+        ? withSelectedTrack(response, selectedTrack)
+        : response;
       if (controller.signal.aborted) return false;
       if (!["movie", "episode"].includes(loaded.type))
         throw new Error("No playable media is available.");
@@ -285,7 +290,7 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
       await putAudioStream(choice.part.id, choice.stream.id, signal);
       if (subtitlePreference)
         await applyTrackPreferences(choice, null, subtitlePreference, signal);
-    });
+    }, choice);
   };
 
   const selectSubtitleTrack = async (choice: TrackChoice) => {
@@ -302,7 +307,7 @@ export function usePlaybackMedia(options: PlaybackMediaOptions) {
       await putSubtitleStream(choice.part.id, choice.stream.id, signal);
       if (audioPreference)
         await applyTrackPreferences(choice, audioPreference, null, signal);
-    });
+    }, choice);
   };
 
   const disableSubtitles = async () => {

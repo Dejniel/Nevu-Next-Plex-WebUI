@@ -22,6 +22,7 @@ export {
   mediaVersionDetails,
   parseTrackPreference,
   preferenceFromStream,
+  withSelectedTrack,
 } from "./model/mediaVersions";
 export type {
   MediaVersion,

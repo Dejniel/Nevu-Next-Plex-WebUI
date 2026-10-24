@@ -188,6 +188,10 @@ it("can download and select a subtitle after temporary Original recovery", async
   const signal = vi.mocked(downloadSubtitle).mock.calls[0][3]!;
   expect(signal).toBeInstanceOf(AbortSignal);
   expect(putSubtitleStream).toHaveBeenCalledWith(20, 77, expect.any(AbortSignal));
+  expect(media.activeVersion?.part.Stream?.[0]).toMatchObject({
+    id: 77,
+    selected: true,
+  });
   expect(media.quality).toEqual({ bitrate: -1 });
 });
 
