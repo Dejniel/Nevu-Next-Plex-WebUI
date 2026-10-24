@@ -29,9 +29,9 @@ function engine() {
 }
 
 beforeEach(() => {
-  const tracks = new WeakMap<HTMLTrackElement, { mode: string }>();
+  const tracks = new WeakMap<HTMLTrackElement, { mode: string; addCue: () => void; removeCue: () => void }>();
   Object.defineProperty(HTMLTrackElement.prototype, "track", { configurable: true, get() {
-    if (!tracks.has(this)) tracks.set(this, { mode: "disabled" });
+    if (!tracks.has(this)) tracks.set(this, { mode: "disabled", addCue: vi.fn(), removeCue: vi.fn() });
     return tracks.get(this);
   }});
   vi.resetAllMocks();
@@ -45,7 +45,7 @@ beforeEach(() => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(
     () => undefined,
   );
-  vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(1);
+  vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(2);
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
     ok: true,
     text: async () => "WEBVTT\n",
@@ -126,6 +126,59 @@ it("loads text tracks after video readiness without restarting the video", async
   expect(element.querySelector("track")?.getAttribute("src")).toBe("blob:subtitle");
   expect(HTMLMediaElement.prototype.load).toHaveBeenCalledTimes(1);
   expect(createStreamingPlayer).not.toHaveBeenCalled();
+  await act(async () => {
+    element.querySelector("video")!.currentTime = 20;
+    element.querySelector("video")!.dispatchEvent(new Event("seeked"));
+  });
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(element.querySelector("track")?.getAttribute("src")).toBe("blob:subtitle");
+});
+
+it("waits for media data at the resumed playhead and reopens only the live subtitle reader after seeking", async () => {
+  vi.mocked(fetch).mockImplementation(async () => ({
+    ok: true,
+    body: new ReadableStream({ start(input) { input.enqueue(new TextEncoder().encode("WEBVTT\n\n")); input.close(); } }),
+  } as Response));
+  const player = engine();
+  player.load.mockImplementation(async () => {
+    element.querySelector("video")!.currentTime = 551;
+  });
+  (createStreamingPlayer as Mock).mockResolvedValue(player);
+  const dataReady = vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(1);
+  props.startTime = 551;
+  props.onSubtitleError = vi.fn();
+  props.source = {
+    ...props.source!,
+    textTracks: [{
+      url: "/live.vtt",
+      streaming: true,
+      language: "eng",
+      label: "English",
+    }],
+  };
+  await render();
+  expect(element.querySelector("track")).toBeNull();
+  await act(async () => {
+    dataReady.mockReturnValue(2);
+    element.querySelector("video")!.dispatchEvent(new Event("loadeddata"));
+  });
+  const old = element.querySelector("track")!;
+  expect(old.hasAttribute("src")).toBe(false);
+  await act(async () => {
+    element.querySelector("video")!.currentTime = 300;
+    element.querySelector("video")!.dispatchEvent(new Event("seeking"));
+  });
+  expect(element.querySelector("track")).toBe(old);
+  await act(async () => {
+    element.querySelector("video")!.dispatchEvent(new Event("seeked"));
+  });
+  expect(element.querySelector("track")?.hasAttribute("src")).toBe(false);
+  expect(element.querySelector("track")).toBe(old);
+  old.dispatchEvent(new Event("error"));
+  expect(props.onSubtitleError).not.toHaveBeenCalled();
+  expect(player.load).toHaveBeenCalledTimes(1);
+  expect(player.destroy).not.toHaveBeenCalled();
+  expect(fetch).toHaveBeenCalledTimes(2);
 });
 
 it("cancels late text-track loading when the source changes", async () => {

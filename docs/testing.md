@@ -93,9 +93,11 @@ Check continuous video buffering across segment boundaries and playback while
 subtitle extraction is still pending; subtitle downloads must not stall video.
 Match a standalone sample and search/download real provider subtitles. Verify
 attachment when the provider ID differs from the library stream ID, selection,
-visible cues, disabling and retention after a quality/session change. A failed
+visible cues, disabling and retention after a full page reload and quality/session change. A failed
 selection must remain retryable; navigation/profile changes cancel stale work.
-Include embedded text with cues near the beginning and end of a long sample.
+Include a long **converted** sample with early/late cues: show text before the
+response ends, then seek forward and back to a known cue. An open cue ending
+with one newline must render without waiting for the next cue or EOF.
 Inspect stream parameters and Plex's active session to distinguish copying from
 conversion; a decision alone does not prove playback. Text subtitle output loads
 after video readiness. Browser/device codec support,

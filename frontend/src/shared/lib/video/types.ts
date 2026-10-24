@@ -4,6 +4,8 @@ export interface VideoTextTrack {
   label: string;
   /** Native WebVTT may stream; SRT needs conversion before attachment. */
   format?: "webvtt" | "srt";
+  /** Live output of the video session; reopen its reader after a seek. */
+  streaming?: boolean;
 }
 
 export interface VideoSource {

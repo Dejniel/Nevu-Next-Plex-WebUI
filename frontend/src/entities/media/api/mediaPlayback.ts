@@ -73,7 +73,8 @@ export async function prepareMediaPlayback(
       {
         url: plan.subtitle.key
           ? plexMediaURL(plan.subtitle.key, { ...source.requestContext, format: "srt", encoding: "utf-8" })
-          : source.url.replace(/\/start\.(mpd|m3u8)\?/, "/subtitles?"),
+          : plexMediaURL("/video/:/transcode/universal/subtitles", Object.fromEntries(new URL(source.url, "http://plex.local").searchParams)),
+        streaming: !plan.subtitle.key,
         format: plan.subtitle.key ? "srt" : "webvtt",
         language: plan.subtitle.languageTag || plan.subtitle.languageCode || "und",
         label: plan.subtitle.displayTitle || plan.subtitle.language || "Subtitles",

@@ -176,7 +176,7 @@ it("reads embedded text from the prepared video session without a second convers
   const track = new URL(source.textTracks![0].url);
   expect(track.pathname).toBe("/dynproxy/video/:/transcode/universal/subtitles");
   expect([...track.searchParams]).toEqual([...new URL(source.url).searchParams]);
-  expect(track.searchParams.get("subtitles")).toBe("auto");
+  expect(source.textTracks![0].streaming).toBe(true);
   expect(track.searchParams.get("X-Plex-Token")).toBe("owning-profile");
   await releaseMediaPlayback(source);
   expect(

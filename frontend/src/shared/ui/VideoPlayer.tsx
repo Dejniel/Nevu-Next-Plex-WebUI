@@ -1,6 +1,5 @@
 import React, {
   forwardRef,
-  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -15,14 +14,13 @@ import {
   createStreamingPlayer,
   streamingMimeType,
 } from "shared/lib/video/shaka";
-import { toWebVTT } from "shared/lib/video/subtitles";
+import VideoTextTrackView from "./VideoTextTrack";
 import type {
   VideoPlaybackError,
   VideoPlaybackFailure,
   VideoPlayerHandle,
   VideoProgress,
   VideoSource,
-  VideoTextTrack,
 } from "shared/lib/video/types";
 
 export interface VideoPlayerProps {
@@ -57,9 +55,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     const ready = useRef(false);
     const lastPosition = useRef<number | undefined>(undefined);
     const disposing = useRef<Promise<unknown>>(Promise.resolve());
-    const [loadedTracks, setLoadedTracks] = useState<{
+    const [textTracksState, setTextTracksState] = useState<{
       source: VideoSource;
-      tracks: VideoTextTrack[];
+      revision: number;
+      reading: boolean;
     } | null>(null);
 
     useImperativeHandle(
@@ -91,23 +90,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       });
     };
 
-    // A stable ref owns each native track for its lifetime, including while
-    // progress/controls rerender. Cleanup also cancels a streaming VTT read.
-    const attachTextTrack = useCallback((element: HTMLTrackElement | null) => {
-      const sourceId = callbacks.current.source?.id;
-      if (!element || !sourceId) return;
-      element.track.mode = "showing";
-      const onError = () => callbacks.current.onSubtitleError?.({
-        sourceId, kind: "subtitle", message: "The selected subtitles could not be loaded.",
-        position: lastPosition.current,
-      });
-      element.addEventListener("error", onError);
-      return () => {
-        element.removeEventListener("error", onError);
-        element.removeAttribute("src");
-      };
-    }, []);
-
     useEffect(() => {
       const video = videoRef.current;
       const source = props.source;
@@ -119,7 +101,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       let loaded = false;
       let initialized = false;
       const controller = new AbortController();
-      const subtitleURLs: string[] = [];
+      let textRevision = 0;
       ready.current = false;
       lastPosition.current = undefined;
 
@@ -154,39 +136,17 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           position: position(),
         });
       };
-      const loadSubtitles = async () => {
-        try {
-          if (cancelled || failed) return;
-          const tracks: VideoTextTrack[] = [];
-          for (const track of source.textTracks ?? []) {
-            if (track.format !== "srt") {
-              // Native WebVTT can arrive throughout a long video. Let the
-              // browser consume cues as they arrive, after video readiness.
-              tracks.push(track);
-              continue;
-            }
-            const response = await fetch(track.url, { signal: controller.signal });
-            if (!response.ok)
-              return subtitleError({
-                kind: "subtitle",
-                httpStatus: response.status,
-                message: "The selected subtitles could not be loaded.",
-              });
-            const text = toWebVTT(await response.text());
-            if (cancelled || failed) return;
-            // A pending native <track> can gate video readiness. Publish only
-            // complete WebVTT, so slow subtitle extraction cannot stop playback.
-            const url = URL.createObjectURL(new Blob([text], { type: "text/vtt" }));
-            subtitleURLs.push(url);
-            tracks.push({ ...track, url });
-          }
-          setLoadedTracks({ source, tracks });
-        } catch {
-          subtitleError({
-            kind: "subtitle",
-            message: "The selected subtitles could not be loaded.",
-          });
-        }
+      const startSubtitles = () => {
+        if (
+          !source.textTracks?.length || cancelled || failed || !ready.current ||
+          video.readyState < 2 || video.seeking
+        ) return;
+        setTextTracksState({ source, revision: textRevision, reading: true });
+      };
+      const suspendSubtitles = () => {
+        if (!source.textTracks?.some((track) => track.streaming)) return;
+        textRevision += 1;
+        setTextTracksState({ source, revision: textRevision, reading: false });
       };
       const markReady = () => {
         if (
@@ -207,7 +167,9 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
         callbacks.current.onReady?.(source.id);
         lastPosition.current = video.currentTime;
         playIfRequested();
-        if (source.textTracks?.length) void loadSubtitles();
+        // Metadata can precede the first media fragment or a resumed seek.
+        // A live subtitle read must wait until that video position has data.
+        startSubtitles();
       };
       const nativeError = () => {
         if (initialized && video.error) {
@@ -223,6 +185,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
         fail(shakaVideoError((event as CustomEvent).detail));
       video.addEventListener("loadedmetadata", markReady);
       video.addEventListener("error", nativeError);
+      video.addEventListener("loadeddata", startSubtitles);
+      video.addEventListener("canplay", startSubtitles);
+      video.addEventListener("seeking", suspendSubtitles);
+      video.addEventListener("seeked", startSubtitles);
 
       void disposing.current
         .then(async () => {
@@ -264,10 +230,13 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       return () => {
         cancelled = true;
         controller.abort();
-        subtitleURLs.forEach((url) => URL.revokeObjectURL(url));
         ready.current = false;
         video.removeEventListener("loadedmetadata", markReady);
         video.removeEventListener("error", nativeError);
+        video.removeEventListener("loadeddata", startSubtitles);
+        video.removeEventListener("canplay", startSubtitles);
+        video.removeEventListener("seeking", suspendSubtitles);
+        video.removeEventListener("seeked", startSubtitles);
         video.pause();
         if (player) {
           player.removeEventListener("error", streamError);
@@ -344,18 +313,18 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           background: "#000",
         }}
       >
-        {(loadedTracks?.source === props.source
-          ? loadedTracks.tracks
+        {(textTracksState?.source === props.source
+          ? props.source?.textTracks ?? []
           : []
         ).map((track) => (
-          <track
+          <VideoTextTrackView
             key={track.url}
-            src={track.url}
-            kind="subtitles"
-            srcLang={track.language}
-            label={track.label}
-            default
-            ref={attachTextTrack}
+            source={track}
+            reading={textTracksState!.reading}
+            revision={textTracksState!.revision}
+            sourceId={props.source!.id}
+            getPosition={() => videoRef.current?.currentTime ?? lastPosition.current}
+            onError={(error) => callbacks.current.onSubtitleError?.(error)}
           />
         ))}
       </video>

@@ -308,9 +308,10 @@ each attempt releases its sessions and retains playback position and pause.
 Text subtitles load after video readiness. Embedded text uses the active video
 session's subtitle output, with the same parameters and `subtitles=auto`;
 external files use their PMS-provided stream keys.
-Native WebVTT attaches after video readiness and displays streamed cues without
-waiting for a long video's complete subtitle output. External SRT is normalized
-to WebVTT through owned blob URLs. Source cleanup cancels reads and releases URLs.
+`VideoTextTrack` owns each text read and native cue track. Live WebVTT uses vtt.js
+to parse complete lines of open cues before the next cue or EOF. Seeking reopens
+the reader after media data is ready while retaining/deduplicating known cues.
+External SRT uses owned WebVTT blob URLs. Source cleanup cancels reads and releases URLs.
 Subtitle failures show a separate warning and keep the video running.
 Image/styled subtitles use burn-in. Subtitle search responses retain provider
 `sourceKey`; downloaded library streams may have different IDs. Download,
