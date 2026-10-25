@@ -312,6 +312,9 @@ external files use their PMS-provided stream keys.
 to parse complete lines of open cues before the next cue or EOF. Seeking reopens
 the reader after media data is ready while retaining/deduplicating known cues.
 External SRT uses owned WebVTT blob URLs. Source cleanup cancels reads and releases URLs.
+Native tracks provide timing in hidden mode; `VideoCaptions` renders active cues
+with vtt.js. Measured control height reserves space above the toolbar until its
+fade ends, without changing text size or author-specified cue positions.
 Subtitle failures show a separate warning and keep the video running.
 Image/styled subtitles use burn-in. Subtitle search responses retain provider
 `sourceKey`; downloaded library streams may have different IDs. Download,

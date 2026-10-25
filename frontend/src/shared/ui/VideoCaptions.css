@@ -1,0 +1,5 @@
+/* vtt.js sets an inline font based only on height. Keep portrait captions
+   proportional to the smaller video dimension while retaining its layout. */
+[data-video-captions] > div > div {
+  font-size: var(--video-caption-font-size) !important;
+}

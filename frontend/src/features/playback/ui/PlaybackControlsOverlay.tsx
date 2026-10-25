@@ -22,7 +22,7 @@ import {
   Typography,
   useTheme,
 } from "@mui/material";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { VideoSeekSlider } from "react-video-seek-slider";
 import "react-video-seek-slider/styles.css";
 import { type MediaMetadata, getTranscodeImageURL } from "entities/media/model";
@@ -49,6 +49,7 @@ interface PlaybackControlsOverlayProps {
   commands: PlaybackCommandController;
   watch: PlaybackControlsWatch;
   getSurface: () => HTMLElement | null;
+  onControlsInsetChange: (height: number) => void;
 }
 
 export default function PlaybackControlsOverlay({
@@ -57,6 +58,7 @@ export default function PlaybackControlsOverlay({
   commands,
   watch,
   getSurface,
+  onControlsInsetChange,
 }: PlaybackControlsOverlayProps) {
   const theme = useTheme();
   const { settings } = useUserSettings();
@@ -68,10 +70,26 @@ export default function PlaybackControlsOverlay({
   const [showControls, setShowControls] = useState(true);
   const tuneButtonRef = useRef<HTMLButtonElement | null>(null);
   const playbackBarRef = useRef<HTMLDivElement | null>(null);
+  const [controlsHeight, setControlsHeight] = useState(0);
 
   const { metadata, playQueue, activeVersion } = media;
   const { playing, progress, buffered, volume } = runtime;
   const volumeOpen = Boolean(volumeAnchor);
+  const controlsVisible = showControls || !playing || controlElementVisible;
+
+  useLayoutEffect(() => {
+    const bar = playbackBarRef.current;
+    if (!bar) return;
+    const measure = () => setControlsHeight(bar.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, [metadata?.ratingKey]);
+
+  useEffect(() => {
+    if (controlsVisible) onControlsInsetChange(controlsHeight);
+  }, [controlsVisible, controlsHeight, onControlsInsetChange]);
 
   useEffect(() => {
     setControlElementVisible(volumeOpen || showTune);
@@ -118,7 +136,6 @@ export default function PlaybackControlsOverlay({
         ? "Skip Credits"
         : null;
   const finalCredits = activeMarker?.type === "credits" && activeMarker.final;
-  const controlsVisible = showControls || !playing || controlElementVisible;
   const duration = runtime.getDuration();
 
   return (
@@ -149,7 +166,7 @@ export default function PlaybackControlsOverlay({
         <Box
           sx={{
             position: "absolute",
-            bottom: `${(playbackBarRef.current?.clientHeight ?? 0) + 40}px`,
+            bottom: `${controlsHeight + 40}px`,
             right: 40,
             zIndex: 2,
           }}
@@ -207,7 +224,11 @@ export default function PlaybackControlsOverlay({
         </Box>
       </Fade>
 
-      <Fade in={controlsVisible} style={{ transitionDuration: "1s" }}>
+      <Fade
+        in={controlsVisible}
+        timeout={1000}
+        onExited={() => onControlsInsetChange(0)}
+      >
         <Box
           sx={{
             position: "absolute",
@@ -258,7 +279,7 @@ export default function PlaybackControlsOverlay({
               position: "absolute",
               left: 0,
               right: 0,
-              height: playbackBarRef.current?.clientHeight || 200,
+              height: controlsHeight || 200,
               background:
                 "linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.9) 100%)",
               backdropFilter: "blur(20px)",
@@ -270,12 +291,14 @@ export default function PlaybackControlsOverlay({
             style={{
               bottom: controlsVisible
                 ? 0
-                : -(playbackBarRef.current?.clientHeight || 200),
+                : -(controlsHeight || 200),
             }}
           />
 
           <Box
             ref={playbackBarRef}
+            role="group"
+            aria-label="Playback controls"
             sx={{
               mt: "auto",
               display: "flex",

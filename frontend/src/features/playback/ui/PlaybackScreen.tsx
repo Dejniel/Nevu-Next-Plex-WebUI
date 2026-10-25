@@ -26,6 +26,7 @@ function PlaybackSession({
   const player = useRef<VideoPlayerHandle | null>(null);
   const surface = useRef<HTMLDivElement | null>(null);
   const [showError, setShowError] = useState<string | false>(false);
+  const [subtitleBottomInset, setSubtitleBottomInset] = useState(0);
 
   const playbackRuntime = usePlaybackRuntime({
     getPlayer: () => player.current,
@@ -260,6 +261,7 @@ function PlaybackSession({
               runtime={playbackRuntime}
               commands={playbackCommands}
               getSurface={() => surface.current}
+              onControlsInsetChange={setSubtitleBottomInset}
               watch={{
                 room,
                 isGuest,
@@ -269,6 +271,7 @@ function PlaybackSession({
             <VideoPlayer
               ref={player}
               source={source}
+              subtitleBottomInset={subtitleBottomInset}
               playing={playing}
               volume={volume / 100}
               startTime={playbackRuntime.getResumePosition(

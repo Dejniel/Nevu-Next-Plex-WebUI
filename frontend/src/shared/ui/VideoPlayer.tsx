@@ -15,6 +15,7 @@ import {
   streamingMimeType,
 } from "shared/lib/video/shaka";
 import VideoTextTrackView from "./VideoTextTrack";
+import VideoCaptions from "./VideoCaptions";
 import type {
   VideoPlaybackError,
   VideoPlaybackFailure,
@@ -34,6 +35,7 @@ export interface VideoPlayerProps {
   poster?: string;
   startTime?: number | null;
   objectFit?: React.CSSProperties["objectFit"];
+  subtitleBottomInset?: number;
   onReady?: (sourceId: string) => void;
   onPlay?: () => void;
   onPause?: () => void;
@@ -138,9 +140,14 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       };
       const startSubtitles = () => {
         if (
-          !source.textTracks?.length || cancelled || failed || !ready.current ||
-          video.readyState < 2 || video.seeking
-        ) return;
+          !source.textTracks?.length ||
+          cancelled ||
+          failed ||
+          !ready.current ||
+          video.readyState < 2 ||
+          video.seeking
+        )
+          return;
         setTextTracksState({ source, revision: textRevision, reading: true });
       };
       const suspendSubtitles = () => {
@@ -277,57 +284,65 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     };
 
     return (
-      <video
-        ref={videoRef}
-        playsInline
-        muted={props.muted}
-        controls={props.controls}
-        loop={props.loop}
-        poster={props.poster}
-        preload="metadata"
-        controlsList="nodownload"
-        disablePictureInPicture
-        onClick={props.onClick}
-        onPlay={() => callbacks.current.onPlay?.()}
-        onPause={() => {
-          if (ready.current) callbacks.current.onPause?.();
-        }}
-        onPlaying={() => {
-          callbacks.current.onBuffering?.(false);
-          callbacks.current.onPlaying?.();
-        }}
-        onCanPlay={() => {
-          callbacks.current.onBuffering?.(false);
-          playIfRequested();
-        }}
-        onWaiting={() => callbacks.current.onBuffering?.(true)}
-        onEnded={() => callbacks.current.onEnded?.()}
-        onTimeUpdate={progress}
-        onProgress={progress}
-        onSeeked={progress}
-        style={{
-          display: "block",
-          width: "100%",
-          height: "100%",
-          objectFit: props.objectFit ?? "contain",
-          background: "#000",
-        }}
-      >
-        {(textTracksState?.source === props.source
-          ? props.source?.textTracks ?? []
-          : []
-        ).map((track) => (
-          <VideoTextTrackView
-            key={track.url}
-            source={track}
-            reading={textTracksState!.reading}
-            revision={textTracksState!.revision}
-            sourceId={props.source!.id}
-            getPosition={() => videoRef.current?.currentTime ?? lastPosition.current}
-            onError={(error) => callbacks.current.onSubtitleError?.(error)}
-          />
-        ))}
-      </video>
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+        <video
+          ref={videoRef}
+          playsInline
+          muted={props.muted}
+          controls={props.controls}
+          loop={props.loop}
+          poster={props.poster}
+          preload="metadata"
+          controlsList="nodownload"
+          disablePictureInPicture
+          onClick={props.onClick}
+          onPlay={() => callbacks.current.onPlay?.()}
+          onPause={() => {
+            if (ready.current) callbacks.current.onPause?.();
+          }}
+          onPlaying={() => {
+            callbacks.current.onBuffering?.(false);
+            callbacks.current.onPlaying?.();
+          }}
+          onCanPlay={() => {
+            callbacks.current.onBuffering?.(false);
+            playIfRequested();
+          }}
+          onWaiting={() => callbacks.current.onBuffering?.(true)}
+          onEnded={() => callbacks.current.onEnded?.()}
+          onTimeUpdate={progress}
+          onProgress={progress}
+          onSeeked={progress}
+          style={{
+            display: "block",
+            width: "100%",
+            height: "100%",
+            objectFit: props.objectFit ?? "contain",
+            background: "#000",
+          }}
+        >
+          {(textTracksState?.source === props.source
+            ? (props.source?.textTracks ?? [])
+            : []
+          ).map((track) => (
+            <VideoTextTrackView
+              key={track.url}
+              source={track}
+              reading={textTracksState!.reading}
+              revision={textTracksState!.revision}
+              sourceId={props.source!.id}
+              getPosition={() =>
+                videoRef.current?.currentTime ?? lastPosition.current
+              }
+              onError={(error) => callbacks.current.onSubtitleError?.(error)}
+            />
+          ))}
+        </video>
+        <VideoCaptions
+          videoRef={videoRef}
+          bottomInset={props.subtitleBottomInset ?? 0}
+        />
+      </div>
     );
   },
 );

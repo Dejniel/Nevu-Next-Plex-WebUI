@@ -43,7 +43,8 @@ export default function VideoTextTrack({
     (element: HTMLTrackElement | null) => {
       ref.current = element;
       if (!element) return;
-      element.track.mode = "showing";
+      // Keep browser timing/cuechange events; VideoCaptions owns presentation.
+      element.track.mode = "hidden";
       const nativeError = () =>
         reportFailure("The selected subtitles could not be loaded.");
       if (!source.streaming) element.addEventListener("error", nativeError);

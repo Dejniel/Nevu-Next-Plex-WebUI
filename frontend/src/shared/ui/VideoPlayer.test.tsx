@@ -10,6 +10,7 @@ vi.mock("shared/lib/video/shaka", () => ({
   createStreamingPlayer: vi.fn(),
   streamingMimeType: () => "application/dash+xml",
 }));
+vi.mock("./VideoCaptions", () => ({ default: () => null }));
 let root: Root;
 let element: HTMLDivElement;
 let props: VideoPlayerProps;
@@ -219,7 +220,7 @@ it("reports native track warnings separately and detaches the listener", async (
     video.dispatchEvent(new Event("timeupdate"));
   });
   const track = element.querySelector("track")!;
-  expect(track.track.mode).toBe("showing");
+  expect(track.track.mode).toBe("hidden");
   track.dispatchEvent(new Event("error"));
   expect(onSubtitleError).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -496,7 +497,7 @@ it("attaches streaming WebVTT after video readiness without waiting for a comple
   );
   const track = element.querySelector("track")!;
   expect(track.src).toContain("/streaming.vtt");
-  expect(track.track.mode).toBe("showing");
+  expect(track.track.mode).toBe("hidden");
   expect(fetch).not.toHaveBeenCalled();
   props.volume = 0.2; await render();
   expect(track.src).toContain("/streaming.vtt");

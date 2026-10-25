@@ -98,6 +98,9 @@ selection must remain retryable; navigation/profile changes cancel stale work.
 Include a long **converted** sample with early/late cues: show text before the
 response ends, then seek forward and back to a known cue. An open cue ending
 with one newline must render without waiting for the next cue or EOF.
+Check multiline captions with controls visible/hidden, paused and fullscreen,
+including portrait/landscape sizes. Controls must leave captions readable without
+restarting video or rereading subtitles; resizing must retain readable text size.
 Inspect stream parameters and Plex's active session to distinguish copying from
 conversion; a decision alone does not prove playback. Text subtitle output loads
 after video readiness. Browser/device codec support,
