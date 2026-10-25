@@ -119,11 +119,13 @@ export default function SubtitleSearchPanel({
   const request = React.useRef<AbortController | null>(null);
 
   const runSearch = async (criteria: SearchForm) => {
+    if (downloadingKey) return;
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
     setLoading(true);
     setError(null);
+    setResults(null);
     localStorage.setItem("subtitleSearchLanguage", criteria.language);
 
     try {
@@ -171,6 +173,7 @@ export default function SubtitleSearchPanel({
   };
 
   const download = async (subtitle: SubtitleSearchResult) => {
+    if (loading || criteriaChanged || downloadingKey || subtitle.downloaded) return;
     setDownloadingKey(subtitle.key);
     setError(null);
     try {
@@ -215,6 +218,7 @@ export default function SubtitleSearchPanel({
         }}
       >
         <TextField
+          disabled={Boolean(downloadingKey)}
           label="Title or release name"
           value={form.title}
           onChange={(event) =>
@@ -223,7 +227,7 @@ export default function SubtitleSearchPanel({
           size="small"
           sx={{ gridColumn: { xs: "1 / -1", sm: "auto" } }}
         />
-        <FormControl size="small">
+        <FormControl size="small" disabled={Boolean(downloadingKey)}>
           <InputLabel id="subtitle-language-label">Language</InputLabel>
           <Select
             labelId="subtitle-language-label"
@@ -244,14 +248,17 @@ export default function SubtitleSearchPanel({
           </Select>
         </FormControl>
         <Tooltip title="Restore the file name">
-          <IconButton
-            aria-label="Restore the file name"
-            onClick={() =>
-              setForm((current) => ({ ...current, title: originalTitle }))
-            }
-          >
-            <RefreshRounded />
-          </IconButton>
+          <span>
+            <IconButton
+              disabled={Boolean(downloadingKey)}
+              aria-label="Restore the file name"
+              onClick={() =>
+                setForm((current) => ({ ...current, title: originalTitle }))
+              }
+            >
+              <RefreshRounded />
+            </IconButton>
+          </span>
         </Tooltip>
         <Tooltip title="Search again">
           <span>
@@ -259,14 +266,14 @@ export default function SubtitleSearchPanel({
               type="submit"
               aria-label="Search subtitles"
               color={criteriaChanged ? "primary" : "default"}
-              disabled={loading}
+              disabled={loading || Boolean(downloadingKey)}
             >
               {loading ? <CircularProgress size={22} /> : <SearchRounded />}
             </IconButton>
           </span>
         </Tooltip>
 
-        <FormControl size="small" sx={{ gridColumn: { xs: "1 / -1", sm: "1 / 3" } }}>
+        <FormControl size="small" disabled={Boolean(downloadingKey)} sx={{ gridColumn: { xs: "1 / -1", sm: "1 / 3" } }}>
           <InputLabel id="subtitle-forced-label">Forced subtitles</InputLabel>
           <Select
             labelId="subtitle-forced-label"
@@ -280,7 +287,7 @@ export default function SubtitleSearchPanel({
             <MenuItem value={3}>Exclude forced</MenuItem>
           </Select>
         </FormControl>
-        <FormControl size="small" sx={{ gridColumn: { xs: "1 / -1", sm: "3 / 5" } }}>
+        <FormControl size="small" disabled={Boolean(downloadingKey)} sx={{ gridColumn: { xs: "1 / -1", sm: "3 / 5" } }}>
           <InputLabel id="subtitle-sdh-label">SDH subtitles</InputLabel>
           <Select
             labelId="subtitle-sdh-label"
@@ -328,7 +335,7 @@ export default function SubtitleSearchPanel({
             component="button"
             type="button"
             key={subtitle.key}
-            disabled={Boolean(downloadingKey) || subtitle.downloaded}
+            disabled={loading || criteriaChanged || Boolean(downloadingKey) || subtitle.downloaded}
             onClick={() => void download(subtitle)}
             sx={{
               width: "100%",
