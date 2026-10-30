@@ -1,5 +1,19 @@
 import { readDiscoverTitle } from "./mediaTitle";
 
+it("accepts pre-1970 timestamps without relaxing counts or durations", () => {
+  const title = {
+    type: "movie",
+    guid: "plex://movie/id",
+    ratingKey: "id",
+    title: "Film",
+    addedAt: -148176000,
+  };
+  expect(readDiscoverTitle(title).addedAt).toBe(-148176000);
+  expect(() => readDiscoverTitle({ ...title, duration: -1 })).toThrow(
+    "invalid",
+  );
+});
+
 it("projects local copies to the same Discover identity without their server state", () => {
   const item = {
     type: "movie",
@@ -65,6 +79,9 @@ it.each([
   { Genre: [{ tag: 1 }] },
   { Rating: [{ value: "8" }] },
   { duration: -1 },
+  { addedAt: -1.5 },
+  { addedAt: "-148176000" },
+  { addedAt: NaN },
   { ratingKey: "" },
   { guid: "plex://show/show" },
 ])("rejects invalid title data %j", (invalid) => {

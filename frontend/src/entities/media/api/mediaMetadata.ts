@@ -6,6 +6,7 @@ import {
   plexString,
   plexNumber,
   plexInteger,
+  plexTimestamp,
   plexBoolean,
   plexFields,
 } from "shared/api/plexResponse";
@@ -18,6 +19,7 @@ const resource = "media metadata";
 const text = (value: unknown) => plexString(value, resource);
 const number = (value: unknown) => plexNumber(value, resource);
 const integer = (value: unknown) => plexInteger(value, resource);
+const timestamp = (value: unknown) => plexTimestamp(value, resource);
 const flag = (value: unknown) => plexBoolean(value, resource);
 const object = (value: unknown) => plexObject(value, resource);
 const array =
@@ -189,13 +191,13 @@ export function readMediaMetadata(
       userRating: number,
       viewOffset: integer,
       viewCount: integer,
-      lastViewedAt: integer,
+      lastViewedAt: timestamp,
       tagline: text,
       theme: text,
       originallyAvailableAt: text,
       leafCount: integer,
       viewedLeafCount: integer,
-      updatedAt: integer,
+      updatedAt: timestamp,
       primaryExtraKey: text,
       extraType: integer,
       subtype: text,

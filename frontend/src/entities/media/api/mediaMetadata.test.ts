@@ -10,6 +10,19 @@ vi.mock("features/session/model", () => ({
 }));
 const movie = { ratingKey: "1", type: "movie" as const, title: "Movie" };
 
+it("reads signed Unix timestamps separately from nonnegative media counters", () => {
+  const item = {
+    ...movie,
+    addedAt: -148176000,
+    updatedAt: -1,
+    lastViewedAt: 0,
+  };
+  expect(readMediaMetadata(item)).toEqual(item);
+  expect(() => readMediaMetadata({ ...item, viewCount: -1 })).toThrow(
+    "invalid",
+  );
+});
+
 it.each([
   "movie",
   "show",

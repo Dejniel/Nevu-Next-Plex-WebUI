@@ -91,6 +91,47 @@ const movies = (count: number, start = 0) =>
       }) satisfies DiscoverTitle,
   );
 
+it("finishes pagination when the first page includes pre-epoch dates", async () => {
+  const first: DiscoverTitle[] = movies(100);
+  for (const [index, addedAt] of [
+    [11, -148176000],
+    [21, -413164800],
+    [24, -128736000],
+    [76, -192067200],
+  ])
+    first[index] = { ...first[index], addedAt };
+  const last = movies(2, 100);
+  mockedAxios.get
+    .mockResolvedValueOnce({
+      data: {
+        MediaContainer: {
+          offset: 0,
+          size: 100,
+          totalSize: 102,
+          Metadata: first,
+        },
+      },
+    })
+    .mockResolvedValueOnce({
+      data: {
+        MediaContainer: {
+          offset: 100,
+          size: 2,
+          totalSize: 102,
+          Metadata: last,
+        },
+      },
+    });
+  await expect(getWatchlist()).resolves.toEqual([...first, ...last]);
+  expect(mockedAxios.get).toHaveBeenNthCalledWith(
+    2,
+    expect.any(String),
+    expect.objectContaining({
+      params: expect.objectContaining({ "X-Plex-Container-Start": 100 }),
+    }),
+  );
+});
+
 it("loads a Watchlist larger than 300 using accepted 100-item pages", async () => {
   const items = movies(305);
   mockedAxios.get.mockImplementation(async (_, options) => {

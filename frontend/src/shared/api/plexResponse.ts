@@ -48,6 +48,13 @@ export function plexInteger(value: unknown, resource: string): number {
   return number;
 }
 
+/** Unix timestamps can represent dates before 1970; counts and offsets cannot. */
+export function plexTimestamp(value: unknown, resource: string): number {
+  const number = plexNumber(value, resource);
+  if (!Number.isSafeInteger(number)) throw new PlexResponseError(resource);
+  return number;
+}
+
 export function plexBoolean(value: unknown, resource: string): boolean {
   if (value === true || value === 1) return true;
   if (value === false || value === 0) return false;

@@ -15,6 +15,7 @@ import {
   useWatchlist,
   useWatchlistAction,
   watchlistQueryKey,
+  WatchlistReadError,
 } from "./watchlistQuery";
 
 vi.mock("../api/watchlist", () => ({
@@ -274,6 +275,39 @@ it("keeps a full cached list after a failed write", async () => {
   });
   expect(data.data).toEqual([movie("kept")]);
   expect(action.selected).toBe(false);
+});
+
+it("reports a cold read failure without attempting a membership write", async () => {
+  const failure = new Error("Invalid response");
+  read.mockRejectedValue(failure);
+  await render();
+  await act(async () => {
+    await expect(action.toggle()).rejects.toMatchObject({
+      name: "WatchlistReadError",
+      cause: failure,
+    });
+  });
+  expect(data.error).toBe(failure);
+  expect(add).not.toHaveBeenCalled();
+  expect(remove).not.toHaveBeenCalled();
+  expect(new WatchlistReadError(failure).message).toContain(
+    "could not be loaded",
+  );
+});
+
+it("does not report an abandoned cold read after the profile changes", async () => {
+  const pending = deferred<DiscoverTitle[]>();
+  read.mockReturnValueOnce(pending.promise);
+  await render();
+  let writing!: Promise<void>;
+  await act(async () => {
+    writing = action.toggle();
+  });
+  await act(async () => useUserSettings.setState({ profileKey: "owner:2" }));
+  await expect(writing).resolves.toBeUndefined();
+  expect(add).not.toHaveBeenCalled();
+  expect(remove).not.toHaveBeenCalled();
+  await act(async () => pending.resolve([]));
 });
 
 it("retains loaded empty data during background errors and allows Retry", async () => {

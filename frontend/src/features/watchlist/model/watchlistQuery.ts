@@ -28,6 +28,14 @@ const watchlistQueryOptions = (profileKey: string | null) =>
     enabled: Boolean(profileKey),
     refetchInterval: 60_000,
   });
+
+export class WatchlistReadError extends Error {
+  constructor(cause?: unknown) {
+    super("Your Watchlist could not be loaded. Please try again.", { cause });
+    this.name = "WatchlistReadError";
+  }
+}
+
 export function useWatchlist() {
   const profileKey = useUserSettings((state) => state.profileKey);
   return useQuery(watchlistQueryOptions(profileKey), serverQueryClient);
@@ -108,8 +116,10 @@ export function useWatchlistAction(item: MediaItemData) {
       let data = serverQueryClient.getQueryData<DiscoverTitle[]>(key);
       if (!data) {
         const loaded = await result.refetch();
-        if (!loaded.data)
-          throw loaded.error ?? new Error("Could not read your Watchlist.");
+        if (!loaded.data) {
+          if (!isCurrent(edit)) return;
+          throw new WatchlistReadError(loaded.error);
+        }
         data = loaded.data;
       }
       if (

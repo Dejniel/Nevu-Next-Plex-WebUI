@@ -233,6 +233,8 @@ can resolve to several server ratingKeys across libraries; editions stay distinc
 Watchlist retains its account API and profile-scoped Query resource. Its title
 projection excludes server files and local watch state. Both reads share checked
 Plex pagination; incomplete or malformed responses leave existing Query data intact.
+Unix timestamps accept signed integers; counts, durations and page offsets remain
+nonnegative. Watchlist actions distinguish an unavailable list from a failed write.
 
 `architectureBoundaries.test.ts` checks the current entry-point and dependency
 conventions. Update those checks alongside intentional architecture changes.

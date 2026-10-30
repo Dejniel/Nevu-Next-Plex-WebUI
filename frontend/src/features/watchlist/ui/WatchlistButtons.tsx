@@ -11,10 +11,18 @@ import {
 import type { MediaMetadata, MediaItemData } from "entities/media/model";
 import React from "react";
 import { useBigReader } from "shared/ui";
-import { useWatchlistAction } from "../model/watchlistQuery";
+import {
+  useWatchlistAction,
+  WatchlistReadError,
+} from "../model/watchlistQuery";
 
 function useWatchlistToggle(item: MediaItemData) {
-  const { selected, loading, available, toggle: update } = useWatchlistAction(item);
+  const {
+    selected,
+    loading,
+    available,
+    toggle: update,
+  } = useWatchlistAction(item);
 
   const toggle = async (event?: React.SyntheticEvent) => {
     event?.preventDefault();
@@ -23,11 +31,13 @@ function useWatchlistToggle(item: MediaItemData) {
 
     try {
       await update();
-    } catch {
+    } catch (error) {
       useBigReader
         .getState()
         .setBigReader(
-          "Plex could not update your Watchlist. Please try again.",
+          error instanceof WatchlistReadError
+            ? error.message
+            : "Plex could not update your Watchlist. Please try again.",
         );
     }
   };

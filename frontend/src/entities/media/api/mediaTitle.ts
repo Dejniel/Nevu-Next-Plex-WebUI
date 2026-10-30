@@ -7,6 +7,7 @@ import {
   plexString,
   plexNumber,
   plexInteger,
+  plexTimestamp,
   plexArray,
 } from "shared/api/plexResponse";
 
@@ -34,7 +35,7 @@ export function readTitleFields(row: Record<string, unknown>) {
     duration: integer,
     seasonCount: integer,
     childCount: integer,
-    addedAt: integer,
+    addedAt: (value) => plexTimestamp(value, resource),
     rating: number,
     ratingImage: text,
     audienceRating: number,
