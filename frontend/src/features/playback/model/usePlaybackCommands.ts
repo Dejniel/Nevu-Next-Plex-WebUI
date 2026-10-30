@@ -32,12 +32,16 @@ interface PlaybackCommandOptions {
   enabled?: boolean;
 }
 
-export function shouldIgnorePlaybackShortcut(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return false;
+export function shouldIgnorePlaybackShortcut(
+  target: EventTarget | null,
+  key?: string,
+) {
+  if (!(target instanceof Element)) return false;
   return Boolean(
     target.closest(
-      "input, textarea, select, button, [role='dialog'], [contenteditable]:not([contenteditable='false'])",
-    ),
+      "input, textarea, select, [role='slider'], [role='dialog'], [role='menu'], [role='listbox'], [contenteditable]:not([contenteditable='false'])",
+    ) ||
+      (key !== " " && target.closest("button, [role='button'], a[href]")),
   );
 }
 
@@ -162,13 +166,16 @@ export function usePlaybackCommands(options: PlaybackCommandOptions) {
   );
 
   useEffect(() => {
+    let spacePressed = false;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
         optionsRef.current.enabled === false ||
+        event.defaultPrevented ||
+        event.isComposing ||
         event.altKey ||
         event.ctrlKey ||
         event.metaKey ||
-        shouldIgnorePlaybackShortcut(event.target)
+        shouldIgnorePlaybackShortcut(event.target, event.key)
       )
         return;
       const actions: Record<string, (() => void) | undefined> = {
@@ -188,12 +195,28 @@ export function usePlaybackCommands(options: PlaybackCommandOptions) {
       const action = actions[event.key];
       if (!action) return;
       event.preventDefault();
+      if (event.key === " ") {
+        spacePressed = true;
+        event.stopPropagation();
+        if (event.repeat) return;
+      }
       action();
+    };
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key !== " " || !spacePressed) return;
+      spacePressed = false;
+      event.preventDefault();
+      event.stopPropagation();
     };
 
     const surface = optionsRef.current.getSurface();
-    surface?.addEventListener("keydown", handleKeyDown);
-    return () => surface?.removeEventListener("keydown", handleKeyDown);
+    // Own Space before focused controls handle it, including activation on keyup.
+    surface?.addEventListener("keydown", handleKeyDown, true);
+    surface?.addEventListener("keyup", handleKeyUp, true);
+    return () => {
+      surface?.removeEventListener("keydown", handleKeyDown, true);
+      surface?.removeEventListener("keyup", handleKeyUp, true);
+    };
   }, [
     adjustVolume,
     seekBy,

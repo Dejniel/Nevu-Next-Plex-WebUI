@@ -124,6 +124,8 @@ function EpisodeBrowser({
             {({ TransitionProps }) => (
               <Fade {...TransitionProps} timeout={300}>
                 <Paper
+                  role="dialog"
+                  aria-label="Episodes"
                   sx={{
                     overflow: "hidden",
                     bgcolor: "#000",

@@ -83,6 +83,8 @@ export default function PlaybackSettingsPopover({
       }}
     >
       <Paper
+        role="dialog"
+        aria-label="Playback settings"
         sx={{
           width: page === 4 ? { xs: "calc(100vw - 24px)", sm: 520 } : 350,
           maxWidth: "calc(100vw - 24px)",

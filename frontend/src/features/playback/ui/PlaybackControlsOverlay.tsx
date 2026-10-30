@@ -447,6 +447,8 @@ export default function PlaybackControlsOverlay({
               }}
             >
               <Paper
+                role="dialog"
+                aria-label="Volume"
                 sx={{
                   userSelect: "none",
                   backgroundColor: "#00000088",

@@ -19,8 +19,9 @@ it("ignores playback shortcuts from editable controls", () => {
   expect(shouldIgnorePlaybackShortcut(null)).toBe(false);
 });
 
-describe("playlist playback commands", () => {
+describe("playback commands", () => {
   let root: Root;
+  let surface: HTMLDivElement;
   let options: Parameters<typeof usePlaybackCommands>[0];
   let commands: ReturnType<typeof usePlaybackCommands>;
   const movie = {
@@ -40,6 +41,9 @@ describe("playlist playback commands", () => {
       globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
     ).IS_REACT_ACT_ENVIRONMENT = true;
     root = createRoot(document.createElement("div"));
+    surface = document.createElement("div");
+    surface.tabIndex = -1;
+    document.body.appendChild(surface);
     options = {
       metadata: movie,
       playQueue: [movie, { ...movie, ratingKey: "11" }],
@@ -48,6 +52,7 @@ describe("playlist playback commands", () => {
       runtime: {
         getDuration: () => 100,
         seekToLocal: vi.fn(),
+        togglePlaying: vi.fn(),
       } as unknown as Parameters<typeof usePlaybackCommands>[0]["runtime"],
       sync: {
         pause: vi.fn(),
@@ -58,11 +63,121 @@ describe("playlist playback commands", () => {
       },
       navigate: vi.fn(),
       reportStopped: vi.fn().mockResolvedValue(undefined),
-      getSurface: () => null,
+      getSurface: () => surface,
     };
   });
   afterEach(async () => {
     await act(async () => root.unmount());
+    surface.remove();
+  });
+
+  function key(
+    target: Element,
+    type: "keydown" | "keyup",
+    options: KeyboardEventInit = {},
+  ) {
+    const event = new KeyboardEvent(type, {
+      key: " ",
+      bubbles: true,
+      cancelable: true,
+      ...options,
+    });
+    target.dispatchEvent(event);
+    return event;
+  }
+
+  it.each(["button", "div"])(
+    "uses Space to pause/resume after clicking a focused %s without repeating its action",
+    async (tag) => {
+      const button = document.createElement(tag);
+      button.tabIndex = 0;
+      button.setAttribute("role", "button");
+      const previousAction = vi.fn();
+      button.addEventListener("click", previousAction);
+      // Non-native buttons, including MUI ButtonBase, activate on keyup.
+      if (tag === "div")
+        button.addEventListener("keyup", (event) => {
+          if (event.key === " " && !event.defaultPrevented) button.click();
+        });
+      surface.appendChild(button);
+      button.focus();
+      button.click();
+      vi.mocked(options.runtime.togglePlaying)
+        .mockReturnValueOnce(false)
+        .mockReturnValueOnce(true);
+      await render();
+      for (let i = 0; i < 2; i++) {
+        expect(key(button, "keydown").defaultPrevented).toBe(true);
+        expect(key(button, "keyup").defaultPrevented).toBe(true);
+      }
+      expect(options.runtime.togglePlaying).toHaveBeenCalledTimes(2);
+      expect(options.sync.pause).toHaveBeenCalledTimes(1);
+      expect(options.sync.resume).toHaveBeenCalledTimes(1);
+      expect(previousAction).toHaveBeenCalledTimes(1);
+      expect(document.activeElement).toBe(button);
+      expect(key(button, "keydown", { key: "Enter" }).defaultPrevented).toBe(
+        false,
+      );
+    },
+  );
+
+  it("toggles only once while Space is held down", async () => {
+    await render();
+    key(surface, "keydown");
+    for (let i = 0; i < 3; i++)
+      expect(key(surface, "keydown", { repeat: true }).defaultPrevented).toBe(
+        true,
+      );
+    key(surface, "keyup");
+    expect(options.runtime.togglePlaying).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves Space to editors, sliders and overlays inside the fullscreen surface", async () => {
+    await render();
+    const targets = ["input", "textarea", "select"].map((tag) =>
+      document.createElement(tag),
+    );
+    for (const role of ["slider", "dialog", "menu", "listbox"]) {
+      const parent = document.createElement("div");
+      parent.setAttribute("role", role);
+      const button = document.createElement("button");
+      parent.appendChild(button);
+      surface.appendChild(parent);
+      targets.push(button);
+    }
+    const editor = document.createElement("div");
+    editor.contentEditable = "true";
+    editor.setAttribute("contenteditable", "true");
+    targets.push(editor);
+    for (const target of targets) {
+      if (!surface.contains(target)) surface.appendChild(target);
+      expect(key(target, "keydown").defaultPrevented).toBe(false);
+      expect(key(target, "keyup").defaultPrevented).toBe(false);
+    }
+    expect(options.runtime.togglePlaying).not.toHaveBeenCalled();
+  });
+
+  it("respects disabled shortcuts, modifiers, composition and cleanup", async () => {
+    options.enabled = false;
+    await render();
+    expect(key(surface, "keydown").defaultPrevented).toBe(false);
+    options = { ...options, enabled: true };
+    await render();
+    for (const flags of [
+      { altKey: true },
+      { ctrlKey: true },
+      { metaKey: true },
+      { isComposing: true },
+    ])
+      expect(key(surface, "keydown", flags).defaultPrevented).toBe(false);
+    expect(options.runtime.togglePlaying).not.toHaveBeenCalled();
+    key(surface, "keydown");
+    key(surface, "keyup");
+    expect(options.runtime.togglePlaying).toHaveBeenCalledTimes(1);
+    await act(async () => root.render(null));
+    expect(key(surface, "keydown").defaultPrevented).toBe(false);
+    expect(key(surface, "keyup").defaultPrevented).toBe(false);
+    expect(options.runtime.togglePlaying).toHaveBeenCalledTimes(1);
   });
 
   it("advances films on completion and ends the session at the last playlist item", async () => {
