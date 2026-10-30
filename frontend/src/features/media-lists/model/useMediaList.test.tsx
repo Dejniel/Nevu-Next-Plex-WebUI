@@ -131,6 +131,15 @@ it("stores actual pages and jumps to item 10,000 without intermediate requests",
   expect(page).toHaveBeenCalledTimes(2);
 });
 
+it("keeps loading new playlist ranges after a background refresh fails", async () => {
+  await render();
+  page.mockRejectedValueOnce(new Error("Refresh failed"));
+  await act(async () => { await refresh(); });
+  await demand(300);
+  expect(state.errors.get(0)?.message).toBe("Refresh failed");
+  expect(state.items.get(300)).toMatchObject({ position: 300 });
+});
+
 it("keeps audio/video indexes separate and reuses audio pages across library navigation contexts", async () => {
   page.mockImplementation(async () => ({ offset: 0, total: 1, items: [{
     kind: "playlist", id: query.playlistType === "audio" ? "30" : "20", title: "Playlist", summary: "", smart: false, count: 2,

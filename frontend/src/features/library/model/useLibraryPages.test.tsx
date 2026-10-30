@@ -224,6 +224,15 @@ it("prepares the union of simultaneous consumers and includes scrolling during r
   expect(latest.items.get(64)?.title).toBe("new 64");
 });
 
+it("continues loading a new range after a failed background refresh", async () => {
+  await render(<Harness />);
+  fetch.mockRejectedValueOnce(new LibraryPageError("Refresh failed", true));
+  await act(async () => { await latest.refresh(); });
+  await render(<Harness start={128} />);
+  expect(latest.errors.get(0)?.message).toBe("Refresh failed");
+  expect(latest.items.get(128)?.title).toBe("old 128");
+});
+
 it("moves refresh demand with the visible range after a replacement page has already started", async () => {
   await render(<Harness start={64} />);
   const pending = deferred<LibraryPageDto>();

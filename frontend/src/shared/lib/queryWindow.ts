@@ -51,12 +51,14 @@ export function queryWindowOptions<T extends { offset: number }, TKey extends Qu
       };
       signal.addEventListener("abort", cancel, { once: true });
       try {
-        const first = await client.fetchQuery(pageOptions(revision, 0));
-        const total = totalOf(first);
+        // Replacement reads supersede unfinished reads of the published revision.
+        await client.cancelQueries({ queryKey: publishedPrefix });
         // Query's observers are the live demand, including while replacement reads run.
         while (true) {
           changed = false;
           signal.throwIfAborted();
+          const first = client.getQueryData<T>(pageOptions(revision, 0).queryKey);
+          const total = first ? totalOf(first) : null;
           const offsets = new Set([0, ...cache
             .findAll({ queryKey: publishedPrefix })
             .filter((page) => page.getObserversCount() > 0)

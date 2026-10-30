@@ -11,7 +11,7 @@ afterEach(async () => {
   client.clear();
 });
 
-function scenario(limit = 2) {
+function scenario(limit = 2, slowFirst = false) {
   const prefix = ["window-test"];
   const published = 999;
   const pending = new Map<number, {
@@ -21,7 +21,7 @@ function scenario(limit = 2) {
   }>();
   const run = createRequestLimiter(limit);
   const read = vi.fn((offset: number, signal: AbortSignal) => {
-    if (!offset) return Promise.resolve({ offset, total: 20_000 });
+    if (!offset && !slowFirst) return Promise.resolve({ offset, total: 20_000 });
     return new Promise<{ offset: number; total: number }>((resolve, reject) => {
       pending.set(offset, { resolve, reject, signal });
       signal.addEventListener("abort", () => reject(signal.reason), { once: true });
@@ -61,6 +61,23 @@ it("cancels an obsolete replacement immediately and publishes the new range desp
   state.finish(9984);
   await expect(refresh).resolves.not.toEqual({ revision: 999 });
   expect(state.validate).toHaveBeenCalledWith([{ offset: 0, total: 20_000 }, { offset: 9984, total: 20_000 }]);
+});
+
+it("follows scrolling even while the replacement first page is stalled and publishes atomically", async () => {
+  const state = scenario(2, true);
+  const leave = state.observe(64);
+  const refresh = state.refresh();
+  await vi.waitFor(() => expect(state.pending.has(64)).toBe(true));
+  expect(state.pending.has(0)).toBe(true);
+  leave();
+  state.observe(9984);
+  await vi.waitFor(() => expect(state.pending.has(9984)).toBe(true));
+  expect(state.pending.get(64)!.signal.aborted).toBe(true);
+  state.finish(9984);
+  expect(client.getQueryData(state.window.queryKey)).toEqual({ revision: 999 });
+  state.finish(0);
+  await refresh;
+  expect(state.validate.mock.calls[0][0].map((page: { offset: number }) => page.offset)).toEqual([0, 9984]);
 });
 
 it("keeps a replacement needed by another observer and includes both current ranges", async () => {

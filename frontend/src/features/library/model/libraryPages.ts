@@ -23,12 +23,12 @@ export function libraryPageOptions(
   return queryOptions({
     queryKey: libraryPageQueryKey(serverId, query, revision, offset),
     queryFn: ({ signal }) =>
-      runPageRequest(signal, priority, async () => {
-        const page = await getLibraryPage({ ...query, offset, size: LIBRARY_RANGE_SIZE }, signal);
+      runPageRequest(signal, priority, async (requestSignal) => {
+        const page = await getLibraryPage({ ...query, offset, size: LIBRARY_RANGE_SIZE }, requestSignal);
         if (page.offset !== offset)
           throw new LibraryPageError("Plex returned a mismatched page.", true);
         return page;
-      }),
+      }, query.sort === "random" || query.sort === "random:desc" ? 120_000 : undefined),
     staleTime: Infinity,
     structuralSharing: true,
     refetchOnWindowFocus: false,

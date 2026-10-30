@@ -60,6 +60,12 @@ const noVerifyHttpsAgent = new https.Agent({
 const plexHttpsAgent = process.env.DISABLE_TLS_VERIFY === 'true'
     ? noVerifyHttpsAgent
     : verifiedHttpsAgent;
+// Artwork generation has its own pool so slow posters cannot occupy API sockets.
+const plexImageHttpAgent = new http.Agent({ ...keepAliveOptions, maxSockets: 8, maxFreeSockets: 8 });
+const plexImageHttpsAgent = new https.Agent({
+    ...keepAliveOptions, maxSockets: 8, maxFreeSockets: 8,
+    rejectUnauthorized: process.env.DISABLE_TLS_VERIFY !== 'true',
+});
 // Long-lived notification streams must not occupy the HTTP request pool.
 const plexEventAgent = plexServerUrl.protocol === 'https:'
     ? new https.Agent({ rejectUnauthorized: process.env.DISABLE_TLS_VERIFY !== 'true' })
@@ -153,6 +159,8 @@ app.use(createPlexProxyRouter({
     httpAgent: plexHttpAgent,
     httpsAgent: plexHttpsAgent,
     eventAgent: plexEventAgent,
+    imageHttpAgent: plexImageHttpAgent,
+    imageHttpsAgent: plexImageHttpsAgent,
 }));
 app.use(express.json());
 

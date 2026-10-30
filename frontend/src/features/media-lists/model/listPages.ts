@@ -57,8 +57,8 @@ export function listPageOptions(
       LIST_PAGE_SIZE,
     ] as const,
     queryFn: ({ signal }): Promise<ListPage> =>
-      runPageRequest(signal, priority, async () => {
-        const source = createMediaListSource(query, signal);
+      runPageRequest(signal, priority, async (requestSignal) => {
+        const source = createMediaListSource(query, requestSignal);
         const [page, summary] = await Promise.all([
           source.page(offset, LIST_PAGE_SIZE),
           offset === 0 ? source.summary() : null,

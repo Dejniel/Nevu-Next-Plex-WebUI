@@ -39,6 +39,14 @@ reload and media actions. Switching type should select its grid/list presentatio
 and preserve preferences. Check mobile fit, empty/error recovery and cached range
 jumps in grids, track lists and galleries.
 
+With controlled slow/stalled Plex responses, check page and poster cancellation
+after scrolling away, including work still queued. Timeouts must release capacity
+and offer page Retry rather than leave endless placeholders. Stall the first page
+during refresh and scroll elsewhere: replacement demand must follow the viewport
+without mixing revisions. A failed refresh must still permit new range reads.
+Check that shared random catalogs survive one caller leaving and stop after the
+last caller leaves; artwork deadlines must not truncate media or subtitle streams.
+
 For music/photo libraries, check artist → album → tracks, disc order, playback
 during navigation, queue add/remove/reorder and repeated songs. Include native
 audio and a format requiring Plex conversion. Verify HLS and DASH audio decisions,

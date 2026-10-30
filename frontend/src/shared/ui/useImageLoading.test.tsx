@@ -51,3 +51,12 @@ it("reports absent artwork without waiting for an image event", async () => {
   await act(async () => root.render(<Image src={null} />));
   expect(state.status).toBe("missing");
 });
+
+it("clears native image sources when the card leaves the viewport", async () => {
+  await act(async () => root.render(<Image src="/loading-poster" />));
+  const image = host.querySelector("img")!;
+  image.setAttribute("srcset", "/loading-poster-large 720w");
+  await act(async () => root.render(null));
+  expect(image.hasAttribute("src")).toBe(false);
+  expect(image.hasAttribute("srcset")).toBe(false);
+});

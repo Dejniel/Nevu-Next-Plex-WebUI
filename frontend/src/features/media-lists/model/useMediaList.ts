@@ -30,7 +30,7 @@ export function useMediaListWindow(query: MediaListQuery) {
   const first = useQuery(
     {
       ...listPageOptions(scope, query, window.data.revision, 0),
-      enabled: enabled && !window.isFetching && !window.error,
+      enabled: enabled && !window.isFetching,
     },
     serverQueryClient,
   );
@@ -66,7 +66,7 @@ export function useMediaList(list: ReturnType<typeof useMediaListWindow>, range 
       queries: enabled
         ? offsets.map((offset) => ({
             ...listPageOptions(scope, query, window.data.revision, offset, visible.has(offset) ? 0 : 1),
-            enabled: !window.isFetching && !window.error,
+            enabled: !window.isFetching,
           }))
         : [],
     },

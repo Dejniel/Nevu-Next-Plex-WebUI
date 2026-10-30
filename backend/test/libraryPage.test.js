@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import axios from "axios";
+import { EventEmitter } from "node:events";
+import { RequestLimiter } from "../dist/common/requestLimiter.js";
 import {
   createLibraryPageRouter,
-  RequestLimiter,
   stableRandomOrder,
 } from "../dist/libraryPage.js";
 import { InvalidLibraryPageError, projectLibraryPage } from "../dist/libraryCardProjection.js";
@@ -271,12 +272,12 @@ async function callRouter(router, query, token = "secret", path = "/", method = 
   const layer = router.stack.find((candidate) => candidate.route?.path === path && candidate.route.methods[method]);
   const result = { status: 200, body: null, headers: {} };
   await layer.route.stack[0].handle(
-    { headers: { "x-plex-token": token }, query },
-    {
+    Object.assign(new EventEmitter(), { headers: { "x-plex-token": token }, query }),
+    Object.assign(new EventEmitter(), {
       status(value) { result.status = value; return this; },
       set(name, value) { result.headers[name] = value; return this; },
       send(value) { result.body = value; return this; },
-    },
+    }),
   );
   return result;
 }

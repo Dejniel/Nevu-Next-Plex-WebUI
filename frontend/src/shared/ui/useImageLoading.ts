@@ -26,6 +26,11 @@ export function useImageLoading(src: string | null | undefined) {
   const ref = useCallback(
     (image: HTMLImageElement | null) => {
       if (image?.complete && image.naturalWidth > 0) settle("loaded");
+      return () => {
+        // Removing a node alone does not reliably cancel its native image request.
+        image?.removeAttribute("srcset");
+        image?.removeAttribute("src");
+      };
     },
     [settle],
   );

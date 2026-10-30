@@ -245,6 +245,14 @@ descriptor containing only the published revision. `shared/lib/queryWindow`
 prepares and validates replacement pages before publication; a small transport
 limiter bounds page work. Pending refreshes follow Query's live observers,
 cancelling obsolete queued/running pages while retaining shared demand.
+Replacement pages start together, including while the first page is pending;
+only a validated complete window is published. A failed refresh keeps cached data
+and permits new range reads. Page deadlines include queue time (30 seconds;
+120 seconds for random catalogs). Backend reads propagate disconnects through
+their queue to Plex and have a 20-second budget; shared random builds stop when
+their last caller leaves. Artwork has a separate connection pool and a 15-second
+deadline through the response body. Unmounted images clear their native sources;
+media, subtitle and notification streams retain their long-lived transport.
 First-page hooks supply grid counts; `useVirtualGrid` computes the current range
 before page hooks read it in the same render. Cached jumps render available cards
 immediately. Memoized actionable cards skip unchanged props during scrolling.

@@ -17,12 +17,16 @@ import { createHash } from 'node:crypto';
 import express from 'express';
 import http from 'node:http';
 import https from 'node:https';
+import { RequestLimiter } from './common/requestLimiter.js';
+import { createRequestScope } from './common/requestScope.js';
 
 interface LibraryPageRouterOptions {
     plexServer: string;
     httpAgent?: http.Agent;
     httpsAgent?: https.Agent;
     maxConcurrentRequests?: number;
+    requestTimeoutMs?: number;
+    catalogTimeoutMs?: number;
 }
 
 const librarySources = new Set<LibrarySource>(['all', 'onDeck', 'children', 'folders']);
@@ -61,29 +65,6 @@ const RANDOM_FETCH_SIZE = 500;
 const RANDOM_CATALOG_TTL_MS = 30 * 60 * 1000;
 const RANDOM_CATALOG_LIMIT = 8;
 const RANDOM_ORDER_LIMIT = 16;
-
-export class RequestLimiter {
-    private active = 0;
-    private readonly waiting: Array<() => void> = [];
-
-    constructor(private readonly limit: number) {
-        if (!Number.isInteger(limit) || limit < 1)
-            throw new Error('Request limiter must allow at least one request');
-    }
-
-    async run<T>(operation: () => Promise<T>): Promise<T> {
-        if (this.active >= this.limit)
-            await new Promise<void>((resolve) => this.waiting.push(resolve));
-
-        this.active += 1;
-        try {
-            return await operation();
-        } finally {
-            this.active -= 1;
-            this.waiting.shift()?.();
-        }
-    }
-}
 
 export function stableRandomOrder<T extends { ratingKey: string }>(
     items: readonly T[],
@@ -130,6 +111,12 @@ interface RandomCatalog {
 interface RandomOrder {
     items: LibraryCardDto[];
     lastUsed: number;
+}
+
+interface PendingCatalog {
+    promise: Promise<RandomCatalog>;
+    controller: AbortController;
+    consumers: number;
 }
 
 function single(value: unknown) {
@@ -342,12 +329,14 @@ export function createLibraryPageRouter({
     httpAgent,
     httpsAgent,
     maxConcurrentRequests = 4,
+    requestTimeoutMs = 20_000,
+    catalogTimeoutMs = 120_000,
 }: LibraryPageRouterOptions) {
     const router = express.Router();
     const limiter = new RequestLimiter(maxConcurrentRequests);
     const randomCatalogs = new Map<string, RandomCatalog>();
     const randomOrders = new Map<string, RandomOrder>();
-    const pendingCatalogs = new Map<string, Promise<RandomCatalog>>();
+    const pendingCatalogs = new Map<string, PendingCatalog>();
 
     const fetchContainer = async (
         token: string,
@@ -355,6 +344,7 @@ export function createLibraryPageRouter({
         sort: string,
         offset: number,
         size: number,
+        signal: AbortSignal,
     ) => limiter.run(async () => {
         const response = await axios.get(
             request.source === 'children'
@@ -363,13 +353,14 @@ export function createLibraryPageRouter({
             {
                 params: plexParams(request, sort, offset, size),
                 headers: { Accept: 'application/json', 'X-Plex-Token': token },
-                timeout: 20000,
+                timeout: requestTimeoutMs,
+                signal: AbortSignal.any([signal, AbortSignal.timeout(requestTimeoutMs)]),
                 ...(httpAgent && { httpAgent }),
                 ...(httpsAgent && { httpsAgent }),
             },
         );
         return response.data?.MediaContainer;
-    });
+    }, signal, isRandomSort(request.sort) ? 1 : 0);
 
     const pruneRandomCaches = () => {
         while (randomCatalogs.size > RANDOM_CATALOG_LIMIT) {
@@ -402,6 +393,7 @@ export function createLibraryPageRouter({
     const loadRandomCatalog = async (
         token: string,
         request: ParsedRequest,
+        signal: AbortSignal,
     ): Promise<RandomCatalog> => {
         for (let attempt = 0; attempt < 2; attempt += 1) {
             let offset = 0;
@@ -417,6 +409,7 @@ export function createLibraryPageRouter({
                     'titleSort',
                     offset,
                     RANDOM_FETCH_SIZE,
+                    signal,
                 );
                 const page = projectLibraryPage(container, offset, RANDOM_FETCH_SIZE, request.type);
                 if (page.offset !== offset)
@@ -463,11 +456,9 @@ export function createLibraryPageRouter({
     const getRandomCatalog = async (
         token: string,
         request: ParsedRequest,
+        signal: AbortSignal,
     ): Promise<{ key: string; catalog: RandomCatalog }> => {
         const key = randomCatalogKey(token, request);
-        const pending = pendingCatalogs.get(key);
-        if (pending) return { key, catalog: await pending };
-
         const cached = randomCatalogs.get(key);
         if (
             cached &&
@@ -477,20 +468,43 @@ export function createLibraryPageRouter({
             return { key, catalog: cached };
         }
 
-        const loading = loadRandomCatalog(token, request);
-        pendingCatalogs.set(key, loading);
-
+        signal.throwIfAborted();
+        let pending = pendingCatalogs.get(key);
+        if (!pending) {
+            const controller = new AbortController();
+            const task: PendingCatalog = {
+                controller, consumers: 0,
+                promise: loadRandomCatalog(token, request, controller.signal).then(catalog => {
+                    if (pendingCatalogs.get(key) === task) {
+                        for (const orderKey of randomOrders.keys())
+                            if (orderKey.startsWith(`${key}:`)) randomOrders.delete(orderKey);
+                        randomCatalogs.set(key, catalog);
+                        pruneRandomCaches();
+                    }
+                    return catalog;
+                }).finally(() => {
+                    if (pendingCatalogs.get(key) === task) pendingCatalogs.delete(key);
+                }),
+            };
+            pendingCatalogs.set(key, task);
+            pending = task;
+        }
+        const task = pending;
+        task.consumers++;
+        let abort: () => void = () => {};
         try {
-            const catalog = await loading;
-            if (pendingCatalogs.get(key) === loading) {
-                for (const orderKey of randomOrders.keys())
-                    if (orderKey.startsWith(`${key}:`)) randomOrders.delete(orderKey);
-                randomCatalogs.set(key, catalog);
-                pruneRandomCaches();
-            }
+            const catalog = await new Promise<RandomCatalog>((resolve, reject) => {
+                abort = () => reject(signal.reason);
+                signal.addEventListener('abort', abort, { once: true });
+                task.promise.then(resolve, reject);
+            });
             return { key, catalog };
         } finally {
-            if (pendingCatalogs.get(key) === loading) pendingCatalogs.delete(key);
+            signal.removeEventListener('abort', abort);
+            if (--task.consumers === 0) {
+                task.controller.abort();
+                if (pendingCatalogs.get(key) === task) pendingCatalogs.delete(key);
+            }
         }
     };
 
@@ -542,12 +556,14 @@ export function createLibraryPageRouter({
         if (typeof token !== 'string' || !token) return res.status(401).send({ error: 'Missing Plex session' });
         if (!id || !/^\d+$/.test(id)) return res.status(400).send({ error: 'Invalid media ID' });
         res.set('Cache-Control', 'private, no-store');
+        const scope = createRequestScope(req, res, requestTimeoutMs);
         try {
             const response = await limiter.run(() => axios.get(`${plexServer}/library/metadata/${id}`, {
                 ...(includeDetails && { params: mediaMetadataIncludes }),
-                headers: { Accept: 'application/json', 'X-Plex-Token': token }, timeout: 20000,
+                headers: { Accept: 'application/json', 'X-Plex-Token': token },
+                timeout: requestTimeoutMs, signal: scope.signal,
                 ...(httpAgent && { httpAgent }), ...(httpsAgent && { httpsAgent }),
-            }));
+            }), scope.signal, 1);
             const metadata = readLibraryMetadata(response.data?.MediaContainer)[0];
             if (!metadata || String(metadata.ratingKey) !== id)
                 throw new InvalidLibraryPageError('Missing canonical metadata');
@@ -578,12 +594,17 @@ export function createLibraryPageRouter({
             }
             return res.send({ item, sectionId, parentIds, ...(includeDetails && { metadata }) });
         } catch (error) {
+            if (res.destroyed) return;
+            if (scope.signal.reason?.name === 'TimeoutError')
+                return res.status(504).send({ error: scope.signal.reason.message });
             const status = axios.isAxiosError(error) ? error.response?.status : undefined;
             if (status === 404) {
                 matchingKeys(token).forEach(evictCatalog);
                 return res.send({ item: null });
             }
             return res.status(status && status < 500 ? status : 502).send({ error: 'Unable to synchronize Plex metadata' });
+        } finally {
+            scope.dispose();
         }
     });
 
@@ -596,10 +617,11 @@ export function createLibraryPageRouter({
             return res.status(400).send({ error: 'Invalid library range request' });
 
         res.set('Cache-Control', 'private, no-store');
+        const scope = createRequestScope(req, res, isRandomSort(request.sort) ? catalogTimeoutMs : requestTimeoutMs);
         try {
             let page: LibraryPageDto;
             if (isRandomSort(request.sort)) {
-                const { key, catalog } = await getRandomCatalog(token, request);
+                const { key, catalog } = await getRandomCatalog(token, request, scope.signal);
                 const orderedItems = getRandomOrder(key, catalog, request.seed as string);
                 const items = orderedItems.slice(request.offset, request.offset + request.size);
                 page = {
@@ -617,18 +639,24 @@ export function createLibraryPageRouter({
                     plexSort(request.sort),
                     request.offset,
                     request.size,
+                    scope.signal,
                 );
                 page = projectLibraryPage(container, request.offset, request.size, request.type,
                     request.source === 'folders' ? request.sectionId : undefined);
             }
             res.send(page);
         } catch (error) {
+            if (res.destroyed) return;
+            if (scope.signal.reason?.name === 'TimeoutError')
+                return res.status(504).send({ error: scope.signal.reason.message, retryable: true });
             const upstreamStatus = axios.isAxiosError(error) ? error.response?.status : undefined;
             res.status(upstreamStatus && upstreamStatus < 500 ? upstreamStatus : 502).send({
                 error: 'Unable to load the Plex library range',
                 retryable: !(error instanceof InvalidLibraryPageError) &&
                     (!upstreamStatus || upstreamStatus >= 500),
             });
+        } finally {
+            scope.dispose();
         }
     });
 

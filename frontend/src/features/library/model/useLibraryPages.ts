@@ -27,7 +27,7 @@ export function useLibraryWindow(query: LibraryQuery | null | undefined) {
   const first = useQuery(
     {
       ...libraryPageOptions(serverId, source, window.data.revision, 0),
-      enabled: enabled && !window.isFetching && !window.error,
+      enabled: enabled && !window.isFetching,
     },
     serverQueryClient,
   );
@@ -66,7 +66,7 @@ export function useLibraryPages(
       queries: enabled
         ? offsets.map((offset) => ({
             ...libraryPageOptions(serverId, source, revision, offset, visible.has(offset) ? 0 : 1),
-            enabled: !window.isFetching && !window.error,
+            enabled: !window.isFetching,
           }))
         : [],
     },

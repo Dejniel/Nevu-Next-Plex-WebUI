@@ -5,12 +5,17 @@ import type http from 'node:http';
 import type https from 'node:https';
 import { pipeline } from 'node:stream/promises';
 import { safeRequestUrl } from './requestLogging.js';
+import { createRequestScope } from './common/requestScope.js';
 
 interface PlexProxyOptions {
     plexServer: string;
     httpAgent: http.Agent;
     httpsAgent: https.Agent;
     eventAgent: http.Agent;
+    imageHttpAgent?: http.Agent;
+    imageHttpsAgent?: https.Agent;
+    requestTimeoutMs?: number;
+    imageTimeoutMs?: number;
 }
 
 const hopHeaders = new Set([
@@ -59,7 +64,8 @@ function validMethod(value: unknown): value is 'GET' | 'POST' | 'PUT' | 'DELETE'
 }
 
 export function createPlexProxyRouter({
-    plexServer, httpAgent, httpsAgent, eventAgent,
+    plexServer, httpAgent, httpsAgent, eventAgent, imageHttpAgent, imageHttpsAgent,
+    requestTimeoutMs = 20_000, imageTimeoutMs = 15_000,
 }: PlexProxyOptions) {
     const router = express.Router();
 
@@ -81,17 +87,19 @@ export function createPlexProxyRouter({
             res.status(401).send('Plex token required');
             return;
         }
-        const controller = new AbortController();
-        const abort = () => controller.abort();
-        req.once('aborted', abort);
-        res.once('close', abort);
+        const image = target.pathname === '/photo/:/transcode';
+        const scope = createRequestScope(req, res, image ? imageTimeoutMs : streaming ? 0 : requestTimeoutMs);
         try {
             const response = await axios({
                 httpAgent,
                 httpsAgent,
                 validateStatus: () => true,
                 ...config,
-                signal: controller.signal,
+                ...(image && {
+                    httpAgent: imageHttpAgent ?? httpAgent,
+                    httpsAgent: imageHttpsAgent ?? httpsAgent,
+                }),
+                signal: scope.signal,
                 responseType: streaming ? 'stream' : 'arraybuffer',
                 ...(streaming && { decompress: false }),
             });
@@ -100,19 +108,24 @@ export function createPlexProxyRouter({
                 for (const [name, value] of Object.entries(forwardedHeaders(response.headers)))
                     res.setHeader(name, value);
                 res.flushHeaders();
-                await pipeline(response.data, res);
+                await pipeline(response.data, res, { signal: scope.signal });
             } else {
                 const contentType = response.headers['content-type'];
                 if (typeof contentType === 'string') res.type(contentType);
                 res.send(response.data);
             }
         } catch (error) {
-            if (res.destroyed || controller.signal.aborted) return;
+            if (res.destroyed) return;
+            if (res.headersSent) { res.destroy(); return; }
+            if (scope.signal.reason?.name === 'TimeoutError') {
+                res.status(504).send('Plex took too long to respond. Please try again.');
+                return;
+            }
+            if (scope.signal.aborted) return;
             if (!axios.isAxiosError(error)) throw error;
             res.status(502).send('Plex proxy request failed');
         } finally {
-            req.off('aborted', abort);
-            res.off('close', abort);
+            scope.dispose();
         }
     }
 

@@ -20,12 +20,11 @@ export function createRequestLimiter(limit = 2) {
           signal.removeEventListener("abort", abort);
           if (signal.aborted) return abort();
           active++;
-          void operation()
-            .then(resolve, reject)
-            .finally(() => {
-              active--;
-              pump();
-            });
+          void (async () => {
+            try { resolve(await operation()); }
+            catch (error) { reject(error); }
+            finally { active--; pump(); }
+          })();
         },
       };
       if (signal.aborted) return abort();
@@ -36,4 +35,30 @@ export function createRequestLimiter(limit = 2) {
   };
 }
 
-export const runPageRequest = createRequestLimiter(2);
+const runLimitedPage = createRequestLimiter(2);
+
+/** Bound the complete page read, including its queue wait, without aborting other consumers. */
+export async function runPageRequest<T>(
+  signal: AbortSignal,
+  priority: number,
+  operation: (signal: AbortSignal) => Promise<T>,
+  timeoutMs = 30_000,
+) {
+  const controller = new AbortController();
+  const abort = () => controller.abort(signal.reason);
+  if (signal.aborted) abort();
+  else signal.addEventListener("abort", abort, { once: true });
+  const timer = setTimeout(() => controller.abort(Object.assign(
+    new Error("Loading this part of the list took too long. Please try again."),
+    { retryable: true },
+  )), timeoutMs);
+  try {
+    return await runLimitedPage(controller.signal, priority, () => operation(controller.signal));
+  } catch (error) {
+    if (controller.signal.aborted) throw controller.signal.reason;
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    signal.removeEventListener("abort", abort);
+  }
+}
