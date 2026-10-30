@@ -1,3 +1,4 @@
+import type { LibraryCatalog } from "entities/library/model";
 import { focusManager, QueryObserver } from "@tanstack/react-query";
 import { createQueryClient } from "shared/api/queryClient";
 import {
@@ -115,7 +116,7 @@ it.each(["library", "directory", "playlist", "availability", "onDeck"])(
     }, 0, 0).queryKey, { offset: 0, size: 1, totalSize: 1, hasMore: false, items: [episode as LibraryCardDto] });
     if (source === "directory") client.setQueryData(libraryDirectoryQueryOptions(scope,
       "/library/sections/1/all", { type: 4 },
-    ).queryKey, { Metadata: [episode] } as Plex.MediaContainer);
+    ).queryKey, { Metadata: [episode] } as LibraryCatalog);
     if (source === "playlist") client.setQueryData(listPageOptions(scope,
       { kind: "playlist", id: "20" }, 0, 0,
     ).queryKey, { offset: 0, total: 1, summary: null, items: [{ kind: "media", supported: true, position: 0, item: episode }] });
@@ -206,11 +207,11 @@ it("preserves the verified before/after delta for directories before publishing 
     ratingKey: "1", type: "movie", librarySectionID: 1, summary: "Old",
   } as MediaMetadata;
   client.setQueryData(mediaMetadataQueryKey(scope, "1"), before);
-  const reads = Array.from({ length: 3 }, () => vi.fn(async () => ({ size: 0 } as Plex.MediaContainer)));
+  const reads = Array.from({ length: 3 }, () => vi.fn(async () => ({ size: 0 } as LibraryCatalog)));
   const stops = ["/library/sections/1", "/library/sections/1/genre", "/library/sections/1/actor"]
     .map((dir, index) => new QueryObserver(client, {
       ...libraryDirectoryQueryOptions(scope, dir), queryFn: reads[index],
-      initialData: { size: 0 } as Plex.MediaContainer, staleTime: Infinity,
+      initialData: { size: 0 } as LibraryCatalog, staleTime: Infinity,
     }).subscribe(() => {}));
   const metadata = { ...before, summary: "New" };
   vi.mocked(synchronizeLibraryItem).mockResolvedValue({

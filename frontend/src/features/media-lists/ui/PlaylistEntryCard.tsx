@@ -15,7 +15,7 @@ interface PlaylistEntryCardProps {
   playbackTo?: string;
   editable: boolean;
   onEdit: (action: PlaylistAction) => void;
-  onPlay?: (entry: MediaListEntry) => void;
+  onPlay?: (entry: Extract<MediaListEntry, { supported: true }>) => void;
 }
 
 function PlaylistEntryCard({
@@ -32,7 +32,9 @@ function PlaylistEntryCard({
     [entry, onEdit],
   );
   const canEdit = editable && Boolean(entry.playlistItemID);
-  const play = useCallback(() => onPlay?.(entry), [entry, onPlay]);
+  const play = useCallback(() => {
+    if (entry.supported) onPlay?.(entry);
+  }, [entry, onPlay]);
   return (
     <>
       {entry.supported && entry.item.type === "track" ? (

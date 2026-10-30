@@ -1,3 +1,4 @@
+import type { LibraryDirectory } from "entities/library/model";
 import type { MediaMetadata } from "entities/media/model";
 import {
   matchRecommendationDirectory,
@@ -38,7 +39,7 @@ it("uses billing order to break otherwise equal actor choices", () => {
 });
 
 it("matches Plex directories without depending on letter case", () => {
-  const directory = { key: "42", title: "Science Fiction" } as Plex.Directory;
+  const directory = { key: "42", title: "Science Fiction" } as LibraryDirectory;
 
   expect(
     matchRecommendationDirectory(

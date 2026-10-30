@@ -4,9 +4,19 @@ import {
   useServerSession,
 } from "features/session/model";
 import { PlexClient } from "shared/api/PlexClient";
+import { readPlexMetadataPage } from "shared/api/plexPagination";
+import {
+  PlexResponseError,
+  plexFields,
+  plexInteger,
+} from "shared/api/plexResponse";
+import {
+  readListEntry,
+  readListSummary,
+  readSingleList,
+} from "./mediaListResponse";
 import { useUserSettings } from "features/settings/model";
 import {
-  type MediaMetadata,
   publishMediaChange,
   readPlaybackQueueItem,
   type PlaybackQueueItem,
@@ -17,6 +27,7 @@ import {
   type MediaListItem,
   type MediaListDestination,
 } from "../model/mediaListEditing";
+import { validateListWindow } from "../model/mediaLists";
 import type {
   MediaListEntry,
   MediaListPage,
@@ -25,36 +36,6 @@ import type {
   PlaylistPlaybackContext,
 } from "../model/mediaLists";
 
-interface ListMetadata {
-  ratingKey: string;
-  type: string;
-  title: string;
-  summary?: string;
-  thumb?: string;
-  composite?: string;
-  art?: string;
-  childCount?: number;
-  leafCount?: number;
-  smart?: boolean | number;
-  playlistType?: string;
-  librarySectionID?: number;
-  subtype?: string;
-}
-
-interface Container<T> {
-  MediaContainer?: {
-    Metadata?: T[];
-    offset?: number;
-    totalSize?: number;
-    librarySectionID?: number;
-  };
-}
-
-type ListEntryMetadata = MediaMetadata & {
-  playlistItemID?: number;
-  sourceURI?: string;
-};
-
 /** Fill a requested window even if Plex caps a response below its requested size. */
 async function readWindow<T>(
   client: PlexClient,
@@ -62,6 +43,7 @@ async function readWindow<T>(
   params: URLSearchParams,
   offset: number,
   size: number,
+  read: (value: unknown, position: number, section?: number) => T,
   signal?: AbortSignal,
 ) {
   const items: T[] = [];
@@ -74,95 +56,41 @@ async function readWindow<T>(
     const remaining = size - items.length;
     params.set("X-Plex-Container-Start", String(start));
     params.set("X-Plex-Container-Size", String(remaining));
-    const response = await client.get<Container<T>>(
-      `${path}?${params}`,
-      signal,
-    );
-    const container = response.MediaContainer;
-    if (!container) throw new Error("Plex returned invalid media list data.");
-    const page = container.Metadata ?? [];
+    const response = await client.get<unknown>(`${path}?${params}`, signal);
+    signal?.throwIfAborted();
+    const {
+      container,
+      rows: page,
+      total: nextTotal,
+    } = readPlexMetadataPage(response, "media list data", start, remaining);
+    const nextSection = plexFields(container, {
+      librarySectionID: (value) => plexInteger(value, "media list data"),
+    }).librarySectionID;
     if (
-      !Array.isArray(page) ||
-      (container.offset ?? start) !== start ||
-      page.length > remaining ||
-      (container.totalSize !== undefined &&
-        (!Number.isSafeInteger(container.totalSize) ||
-          container.totalSize < 0)) ||
-      (!page.length && (container.totalSize ?? 0) > start)
+      (total !== null && nextTotal !== undefined && nextTotal !== total) ||
+      (section !== undefined &&
+        nextSection !== undefined &&
+        nextSection !== section) ||
+      (total !== null &&
+        (start + page.length > total || (!page.length && start < total)))
     )
-      throw new Error("Plex returned incomplete media list data.");
-    section ??= container.librarySectionID;
-    items.push(...page);
+      throw new PlexResponseError("media list data");
+    section ??= nextSection;
+    items.push(...page.map((row, index) => read(row, start + index, section)));
     total =
-      container.totalSize ??
+      nextTotal ??
+      total ??
       (page.length < remaining ? start + page.length : null);
     if (!page.length || (total !== null && offset + items.length >= total))
       break;
   }
-  return { offset, total, items, section };
+  return { offset, total, items };
 }
 
 function clientForSession() {
   const token = AuthStorage.getServerToken();
   if (!token) throw new Error("The active Plex session is missing.");
   return new PlexClient(() => token);
-}
-
-function listSummary(
-  item: ListMetadata,
-  kind: MediaListQuery["kind"],
-): MediaListSummary {
-  if (
-    item.type !== kind ||
-    !item.ratingKey ||
-    !item.title ||
-    (kind === "playlist" &&
-      !["video", "audio", "photo"].includes(item.playlistType ?? ""))
-  )
-    throw new Error("Plex returned an unsupported media list.");
-  return {
-    kind,
-    id: String(item.ratingKey),
-    title: item.title,
-    summary: item.summary ?? "",
-    image: item.thumb || item.composite || item.art,
-    count: item.childCount ?? item.leafCount ?? 0,
-    smart: Boolean(item.smart),
-    libraryID:
-      item.librarySectionID === undefined
-        ? undefined
-        : String(item.librarySectionID),
-    itemType: item.subtype,
-    ...(kind === "playlist" && {
-      playlistType: item.playlistType as MediaListSummary["playlistType"],
-    }),
-  };
-}
-
-function itemEntry(
-  item: ListEntryMetadata,
-  position: number,
-  section?: number,
-  localServer?: string,
-  kind: MediaListQuery["kind"] = "collection",
-): MediaListEntry {
-  const sourceServer = item.sourceURI?.match(/^server:\/\/([^/]+)/)?.[1];
-  return {
-    kind: "media",
-    position,
-    playlistItemID:
-      item.playlistItemID === undefined
-        ? undefined
-        : String(item.playlistItemID),
-    item: { ...item, librarySectionID: item.librarySectionID ?? section ?? 0 },
-    supported:
-      (kind === "playlist"
-        ? ["movie", "show", "episode", "track", "photo"]
-        : ["movie", "show", "episode"]
-      ).includes(item.type) &&
-      /^\d+$/.test(item.ratingKey) &&
-      (!sourceServer || sourceServer === localServer),
-  };
 }
 
 function listPath(query: MediaListQuery) {
@@ -184,13 +112,11 @@ export function createMediaListSource(
   return {
     async summary(): Promise<MediaListSummary | null> {
       if (!query.id) return null;
-      const response = await client.get<Container<ListMetadata>>(path, signal);
-      const item = response.MediaContainer?.Metadata?.[0];
-      if (!item)
-        throw new Error(
-          "This list is no longer available to the active profile.",
-        );
-      return listSummary(item, query.kind);
+      return readSingleList(
+        await client.get<unknown>(path, signal),
+        query.kind,
+        query.id,
+      );
     },
     async page(offset: number, size: number): Promise<MediaListPage> {
       const params = new URLSearchParams({
@@ -208,42 +134,20 @@ export function createMediaListSource(
           ? "/items"
           : "/children"
         : "";
-      if (query.id) {
-        const page = await readWindow<ListEntryMetadata>(
-          client,
-          path + suffix,
-          params,
-          offset,
-          size,
-          signal,
-        );
-        return {
-          offset,
-          total: page.total,
-          items: page.items.map((item, index) =>
-            itemEntry(
-              item,
-              offset + index,
-              page.section,
-              localServer,
-              query.kind,
-            ),
-          ),
-        };
-      }
-      const page = await readWindow<ListMetadata>(
+      const page = await readWindow(
         client,
-        path,
+        path + suffix,
         params,
         offset,
         size,
+        (row, position, section) =>
+          query.id
+            ? readListEntry(row, position, query.kind, section, localServer)
+            : readListSummary(row, query.kind, section),
         signal,
       );
-      return {
-        offset,
-        total: page.total,
-        items: page.items.map((item) => listSummary(item, query.kind)),
-      };
+      validateListWindow([page], query.kind);
+      return page;
     },
   };
 }
@@ -271,7 +175,7 @@ async function readPlaylistSelection(
     throw new Error(
       "This playlist has changed. Open it again to continue in its current order.",
     );
-  if (entries.some((entry) => !entry.supported))
+  if (!entries.every((entry) => entry.supported))
     throw new Error("The next playlist item cannot be played on this server.");
   return entries;
 }
@@ -292,7 +196,14 @@ export async function getPlaylistQueue(
   const entries = await readPlaylistSelection(context, currentID, 2, signal);
   if (entries.some((entry) => !["movie", "episode"].includes(entry.item.type)))
     throw new Error("The next playlist item cannot be played on this server.");
-  return entries.map((entry) => readPlaybackQueueItem(entry.item));
+  return entries.map((entry) =>
+    readPlaybackQueueItem({
+      ...entry.item,
+      ...(entry.playlistItemID !== undefined && {
+        playlistItemID: Number(entry.playlistItemID),
+      }),
+    }),
+  );
 }
 
 export async function getMediaListChoices(
@@ -365,10 +276,11 @@ export async function saveMediaListItem(
     if (!/^\d+$/.test(destination.id))
       throw new Error("Choose a valid Plex list.");
     const path = listPath({ kind, id: destination.id });
-    const response = await client.get<Container<ListMetadata>>(path);
-    const existing = response.MediaContainer?.Metadata?.[0];
-    if (!existing) throw new Error("This list is no longer available.");
-    result = listSummary(existing, kind);
+    result = readSingleList(
+      await client.get<unknown>(path),
+      kind,
+      destination.id,
+    );
     if (
       kind === "playlist" &&
       result.playlistType !== playlistTypeForItem(item.type)
@@ -407,15 +319,17 @@ export async function saveMediaListItem(
     );
     if (kind === "collection")
       params.set("sectionId", String(item.librarySectionID));
-    const response = await client.post<Container<ListMetadata>>(
+    const response = await client.post<unknown>(
       `${kind === "playlist" ? "/playlists" : "/library/collections"}?${params}`,
     );
-    const created = response.MediaContainer?.Metadata?.[0];
-    if (!created)
+    try {
+      result = readSingleList(response, kind);
+    } catch (cause) {
       throw new Error(
-        "Plex did not return the new list. Open the list again before trying again.",
+        "Plex did not return a valid new list. Open your lists before trying again.",
+        { cause },
       );
-    result = listSummary(created, kind);
+    }
     if (kind === "collection") result.libraryID = String(item.librarySectionID);
   }
   assertCurrent();

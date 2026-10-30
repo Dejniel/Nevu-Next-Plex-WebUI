@@ -1,3 +1,4 @@
+import type { LibraryCatalog } from "entities/library/model";
 import {
   changedMediaFields,
   mediaFieldsUnaffected,
@@ -16,7 +17,7 @@ const structural = ["type", "librarySectionID", "parentRatingKey", "grandparentR
 export function decideLibraryDirectorySynchronization(
   dir: string,
   props: Record<string, unknown> | null,
-  data: Plex.MediaContainer | undefined,
+  data: LibraryCatalog | undefined,
   entry: ReconciledMediaChange,
 ): SynchronizationDecision {
   const { change, update, parentScopeUnknown } = entry;

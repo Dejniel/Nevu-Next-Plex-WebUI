@@ -1,3 +1,4 @@
+import type { LibraryType, LibraryField, LibraryFieldType } from "entities/library/model";
 import type { LibraryFilterClause } from "@nevu/contracts";
 import {
   libraryFilterFields,
@@ -12,11 +13,11 @@ import {
   writeLibraryFilters,
 } from "./libraryFilters";
 
-const fields: Plex.Field[] = [
+const fields: LibraryField[] = [
   { key: "show.genre", title: "Genre", type: "tag" },
   { key: "show.year", title: "Year", type: "integer" },
 ];
-const fieldTypes: Plex.FieldType[] = [
+const fieldTypes: LibraryFieldType[] = [
   { type: "tag", Operator: [{ key: "=", title: "is" }] },
   { type: "integer", Operator: [{ key: ">>=", title: "is greater than" }] },
 ];
@@ -85,7 +86,7 @@ it("uses Plex field types and unscoped filter value endpoints", () => {
       title: "Episode year",
       type: "filter",
     }],
-  }] as Plex.Type[];
+  }] as LibraryType[];
   expect(libraryFilterFields(types)).toEqual([
     ...fields,
     { key: "episode.year", title: "Episode year", type: "integer" },

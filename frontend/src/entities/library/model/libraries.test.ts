@@ -1,3 +1,4 @@
+import type { LibrarySection } from "../api/libraryCatalog";
 import { QueryObserver } from "@tanstack/react-query";
 import { createQueryClient } from "shared/api/queryClient";
 import { getLibraries } from "../api/libraries";
@@ -9,7 +10,7 @@ const client = createQueryClient();
 afterEach(() => client.clear());
 
 it("shares the library sections read and cancels it after session reset", async () => {
-  let finish!: (libraries: Plex.LibarySection[]) => void;
+  let finish!: (libraries: LibrarySection[]) => void;
   vi.mocked(getLibraries).mockImplementation(
     () =>
       new Promise((resolve) => {
@@ -23,13 +24,13 @@ it("shares the library sections read and cancels it after session reset", async 
   const signal = vi.mocked(getLibraries).mock.calls[0][0]!;
   client.clear();
   expect(signal.aborted).toBe(true);
-  finish([{ key: "1", title: "Old library" } as Plex.LibarySection]);
+  finish([{ key: "1", title: "Old library" } as LibrarySection]);
   await Promise.all([load, second]);
   expect(client.getQueryData(options.queryKey)).toBeUndefined();
 });
 
 it("keeps a different profile's sections separate and retains data after failed refresh", async () => {
-  const libraries = [{ key: "1", title: "Movies" } as Plex.LibarySection];
+  const libraries = [{ key: "1", title: "Movies" } as LibrarySection];
   vi.mocked(getLibraries).mockResolvedValue(libraries);
   const options = librariesQueryOptions(scope);
   await client.fetchQuery(options);

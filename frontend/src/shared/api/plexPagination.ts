@@ -5,6 +5,32 @@ import {
   plexInteger,
 } from "./plexResponse";
 
+/** A metadata page counts response rows, including repeated playlist occurrences. */
+export function readPlexMetadataPage(
+  value: unknown,
+  resource: string,
+  offset: number,
+  pageSize: number,
+) {
+  const container = plexContainer(value, resource);
+  const rows = plexArray(container.Metadata, resource);
+  const total =
+    container.totalSize === undefined
+      ? undefined
+      : plexInteger(container.totalSize, resource);
+  if (
+    rows.length > pageSize ||
+    (container.offset !== undefined &&
+      plexInteger(container.offset, resource) !== offset) ||
+    (container.size !== undefined &&
+      plexInteger(container.size, resource) !== rows.length) ||
+    (total !== undefined &&
+      (rows.length ? offset + rows.length > total : offset < total))
+  )
+    throw new PlexResponseError(resource);
+  return { container, rows, total };
+}
+
 /** Collect one checked resource before publishing it to Query. Offsets count
  * response rows, while identities deduplicate overlaps between pages. */
 export async function readPlexMetadataPages<T>({
@@ -25,27 +51,16 @@ export async function readPlexMetadataPages<T>({
   const items = new Map<string, T>();
   let offset = 0;
   let total: number | undefined;
-  const incomplete = () => new Error(`Plex returned incomplete ${resource}.`);
+  const invalid = () => new PlexResponseError(resource);
   while (true) {
     signal?.throwIfAborted();
-    const container = plexContainer(await fetchPage(offset), resource);
+    const response = await fetchPage(offset);
     signal?.throwIfAborted();
-    const rows = plexArray(container.Metadata, resource);
-    if (rows.length > pageSize) throw new PlexResponseError(resource);
-    if (
-      container.offset !== undefined &&
-      plexInteger(container.offset, resource) !== offset
-    )
-      throw incomplete();
-    if (
-      container.size !== undefined &&
-      plexInteger(container.size, resource) !== rows.length
-    )
-      throw new PlexResponseError(resource);
-    if (container.totalSize !== undefined) {
-      const nextTotal = plexInteger(container.totalSize, resource);
-      if (total !== undefined && total !== nextTotal) throw incomplete();
-      total = nextTotal;
+    const page = readPlexMetadataPage(response, resource, offset, pageSize);
+    const { rows } = page;
+    if (page.total !== undefined) {
+      if (total !== undefined && total !== page.total) throw invalid();
+      total = page.total;
     }
     const previousSize = items.size;
     for (const row of rows) {
@@ -53,10 +68,10 @@ export async function readPlexMetadataPages<T>({
       items.set(identity(item), item);
     }
     offset += rows.length;
-    if (rows.length && items.size === previousSize) throw incomplete();
-    if (total !== undefined && offset > total) throw incomplete();
+    if (rows.length && items.size === previousSize) throw invalid();
+    if (total !== undefined && offset > total) throw invalid();
     if (total !== undefined ? offset === total : rows.length < pageSize)
       return [...items.values()];
-    if (!rows.length) throw incomplete();
+    if (!rows.length) throw invalid();
   }
 }

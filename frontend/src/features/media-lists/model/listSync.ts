@@ -143,12 +143,7 @@ export async function applyMediaListChanges(
                 return item
                   ? {
                       ...record,
-                      item: {
-                        ...item,
-                        ...(record.playlistItemID !== undefined && {
-                          playlistItemID: record.playlistItemID,
-                        }),
-                      },
+                      item,
                     }
                   : record;
               }),

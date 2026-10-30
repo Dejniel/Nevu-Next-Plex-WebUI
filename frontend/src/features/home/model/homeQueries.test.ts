@@ -1,3 +1,4 @@
+import type { LibraryCatalog } from "entities/library/model";
 import { QueryObserver } from "@tanstack/react-query";
 import { createQueryClient } from "shared/api/queryClient";
 import { homeHeroOptions, homeWindowOptions, applyHomeChanges } from "./homeQueries";
@@ -14,17 +15,17 @@ it("refreshes a changed section's discovery data and preserves unrelated section
   const affected = homeWindowOptions(scope, "1");
   const other = homeWindowOptions(scope, "2");
   const guest = homeWindowOptions({ ...scope, profileKey: "guest" }, "1");
-  const read = vi.fn(async () => ({ size: 1 }) as Plex.MediaContainer);
+  const read = vi.fn(async () => ({ size: 1 }) as LibraryCatalog);
   closes.push(
     new QueryObserver(client, {
       ...affected,
       queryFn: read,
-      initialData: { size: 0 } as Plex.MediaContainer,
+      initialData: { size: 0 } as LibraryCatalog,
       staleTime: Infinity,
     }).subscribe(() => {}),
   );
-  client.setQueryData(other.queryKey, { size: 0 } as Plex.MediaContainer);
-  client.setQueryData(guest.queryKey, { size: 0 } as Plex.MediaContainer);
+  client.setQueryData(other.queryKey, { size: 0 } as LibraryCatalog);
+  client.setQueryData(guest.queryKey, { size: 0 } as LibraryCatalog);
   await applyLibraryDirectoryChanges(client, [
     {
       change: { ...scope, kind: "item", effect: "membership", sectionId: "1" },
@@ -94,13 +95,13 @@ it("selects another hero when the confirmed metadata loses its artwork", async (
 });
 
 it("cancels a cold directory read before applying a server change", async () => {
-  let finish!: (data: Plex.MediaContainer) => void;
+  let finish!: (data: LibraryCatalog) => void;
   let signal!: AbortSignal;
   const read = vi
     .fn()
     .mockImplementationOnce(({ signal: value }) => {
       signal = value;
-      return new Promise<Plex.MediaContainer>((resolve) => {
+      return new Promise<LibraryCatalog>((resolve) => {
         finish = resolve;
       });
     })
@@ -122,7 +123,7 @@ it("cancels a cold directory read before applying a server change", async () => 
   finish({
     size: 1,
     Metadata: [{ ratingKey: "stale" }],
-  } as Plex.MediaContainer);
+  } as LibraryCatalog);
   await Promise.resolve();
   expect(read).toHaveBeenCalledTimes(2);
   expect(client.getQueryData(options.queryKey)).toEqual({
@@ -143,8 +144,6 @@ it("does not invalidate unrelated genre directories or a different profile", asy
       size: 0,
       Metadata: [],
       librarySectionID: 1,
-      mediaTagPrefix: "",
-      mediaTagVersion: 0,
       viewGroup: "movie",
     });
   await applyLibraryDirectoryChanges(client, [

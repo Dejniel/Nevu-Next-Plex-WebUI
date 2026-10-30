@@ -285,3 +285,15 @@ it("offers only photo albums for photos and refuses mixing an existing music pla
   ).rejects.toThrow("same media type");
   expect(transport.mock.calls.map((call) => call[1])).toEqual(["GET", "GET"]);
 });
+
+it("does not write after Plex returns a different destination than requested", async () => {
+  transport.mockResolvedValue(response([list("playlist", { ratingKey: "21" })]));
+  await expect(saveMediaListItem("playlist", movie, { id: "20" })).rejects.toThrow("invalid");
+  expect(transport).toHaveBeenCalledTimes(1);
+});
+
+it("does not repeat an accepted creation when its response is malformed", async () => {
+  transport.mockResolvedValue(response([{ type: "playlist", ratingKey: "20", title: "Created" }]));
+  await expect(saveMediaListItem("playlist", movie, { title: "Created" })).rejects.toThrow("Open your lists");
+  expect(transport).toHaveBeenCalledTimes(1);
+});

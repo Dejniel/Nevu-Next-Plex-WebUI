@@ -194,7 +194,7 @@ it("rejects incomplete pagination rather than replacing the list with a partial 
       data: { MediaContainer: { totalSize: 101, Metadata: movies(100) } },
     })
     .mockResolvedValueOnce({ data: { MediaContainer: { totalSize: 101 } } });
-  await expect(getWatchlist()).rejects.toThrow("incomplete watchlist");
+  await expect(getWatchlist()).rejects.toThrow("invalid watchlist");
 });
 
 it("passes cancellation to every page and rejects a failed later page", async () => {
@@ -213,7 +213,7 @@ it("rejects a repeated final page even if its raw offset reaches totalSize", asy
   mockedAxios.get.mockResolvedValue({
     data: { MediaContainer: { totalSize: 101, Metadata: movies(100) } },
   });
-  await expect(getWatchlist()).rejects.toThrow("incomplete watchlist");
+  await expect(getWatchlist()).rejects.toThrow("invalid watchlist");
   expect(mockedAxios.get).toHaveBeenCalledTimes(2);
 });
 
@@ -295,7 +295,7 @@ it.each([
       },
     })
     .mockResolvedValueOnce({ data: { MediaContainer: container } });
-  await expect(getWatchlist()).rejects.toThrow("incomplete");
+  await expect(getWatchlist()).rejects.toThrow("invalid");
 });
 
 it("does not request an already cancelled Watchlist or continue after cancellation", async () => {

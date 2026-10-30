@@ -400,8 +400,10 @@ it("patches all repeated positions and inactive pages without changing playlist 
   expect(state.items.get(0)).toMatchObject({
     playlistItemID: "1000",
     position: 0,
-    item: { title: "New", playlistItemID: "1000" },
+    item: { title: "New" },
   });
+  const patched = state.items.get(0);
+  expect(patched?.kind === "media" ? patched.item : undefined).not.toHaveProperty("playlistItemID");
   await demand(100);
   expect(page).not.toHaveBeenCalled();
   expect(state.items.get(101)).toMatchObject({

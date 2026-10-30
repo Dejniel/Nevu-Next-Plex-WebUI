@@ -1,3 +1,4 @@
+import type { LibrarySortDefinition } from "entities/library/model";
 import {
   DEFAULT_LIBRARY_SORT,
   normalizeLibrarySort,
@@ -19,7 +20,7 @@ describe("normalizeLibrarySort", () => {
 });
 
 describe("Plex library sort capabilities", () => {
-  const sorts: Plex.Sort[] = [
+  const sorts: LibrarySortDefinition[] = [
     {
       key: "titleSort",
       descKey: "titleSort:desc",
@@ -57,7 +58,7 @@ describe("Plex library sort capabilities", () => {
       default: "asc",
       defaultDirection: "asc",
     };
-    const photoSorts: Plex.Sort[] = [
+    const photoSorts: LibrarySortDefinition[] = [
       {
         key: "addedAt",
         descKey: "addedAt:desc",

@@ -1,3 +1,4 @@
+import type { LibraryType, LibraryField, LibraryFieldType } from "entities/library/model";
 import type {
   LibraryFilterClause,
   LibraryFilterMode,
@@ -103,24 +104,24 @@ export function writeLibraryFilters(
 }
 
 export function libraryFilterOperators(
-  field: Plex.Field | undefined,
-  fieldTypes: readonly Plex.FieldType[],
+  field: LibraryField | undefined,
+  fieldTypes: readonly LibraryFieldType[],
 ) {
   if (!field) return [];
   return fieldTypes.find((entry) => entry.type === field.type)?.Operator || [];
 }
 
 export function libraryFilterIsOperator(
-  field: Plex.Field | undefined,
-  fieldTypes: readonly Plex.FieldType[],
+  field: LibraryField | undefined,
+  fieldTypes: readonly LibraryFieldType[],
 ) {
   const available = libraryFilterOperators(field, fieldTypes);
   return available.find((operator) => operator.title.trim().toLowerCase() === "is") ||
     available.find((operator) => operator.key === "=" || operator.key === "==");
 }
 
-export function libraryFilterFields(types: readonly Plex.Type[]) {
-  const fields = new Map<string, Plex.Field>();
+export function libraryFilterFields(types: readonly LibraryType[]) {
+  const fields = new Map<string, LibraryField>();
   for (const type of types)
     for (const field of type.Field || [])
       if (!fields.has(field.key)) fields.set(field.key, field);
@@ -129,8 +130,8 @@ export function libraryFilterFields(types: readonly Plex.Type[]) {
 
 export function libraryFiltersForType(
   filters: readonly LibraryFilterClause[],
-  fields: readonly Plex.Field[],
-  fieldTypes: readonly Plex.FieldType[],
+  fields: readonly LibraryField[],
+  fieldTypes: readonly LibraryFieldType[],
 ) {
   return normalizeLibraryFilters(filters.filter((filter) => {
     const field = fields.find((candidate) => candidate.key === filter.field);
@@ -140,8 +141,8 @@ export function libraryFiltersForType(
 }
 
 export function libraryFilterSource(
-  field: Plex.Field | undefined,
-  types: readonly Plex.Type[],
+  field: LibraryField | undefined,
+  types: readonly LibraryType[],
 ) {
   if (!field) return undefined;
   const sourceTypes = types.filter((type) => type.Filter?.length || type.Field?.length);
@@ -157,8 +158,8 @@ export function libraryFilterSource(
 }
 
 export function libraryFilterFieldTitle(
-  field: Plex.Field,
-  fields: readonly Plex.Field[],
+  field: LibraryField,
+  fields: readonly LibraryField[],
 ) {
   if (fields.filter((candidate) => candidate.title === field.title).length < 2)
     return field.title;

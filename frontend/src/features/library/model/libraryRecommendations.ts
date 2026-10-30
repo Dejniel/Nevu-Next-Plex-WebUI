@@ -1,3 +1,4 @@
+import type { LibraryDirectory } from "entities/library/model";
 import type { MediaMetadata } from "entities/media/model";
 type RecommendationTagField = "Genre" | "Role";
 
@@ -42,7 +43,7 @@ export function pickPreferredTag(
 
 export function matchRecommendationDirectory(
   preferred: PreferredTag | null,
-  directories: Plex.Directory[] | undefined,
+  directories: LibraryDirectory[] | undefined,
 ) {
   if (!preferred) return null;
   const normalizedTitle = preferred.title.toLocaleLowerCase();

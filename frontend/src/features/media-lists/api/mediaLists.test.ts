@@ -153,9 +153,9 @@ it("surfaces forbidden, malformed and incomplete pages instead of loading foreve
   transport.mockResolvedValue({ status: 200, data: {} });
   await expect(source.page(0, 100)).rejects.toThrow("invalid");
   transport.mockResolvedValue(response([], { totalSize: 101, offset: 100 }));
-  await expect(source.page(100, 100)).rejects.toThrow("incomplete");
+  await expect(source.page(100, 100)).rejects.toThrow("invalid");
   transport.mockResolvedValue(response([], { totalSize: 0, offset: 0 }));
-  await expect(source.page(100, 100)).rejects.toThrow("incomplete");
+  await expect(source.page(100, 100)).rejects.toThrow("invalid");
 });
 
 it("loads only the current and next playlist positions and rejects a changed order", async () => {
@@ -303,4 +303,56 @@ it("reads native photo playlists with distinct occurrences and keeps foreign pho
     { supported: true, position: 1, playlistItemID: "178" },
     { supported: false, position: 2, playlistItemID: "179" },
   ]);
+});
+
+it.each([
+  { size: 2, totalSize: 3 },
+  { offset: 1, totalSize: 3 },
+  { totalSize: -1 },
+  { totalSize: 0 },
+])("rejects inconsistent page envelopes before publishing rows: %j", async (fields) => {
+  transport.mockResolvedValue(response([movie("1")], fields));
+  await expect(createMediaListSource({ kind: "playlist", id: "20" }).page(0, 100)).rejects.toThrow("invalid");
+});
+
+it("rejects changing totals or library identity across capped subresponses", async () => {
+  for (const second of [{ totalSize: 4, librarySectionID: 1 }, { totalSize: 3, librarySectionID: 2 }]) {
+    transport.mockReset()
+      .mockResolvedValueOnce(response([movie("1")], { offset: 0, totalSize: 3, librarySectionID: 1 }))
+      .mockResolvedValueOnce(response([movie("2")], { offset: 1, ...second }));
+    await expect(createMediaListSource({ kind: "collection", id: "20" }).page(0, 100)).rejects.toThrow("invalid");
+    expect(transport).toHaveBeenCalledTimes(2);
+  }
+});
+
+it("retains the last known total when a capped subresponse omits it", async () => {
+  transport
+    .mockResolvedValueOnce(response([movie("1")], { offset: 0, totalSize: 3 }))
+    .mockResolvedValueOnce(response([movie("2")], { offset: 1 }))
+    .mockResolvedValueOnce(response([movie("3")], { offset: 2 }));
+  const page = await createMediaListSource({ kind: "collection", id: "20" }).page(0, 100);
+  expect(page.total).toBe(3);
+  expect(page.items).toHaveLength(3);
+  expect(transport).toHaveBeenCalledTimes(3);
+});
+
+it("carries playlist occurrence identity into the checked video queue", async () => {
+  transport.mockResolvedValue(response([movie("1", 80), movie("1", 81)], { totalSize: 2 }));
+  await expect(getPlaylistQueue({ id: "20", index: 0, itemID: "80" }, "1")).resolves.toMatchObject([
+    { ratingKey: "1", playlistItemID: 80 }, { ratingKey: "1", playlistItemID: 81 },
+  ]);
+});
+
+it("rejects a repeated playlist occurrence across capped subresponses without deduplicating media", async () => {
+  transport
+    .mockResolvedValueOnce(response([movie("1", 80)], { offset: 0, totalSize: 2 }))
+    .mockResolvedValueOnce(response([movie("1", 80)], { offset: 1, totalSize: 2 }));
+  await expect(createMediaListSource({ kind: "playlist", id: "20" }).page(0, 100)).rejects.toThrow("changed");
+});
+
+it("rejects an empty continuation even if that response omits a previously declared total", async () => {
+  transport
+    .mockResolvedValueOnce(response([movie("1")], { offset: 0, totalSize: 2 }))
+    .mockResolvedValueOnce(response([], { offset: 1 }));
+  await expect(createMediaListSource({ kind: "playlist", id: "20" }).page(0, 100)).rejects.toThrow("invalid");
 });

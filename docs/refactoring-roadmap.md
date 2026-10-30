@@ -95,8 +95,11 @@ file/stream details and child records now share one decoder with canonical sync;
 the old global metadata/file types are removed. Playback decisions have a separate
 checked contract. Availability and Watchlist now share title identity, checked
 pagination and display-field decoding; local copies retain their own ratingKeys,
-libraries and canonical metadata. Discover extras, music queue occurrences and
-browse/list response contracts remain to migrate.
+libraries and canonical metadata. Library sections/catalogs, filter descriptions,
+collections and playlists now decode unknown responses before Query publication.
+Paged reads share envelope checks; playlist occurrences remain separate from
+canonical metadata, including repeated and unavailable entries. Discover extras
+and music queue occurrences remain to migrate.
 
 ### 6. Make Plex notification updates more selective — complete
 

@@ -1,10 +1,11 @@
+import type { LibrarySortDefinition } from "entities/library/model";
 import type { LibrarySort } from "@nevu/contracts";
 
 export const DEFAULT_LIBRARY_SORT: LibrarySort = "titleSort";
 
 const SORT_EXPRESSION = /^[A-Za-z][A-Za-z0-9_.]*(?::(?:asc|desc|nullsFirst|nullsLast))?(?:,[A-Za-z][A-Za-z0-9_.]*(?::(?:asc|desc|nullsFirst|nullsLast))?)*$/;
 
-const FALLBACK_SORTS: Plex.Sort[] = [
+const FALLBACK_SORTS: LibrarySortDefinition[] = [
   { key: "titleSort", descKey: "titleSort:desc", title: "Title", default: "asc" },
   { key: "random", descKey: "random:desc", title: "Randomly" },
 ];
@@ -43,7 +44,7 @@ function directionLabels(title: string): [string, string] {
   return ["Ascending", "Descending"];
 }
 
-function optionsFromSorts(sorts: Plex.Sort[]): LibrarySortOption[] {
+function optionsFromSorts(sorts: LibrarySortDefinition[]): LibrarySortOption[] {
   return sorts.flatMap<LibrarySortOption>((sort) => {
     if (!isValidLibrarySort(sort.key) || !isValidLibrarySort(sort.descKey)) return [];
     if (isRandomLibrarySort(sort.key) || isRandomLibrarySort(sort.descKey))
@@ -57,13 +58,13 @@ function optionsFromSorts(sorts: Plex.Sort[]): LibrarySortOption[] {
   });
 }
 
-export function librarySortOptions(sorts?: Plex.Sort[]): LibrarySortOption[] {
+export function librarySortOptions(sorts?: LibrarySortDefinition[]): LibrarySortOption[] {
   if (!sorts?.length) return optionsFromSorts(FALLBACK_SORTS);
   const options = optionsFromSorts(sorts);
   return options.length ? options : optionsFromSorts(FALLBACK_SORTS);
 }
 
-export function defaultLibrarySort(sorts?: Plex.Sort[]): LibrarySort {
+export function defaultLibrarySort(sorts?: LibrarySortDefinition[]): LibrarySort {
   const source = sorts?.length ? sorts : FALLBACK_SORTS;
   const declared = source.find((sort) => sort.default) || source.find((sort) => sort.defaultDirection);
   if (!declared) return librarySortOptions(source)[0]?.value || DEFAULT_LIBRARY_SORT;

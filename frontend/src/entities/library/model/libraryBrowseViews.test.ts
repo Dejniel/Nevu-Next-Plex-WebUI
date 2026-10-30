@@ -1,3 +1,4 @@
+import type { LibraryCatalog } from "../api/libraryCatalog";
 import { libraryBrowseViews } from "./libraryBrowseViews";
 
 const library = (...types: string[]) =>
@@ -8,7 +9,7 @@ const library = (...types: string[]) =>
       key: type,
       active: false,
     })),
-  }) as Plex.MediaContainer;
+  }) as LibraryCatalog;
 
 it.each(["movie", "show", "artist"])(
   "assigns folders a list and %s a grid without changing the native descriptors",

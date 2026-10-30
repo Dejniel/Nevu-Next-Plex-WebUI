@@ -1,3 +1,4 @@
+import type { LibraryCatalog } from "entities/library/model";
 import { QueryObserver } from "@tanstack/react-query";
 import { createQueryClient } from "shared/api/queryClient";
 import type {
@@ -13,7 +14,7 @@ const scope = { serverId: "server", profileKey: "owner" };
 const client = createQueryClient();
 const closes: (() => void)[] = [];
 const movie = { ratingKey: "1", type: "movie", title: "Movie", summary: "Old", librarySectionID: 1 } as MediaMetadata;
-const container = { Metadata: [movie], size: 1, totalSize: 50, offset: 16, viewGroup: "movie", Directory: [{ key: "all", title: "All" }] } as Plex.MediaContainer;
+const container = { Metadata: [movie], size: 1, totalSize: 50, offset: 16, viewGroup: "movie", Directory: [{ key: "all", title: "All" }] } as LibraryCatalog;
 function observe(dir: string, props?: Record<string, unknown>, initialData = container) {
   const options = libraryDirectoryQueryOptions(scope, dir, props);
   const read = vi.fn(async () => initialData);
@@ -47,7 +48,7 @@ it("refreshes watched-dependent history and On Deck while preserving unrelated f
   const facets = ["genre", "actor"].map((field) => observe(`/library/sections/1/${field}`, undefined, { ...container, Metadata: [] }));
   await applyLibraryDirectoryChanges(client, [edit(["viewCount", "lastViewedAt"], { ...movie, viewCount: 1, lastViewedAt: 123 })]);
   expect([history, onDeck, stable, ...facets].map(({ read }) => read.mock.calls.length)).toEqual([1, 1, 0, 0, 0]);
-  expect(client.getQueryData<Plex.MediaContainer>(stable.key)?.Metadata?.[0].viewCount).toBe(1);
+  expect(client.getQueryData<LibraryCatalog>(stable.key)?.Metadata?.[0].viewCount).toBe(1);
 });
 
 it("revalidates affected tags and filtered results even when the changed item was not cached", async () => {
@@ -80,11 +81,11 @@ it("refreshes cached prior parents in raw show pages", async () => {
 
 it("cancels an old read before patching could be overwritten and refetches once per batch", async () => {
   const options = libraryDirectoryQueryOptions(scope, "/library/sections/1/all");
-  let finish!: (value: Plex.MediaContainer) => void;
+  let finish!: (value: LibraryCatalog) => void;
   let signal!: AbortSignal;
   const read = vi.fn().mockImplementationOnce((context) => {
     signal = context.signal;
-    return new Promise<Plex.MediaContainer>((resolve) => { finish = resolve; });
+    return new Promise<LibraryCatalog>((resolve) => { finish = resolve; });
   }).mockResolvedValue({ ...container, Metadata: [{ ...movie, summary: "New" }] });
   client.setQueryData(options.queryKey, container);
   closes.push(new QueryObserver(client, { ...options, queryFn: read, staleTime: 0 }).subscribe(() => {}));
@@ -93,7 +94,7 @@ it("cancels an old read before patching could be overwritten and refetches once 
   finish(container);
   await Promise.resolve();
   expect(read).toHaveBeenCalledTimes(2);
-  expect(client.getQueryData<Plex.MediaContainer>(options.queryKey)?.Metadata?.[0].summary).toBe("New");
+  expect(client.getQueryData<LibraryCatalog>(options.queryKey)?.Metadata?.[0].summary).toBe("New");
 });
 
 it("does not let a cold stable directory publish metadata read before a confirmed change", async () => {
@@ -107,5 +108,5 @@ it("does not let a cold stable directory publish metadata read before a confirme
   await applyLibraryDirectoryChanges(client, [edit(["summary"])]);
   expect(signal.aborted).toBe(true);
   expect(read).toHaveBeenCalledTimes(2);
-  expect(client.getQueryData<Plex.MediaContainer>(options.queryKey)?.Metadata?.[0].summary).toBe("New");
+  expect(client.getQueryData<LibraryCatalog>(options.queryKey)?.Metadata?.[0].summary).toBe("New");
 });

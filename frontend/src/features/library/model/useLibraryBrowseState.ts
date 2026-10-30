@@ -1,3 +1,4 @@
+import type { LibraryCatalog } from "entities/library/model";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import type { LibraryFilterClause, LibrarySort } from "@nevu/contracts";
@@ -37,7 +38,7 @@ import { libraryRootQueryType, type LibraryQuery } from "./libraryQuery";
 /** Shared URL decisions for section browsing and bounded album children. */
 export function useLibraryBrowseState(
   libraryID: string,
-  library: Plex.MediaContainer | undefined,
+  library: LibraryCatalog | undefined,
   {
     parentId,
     allPhotos = false,

@@ -1,3 +1,4 @@
+import type { LibraryCatalog, LibraryType } from "../api/libraryCatalog";
 import {
   isLibraryItemType,
   isVideoLibraryItemType,
@@ -11,16 +12,16 @@ export interface LibraryBrowseView {
   source: "all" | "folders";
   presentation: "grid" | "list";
   gridLayout?: "video" | "square" | "photo";
-  descriptor?: Plex.Type;
+  descriptor?: LibraryType;
 }
 
 /** The selector chooses a browsing workflow; presentation never changes query identity. */
 export function libraryBrowseViews(
-  library: Plex.MediaContainer | undefined,
+  library: LibraryCatalog | undefined,
 ): LibraryBrowseView[] {
   const types =
     library?.Type?.filter(
-      (entry): entry is Plex.Type & { type: LibraryItemType } =>
+      (entry): entry is LibraryType & { type: LibraryItemType } =>
         isLibraryItemType(entry.type),
     ) ?? [];
   const views: LibraryBrowseView[] = types.map((descriptor) => ({

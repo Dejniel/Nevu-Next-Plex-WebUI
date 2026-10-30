@@ -1,3 +1,4 @@
+import type { LibraryCatalog } from "entities/library/model";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   changedMediaFields,
@@ -18,7 +19,7 @@ export function getCachedLibraryItems(client: QueryClient, scope: MediaScope) {
       queryKey: ["library", scope.serverId, scope.profileKey],
       predicate: (query) => queryPageLocation(query.queryKey) !== null,
     }).flatMap(([, page]) => page?.items.filter(item => item.type !== "folder") ?? []),
-    ...client.getQueriesData<Plex.MediaContainer>({
+    ...client.getQueriesData<LibraryCatalog>({
       queryKey: ["library-directory", scope.serverId, scope.profileKey],
     }).flatMap(([, container]) => container?.Metadata ?? []),
   ];

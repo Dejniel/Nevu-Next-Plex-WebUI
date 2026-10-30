@@ -1,7 +1,8 @@
+import type { LibraryDirectory } from "entities/library/model";
 import type { LibraryFilterValueOption } from "./libraryFilters";
 
 export function libraryFilterValues(
-  directories: readonly Plex.Directory[] | undefined,
+  directories: readonly LibraryDirectory[] | undefined,
   filter: string,
 ): LibraryFilterValueOption[] {
   const seen = new Set<string>();

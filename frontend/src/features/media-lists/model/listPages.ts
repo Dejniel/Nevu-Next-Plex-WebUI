@@ -11,6 +11,7 @@ import {
 } from "shared/lib/queryWindow";
 import { runPageRequest } from "shared/lib/requestLimiter";
 import { createMediaListSource } from "../api/mediaLists";
+import { validateListWindow } from "./mediaLists";
 import type {
   MediaListPage,
   MediaListQuery,
@@ -72,30 +73,6 @@ export function listPageOptions(
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-}
-export function validateListWindow(
-  pages: readonly ListPage[],
-  kind: MediaListQuery["kind"],
-) {
-  const total = pages.find((page) => page.total !== null)?.total;
-  const ids = new Set<string>();
-  for (const page of pages) {
-    if (page.total !== null && total !== undefined && page.total !== total)
-      throw new Error("The list changed while loading. Please try again.");
-    page.items.forEach((record, index) => {
-      if (record.kind === "media" && record.position !== page.offset + index)
-        throw new Error("Plex returned inconsistent playlist positions.");
-      const id =
-        record.kind !== "media"
-          ? record.id
-          : kind === "playlist"
-            ? record.playlistItemID
-            : record.item.ratingKey;
-      if (id !== undefined && ids.has(id))
-        throw new Error("The list changed while loading. Please try again.");
-      if (id !== undefined) ids.add(id);
-    });
-  }
 }
 export function listWindowOptions(
   client: QueryClient,

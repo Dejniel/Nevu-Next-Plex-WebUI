@@ -1,3 +1,4 @@
+import type { LibrarySortDefinition } from "entities/library/model";
 import { hashKey } from "@tanstack/react-query";
 import { ShuffleRounded } from "@mui/icons-material";
 import { Box, IconButton, MenuItem, Select, Tooltip } from "@mui/material";
@@ -22,7 +23,7 @@ interface LibraryCollectionDialogProps {
   open: boolean;
   title: string;
   baseQuery: LibraryQuery | null;
-  sortDefinitions?: Plex.Sort[];
+  sortDefinitions?: LibrarySortDefinition[];
   sortable?: boolean;
   cardView: ReturnType<typeof useLibraryCardView>;
   emptyMessage?: string;

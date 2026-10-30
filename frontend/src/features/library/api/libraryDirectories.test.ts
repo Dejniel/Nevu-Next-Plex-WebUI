@@ -19,7 +19,7 @@ beforeEach(() => vi.clearAllMocks());
 
 it("loads arbitrary library directories", async () => {
   (plexClient.get as Mock).mockResolvedValueOnce({
-    MediaContainer: { Metadata: [{ ratingKey: "1" }] },
+    MediaContainer: { Metadata: [{ ratingKey: "1", type: "movie", title: "Movie" }] },
   });
 
   await expect(getLibraryDirectory("/library/sections/1/all")).resolves.toMatchObject({
@@ -40,12 +40,12 @@ it("rejects a missing container instead of treating it as an empty directory", a
   (plexClient.get as Mock).mockResolvedValue({});
 
   await expect(getLibraryDirectory("/library/onDeck")).rejects.toThrow(
-    "Plex returned an invalid library directory",
+    "invalid library catalog",
   );
 });
 
 it("preserves bounded discovery window parameters and forwards cancellation", async () => {
-  vi.mocked(plexClient.get).mockResolvedValue({ MediaContainer: { size: 8, Metadata: [] } });
+  vi.mocked(plexClient.get).mockResolvedValue({ MediaContainer: { size: 0, Metadata: [] } });
   const signal = new AbortController().signal;
   await getLibraryDirectory(
     "/library/sections/4/all",
@@ -62,4 +62,12 @@ it("preserves bounded discovery window parameters and forwards cancellation", as
   expect(params.get("X-Plex-Container-Start")).toBe("24");
   expect(params.get("X-Plex-Container-Size")).toBe("8");
   expect(requestSignal).toBe(signal);
+});
+
+it("rejects a misplaced discovery window rather than caching rows at the wrong offset", async () => {
+  vi.mocked(plexClient.get).mockResolvedValue({ MediaContainer: {
+    size: 1, offset: 0, totalSize: 100,
+    Metadata: [{ ratingKey: "1", type: "movie", title: "Movie" }],
+  } });
+  await expect(getLibraryDirectory("/library/sections/1/all?X-Plex-Container-Start=24&X-Plex-Container-Size=8")).rejects.toThrow("invalid");
 });

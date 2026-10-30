@@ -1,3 +1,4 @@
+import type { LibraryType, LibraryField, LibraryFilter, LibraryFieldType, LibraryOperator } from "entities/library/model";
 import type {
   LibraryFilterClause,
   LibraryFilterMode,
@@ -39,9 +40,9 @@ interface FilterDraft {
 
 interface AdvancedLibraryFilterDialogProps {
   open: boolean;
-  fields: readonly Plex.Field[];
-  types: readonly Plex.Type[];
-  fieldTypes: readonly Plex.FieldType[];
+  fields: readonly LibraryField[];
+  types: readonly LibraryType[];
+  fieldTypes: readonly LibraryFieldType[];
   initialFilters: readonly LibraryFilterClause[];
   initialMode: LibraryFilterMode;
   onClose: () => void;
@@ -52,8 +53,8 @@ const filterValueOptions = createFilterOptions<LibraryFilterValueOption>({ limit
 let nextDraftId = 1;
 
 function createDraft(
-  fields: readonly Plex.Field[],
-  fieldTypes: readonly Plex.FieldType[],
+  fields: readonly LibraryField[],
+  fieldTypes: readonly LibraryFieldType[],
   filter?: LibraryFilterClause,
 ): FilterDraft | null {
   const field = fields.find((candidate) => candidate.key === filter?.field) || fields[0];
@@ -93,9 +94,9 @@ function FilterValueEditor({
   onChange,
 }: {
   draft: FilterDraft;
-  field: Plex.Field;
-  operator: Plex.Operator | undefined;
-  source: Plex.Filter | undefined;
+  field: LibraryField;
+  operator: LibraryOperator | undefined;
+  source: LibraryFilter | undefined;
   onChange: (patch: Partial<FilterDraft>) => void;
 }) {
   const operatorTitle = operator?.title.trim().toLowerCase();

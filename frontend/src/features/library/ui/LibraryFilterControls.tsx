@@ -1,3 +1,4 @@
+import type { LibraryType, LibraryField, LibraryFilter, LibraryFieldType } from "entities/library/model";
 import type {
   LibraryFilterClause,
   LibraryFilterMode,
@@ -28,9 +29,9 @@ const RETRY_VALUE = "__retry__";
 const ADVANCED_VALUE = "__advanced__";
 
 interface SelectableField {
-  field: Plex.Field;
+  field: LibraryField;
   operator: NonNullable<ReturnType<typeof libraryFilterIsOperator>>;
-  source?: Plex.Filter;
+  source?: LibraryFilter;
 }
 
 export function LibraryFilterSelect({
@@ -45,9 +46,9 @@ export function LibraryFilterSelect({
 }: {
   filters: readonly LibraryFilterClause[];
   mode: LibraryFilterMode;
-  fields: readonly Plex.Field[];
-  types: readonly Plex.Type[];
-  fieldTypes: readonly Plex.FieldType[];
+  fields: readonly LibraryField[];
+  types: readonly LibraryType[];
+  fieldTypes: readonly LibraryFieldType[];
   disabled?: boolean;
   onChange: (filter: LibraryFilterClause | null) => void;
   onAdvanced: () => void;

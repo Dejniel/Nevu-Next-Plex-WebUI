@@ -1,3 +1,4 @@
+import type { LibraryCatalog, LibraryFilter } from "entities/library/model";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { QueryObserver } from "@tanstack/react-query";
@@ -12,12 +13,12 @@ vi.mock("features/session/model", async (original) => ({
   ...(await original<typeof import("features/session/model")>()), useActiveServerScope: vi.fn(),
 }));
 const scope = { serverId: "server", profileKey: "owner" };
-const source: Plex.Filter = { key: "/library/sections/1/genre", filter: "genre", filterType: "string", title: "Genre", type: "filter" };
-const response = (title = "Action") => ({ Metadata: [], Directory: [{ key: "1", title, fastKey: "/all?genre=393&movie.genre=394" }] } as unknown as Plex.MediaContainer);
+const source: LibraryFilter = { key: "/library/sections/1/genre", filter: "genre", filterType: "string", title: "Genre", type: "filter" };
+const response = (title = "Action") => ({ Metadata: [], Directory: [{ key: "1", title, fastKey: "/all?genre=393&movie.genre=394" }] } as unknown as LibraryCatalog);
 const request = vi.mocked(getLibraryDirectory);
 let root: Root;
 const results = new Map<string, ReturnType<typeof useLibraryFilterValues>>();
-function Harness({ value = source, name = "main", enabled = true }: { value?: Plex.Filter; name?: string; enabled?: boolean }) {
+function Harness({ value = source, name = "main", enabled = true }: { value?: LibraryFilter; name?: string; enabled?: boolean }) {
   const result = useLibraryFilterValues(value, enabled);
   results.set(name, result);
   return <div>{result.options.map((option) => option.label).join(",")}</div>;

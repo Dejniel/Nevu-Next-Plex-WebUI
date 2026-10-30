@@ -82,7 +82,7 @@ it("stops repeated pages and surfaces Plex request errors", async () => {
   );
   transport.mockResolvedValue(response(page, 401));
   await expect(getLocalMediaMatches(["plex://movie/one"])).rejects.toThrow(
-    "incomplete",
+    "invalid",
   );
   expect(transport).toHaveBeenCalledTimes(2);
   transport.mockResolvedValue({ status: 401, data: {} });
@@ -106,7 +106,7 @@ it("does not treat a repeated final page as a complete list of local copies", as
   );
   transport.mockResolvedValue(response(page, 201));
   await expect(getLocalMediaMatches(["plex://movie/one"])).rejects.toThrow(
-    "incomplete",
+    "invalid",
   );
   expect(transport).toHaveBeenCalledTimes(2);
 });

@@ -1,8 +1,8 @@
 import { plexClient } from "features/session/model";
+import { readLibrarySections } from "./libraryCatalog";
 
-export async function getLibraries(signal?: AbortSignal): Promise<Plex.LibarySection[]> {
-  const response = await plexClient.get<{
-    MediaContainer: { Directory?: Plex.LibarySection[] };
-  }>("/library/sections", signal);
-  return response.MediaContainer.Directory ?? [];
+export async function getLibraries(signal?: AbortSignal) {
+  return readLibrarySections(
+    await plexClient.get<unknown>("/library/sections", signal),
+  );
 }

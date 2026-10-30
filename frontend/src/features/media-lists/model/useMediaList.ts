@@ -1,3 +1,4 @@
+import { validateListWindow } from "./mediaLists";
 import { hashKey, useQueries, useQuery } from "@tanstack/react-query";
 import { useServerSession } from "features/session/model";
 import { useUserSettings } from "features/settings/model";
@@ -11,7 +12,6 @@ import {
   listRangeOffsets,
   listWindowOptions,
   mediaListResultKey,
-  validateListWindow,
 } from "./listPages";
 import type { MediaListQuery, MediaListRecord } from "./mediaLists";
 

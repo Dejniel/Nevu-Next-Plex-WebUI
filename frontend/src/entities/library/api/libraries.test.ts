@@ -8,10 +8,10 @@ vi.mock("features/session/model", () => ({
 
 it("loads the available Plex library sections", async () => {
   (plexClient.get as Mock).mockResolvedValue({
-    MediaContainer: { Directory: [{ key: "1", title: "Movies" }] },
+    MediaContainer: { Directory: [{ key: "1", title: "Movies", type: "movie", uuid: "movies" }] },
   });
 
-  await expect(getLibraries()).resolves.toEqual([{ key: "1", title: "Movies" }]);
+  await expect(getLibraries()).resolves.toEqual([{ key: "1", title: "Movies", type: "movie", uuid: "movies" }]);
   expect(plexClient.get).toHaveBeenCalledWith("/library/sections", undefined);
 });
 

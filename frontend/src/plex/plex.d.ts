@@ -54,30 +54,6 @@ declare namespace Plex {
 
     type LibaryType = 'movie' | 'show' | 'artist' | 'photo' | 'photoalbum' | 'clip' | 'episode' | 'track' | 'season' | 'album' | 'secondary';
 
-    interface LibarySection {
-        allowSync: boolean;
-        art: string;
-        composite: string;
-        filters: boolean;
-        refreshing: boolean;
-        thumb: string;
-        key: string;
-        type: LibaryType;
-        title: string;
-        agent: string;
-        scanner: string;
-        language: string;
-        uuid: string;
-        updatedAt: number;
-        createdAt: number;
-        scannedAt: number;
-        content: boolean;
-        directory: boolean;
-        contentChangedAt: number;
-        hidden: number;
-        Location: Location[];
-    }
-
     interface Directory {
         key: string;
         title: string;
@@ -97,80 +73,9 @@ declare namespace Plex {
         count?: number;
     }
 
-    interface Type {
-        key: string;
-        type: LibaryType;
-        title: string;
-        active: boolean;
-        Filter?: Filter[];
-        Sort?: Sort[];
-        Field?: Field[];
-    }
-
-    interface Filter {
-        filter: string;
-        filterType: string;
-        key: string;
-        title: string;
-        type: string;
-    }
-
-    interface Sort {
-        default?: string;
-        defaultDirection?: string;
-        descKey: string;
-        firstCharacterKey?: string;
-        key: string;
-        title: string;
-    }
-
-    interface Field {
-        key: string;
-        title: string;
-        type: string;
-        subType?: string;
-    }
-
-    interface FieldType {
-        type: string;
-        Operator: Operator[];
-    }
-
     interface MetadataField {
         locked: boolean;
         name: string;
-    }
-
-    interface Operator {
-        key: string;
-        title: string;
-    }
-
-    interface MediaContainer {
-        size: number;
-        totalSize?: number;
-        offset?: number;
-        allowSync?: boolean;
-        art?: string;
-        content?: string;
-        identifier?: string;
-        librarySectionID: number;
-        librarySectionTitle?: string;
-        librarySectionUUID?: string;
-        mediaTagPrefix: string;
-        mediaTagVersion: number;
-        mixedParents?: boolean;
-        nocache?: boolean;
-        thumb?: string;
-        title1?: string;
-        title2?: string;
-        viewGroup: LibaryType;
-
-        Metadata?: import("plex/media").MediaMetadata[];
-        Directory?: Directory[];
-
-        Type?: Type[];
-        FieldType?: FieldType[];
     }
 
     interface Hub {

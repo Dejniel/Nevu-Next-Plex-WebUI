@@ -1,10 +1,11 @@
+import type { LibraryFilter } from "entities/library/model";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveServerScope } from "features/session/model";
 import { serverQueryClient } from "shared/api/queryClient";
 import { libraryDirectoryQueryOptions } from "./libraryDirectories";
 import { libraryFilterValues } from "./libraryFilterValues";
 
-export default function useLibraryFilterValues(source: Plex.Filter | undefined, enabled = true) {
+export default function useLibraryFilterValues(source: LibraryFilter | undefined, enabled = true) {
   const scope = useActiveServerScope();
   const options = libraryDirectoryQueryOptions(scope, source?.key ?? "");
   const query = useQuery({

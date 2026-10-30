@@ -1,9 +1,10 @@
+import type { LibrarySection } from "entities/library/model";
 import type { ToolbarMeasurements } from "shared/lib/useToolbarOverflow";
 
 export const LIBRARY_NAVIGATION_SETTING = "LIBRARY_NAVIGATION";
 
 export type NavigationLibrary = Pick<
-  Plex.LibarySection,
+  LibrarySection,
   "key" | "uuid" | "title" | "type"
 >;
 

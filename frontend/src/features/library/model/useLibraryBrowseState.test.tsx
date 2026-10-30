@@ -1,3 +1,4 @@
+import type { LibraryCatalog } from "entities/library/model";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
@@ -57,7 +58,7 @@ const photoLibrary = {
       ],
     },
   ],
-} as Plex.MediaContainer;
+} as LibraryCatalog;
 let root: Root;
 let latest: ReturnType<typeof useLibraryBrowseState>;
 let location: ReturnType<typeof useLocation>;
@@ -67,7 +68,7 @@ function Harness({
   parentId,
   allPhotos = false,
 }: {
-  library?: Plex.MediaContainer;
+  library?: LibraryCatalog;
   parentId?: string;
   allPhotos?: boolean;
 }) {
@@ -121,7 +122,7 @@ it("selects photo-only chronological browsing separately from the hierarchical r
 });
 
 it("separates folder navigation from media types and preserves its parent trail in history", async () => {
-  const library = { ...photoLibrary, Type: [{ type: "artist", key: "artist", title: "Artists", active: true }, { type: "track", key: "track", title: "Tracks", active: false }] } as Plex.MediaContainer;
+  const library = { ...photoLibrary, Type: [{ type: "artist", key: "artist", title: "Artists", active: true }, { type: "track", key: "track", title: "Tracks", active: false }] } as LibraryCatalog;
   await render(<Harness library={library} />);
   await act(async () => latest.setView("folders"));
   expect(latest.activeView).toMatchObject({ id: "folders", presentation: "list" });
@@ -287,7 +288,7 @@ it("continues to use declared video types and their existing preferences", async
         ],
       },
     ],
-  } as Plex.MediaContainer;
+  } as LibraryCatalog;
   localStorage.setItem("typeFilter:5", "episode");
   localStorage.setItem("sortBy", "addedAt");
   await render(<Harness library={library} />);

@@ -1,3 +1,4 @@
+import type { LibraryCatalog, LibrarySection } from "entities/library/model";
 import type { Mock, MockInstance } from "vitest";
 import { act } from "react";
 import { createRoot, Root } from "react-dom/client";
@@ -172,12 +173,12 @@ it("shares the hero metadata with title details and preserves it on a cached ret
     type: "movie",
     art: "/art",
   } as MediaMetadata;
-  vi.mocked(getLibraries).mockResolvedValue([movies as Plex.LibarySection]);
+  vi.mocked(getLibraries).mockResolvedValue([movies as LibrarySection]);
   vi.mocked(getLibraryDirectory).mockResolvedValue({
     size: 1,
     totalSize: 1,
     Metadata: [hero],
-  } as Plex.MediaContainer);
+  } as LibraryCatalog);
   vi.mocked(getMediaMetadata).mockResolvedValue(hero);
   await renderHome();
   expect(state.hero).toEqual(hero);

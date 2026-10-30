@@ -1,3 +1,4 @@
+import type { LibraryCatalog } from "entities/library/model";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import type {
   MediaMetadata,
@@ -30,7 +31,7 @@ export async function applyLibraryDirectoryChanges(
   });
   await Promise.all(queries.map(async (query) => {
     const [, , , dir, props] = query.queryKey as ReturnType<typeof libraryDirectoryQueryOptions>["queryKey"];
-    const data = query.state.data as Plex.MediaContainer | undefined;
+    const data = query.state.data as LibraryCatalog | undefined;
     const patches = new Map<string, MediaMetadata>();
     let refresh = false;
     for (const entry of changes) {

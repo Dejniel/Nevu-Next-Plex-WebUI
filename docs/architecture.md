@@ -56,6 +56,11 @@ their browsing fields and normalizes Plex photo-album `Directory` records to
 selects artwork and captions by type. Video actions and previews stay restricted
 to video. Parent synchronization includes artists, albums and photo albums;
 all types retain the existing Query windows, virtualization and cached jumps.
+Library sections, navigation/filter descriptions and media-list reads decode
+responses at the API boundary. Media rows reuse canonical metadata decoding;
+playlist occurrence IDs belong to the list entry, including unavailable entries.
+Envelope checks preserve raw positions and reject inconsistent paginated reads
+before replacing cached data.
 
 Artist, album and photo-album pages use canonical metadata and the same paged
 catalog with a `children` source and parent identity. History scroll positions

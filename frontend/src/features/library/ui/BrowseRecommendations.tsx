@@ -1,3 +1,4 @@
+import type { LibraryCatalog, LibraryDirectory } from "entities/library/model";
 import type { MediaMetadata } from "entities/media/model";
 import type { LibraryFilterExpression, LibraryItemType } from "@nevu/contracts";
 import { Box, CircularProgress, Typography } from "@mui/material";
@@ -45,11 +46,11 @@ function clause(field: string, operator: "=" | "!=", value: string): LibraryFilt
 
 function buildRecommendationShelves(
   libraryID: string,
-  library: Plex.MediaContainer,
+  library: LibraryCatalog,
   profileKey: string,
   watchHistory: MediaMetadata[],
-  genres: Plex.Directory[],
-  actors: Plex.Directory[],
+  genres: LibraryDirectory[],
+  actors: LibraryDirectory[],
 ) {
   const sectionId = Number(libraryID);
   const itemType = library.Type?.map((entry) => entry.type).find(isLibraryItemType);
