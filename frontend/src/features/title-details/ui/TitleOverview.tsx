@@ -1,7 +1,7 @@
 import { Box, Button, Paper, Typography } from "@mui/material";
 import { ArrowForwardRounded } from "@mui/icons-material";
 import React from "react";
-import { ActionableMediaCard } from "features/media-actions/public";
+import { MediaShelf } from "features/media-actions/public";
 import { type MediaMetadata, getTranscodeImageURL } from "entities/media/model";
 import { TitleExtra } from "entities/media/model";
 import { MediaExtraPlayback } from "entities/media/public";
@@ -84,7 +84,7 @@ export default function TitleOverview({
         .filter((item) => item.ratingKey !== data.ratingKey)
         .map((item) => [item.ratingKey, item]),
     ).values(),
-  ).slice(0, 8);
+  );
   const cast = (data.Role || []).slice(0, 8);
   const reviews = (data.Review || []).slice(0, 3);
 
@@ -147,20 +147,13 @@ export default function TitleOverview({
         </Box>
       )}
 
-      {related.length > 0 && (
-        <Box sx={{ width: "100%" }}>
-          <SectionTitle>More like this</SectionTitle>
-          <HorizontalRail
-            itemWidth={{ xs: "min(72vw, 220px)", sm: "220px", md: "240px" }}
-          >
-            {related.map((item) => (
-              <Box key={item.ratingKey}>
-                <ActionableMediaCard item={item} />
-              </Box>
-            ))}
-          </HorizontalRail>
-        </Box>
-      )}
+      <MediaShelf
+        key={data.ratingKey}
+        title="More like this"
+        data={related}
+        gutter={0}
+        headingVariant="h5"
+      />
 
       {cast.length > 0 && (
         <Box sx={{ width: "100%" }}>

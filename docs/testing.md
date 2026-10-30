@@ -50,6 +50,10 @@ Fail a page/poster once with 503 or a dropped connection: it should recover with
 one retry. Verify backoff releases capacity, shares the original deadline and
 stops on navigation; permanent HTTP/validation failures must not retry. Two failed
 attempts must still expose manual page Retry. Include a truncated image body.
+Check media shelves in full-width and narrow containers on desktop/mobile. All
+related titles must remain reachable by buttons, keyboard and swipe. Resizing or
+metadata refresh keeps the current item visible; changing titles starts at the
+first page. Already-supplied shelf data must not trigger another metadata read.
 
 For music/photo libraries, check artist → album → tracks, disc order, playback
 during navigation, queue add/remove/reorder and repeated songs. Include native

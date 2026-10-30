@@ -16,14 +16,13 @@ import {
   Typography,
 } from "@mui/material";
 import {
-  getLibraryCardWidth,
   LibraryBrowseFrame,
   useLibraryCardView,
 } from "features/library/public";
 import { ActionableMediaCard } from "features/media-actions/public";
 import { photoGalleryGeometry } from "features/photos/model";
 import { PhotoPlaylistContents } from "./PhotoPlaylistContents";
-import { mediaCardAspectRatio } from "entities/media/model";
+import { mediaCardAspectRatio, mediaCardWidth } from "entities/media/model";
 import { useMusic } from "features/music/model";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -124,7 +123,7 @@ export default function MediaListsView({
       : photoAlbum
         ? photoGalleryGeometry(cardView.size, information)
         : {
-            itemWidth: getLibraryCardWidth(cardView.layout, cardView.size),
+            itemWidth: mediaCardWidth(cardView.layout, cardView.size),
             imageAspectRatio: mediaCardAspectRatio(cardView.layout),
             footerHeight: 94,
           }),

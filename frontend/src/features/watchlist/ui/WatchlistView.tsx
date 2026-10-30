@@ -15,11 +15,11 @@ import {
 import { useLibraries } from "entities/library/model";
 import {
   type DiscoverTitle,
+  mediaCardWidth,
   selectLocalMedia,
   useMediaAvailability,
 } from "entities/media/model";
 import {
-  getLibraryCardWidth,
   LibraryBrowseFrame,
   useLibraryCardView,
 } from "features/library/public";
@@ -87,7 +87,7 @@ export default function WatchlistView({
 
   const grid = useVirtualGrid({
     count: selected.length,
-    itemWidth: getLibraryCardWidth(cardView.layout, cardView.size),
+    itemWidth: mediaCardWidth(cardView.layout, cardView.size),
     imageAspectRatio: cardView.layout === "poster" ? 2 / 3 : 16 / 9,
     footerHeight: 94,
     observeRef: toolbarRef,

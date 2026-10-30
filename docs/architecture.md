@@ -261,6 +261,10 @@ HTTP/validation failures and writes are not retried; Query's own retries stay of
 First-page hooks supply grid counts; `useVirtualGrid` computes the current range
 before page hooks read it in the same render. Cached jumps render available cards
 immediately. Memoized actionable cards skip unchanged props during scrolling.
+`MediaShelf` shares container-measured geometry, bounded nearby cards and accessible
+pagination across Home, recommendations and title-related media. Library adapters
+own directory/page reads; title details supply their already-decoded related data.
+Cards own no viewport sizing; card width/aspect rules belong to the media model.
 Summaries publish with list pages, and repeated playlist
 entries retain their positions and IDs. Canonical metadata is shared by cards,
 previews, Home, details and playback selection. Sections, directories, recommendation

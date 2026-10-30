@@ -5,16 +5,13 @@ import React from "react";
 import { CollectionViewport } from "shared/ui/CollectionViewport";
 import { ActionableMediaCard } from "features/media-actions/public";
 import { MusicMediaCard } from "features/music/public";
-import { mediaCardAspectRatio } from "entities/media/model";
+import { mediaCardAspectRatio, mediaCardWidth } from "entities/media/model";
 import { useLibraryViewport } from "../model/useLibraryViewport";
 import {
   libraryResultQueryKey,
   type LibraryQuery,
 } from "../model/libraryQuery";
-import {
-  getLibraryCardWidth,
-  LibraryCardLayout,
-} from "./LibraryCardViewControls";
+import type { LibraryCardLayout } from "./LibraryCardViewControls";
 
 interface LibraryCollectionGridProps {
   query: LibraryQuery | null;
@@ -65,7 +62,7 @@ function LibraryCollectionGrid({
   const { grid, range, hasData } = useLibraryViewport(query, {
     ...gridProps,
     loading,
-    itemWidth: getLibraryCardWidth(layout, cardSize),
+    itemWidth: mediaCardWidth(layout, cardSize),
     imageAspectRatio: mediaCardAspectRatio(layout),
   });
   return (

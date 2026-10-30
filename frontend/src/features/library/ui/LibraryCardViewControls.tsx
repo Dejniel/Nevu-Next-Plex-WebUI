@@ -28,9 +28,6 @@ const normalizeCardSize = (value: string | undefined) => {
     : DEFAULT_CARD_SIZE;
 };
 
-export const getLibraryCardWidth = (layout: LibraryCardLayout, size: number) =>
-  Math.round(layout === "landscape" ? 190 + size * 2.2 : 140 + size * 1.6);
-
 export function useLibraryCardView() {
   const { settings, setSetting } = useUserSettings();
   const layout: LibraryCardLayout =

@@ -49,7 +49,6 @@ vi.mock("features/settings/model", () => ({
   ),
 }));
 vi.mock("features/library/public", () => ({
-  getLibraryCardWidth: () => 200,
   useLibraryCardView: () => ({ layout: "poster", size: 40 }),
   LibraryBrowseFrame: ({
     leading,

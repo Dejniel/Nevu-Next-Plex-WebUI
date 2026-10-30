@@ -1,5 +1,8 @@
 export type MediaArtworkLayout = "landscape" | "poster" | "square";
 
+export const mediaCardWidth = (layout: MediaArtworkLayout, size = 40) =>
+  Math.round(layout === "landscape" ? 190 + size * 2.2 : 140 + size * 1.6);
+
 export function mediaCardAspectRatio(layout: MediaArtworkLayout) {
   return layout === "poster" ? 2 / 3 : layout === "square" ? 1 : 16 / 9;
 }

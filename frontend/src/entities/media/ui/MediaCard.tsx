@@ -54,8 +54,6 @@ import {
 
 export interface MediaCardProps {
   item: MediaItemData;
-  itemsPerPage?: number;
-  index?: number;
   PlexTvSource?: boolean;
   layout?: MediaArtworkLayout;
   imageSizes?: string;
@@ -75,8 +73,6 @@ function MediaCard(props: MediaCardProps) {
 
 function GridMediaCard({
   item,
-  itemsPerPage,
-  index,
   PlexTvSource,
   layout = "landscape",
   imageSizes,
@@ -110,10 +106,7 @@ function GridMediaCard({
           layout === "poster" ? POSTER_IMAGE_WIDTHS : LANDSCAPE_IMAGE_WIDTHS,
         aspectRatio: mediaCardAspectRatio(layout),
         sizes:
-          imageSizes ||
-          (itemsPerPage
-            ? `${Math.ceil(95 / itemsPerPage)}vw`
-            : "(max-width: 600px) calc(100vw - 16px), 320px"),
+          imageSizes || "(max-width: 600px) calc(100vw - 16px), 320px",
         fallbackWidth: layout === "poster" ? 480 : 640,
       })
     : null;
@@ -131,12 +124,8 @@ function GridMediaCard({
         flexDirection: "column",
         alignItems: "flex-start",
         justifyContent: "flex-start",
-        width: itemsPerPage
-          ? `calc((100vw / ${itemsPerPage}) - 10px - (5vw / ${itemsPerPage}))`
-          : "100%",
-        minWidth: itemsPerPage
-          ? `calc((100vw / ${itemsPerPage}) - 10px - (5vw / ${itemsPerPage}))`
-          : "100%",
+        width: "100%",
+        minWidth: "100%",
         backgroundColor: "rgba(18, 18, 22, 0.7)",
         backdropFilter: "blur(15px)",
         border: "1px solid rgba(255,255,255,0.08)",
@@ -146,14 +135,6 @@ function GridMediaCard({
         boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.3)",
         willChange: "transform",
         backfaceVisibility: "hidden",
-        transformOrigin:
-          itemsPerPage && index !== undefined
-            ? index % itemsPerPage === 0
-              ? "left center"
-              : index % itemsPerPage === itemsPerPage - 1
-                ? "right center"
-                : "center center"
-            : "center center",
         transition:
           "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease",
         cursor: detailsTarget ? "pointer" : "default",
