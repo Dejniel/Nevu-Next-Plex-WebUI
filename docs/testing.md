@@ -46,6 +46,10 @@ during refresh and scroll elsewhere: replacement demand must follow the viewport
 without mixing revisions. A failed refresh must still permit new range reads.
 Check that shared random catalogs survive one caller leaving and stop after the
 last caller leaves; artwork deadlines must not truncate media or subtitle streams.
+Fail a page/poster once with 503 or a dropped connection: it should recover with
+one retry. Verify backoff releases capacity, shares the original deadline and
+stops on navigation; permanent HTTP/validation failures must not retry. Two failed
+attempts must still expose manual page Retry. Include a truncated image body.
 
 For music/photo libraries, check artist → album → tracks, disc order, playback
 during navigation, queue add/remove/reorder and repeated songs. Include native

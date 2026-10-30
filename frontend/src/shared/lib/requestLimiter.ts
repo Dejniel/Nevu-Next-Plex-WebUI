@@ -1,3 +1,5 @@
+import { isTransientReadError } from "shared/api/readErrors";
+
 /** Bounds transport work only. Query owns request sharing and cancellation. */
 export function createRequestLimiter(limit = 2) {
   if (!Number.isInteger(limit) || limit < 1) throw new Error("The request limit must be positive.");
@@ -37,6 +39,22 @@ export function createRequestLimiter(limit = 2) {
 
 const runLimitedPage = createRequestLimiter(2);
 
+function waitForRetry(signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const abort = () => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", abort);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }, 500);
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) abort();
+  });
+}
+
 /** Bound the complete page read, including its queue wait, without aborting other consumers. */
 export async function runPageRequest<T>(
   signal: AbortSignal,
@@ -53,7 +71,28 @@ export async function runPageRequest<T>(
     { retryable: true },
   )), timeoutMs);
   try {
-    return await runLimitedPage(controller.signal, priority, () => operation(controller.signal));
+    for (let attempt = 0; ; attempt++) {
+      controller.signal.throwIfAborted();
+      try {
+        return await runLimitedPage(controller.signal, priority, async () => {
+          // A page can read both contents and summary. End all siblings before retrying.
+          const read = new AbortController();
+          const cancel = () => read.abort(controller.signal.reason);
+          controller.signal.addEventListener("abort", cancel, { once: true });
+          if (controller.signal.aborted) cancel();
+          try {
+            return await operation(read.signal);
+          } finally {
+            read.abort();
+            controller.signal.removeEventListener("abort", cancel);
+          }
+        });
+      } catch (error) {
+        if (attempt > 0 || controller.signal.aborted || !isTransientReadError(error)) throw error;
+        // Backoff holds no transport slot and remains inside the original deadline.
+        await waitForRetry(controller.signal);
+      }
+    }
   } catch (error) {
     if (controller.signal.aborted) throw controller.signal.reason;
     throw error;

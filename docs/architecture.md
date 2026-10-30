@@ -253,6 +253,11 @@ their queue to Plex and have a 20-second budget; shared random builds stop when
 their last caller leaves. Artwork has a separate connection pool and a 15-second
 deadline through the response body. Unmounted images clear their native sources;
 media, subtitle and notification streams retain their long-lived transport.
+Page reads retry a transient transport/HTTP failure once after 500 ms, outside the
+limiter slot and within the original deadline. Each attempt cancels sibling reads
+before retrying. Native artwork retries in the proxy; its complete response is
+buffered before publication so a truncated image can be retried safely. Permanent
+HTTP/validation failures and writes are not retried; Query's own retries stay off.
 First-page hooks supply grid counts; `useVirtualGrid` computes the current range
 before page hooks read it in the same render. Cached jumps render available cards
 immediately. Memoized actionable cards skip unchanged props during scrolling.

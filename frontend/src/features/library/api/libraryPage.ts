@@ -17,8 +17,9 @@ export class LibraryPageError extends Error {
     message: string,
     public readonly retryable: boolean,
     public readonly status?: number,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
     this.name = "LibraryPageError";
   }
 }
@@ -76,7 +77,7 @@ export async function getLibraryPage(
 
     if (status === 401)
       window.dispatchEvent(new Event(PLEX_SESSION_INVALID_EVENT));
-    throw new LibraryPageError(message, retryable, status);
+    throw new LibraryPageError(message, retryable, status, { cause: error });
   }
 }
 

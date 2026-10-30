@@ -126,7 +126,7 @@ test('a shared random catalog survives one departure, cancels on the last and ca
     assert.equal((await retry).status, 200);
 });
 
-async function proxy(t, handler) {
+async function proxy(t, handler, options = {}) {
     const plexServer = await listen(t, handler);
     const agents = {
         httpAgent: new http.Agent({ keepAlive: true, maxSockets: 1 }),
@@ -136,7 +136,7 @@ async function proxy(t, handler) {
     };
     t.after(() => Object.values(agents).forEach(agent => agent.destroy()));
     const app = express();
-    app.use(createPlexProxyRouter({ plexServer, ...agents, requestTimeoutMs: 80, imageTimeoutMs: 80 }));
+    app.use(createPlexProxyRouter({ plexServer, ...agents, requestTimeoutMs: 80, imageTimeoutMs: 80, ...options }));
     return listen(t, app);
 }
 const imagePath = '/dynproxy/photo/:/transcode?X-Plex-Token=synthetic-fixture';
@@ -173,7 +173,7 @@ test('an incomplete image body is terminated, but video and subtitle streams rem
         }
     });
     const image = await fetch(url + imagePath);
-    await assert.rejects(image.text());
+    assert.equal(image.status, 504);
     await until(() => imageClosed);
     for (const path of ['/file.mp4', '/video/:/transcode/universal/subtitles']) {
         const response = await fetch(url + '/dynproxy' + path + '?X-Plex-Token=synthetic-fixture');
@@ -186,4 +186,93 @@ test('a stalled buffered metadata proxy response also has a deadline', async t =
     const url = await proxy(t, (_req, res) => res.on('close', () => { closed = true; }));
     assert.equal((await metadata(url)).status, 504);
     await until(() => closed);
+});
+
+test('artwork retries a transient response once without holding a socket during backoff', async t => {
+    let reads = 0;
+    const bytes = Buffer.from([0, 255, 1, 128]);
+    const url = await proxy(t, (req, res) => {
+        if (req.url.includes('other')) return res.end('other image');
+        reads++;
+        if (reads === 1) { res.statusCode = 503; return res.end('Temporary failure'); }
+        res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': bytes.length });
+        res.end(bytes);
+    }, { imageTimeoutMs: 1500 });
+    const recovering = fetch(url + imagePath);
+    await until(() => reads === 1);
+    assert.equal(await (await fetch(url + imagePath + '&url=other')).text(), 'other image');
+    assert.equal(reads, 1);
+    const response = await recovering;
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'image/png');
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), bytes);
+    assert.equal(reads, 2);
+});
+
+test('a truncated artwork body can recover before any broken bytes reach the browser', async t => {
+    let reads = 0;
+    const url = await proxy(t, (_req, res) => {
+        reads++;
+        res.writeHead(200, { 'Content-Length': 8 });
+        if (reads === 1) {
+            res.write('broken');
+            return setImmediate(() => res.destroy());
+        }
+        res.end('complete');
+    }, { imageTimeoutMs: 1500 });
+    const response = await fetch(url + imagePath);
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), 'complete');
+    assert.equal(reads, 2);
+});
+
+test('artwork backoff ends at the original deadline rather than starting a fresh budget', async t => {
+    let reads = 0;
+    const url = await proxy(t, (_req, res) => {
+        reads++;
+        res.statusCode = 503;
+        res.end('Temporary failure');
+    }, { imageTimeoutMs: 100 });
+    assert.equal((await fetch(url + imagePath)).status, 504);
+    assert.equal(reads, 1);
+});
+
+test('leaving artwork during backoff prevents its second attempt', async t => {
+    let reads = 0;
+    const url = await proxy(t, (_req, res) => {
+        reads++;
+        res.statusCode = 503;
+        res.end('Temporary failure');
+    }, { imageTimeoutMs: 1500 });
+    const controller = new AbortController();
+    const response = fetch(url + imagePath, { signal: controller.signal }).catch(error => error);
+    await until(() => reads === 1);
+    controller.abort();
+    assert.equal((await response).name, 'AbortError');
+    await new Promise(resolve => setTimeout(resolve, 550));
+    assert.equal(reads, 1);
+});
+
+test('permanent artwork errors and writes are never retried', async t => {
+    let reads = 0;
+    const url = await proxy(t, (req, res) => {
+        reads++;
+        res.statusCode = Number(new URL(req.url, 'http://plex').searchParams.get('status'));
+        res.end('Rejected');
+    }, { imageTimeoutMs: 1500 });
+    for (const status of [400, 401, 403, 404, 429])
+        assert.equal((await fetch(url + imagePath + '&status=' + status)).status, status);
+    assert.equal((await fetch(url + imagePath + '&status=503', { method: 'POST' })).status, 503);
+    assert.equal(reads, 6);
+});
+
+test('a persistent artwork failure stops after its second response', async t => {
+    let reads = 0;
+    const url = await proxy(t, (_req, res) => {
+        reads++;
+        res.statusCode = 503;
+        res.end('Still unavailable');
+    }, { imageTimeoutMs: 1500 });
+    assert.equal((await fetch(url + imagePath)).status, 503);
+    assert.equal(reads, 2);
 });

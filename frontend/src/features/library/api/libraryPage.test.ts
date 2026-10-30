@@ -112,6 +112,15 @@ it("preserves backend retryability in range errors", async () => {
   );
 });
 
+it("preserves a network error cause for the shared automatic read retry", async () => {
+  const network = new axios.AxiosError("Disconnected", "ERR_NETWORK");
+  vi.spyOn(axios, "get").mockRejectedValue(network);
+  await expect(getLibraryPage(request)).rejects.toMatchObject({
+    retryable: true,
+    cause: network,
+  });
+});
+
 it("serializes nested filter expressions without client-only labels", async () => {
   const get = vi.spyOn(axios, "get").mockResolvedValue({
     data: { offset: 0, size: 0, totalSize: 0, hasMore: false, items: [] },

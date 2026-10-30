@@ -4,6 +4,7 @@ import express from 'express';
 import type http from 'node:http';
 import type https from 'node:https';
 import { pipeline } from 'node:stream/promises';
+import { setTimeout as delay } from 'node:timers/promises';
 import { safeRequestUrl } from './requestLogging.js';
 import { createRequestScope } from './common/requestScope.js';
 
@@ -63,6 +64,12 @@ function validMethod(value: unknown): value is 'GET' | 'POST' | 'PUT' | 'DELETE'
     return typeof value === 'string' && ['GET', 'POST', 'PUT', 'DELETE'].includes(value);
 }
 
+function transientImageError(error: unknown) {
+    return axios.isAxiosError(error) && [
+        'ECONNRESET', 'ECONNABORTED', 'ETIMEDOUT', 'EAI_AGAIN', 'ECONNREFUSED', 'ERR_BAD_RESPONSE',
+    ].includes(error.code ?? '');
+}
+
 export function createPlexProxyRouter({
     plexServer, httpAgent, httpsAgent, eventAgent, imageHttpAgent, imageHttpsAgent,
     requestTimeoutMs = 20_000, imageTimeoutMs = 15_000,
@@ -87,10 +94,11 @@ export function createPlexProxyRouter({
             res.status(401).send('Plex token required');
             return;
         }
-        const image = target.pathname === '/photo/:/transcode';
+        const image = target.pathname === '/photo/:/transcode'
+            && ['GET', 'HEAD'].includes(String(config.method ?? 'GET').toUpperCase());
         const scope = createRequestScope(req, res, image ? imageTimeoutMs : streaming ? 0 : requestTimeoutMs);
         try {
-            const response = await axios({
+            const read = () => axios({
                 httpAgent,
                 httpsAgent,
                 validateStatus: () => true,
@@ -100,15 +108,29 @@ export function createPlexProxyRouter({
                     httpsAgent: imageHttpsAgent ?? httpsAgent,
                 }),
                 signal: scope.signal,
-                responseType: streaming ? 'stream' : 'arraybuffer',
+                // Finish artwork before committing headers so a truncated image can be retried safely.
+                responseType: streaming && !image ? 'stream' : 'arraybuffer',
                 ...(streaming && { decompress: false }),
             });
+            let response;
+            for (let attempt = 0; ; attempt++) {
+                scope.signal.throwIfAborted();
+                try {
+                    response = await read();
+                    if (!image || attempt > 0 || ![408, 500, 502, 503, 504].includes(response.status)) break;
+                } catch (error) {
+                    if (!image || attempt > 0 || scope.signal.aborted || !transientImageError(error)) throw error;
+                }
+                // Only artwork retries here; page reads own their retry in the frontend.
+                await delay(500, undefined, { signal: scope.signal });
+            }
             res.status(response.status);
             if (streaming) {
                 for (const [name, value] of Object.entries(forwardedHeaders(response.headers)))
                     res.setHeader(name, value);
                 res.flushHeaders();
-                await pipeline(response.data, res, { signal: scope.signal });
+                if (image) res.end(response.data);
+                else await pipeline(response.data, res, { signal: scope.signal });
             } else {
                 const contentType = response.headers['content-type'];
                 if (typeof contentType === 'string') res.type(contentType);
