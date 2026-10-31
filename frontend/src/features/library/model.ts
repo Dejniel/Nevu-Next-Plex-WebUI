@@ -4,6 +4,7 @@ export { libraryPageOptions, libraryWindowKey } from "./model/libraryPages";
 export { invalidateRandomCatalogs, synchronizeLibraryItem } from "./api/libraryPage";
 export {
   libraryDirectoryQueryOptions,
+  librarySectionQueryOptions,
   applyLibraryDirectoryChanges,
 } from "./model/libraryDirectories";
 

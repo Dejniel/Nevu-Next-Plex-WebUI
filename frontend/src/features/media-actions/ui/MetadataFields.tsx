@@ -9,7 +9,10 @@ import {
   Typography,
 } from "@mui/material";
 import { useState } from "react";
-import { libraryDirectoryQueryOptions } from "features/library/model";
+import {
+  libraryDirectoryQueryOptions,
+  librarySectionQueryOptions,
+} from "features/library/model";
 import type { LibraryFilter } from "entities/library/model";
 import { serverQueryClient } from "shared/api/queryClient";
 import { QueryErrorAlert } from "shared/ui/QueryErrorAlert";
@@ -77,7 +80,7 @@ export function MetadataGeneralFields({ editor }: { editor: MetadataEditor }) {
                 ? "Editing editions requires Plex Pass for the server owner and a supported server version."
                 : (editor.errors[field.id] ??
                   (field.id === "title" &&
-                  ["artist", "album"].includes(editor.initial.type)
+                  ["artist", "album"].includes(editor.item.type)
                     ? "Plex may merge items when the new name matches an existing artist or album."
                     : undefined))
             }
@@ -107,17 +110,13 @@ const organization = new Set(["collection", "label"]);
 export function MetadataTagFields({ editor }: { editor: MetadataEditor }) {
   const scope = editor.source.scope ?? { serverId: "", profileKey: "" };
   const schema = useQuery(
-    libraryDirectoryQueryOptions(
-      scope,
-      `/library/sections/${editor.initial.librarySectionID}`,
-      { includeDetails: 1 },
-    ),
+    librarySectionQueryOptions(scope, String(editor.item.librarySectionID)),
     serverQueryClient,
   );
   const filters = schema.data?.Type?.find(
     (type) =>
       type.type ===
-      (editor.initial.type === "photoalbum" ? "photo" : editor.initial.type),
+      (editor.item.type === "photoalbum" ? "photo" : editor.item.type),
   )?.Filter;
   const groups = [
     {

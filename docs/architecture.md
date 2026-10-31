@@ -167,8 +167,11 @@ queries. Per-item settings share the existing Plex preference fields and validat
 mutations validate fresh descriptors and music parent identities. Music merge
 preflight resolves the surviving ID; subsequent writes and details navigation use
 that identity. Acknowledged merges, artwork and settings remain recorded after
-partial failures, so retry retains the draft without repeating completed operations.
-Edition and extended-artwork controls follow server capabilities.
+partial failures. The draft rebases onto the surviving item, retaining only
+unsaved edits; retry does not repeat acknowledged operations. Artwork/settings
+queries share a session-revision key owned by the editor API; canonical metadata
+refreshes through scoped synchronization. Every request checks the captured
+session. Edition and extended-artwork controls follow server capabilities.
 
 Library navigation and title actions share toolbar measurement and focus handling;
 each feature owns its overflow rules. Library order, pins and icon mode share one

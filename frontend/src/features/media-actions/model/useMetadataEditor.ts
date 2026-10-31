@@ -1,32 +1,26 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { usePreferenceDraft } from "entities/plex-preferences/model";
 import {
   validatePreferenceChanges,
   type PlexPreference,
 } from "@nevu/contracts";
 import { serverQueryClient } from "shared/api/queryClient";
+import { createMetadataEditor, MetadataSaveError } from "../api/metadata";
 import {
-  createMetadataEditor,
-  MetadataSaveError,
-  validArtworkURL,
-  type ArtworkChanges,
+  createMetadataDraft,
+  metadataArtworkError,
+  metadataDraftChanges,
+  metadataDraftReducer,
   type ArtworkUpdate,
   type MetadataSaveInput,
-} from "../api/metadata";
+} from "./metadataEditorDraft";
 import {
-  draftFromMetadata,
-  metadataChanges,
   metadataDraftErrors,
   metadataFields,
-  metadataLocks,
-  metadataMusicParents,
-  metadataParentChanges,
-  sameMetadataValue,
   type MetadataEditingItem,
   type MetadataField,
   type MetadataValue,
-  type MetadataLockUpdate,
   type ArtworkField,
   type MetadataParent,
 } from "./metadataEditing";
@@ -40,55 +34,27 @@ export function useMetadataEditor(
   onSaved?: (result: { ratingKey: string }) => void,
   onRelocated?: (ratingKey: string) => void,
 ) {
-  const [initial] = useState(data);
-  const [source, setSource] = useState(() => createMetadataEditor(initial));
-  const [baseline] = useState(() => draftFromMetadata(initial));
-  const [initialLocks, setInitialLocks] = useState(() =>
-    metadataLocks(initial),
+  const [initialID] = useState(data.ratingKey);
+  const [source, setSource] = useState(() => createMetadataEditor(data));
+  const [state, dispatch] = useReducer(
+    metadataDraftReducer,
+    data,
+    createMetadataDraft,
   );
-  const [draft, setDraft] = useState(baseline);
-  const [locks, setLocks] = useState(initialLocks);
-  const [artwork, setArtwork] = useState<ArtworkChanges>({});
   const [section, changeSection] = useState<MetadataEditorSection>("general");
   const [loadPreferences, setLoadPreferences] = useState(false);
-  const [originalParents] = useState(() => metadataMusicParents(initial));
-  const [parents, setParents] = useState(originalParents);
   const request = useRef<AbortController | null>(null);
   useEffect(() => () => request.current?.abort(), []);
-  const preferencesKey = [
-    "metadata-preferences",
-    source.scope?.serverId,
-    source.scope?.profileKey,
-    source.revision,
-    source.id,
-  ] as const;
   const preferences = useQuery(
     {
-      queryKey: preferencesKey,
+      queryKey: [...source.queryKey, "preferences"],
       queryFn: ({ signal }) => source.preferences(signal),
       enabled: loadPreferences,
     },
     serverQueryClient,
   );
   const preferenceDraft = usePreferenceDraft(preferences.data ?? []);
-  const fields = metadataFields(initial.type).filter(
-    (field) =>
-      field.id !== "editionTitle" ||
-      source.capabilities.edition ||
-      initial.editionTitle,
-  );
-  const changes = metadataChanges(baseline, draft);
-  const parentChanges = metadataParentChanges(originalParents, parents);
-  const lockChanges: MetadataLockUpdate = Object.fromEntries(
-    [...fields.map((field) => field.id), ...source.capabilities.artwork]
-      .filter(
-        (field) =>
-          changes[field as MetadataField] !== undefined ||
-          Object.hasOwn(artwork, field) ||
-          Boolean(locks[field]) !== Boolean(initialLocks[field]),
-      )
-      .map((field) => [field, Boolean(locks[field])]),
-  );
+  const pending = metadataDraftChanges(state);
   const mutation = useMutation(
     {
       mutationKey: [
@@ -96,10 +62,9 @@ export function useMetadataEditor(
         source.scope?.serverId,
         source.scope?.profileKey,
         source.revision,
-        initial.ratingKey,
+        initialID,
       ],
-      mutationFn: async (values: MetadataSaveInput) => {
-        source.assertCurrent();
+      mutationFn: (values: MetadataSaveInput) => {
         const controller = new AbortController();
         request.current = controller;
         return source.save(values, controller.signal);
@@ -121,27 +86,17 @@ export function useMetadataEditor(
           return;
         }
         if (!(error instanceof MetadataSaveError)) return;
-        if (error.completed.replacement) {
-          setSource(createMetadataEditor(error.completed.replacement));
-          onRelocated?.(error.completed.replacement.ratingKey);
+        const nextSource = error.completed.replacement
+          ? createMetadataEditor(error.completed.replacement)
+          : source;
+        dispatch({ type: "acknowledged", completed: error.completed });
+        if (nextSource !== source) {
+          setSource(nextSource);
+          onRelocated?.(nextSource.id);
         }
-        setArtwork((current) =>
-          Object.fromEntries(
-            Object.entries(current).filter(
-              ([field]) =>
-                !error.completed.artwork.includes(field as ArtworkField),
-            ),
-          ),
-        );
-        setInitialLocks((current) => ({
-          ...current,
-          ...Object.fromEntries(
-            error.completed.artwork.map((field) => [field, true]),
-          ),
-        }));
         if (error.completed.preferences) {
           serverQueryClient.setQueryData<PlexPreference[]>(
-            preferencesKey,
+            [...nextSource.queryKey, "preferences"],
             (current) =>
               current?.map((preference) => ({
                 ...preference,
@@ -154,7 +109,7 @@ export function useMetadataEditor(
     },
     serverQueryClient,
   );
-  const errors = metadataDraftErrors(initial.type, draft);
+  const errors = metadataDraftErrors(state.item.type, state.values);
   let preferencesValid = true;
   try {
     validatePreferenceChanges(preferences.data ?? [], preferenceDraft.draft);
@@ -162,81 +117,55 @@ export function useMetadataEditor(
     preferencesValid = false;
   }
   const parentsValid =
-    !Object.keys(parentChanges).length ||
-    Boolean(parents.artist && (initial.type !== "track" || parents.album));
-  const dirty = Boolean(
-    Object.keys(changes).length ||
-      Object.keys(lockChanges).length ||
-      Object.keys(artwork).length ||
-      Object.keys(preferenceDraft.changes).length ||
-      Object.keys(parentChanges).length,
+    !Object.keys(pending.parents).length ||
+    Boolean(
+      state.parents.artist &&
+      (state.item.type !== "track" || state.parents.album),
+    );
+  const input = { ...pending, preferences: preferenceDraft.changes };
+  const dirty = Object.values(input).some(
+    (changes) => Object.keys(changes).length,
   );
   const valid =
     parentsValid &&
     preferencesValid &&
     !Object.keys(errors).length &&
-    !Object.values(artwork).some(
-      (value) => value.type === "url" && !validArtworkURL(value.url),
-    );
+    !Object.values(state.artwork).some(metadataArtworkError);
   return {
-    initial,
+    item: state.item,
     source,
     section,
     setSection: (next: MetadataEditorSection) => {
       changeSection(next);
       if (next === "advanced") setLoadPreferences(true);
     },
-    fields,
-    draft,
-    locks,
-    artwork,
-    parents,
+    fields: metadataFields(state.item.type).filter(
+      (field) =>
+        field.id !== "editionTitle" ||
+        source.capabilities.edition ||
+        state.item.editionTitle,
+    ),
+    draft: state.values,
+    locks: state.locks,
+    artwork: state.artwork,
+    parents: state.parents,
+    parentChanges: pending.parents,
     errors,
     preferences,
     preferenceDraft,
     mutation,
     canSave: dirty && valid && !mutation.isPending,
     save: () => {
-      if (dirty && valid && !mutation.isPending)
-        mutation.mutate({
-          changes,
-          locks: lockChanges,
-          artwork,
-          preferences: preferenceDraft.changes,
-          parents: parentChanges,
-        });
+      if (dirty && valid && !mutation.isPending) mutation.mutate(input);
     },
-    setField: (field: MetadataField, value: MetadataValue) => {
-      setDraft((current) => ({ ...current, [field]: value }));
-      setLocks((current) => ({
-        ...current,
-        [field]: sameMetadataValue(baseline[field], value)
-          ? Boolean(initialLocks[field])
-          : true,
-      }));
-    },
-    setLock: (field: MetadataField | ArtworkField, locked: boolean) =>
-      setLocks((current) => ({ ...current, [field]: locked })),
-    setArtwork: (field: ArtworkField, value: ArtworkUpdate | undefined) => {
-      setArtwork((current) => {
-        const next = { ...current };
-        if (value) next[field] = value;
-        else delete next[field];
-        return next;
-      });
-      setLocks((current) => ({
-        ...current,
-        [field]: value ? true : Boolean(initialLocks[field]),
-      }));
-    },
+    setField: (field: MetadataField, value: MetadataValue) =>
+      dispatch({ type: "field", field, value }),
+    setLock: (field: MetadataField | ArtworkField, value: boolean) =>
+      dispatch({ type: "lock", field, value }),
+    setArtwork: (field: ArtworkField, value: ArtworkUpdate | undefined) =>
+      dispatch({ type: "artwork", field, value }),
     setParent: (field: "artist" | "album", value: MetadataParent) =>
-      setParents((current) => ({
-        ...current,
-        [field]: value,
-        ...(field === "artist" &&
-          initial.type === "track" &&
-          value.id !== current.artist?.id && { album: undefined }),
-      })),
+      dispatch({ type: "parent", field, value }),
   };
 }
 export type MetadataEditor = ReturnType<typeof useMetadataEditor>;

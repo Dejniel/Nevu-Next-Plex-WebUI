@@ -1,4 +1,5 @@
 import { readMediaMetadata, type MediaMetadata } from "entities/media/model";
+import { libraryItemTypeNumbers } from "@nevu/contracts";
 import { PlexClient } from "shared/api/PlexClient";
 import { readPlexMetadataPages } from "shared/api/plexPagination";
 import {
@@ -79,7 +80,7 @@ export async function prepareMusicEdit(
       throw new Error("Plex could not identify this album's artist.");
     const title = changes.title ?? current.title;
     const params = new URLSearchParams({
-      type: current.type === "album" ? "9" : "8",
+      type: String(libraryItemTypeNumbers[current.type]),
       title,
     });
     if (current.type === "album") params.set("artist.id", artistID!);

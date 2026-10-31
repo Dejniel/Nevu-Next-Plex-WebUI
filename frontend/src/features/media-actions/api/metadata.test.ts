@@ -6,6 +6,7 @@ import {
 import { subscribeToMediaChanges } from "entities/media/model";
 import { ProxiedRequest } from "shared/api/backend";
 import { serverQueryClient } from "shared/api/queryClient";
+import { QueryObserver } from "@tanstack/react-query";
 import {
   buildMetadataUpdatePath,
   createMetadataEditor,
@@ -358,6 +359,41 @@ it("reports completed artwork and publishes one refresh after a partial failure"
   }
 });
 
+it("leaves canonical refresh to synchronization while refreshing the editor's own resources", async () => {
+  const editor = createMetadataEditor(data);
+  const canonicalRead = vi.fn(async () => data);
+  const artworkRead = vi.fn(async () => []);
+  const metadata = new QueryObserver(serverQueryClient, {
+    queryKey: ["media", "local", "1:1", "42"],
+    queryFn: canonicalRead,
+    initialData: data,
+    staleTime: Infinity,
+  });
+  const artwork = new QueryObserver(serverQueryClient, {
+    queryKey: [...editor.queryKey, "artwork", "thumb"],
+    queryFn: artworkRead,
+    initialData: [],
+    staleTime: Infinity,
+  });
+  const stopMetadata = metadata.subscribe(() => undefined);
+  const stopArtwork = artwork.subscribe(() => undefined);
+  try {
+    await editor.save(
+      { changes: { title: "Edited" }, locks: {}, artwork: {} },
+      signal(),
+    );
+    expect(canonicalRead).not.toHaveBeenCalled();
+    expect(artworkRead).toHaveBeenCalledTimes(1);
+    expect(
+      serverQueryClient.getQueryState(["media", "local", "1:1", "42"])
+        ?.isInvalidated,
+    ).toBe(true);
+  } finally {
+    stopMetadata();
+    stopArtwork();
+  }
+});
+
 it("invalidates the original scope without refetching through a replaced session", async () => {
   const invalidate = vi.spyOn(serverQueryClient, "invalidateQueries");
   transport.mockImplementation(async () => {
@@ -490,6 +526,54 @@ it("reports an acknowledged preference write when the later metadata write fails
       signal(),
     ),
   ).rejects.toMatchObject({ completed: { artwork: [], preferences: true } });
+});
+
+it("does not start another write after the session changes during an acknowledged preference save", async () => {
+  transport
+    .mockResolvedValueOnce(preferenceResponse())
+    .mockImplementationOnce(async () => {
+      useAuthSession.setState({ revision: 2 });
+      return { status: 200, data: "" };
+    });
+  await expect(
+    createMetadataEditor(data).save(
+      {
+        changes: { title: "Edited" },
+        locks: {},
+        artwork: {},
+        preferences: { episodeSort: "1" },
+      },
+      signal(),
+    ),
+  ).rejects.toMatchObject({ completed: { preferences: true } });
+  expect(transport.mock.calls.map((call) => call[1])).toEqual(["GET", "PUT"]);
+});
+
+it("stops a music merge if its session changes during destination lookup", async () => {
+  const album = { ...data, type: "album", parentRatingKey: "7" };
+  transport
+    .mockResolvedValueOnce({
+      status: 200,
+      data: { MediaContainer: { Metadata: [album] } },
+    })
+    .mockImplementationOnce(async () => {
+      useAuthSession.setState({ revision: 2 });
+      return {
+        status: 200,
+        data: {
+          MediaContainer: {
+            Metadata: [{ ...album, ratingKey: "84", title: "Destination" }],
+          },
+        },
+      };
+    });
+  await expect(
+    createMetadataEditor(album).save(
+      { changes: { title: "Destination" }, locks: {}, artwork: {} },
+      signal(),
+    ),
+  ).rejects.toThrow("session changed");
+  expect(transport.mock.calls.map((call) => call[1])).toEqual(["GET", "GET"]);
 });
 
 it("shares the existing artwork transport for logos and square art", async () => {

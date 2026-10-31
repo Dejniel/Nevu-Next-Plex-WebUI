@@ -112,7 +112,8 @@ const input = (name: string) => {
     (label) => label.textContent?.replace(/\s*\*$/, "") === name,
   );
   return label
-    ? (document.getElementById(label.htmlFor) as HTMLInputElement)
+    ? (document.getElementById(label.htmlFor) as
+        HTMLInputElement | HTMLTextAreaElement)
     : null;
 };
 const click = async (element: HTMLElement) => {
@@ -125,7 +126,9 @@ const change = async (name: string, value: string) => {
   expect(element).toBeTruthy();
   await act(async () => {
     Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
+      element instanceof HTMLTextAreaElement
+        ? HTMLTextAreaElement.prototype
+        : HTMLInputElement.prototype,
       "value",
     )!.set!.call(element, value);
     element.dispatchEvent(new Event("input", { bubbles: true }));
@@ -485,72 +488,91 @@ it("does not repeat saved preferences after a later metadata error", async () =>
   expect(onSaved).toHaveBeenCalledTimes(1);
 });
 
-it("continues a partially failed album merge using its surviving identity and does not upload artwork twice", async () => {
-  const source = {
-    ...original,
-    type: "album",
-    title: "Source",
-    parentRatingKey: "7",
-    parentTitle: "Artist",
-  } as MediaMetadata;
-  const target = { ...source, ratingKey: "84", title: "Destination" };
-  data = source;
-  let merged = false;
-  let failFields = true;
-  transport.mockImplementation(async (path, method) => {
-    const url = new URL(path, "http://plex");
-    if (method === "GET") {
-      if (url.pathname.endsWith("/posters"))
-        return {
-          status: 200,
-          data: {
-            MediaContainer: {
-              Metadata: [{ ratingKey: "metadata://new", thumb: "/new" }],
-            },
-          },
-        };
-      if (url.pathname.startsWith("/library/sections/"))
-        return {
-          status: 200,
-          data: { MediaContainer: { Metadata: [target] } },
-        };
-      if (url.pathname === "/library/metadata/42" && merged)
-        return { status: 404, data: "" };
-      return {
-        status: 200,
-        data: { MediaContainer: { Metadata: [merged ? target : source] } },
-      };
-    }
-    if (url.searchParams.get("id") === "42") {
-      merged = true;
-      return { status: 200, data: "" };
-    }
-    return {
-      status: url.searchParams.get("id") === "84" && failFields ? 400 : 200,
-      data: "",
+it.each([false, true])(
+  "rebases a partial merge, preserves pending fields (%s) and does not upload artwork twice",
+  async (editSummary) => {
+    const source = {
+      ...original,
+      type: "album",
+      title: "Source",
+      parentRatingKey: "7",
+      parentTitle: "Artist",
+    } as MediaMetadata;
+    const target = {
+      ...source,
+      ratingKey: "84",
+      title: "Destination",
+      summary: "Target summary",
     };
-  });
-  await render();
-  await change("Title", "Destination");
-  await click(button("Artwork"));
-  await click(
-    document.querySelector<HTMLElement>('[aria-label="Choose cover 1"]')!,
-  );
-  await click(button("Save"));
-  expect(onSaved).not.toHaveBeenCalled();
-  expect(document.body.textContent).toContain("Plex merged the music items");
-  failFields = false;
-  await click(button("Save"));
-  expect(
-    writes().filter(
-      (call) => new URL(call[0], "http://plex").searchParams.get("id") === "42",
-    ),
-  ).toHaveLength(1);
-  expect(writes().filter((call) => call[0].includes("/poster?"))).toHaveLength(
-    1,
-  );
-  expect(onSaved).toHaveBeenCalledWith({ ratingKey: "84" });
-});
+    data = source;
+    let merged = false;
+    let failFields = true;
+    transport.mockImplementation(async (path, method) => {
+      const url = new URL(path, "http://plex");
+      if (method === "GET") {
+        if (url.pathname.endsWith("/posters"))
+          return {
+            status: 200,
+            data: {
+              MediaContainer: {
+                Metadata: [{ ratingKey: "metadata://new", thumb: "/new" }],
+              },
+            },
+          };
+        if (url.pathname.startsWith("/library/sections/"))
+          return {
+            status: 200,
+            data: { MediaContainer: { Metadata: [target] } },
+          };
+        if (url.pathname === "/library/metadata/42" && merged)
+          return { status: 404, data: "" };
+        return {
+          status: 200,
+          data: { MediaContainer: { Metadata: [merged ? target : source] } },
+        };
+      }
+      if (url.searchParams.get("id") === "42") {
+        merged = true;
+        return { status: 200, data: "" };
+      }
+      return {
+        status: url.searchParams.get("id") === "84" && failFields ? 400 : 200,
+        data: "",
+      };
+    });
+    await render();
+    await change("Title", "Destination");
+    if (editSummary) await change("Summary", "Pending summary");
+    await click(button("Artwork"));
+    await click(
+      document.querySelector<HTMLElement>('[aria-label="Choose cover 1"]')!,
+    );
+    await click(button("Save"));
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Plex merged the music items");
+    await click(button("General"));
+    expect(input("Summary")!.value).toBe(
+      editSummary ? "Pending summary" : "Target summary",
+    );
+    await change("Title", source.title);
+    failFields = false;
+    await click(button("Save"));
+    expect(params().get("title.value")).toBe(source.title);
+    expect(params().get("summary.value")).toBe(
+      editSummary ? "Pending summary" : null,
+    );
+    expect(
+      writes().filter(
+        (call) =>
+          new URL(call[0], "http://plex").searchParams.get("id") === "42",
+      ),
+    ).toHaveLength(1);
+    expect(
+      writes().filter((call) => call[0].includes("/poster?")),
+    ).toHaveLength(1);
+    expect(onSaved).toHaveBeenCalledWith({ ratingKey: "84" });
+  },
+);
 
 function CurrentEditorRoute() {
   const location = useLocation();

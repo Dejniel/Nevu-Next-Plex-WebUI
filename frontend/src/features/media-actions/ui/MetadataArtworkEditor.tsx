@@ -14,11 +14,13 @@ import { serverQueryClient } from "shared/api/queryClient";
 import { QueryErrorAlert } from "shared/ui/QueryErrorAlert";
 import { imageFadeSx, useImageLoading } from "shared/ui/useImageLoading";
 import type { ArtworkField } from "../model/metadataEditing";
+import type { createMetadataEditor } from "../api/metadata";
 import {
   validArtworkURL,
+  metadataArtworkError,
+  metadataImageTypes,
   type ArtworkUpdate,
-  type createMetadataEditor,
-} from "../api/metadata";
+} from "../model/metadataEditorDraft";
 import { MetadataLockButton } from "./MetadataLockButton";
 
 export function MetadataArtworkEditor({
@@ -44,13 +46,7 @@ export function MetadataArtworkEditor({
 }) {
   const options = useQuery(
     {
-      queryKey: [
-        "media-artwork",
-        source.scope?.serverId,
-        source.scope?.profileKey,
-        source.id,
-        field,
-      ],
+      queryKey: [...source.queryKey, "artwork", field],
       queryFn: ({ signal }) => source.artwork(field, signal),
     },
     serverQueryClient,
@@ -136,22 +132,15 @@ export function MetadataArtworkEditor({
           <input
             hidden
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
+            accept={metadataImageTypes.join(",")}
             aria-label={`Upload ${label.toLowerCase()}`}
             onChange={(event) => {
               const next = event.target.files?.[0];
               event.target.value = "";
               if (!next) return;
-              if (
-                !next.size ||
-                ![
-                  "image/jpeg",
-                  "image/png",
-                  "image/webp",
-                  "image/gif",
-                ].includes(next.type)
-              ) {
-                setUploadError("Choose a JPEG, PNG, WebP or GIF image.");
+              const error = metadataArtworkError({ type: "file", file: next });
+              if (error) {
+                setUploadError(error);
                 return;
               }
               setUploadError(null);

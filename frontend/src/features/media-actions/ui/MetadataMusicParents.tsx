@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { libraryItemTypeNumbers } from "@nevu/contracts";
 import {
   Alert,
   Autocomplete,
@@ -10,24 +11,18 @@ import { useDeferredValue, useState } from "react";
 import { libraryDirectoryQueryOptions } from "features/library/model";
 import { serverQueryClient } from "shared/api/queryClient";
 import type { MetadataEditor } from "../model/useMetadataEditor";
-import {
-  metadataMusicParents,
-  type MetadataParent,
-} from "../model/metadataEditing";
+import type { MetadataParent } from "../model/metadataEditing";
 
 export function MetadataMusicParents({ editor }: { editor: MetadataEditor }) {
-  const { initial, parents } = editor;
-  if (initial.type !== "album" && initial.type !== "track") return null;
-  const original = metadataMusicParents(initial);
-  const moved =
-    parents.artist?.id !== original.artist?.id ||
-    parents.album?.id !== original.album?.id;
+  const { item, parents } = editor;
+  if (item.type !== "album" && item.type !== "track") return null;
+  const moved = Object.keys(editor.parentChanges).length > 0;
   return (
     <Box sx={{ mt: 3 }}>
       {moved && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Saving moves this{" "}
-          {initial.type === "track"
+          {item.type === "track"
             ? "track into the selected album"
             : "album to the selected artist"}
           . Plex may merge albums with the same name under one artist.
@@ -47,7 +42,7 @@ export function MetadataMusicParents({ editor }: { editor: MetadataEditor }) {
           value={parents.artist}
           onChange={(value) => editor.setParent("artist", value)}
         />
-        {initial.type === "track" && (
+        {item.type === "track" && (
           <ParentPicker
             editor={editor}
             type="album"
@@ -83,9 +78,9 @@ function ParentPicker({
   const scope = editor.source.scope ?? { serverId: "", profileKey: "" };
   const options = libraryDirectoryQueryOptions(
     scope,
-    `/library/sections/${editor.initial.librarySectionID}/all`,
+    `/library/sections/${editor.item.librarySectionID}/all`,
     {
-      type: type === "artist" ? 8 : 9,
+      type: libraryItemTypeNumbers[type],
       ...(search && { title: search }),
       ...(type === "album" && artistID && { "artist.id": artistID }),
       sort: "titleSort:asc",

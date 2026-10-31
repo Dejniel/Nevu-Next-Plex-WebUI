@@ -95,7 +95,7 @@ function OpenedMetadataEditor({ data, onClose, onSaved, onRelocated }: Props) {
         color="text.secondary"
         sx={{ mb: 2, overflowWrap: "anywhere" }}
       >
-        {editor.initial.title}
+        {editor.item.title}
       </Typography>
       {editor.mutation.error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -169,7 +169,7 @@ function ArtworkPanel({ editor }: { editor: MetadataEditor }) {
   const [field, setField] = useState<ArtworkField>("thumb");
   const label = (name: ArtworkField) =>
     name === "thumb"
-      ? metadataArtworkLabel(editor.initial.type)
+      ? metadataArtworkLabel(editor.item.type)
       : artworkTypes[name].label;
   return (
     <Box>
@@ -189,7 +189,7 @@ function ArtworkPanel({ editor }: { editor: MetadataEditor }) {
         source={editor.source}
         field={field}
         label={label(field)}
-        currentImage={editor.initial[field]}
+        currentImage={editor.item[field]}
         value={editor.artwork[field]}
         locked={Boolean(editor.locks[field])}
         disabled={editor.mutation.isPending}
