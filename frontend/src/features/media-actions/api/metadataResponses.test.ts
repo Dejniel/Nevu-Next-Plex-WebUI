@@ -118,3 +118,69 @@ it.each([
     "invalid current cast information",
   );
 });
+
+it("decodes item preferences through the shared preference model", async () => {
+  const { readMetadataPreferences } = await import("./metadataResponses");
+  const response = {
+    MediaContainer: {
+      Metadata: [
+        {
+          ratingKey: "42",
+          Preferences: {
+            Setting: [
+              {
+                id: "sort",
+                label: "Sort",
+                type: "int",
+                value: -1,
+                default: -1,
+                enumValues: "-1:Library default|0:Oldest|1:Newest",
+              },
+              {
+                id: "hidden",
+                label: "Hidden",
+                type: "bool",
+                value: false,
+                default: false,
+                hidden: true,
+              },
+              {
+                id: "showOrdering",
+                label: "",
+                type: "text",
+                value: "",
+                default: "",
+              },
+            ],
+          },
+        },
+      ],
+    },
+  };
+  expect(readMetadataPreferences(response, "42")).toMatchObject([
+    {
+      id: "sort",
+      value: "-1",
+      choices: [{ value: "-1" }, { value: "0" }, { value: "1" }],
+    },
+  ]);
+  expect(
+    readMetadataPreferences(
+      { MediaContainer: { Metadata: [{ ratingKey: "42" }] } },
+      "42",
+    ),
+  ).toEqual([]);
+});
+
+it.each([
+  { ratingKey: "other" },
+  { ratingKey: "42", Preferences: null },
+  { ratingKey: "42", Preferences: { Setting: {} } },
+  { ratingKey: "42", Preferences: { Setting: [{ id: "x", value: {} }] } },
+  { ratingKey: "42", Preferences: { Setting: [{ id: "x" }, { id: "x" }] } },
+])("rejects malformed preference snapshots: %j", async (item) => {
+  const { readMetadataPreferences } = await import("./metadataResponses");
+  expect(() =>
+    readMetadataPreferences({ MediaContainer: { Metadata: [item] } }, "42"),
+  ).toThrow("invalid item preferences");
+});

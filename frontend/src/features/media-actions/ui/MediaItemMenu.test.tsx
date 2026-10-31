@@ -1,3 +1,4 @@
+import { MemoryRouter } from "react-router-dom";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -122,7 +123,7 @@ const settle = async () => {
   });
 };
 const render = async (value = item) => {
-  await act(async () => root.render(<><MediaItemMenu item={value} /><MediaActionDialogHost /></>));
+  await act(async () => root.render(<><MediaItemMenu item={value} /><MemoryRouter><MediaActionDialogHost /></MemoryRouter></>));
 };
 const click = async (element: Element | null | undefined) => {
   expect(element).toBeTruthy();
@@ -148,6 +149,7 @@ it.each(["artist", "album", "track", "photo", "photoalbum"])(
     await click(host.querySelector("button"));
     await click(menuItem("Edit metadata"));
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Edit metadata");
+    await click(document.querySelector<HTMLButtonElement>('[role="tab"][id$="-artwork"]'));
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain(["photo", "photoalbum"].includes(type) ? "Thumbnail" : "Cover");
   },
 );
@@ -289,7 +291,7 @@ it.each(["artist", "album"] as const)(
     await click(menuItem("Match…"));
     expect(useMediaActionDialog.getState().selection).toMatchObject({ kind: "match", data: { ratingKey: "42", type } });
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Match: Song");
-    await act(async () => root.render(<MediaActionDialogHost />));
+    await act(async () => root.render(<MemoryRouter><MediaActionDialogHost /></MemoryRouter>));
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Match: Song");
     await act(async () => useAuthSession.setState({ revision: 2 }));
     expect(document.querySelector('[role="dialog"]')).toBeNull();

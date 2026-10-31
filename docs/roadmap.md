@@ -8,12 +8,6 @@ the README and release notes; implementation-only cleanup belongs in the
 
 ## Now
 
-### Complete metadata workflows
-
-- Add the remaining editable fields exposed by Plex for each media type.
-
-## Next
-
 ### Multiple selection and batch actions
 
 Episode selection already uses the shared scoped ID model; library integration
@@ -24,6 +18,8 @@ and the actions below remain planned.
 - Apply existing actions to selected items according to media type and Plex
   permissions, such as adding to lists or marking video watched/unwatched.
 - Reuse selection when adding photos to user-created albums.
+
+## Next
 
 ### Music and photo workflows
 

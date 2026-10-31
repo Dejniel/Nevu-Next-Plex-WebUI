@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { mediaMetadataQueryOptions } from "entities/media/model";
 import {
   useActiveServerScope,
@@ -78,16 +79,53 @@ function OpenedMetadataEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const query = useQuery(
     mediaMetadataQueryOptions(selection.scope, selection.data.ratingKey),
     serverQueryClient,
   );
+  const relocate = (ratingKey: string) => {
+    if (
+      useMediaActionDialog.getState().selection !== selection ||
+      ratingKey === selection.data.ratingKey
+    )
+      return;
+    const params = new URLSearchParams(location.search);
+    if (params.get("mid") === selection.data.ratingKey) {
+      params.set("mid", ratingKey);
+      navigate({ ...location, search: `?${params}` }, { replace: true });
+    } else if (
+      location.pathname.endsWith(`/item/${selection.data.ratingKey}`)
+    ) {
+      navigate(
+        {
+          ...location,
+          pathname: location.pathname.replace(
+            /\/item\/\d+$/,
+            `/item/${ratingKey}`,
+          ),
+        },
+        { replace: true },
+      );
+    }
+  };
   return (
     <EditMetadataDialog
       data={query.data ?? selection.data}
       open
       onClose={onClose}
-      onSaved={onSaved}
+      onRelocated={relocate}
+      onSaved={(result) => {
+        if (useMediaActionDialog.getState().selection !== selection) return;
+        onSaved();
+        if (
+          useMediaActionDialog.getState().selection !== selection ||
+          result.ratingKey === selection.data.ratingKey
+        )
+          return;
+        relocate(result.ratingKey);
+      }}
     />
   );
 }

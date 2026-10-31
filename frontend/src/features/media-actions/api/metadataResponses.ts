@@ -3,7 +3,11 @@ import {
   plexContainer,
   plexObject,
   PlexResponseError,
+  plexFields,
+  plexString,
+  plexBoolean,
 } from "shared/api/plexResponse";
+import { normalizePlexPreferences } from "@nevu/contracts";
 import type {
   ArtworkOption,
   MetadataCastSnapshot,
@@ -59,4 +63,53 @@ export function readMetadataCast(
     };
   });
   return { ratingKey: expectedId, Role };
+}
+
+export function readMetadataPreferences(response: unknown, expectedId: string) {
+  const resource = "item preferences";
+  const items = plexArray(plexContainer(response, resource).Metadata, resource);
+  const item = plexObject(items[0], resource);
+  if (items.length !== 1 || item.ratingKey !== expectedId)
+    throw new PlexResponseError(resource);
+  if (item.Preferences === undefined) return [];
+  const settings = plexArray(
+    plexObject(item.Preferences, resource).Setting,
+    resource,
+  );
+  const seen = new Set<string>();
+  const text = (value: unknown) => plexString(value, resource);
+  const scalar = (value: unknown) => {
+    if (
+      typeof value !== "string" &&
+      typeof value !== "boolean" &&
+      !(typeof value === "number" && Number.isFinite(value))
+    )
+      throw new PlexResponseError(resource);
+    return value;
+  };
+  return normalizePlexPreferences(
+    settings.map((value) => {
+      const row = plexObject(value, resource);
+      const id = text(row.id);
+      if (!id || seen.has(id)) throw new PlexResponseError(resource);
+      seen.add(id);
+      return {
+        id,
+        ...plexFields(row, {
+          type: text,
+          label: text,
+          summary: text,
+          group: text,
+          enumValues: text,
+          value: scalar,
+          default: scalar,
+          hidden: (value) => plexBoolean(value, resource),
+          advanced: (value) => plexBoolean(value, resource),
+        }),
+      };
+    }),
+  ).filter(
+    (preference) =>
+      preference.label !== preference.id || preference.choices.length > 0,
+  );
 }

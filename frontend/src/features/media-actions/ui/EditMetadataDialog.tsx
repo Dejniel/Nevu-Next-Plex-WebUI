@@ -1,206 +1,88 @@
-import { useMutation } from "@tanstack/react-query";
 import {
   Alert,
-  Autocomplete,
   Box,
   Button,
   CircularProgress,
-  InputAdornment,
+  Stack,
   Tab,
   Tabs,
-  TextField,
+  Typography,
+  useMediaQuery,
 } from "@mui/material";
-import { useEffect, useRef, useState } from "react";
+import { useId, useState } from "react";
 import {
   useActiveServerScope,
   useAuthSession,
   useCanManageServer,
 } from "features/session/model";
-import { serverQueryClient } from "shared/api/queryClient";
+import { PreferenceField } from "entities/plex-preferences/public";
 import { AppDialog } from "shared/ui";
+import { QueryErrorAlert } from "shared/ui/QueryErrorAlert";
 import {
-  createMetadataEditor,
-  MetadataSaveError,
-  validArtworkURL,
-  type ArtworkChanges,
-} from "../api/metadata";
+  useMetadataEditor,
+  type MetadataEditor,
+  type MetadataEditorSection,
+} from "../model/useMetadataEditor";
 import {
-  draftFromMetadata,
+  artworkTypes,
   metadataArtworkLabel,
-  metadataChanges,
-  metadataDraftErrors,
-  metadataFields,
-  metadataLocks,
-  sameMetadataValue,
   type ArtworkField,
-  type MetadataField,
-  type MetadataValue,
-  type MetadataLockUpdate,
   type MetadataEditingItem,
 } from "../model/metadataEditing";
 import { MetadataArtworkEditor } from "./MetadataArtworkEditor";
-import { MetadataLockButton } from "./MetadataLockButton";
+import { MetadataGeneralFields, MetadataTagFields } from "./MetadataFields";
+import { MetadataMusicParents } from "./MetadataMusicParents";
 
 interface Props {
   data: MetadataEditingItem;
   open: boolean;
   onClose: () => void;
-  onSaved?: () => void;
+  onSaved?: (result: { ratingKey: string }) => void;
+  onRelocated?: (ratingKey: string) => void;
 }
-
 export default function EditMetadataDialog(props: Props) {
   const scope = useActiveServerScope();
   const revision = useAuthSession((state) => state.revision);
   const allowed = useCanManageServer();
   return props.open && allowed ? (
-    <MetadataEditor
+    <OpenedMetadataEditor
       key={`${scope.serverId}:${scope.profileKey}:${revision}:${props.data.ratingKey}`}
       {...props}
     />
   ) : null;
 }
 
-function MetadataEditor({ data, onClose, onSaved }: Props) {
-  // Canonical refreshes keep flowing outside the dialog. This opened edit has
-  // a stable baseline, so those refreshes cannot erase the user's draft.
-  const [initial] = useState(() => data);
-  const [source] = useState(() => createMetadataEditor(initial));
-  const [baseline] = useState(() => draftFromMetadata(initial));
-  const [initialLocks, setInitialLocks] = useState(() =>
-    metadataLocks(initial),
-  );
-  const [draft, setDraft] = useState(baseline);
-  const [locks, setLocks] = useState(initialLocks);
-  const [artwork, setArtwork] = useState<ArtworkChanges>({});
-  const [tab, setTab] = useState<"general" | "tags" | ArtworkField>("general");
-  const request = useRef<AbortController | null>(null);
-  useEffect(() => () => request.current?.abort(), []);
-  const mutation = useMutation(
-    {
-      mutationKey: [
-        "metadata-edit",
-        source.scope?.serverId,
-        source.scope?.profileKey,
-        source.revision,
-        source.id,
-      ],
-      mutationFn: async (values: {
-        changes: ReturnType<typeof metadataChanges>;
-        locks: MetadataLockUpdate;
-        artwork: ArtworkChanges;
-      }) => {
-        source.assertCurrent();
-        const controller = new AbortController();
-        request.current = controller;
-        await source.save(
-          values.changes,
-          values.locks,
-          values.artwork,
-          controller.signal,
-        );
-        source.assertCurrent(controller.signal);
-      },
-      retry: false,
-      onSuccess: () => {
-        try {
-          source.assertCurrent(request.current?.signal);
-        } catch {
-          return;
-        }
-        onSaved?.();
-        onClose();
-      },
-      onError: (error) => {
-        if (error instanceof MetadataSaveError) {
-          setArtwork((current) =>
-            Object.fromEntries(
-              Object.entries(current).filter(
-                ([field]) =>
-                  !error.completedArtwork.includes(field as ArtworkField),
-              ),
-            ),
-          );
-          setInitialLocks((current) => ({
-            ...current,
-            ...Object.fromEntries(
-              error.completedArtwork.map((field) => [field, true]),
-            ),
-          }));
-        }
-      },
-    },
-    serverQueryClient,
-  );
-  const fields = metadataFields(initial.type);
-  const changes = metadataChanges(baseline, draft);
-  const lockChanges: MetadataLockUpdate = Object.fromEntries(
-    [...fields.map((field) => field.id), "thumb", "art"]
-      .filter(
-        (field) =>
-          changes[field as MetadataField] !== undefined ||
-          Object.hasOwn(artwork, field) ||
-          Boolean(locks[field as keyof MetadataLockUpdate]) !==
-            Boolean(initialLocks[field as keyof MetadataLockUpdate]),
-      )
-      .map((field) => [
-        field,
-        Boolean(locks[field as keyof MetadataLockUpdate]),
-      ]),
-  );
-  const errors = metadataDraftErrors(initial.type, draft);
-  const dirty =
-    Object.keys(changes).length > 0 ||
-    Object.keys(lockChanges).length > 0 ||
-    Object.keys(artwork).length > 0;
-  const valid =
-    Object.keys(errors).length === 0 &&
-    !Object.values(artwork).some(
-      (value) => value.type === "url" && !validArtworkURL(value.url),
-    );
-  const setField = (field: MetadataField, value: MetadataValue) => {
-    setDraft((current) => ({ ...current, [field]: value }));
-    setLocks((current) => ({
-      ...current,
-      [field]: sameMetadataValue(baseline[field], value)
-        ? Boolean(initialLocks[field])
-        : true,
-    }));
-  };
-  const lock = (field: MetadataField, label: string) => (
-    <InputAdornment position="end">
-      <MetadataLockButton
-        label={label}
-        locked={Boolean(locks[field])}
-        disabled={mutation.isPending}
-        onChange={(value) =>
-          setLocks((current) => ({ ...current, [field]: value }))
-        }
-      />
-    </InputAdornment>
-  );
-  const save = () => {
-    if (dirty && valid && !mutation.isPending)
-      mutation.mutate({ changes, locks: lockChanges, artwork });
-  };
-  const artworkLabel =
-    tab === "thumb" ? metadataArtworkLabel(initial.type) : "Background";
+const sections: { id: MetadataEditorSection; label: string }[] = [
+  { id: "general", label: "General" },
+  { id: "tags", label: "Tags & people" },
+  { id: "artwork", label: "Artwork" },
+  { id: "advanced", label: "Advanced" },
+];
+
+function OpenedMetadataEditor({ data, onClose, onSaved, onRelocated }: Props) {
+  const editor = useMetadataEditor(data, onClose, onSaved, onRelocated);
+  const wide = useMediaQuery("(min-width:900px)");
+  const id = useId();
   return (
     <AppDialog
       open
       title="Edit metadata"
-      busy={mutation.isPending}
+      maxWidth={1100}
+      busy={editor.mutation.isPending}
       onClose={onClose}
       actions={
         <>
-          <Button onClick={onClose} disabled={mutation.isPending}>
+          <Button onClick={onClose} disabled={editor.mutation.isPending}>
             Cancel
           </Button>
           <Button
             variant="contained"
-            onClick={save}
-            disabled={!dirty || !valid || mutation.isPending}
+            onClick={editor.save}
+            disabled={!editor.canSave}
             startIcon={
-              mutation.isPending ? <CircularProgress size={16} /> : undefined
+              editor.mutation.isPending ? (
+                <CircularProgress size={16} />
+              ) : undefined
             }
           >
             Save
@@ -208,130 +90,159 @@ function MetadataEditor({ data, onClose, onSaved }: Props) {
         </>
       }
     >
-      <Tabs
-        value={tab}
-        onChange={(_, value) => setTab(value)}
-        variant="scrollable"
-        sx={{ mb: 2 }}
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{ mb: 2, overflowWrap: "anywhere" }}
       >
-        <Tab label="General" value="general" />
-        <Tab label="Tags" value="tags" />
-        <Tab label={metadataArtworkLabel(initial.type)} value="thumb" />
-        <Tab label="Background" value="art" />
-      </Tabs>
-      {mutation.error && (
+        {editor.initial.title}
+      </Typography>
+      {editor.mutation.error && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {mutation.error.message}
+          {editor.mutation.error.message}
         </Alert>
       )}
-      {tab === "thumb" || tab === "art" ? (
-        <MetadataArtworkEditor
-          key={tab}
-          source={source}
-          field={tab}
-          label={artworkLabel}
-          currentImage={data[tab]}
-          value={artwork[tab]}
-          locked={Boolean(locks[tab])}
-          disabled={mutation.isPending}
-          onLockChange={(value) =>
-            setLocks((current) => ({ ...current, [tab]: value }))
-          }
-          onChange={(value) => {
-            setArtwork((current) => {
-              const next = { ...current };
-              if (value) next[tab] = value;
-              else delete next[tab];
-              return next;
-            });
-            setLocks((current) => ({
-              ...current,
-              [tab]: value ? true : Boolean(initialLocks[tab]),
-            }));
-          }}
-        />
-      ) : (
-        <Box
-          component="form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            save();
-          }}
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", md: "row" },
+          gap: 3,
+          minWidth: 0,
+        }}
+      >
+        <Tabs
+          value={editor.section}
+          onChange={(_, value) => editor.setSection(value)}
+          variant="scrollable"
+          orientation={wide ? "vertical" : "horizontal"}
+          aria-label="Metadata sections"
           sx={{
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-            gap: 2,
-            pt: 1,
+            flexShrink: 0,
+            width: { md: 160 },
+            borderRight: { md: 1 },
+            borderBottom: { xs: 1, md: 0 },
+            borderColor: "divider",
+            position: { xs: "sticky", md: "static" },
+            top: 0,
+            zIndex: 1,
+            bgcolor: "background.paper",
           }}
         >
-          {fields
-            .filter((field) => (field.kind === "tags") === (tab === "tags"))
-            .map((field) =>
-              field.kind === "tags" ? (
-                <Autocomplete
-                  key={field.id}
-                  multiple
-                  freeSolo
-                  options={[]}
-                  value={[...((draft[field.id] as readonly string[]) ?? [])]}
-                  disabled={mutation.isPending}
-                  onChange={(_, values) => setField(field.id, values)}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={field.label}
-                      helperText="Type a name and press Enter."
-                      slotProps={{
-                        ...params.slotProps,
-                        input: {
-                          ...params.slotProps.input,
-                          endAdornment: (
-                            <>
-                              {params.slotProps.input.endAdornment}
-                              {lock(field.id, field.label)}
-                            </>
-                          ),
-                        },
-                      }}
-                    />
-                  )}
-                />
-              ) : (
-                <TextField
-                  key={field.id}
-                  autoFocus={field.id === "title"}
-                  required={field.id === "title"}
-                  label={field.label}
-                  value={draft[field.id] ?? ""}
-                  disabled={mutation.isPending}
-                  type={
-                    field.kind === "date"
-                      ? "date"
-                      : field.kind === "number"
-                        ? "number"
-                        : "text"
-                  }
-                  multiline={field.kind === "multiline"}
-                  minRows={field.kind === "multiline" ? 5 : undefined}
-                  error={Boolean(errors[field.id])}
-                  helperText={errors[field.id]}
-                  onChange={(event) => setField(field.id, event.target.value)}
-                  slotProps={{
-                    input: { endAdornment: lock(field.id, field.label) },
-                    inputLabel:
-                      field.kind === "date" ? { shrink: true } : undefined,
-                  }}
-                  sx={{
-                    gridColumn:
-                      field.kind === "multiline" || field.id === "title"
-                        ? "1 / -1"
-                        : undefined,
-                  }}
-                />
-              ),
-            )}
+          {sections.map((section) => (
+            <Tab
+              key={section.id}
+              label={section.label}
+              value={section.id}
+              id={`${id}-${section.id}`}
+              aria-controls={`${id}-panel`}
+              sx={{ alignItems: { md: "flex-start" } }}
+            />
+          ))}
+        </Tabs>
+        <Box
+          component="form"
+          role="tabpanel"
+          id={`${id}-panel`}
+          aria-labelledby={`${id}-${editor.section}`}
+          onSubmit={(event) => {
+            event.preventDefault();
+            editor.save();
+          }}
+          sx={{ flex: 1, minWidth: 0, pt: 1 }}
+        >
+          {editor.section === "general" && (
+            <>
+              <MetadataGeneralFields editor={editor} />
+              <MetadataMusicParents editor={editor} />
+            </>
+          )}
+          {editor.section === "tags" && <MetadataTagFields editor={editor} />}
+          {editor.section === "artwork" && <ArtworkPanel editor={editor} />}
+          {editor.section === "advanced" && <AdvancedPanel editor={editor} />}
         </Box>
-      )}
+      </Box>
     </AppDialog>
+  );
+}
+
+function ArtworkPanel({ editor }: { editor: MetadataEditor }) {
+  const [field, setField] = useState<ArtworkField>("thumb");
+  const label = (name: ArtworkField) =>
+    name === "thumb"
+      ? metadataArtworkLabel(editor.initial.type)
+      : artworkTypes[name].label;
+  return (
+    <Box>
+      <Tabs
+        value={field}
+        onChange={(_, value) => setField(value)}
+        variant="scrollable"
+        aria-label="Artwork types"
+        sx={{ mb: 2 }}
+      >
+        {editor.source.capabilities.artwork.map((name) => (
+          <Tab key={name} value={name} label={label(name)} />
+        ))}
+      </Tabs>
+      <MetadataArtworkEditor
+        key={field}
+        source={editor.source}
+        field={field}
+        label={label(field)}
+        currentImage={editor.initial[field]}
+        value={editor.artwork[field]}
+        locked={Boolean(editor.locks[field])}
+        disabled={editor.mutation.isPending}
+        onLockChange={(value) => editor.setLock(field, value)}
+        onChange={(value) => editor.setArtwork(field, value)}
+      />
+    </Box>
+  );
+}
+
+function AdvancedPanel({ editor }: { editor: MetadataEditor }) {
+  const query = editor.preferences;
+  const deleting = Object.entries(editor.preferenceDraft.changes).some(
+    ([id, value]) => id.startsWith("autoDeletion") && value !== "0",
+  );
+  return (
+    <Stack spacing={2}>
+      <QueryErrorAlert
+        error={query.error}
+        hasData={query.data !== undefined}
+        onRetry={query.refetch}
+      />
+      {query.isPending && !query.error ? (
+        <CircularProgress size={24} />
+      ) : query.data?.length === 0 ? (
+        <Typography color="text.secondary">
+          No item-specific settings are available.
+        </Typography>
+      ) : null}
+      {deleting && (
+        <Alert severity="warning">
+          These retention settings can automatically delete media files from the
+          Plex server. Review their descriptions before saving.
+        </Alert>
+      )}
+      {query.data?.map((preference) => (
+        <PreferenceField
+          key={preference.id}
+          preference={preference}
+          value={
+            editor.preferenceDraft.draft[preference.id] ?? preference.value
+          }
+          onChange={(value) =>
+            editor.preferenceDraft.setValue(preference.id, value)
+          }
+          disabled={editor.mutation.isPending}
+          note={
+            preference.id.startsWith("autoDeletion")
+              ? "This setting controls automatic deletion of media files on the server."
+              : undefined
+          }
+        />
+      ))}
+    </Stack>
   );
 }

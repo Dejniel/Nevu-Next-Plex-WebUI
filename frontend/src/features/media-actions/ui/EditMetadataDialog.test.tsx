@@ -1,3 +1,4 @@
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -166,13 +167,14 @@ it.each([
     await render();
     expect(input("Content rating")).toBeNull();
     expect(labels.map((label) => input(label))).not.toContain(null);
+    await click(button("Artwork"));
     expect(button(artwork)).toBeTruthy();
   },
 );
 
 it("adds multi-value tags without submitting the form or changing other tag fields", async () => {
   await render();
-  await click(button("Tags"));
+  await click(button("Tags & people"));
   await change("Genres", "Comedy");
   await act(async () =>
     input("Genres")!.dispatchEvent(
@@ -228,6 +230,7 @@ it("does not repeat accepted artwork after a failed metadata write, and preserve
   );
   await render();
   await change("Title", "My draft");
+  await click(button("Artwork"));
   await click(button("Poster"));
   await click(
     document.querySelector<HTMLElement>('[aria-label="Choose poster 2"]')!,
@@ -306,7 +309,9 @@ it("keeps the shared dialog and draft when its original virtualized card disappe
           Edit card
         </button>
       )}
-      <MediaActionDialogHost />
+      <MemoryRouter>
+        <MediaActionDialogHost />
+      </MemoryRouter>
     </>
   );
   await act(async () => root.render(content(true)));
@@ -328,7 +333,11 @@ it("keeps the shared dialog and draft when its original virtualized card disappe
 
 it("closes the shared dialog and clears its selection when the active session changes", async () => {
   await act(async () => {
-    root.render(<MediaActionDialogHost />);
+    root.render(
+      <MemoryRouter>
+        <MediaActionDialogHost />
+      </MemoryRouter>,
+    );
     openMetadataDialog(original, onSaved);
   });
   await settle();
@@ -358,7 +367,11 @@ it.each([
     };
     try {
       await act(async () => {
-        root.render(<MediaActionDialogHost />);
+        root.render(
+          <MemoryRouter>
+            <MediaActionDialogHost />
+          </MemoryRouter>,
+        );
         openMetadataDialog(original, onSaved);
       });
       await settle();
@@ -375,3 +388,334 @@ it.each([
     }
   },
 );
+
+it("keeps ordinary edits across all four sections and loads settings only when opened", async () => {
+  transport.mockImplementation(async (_path, method) =>
+    method === "GET"
+      ? {
+          status: 200,
+          data: {
+            MediaContainer: {
+              Metadata: [{ ...original, Preferences: { Setting: [] } }],
+            },
+          },
+        }
+      : { status: 200, data: "" },
+  );
+  await render();
+  await change("Title", "Draft title");
+  expect(transport).not.toHaveBeenCalled();
+  await click(button("Advanced"));
+  expect(document.body.textContent).toContain("No item-specific settings");
+  expect(transport.mock.calls[0][0]).toContain("includePreferences=1");
+  await click(button("General"));
+  expect(input("Title")!.value).toBe("Draft title");
+  await click(button("Save"));
+  expect(params().get("title.value")).toBe("Draft title");
+});
+
+it("retains a rejected settings draft and retries its read without losing the title", async () => {
+  transport.mockResolvedValueOnce({ status: 503, data: "" });
+  await render();
+  await change("Title", "Draft title");
+  await click(button("Advanced"));
+  expect(document.body.textContent).toContain("503");
+  transport.mockResolvedValue({
+    status: 200,
+    data: {
+      MediaContainer: {
+        Metadata: [{ ...original, Preferences: { Setting: [] } }],
+      },
+    },
+  });
+  await click(button("Retry"));
+  expect(document.body.textContent).toContain("No item-specific settings");
+  await click(button("General"));
+  expect(input("Title")!.value).toBe("Draft title");
+});
+
+it("does not repeat saved preferences after a later metadata error", async () => {
+  let enabled = false;
+  let failMetadata = true;
+  transport.mockImplementation(async (path, method) => {
+    if (method === "GET")
+      return {
+        status: 200,
+        data: {
+          MediaContainer: {
+            Metadata: [
+              {
+                ...original,
+                Preferences: {
+                  Setting: [
+                    {
+                      id: "useOriginalTitle",
+                      label: "Use original title",
+                      type: "bool",
+                      value: enabled,
+                      default: false,
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      };
+    if (path.includes("/prefs?")) {
+      enabled = true;
+      return { status: 200, data: "" };
+    }
+    return { status: failMetadata ? 400 : 200, data: "" };
+  });
+  await render();
+  await change("Title", "Draft title");
+  await click(button("Advanced"));
+  await click(
+    document.querySelector<HTMLInputElement>('input[type="checkbox"]')!,
+  );
+  await click(button("Save"));
+  expect(onSaved).not.toHaveBeenCalled();
+  expect(document.body.textContent).toContain("Item settings were saved");
+  failMetadata = false;
+  await click(button("Save"));
+  expect(writes().filter((call) => call[0].includes("/prefs?"))).toHaveLength(
+    1,
+  );
+  expect(onSaved).toHaveBeenCalledTimes(1);
+});
+
+it("continues a partially failed album merge using its surviving identity and does not upload artwork twice", async () => {
+  const source = {
+    ...original,
+    type: "album",
+    title: "Source",
+    parentRatingKey: "7",
+    parentTitle: "Artist",
+  } as MediaMetadata;
+  const target = { ...source, ratingKey: "84", title: "Destination" };
+  data = source;
+  let merged = false;
+  let failFields = true;
+  transport.mockImplementation(async (path, method) => {
+    const url = new URL(path, "http://plex");
+    if (method === "GET") {
+      if (url.pathname.endsWith("/posters"))
+        return {
+          status: 200,
+          data: {
+            MediaContainer: {
+              Metadata: [{ ratingKey: "metadata://new", thumb: "/new" }],
+            },
+          },
+        };
+      if (url.pathname.startsWith("/library/sections/"))
+        return {
+          status: 200,
+          data: { MediaContainer: { Metadata: [target] } },
+        };
+      if (url.pathname === "/library/metadata/42" && merged)
+        return { status: 404, data: "" };
+      return {
+        status: 200,
+        data: { MediaContainer: { Metadata: [merged ? target : source] } },
+      };
+    }
+    if (url.searchParams.get("id") === "42") {
+      merged = true;
+      return { status: 200, data: "" };
+    }
+    return {
+      status: url.searchParams.get("id") === "84" && failFields ? 400 : 200,
+      data: "",
+    };
+  });
+  await render();
+  await change("Title", "Destination");
+  await click(button("Artwork"));
+  await click(
+    document.querySelector<HTMLElement>('[aria-label="Choose cover 1"]')!,
+  );
+  await click(button("Save"));
+  expect(onSaved).not.toHaveBeenCalled();
+  expect(document.body.textContent).toContain("Plex merged the music items");
+  failFields = false;
+  await click(button("Save"));
+  expect(
+    writes().filter(
+      (call) => new URL(call[0], "http://plex").searchParams.get("id") === "42",
+    ),
+  ).toHaveLength(1);
+  expect(writes().filter((call) => call[0].includes("/poster?"))).toHaveLength(
+    1,
+  );
+  expect(onSaved).toHaveBeenCalledWith({ ratingKey: "84" });
+});
+
+function CurrentEditorRoute() {
+  const location = useLocation();
+  return (
+    <output data-testid="route">
+      {location.pathname}
+      {location.search}
+    </output>
+  );
+}
+
+it.each([
+  { from: "/browse/2/item/42", to: "/browse/2/item/84", partial: false },
+  {
+    from: "/browse/2?mid=42&detailsTab=details",
+    to: "/browse/2?mid=84&detailsTab=details",
+    partial: true,
+  },
+])(
+  "follows the merged identity from $from, including partial saves",
+  async ({ from, to, partial }) => {
+    const source = {
+      ...original,
+      type: "album",
+      title: "Source",
+      parentRatingKey: "7",
+      parentTitle: "Artist",
+    } as MediaMetadata;
+    const target = { ...source, ratingKey: "84", title: "Destination" };
+    vi.mocked(getMediaMetadata).mockResolvedValue(source);
+    transport.mockImplementation(async (path, method) => {
+      const url = new URL(path, "http://plex");
+      if (method === "GET")
+        return {
+          status: 200,
+          data: {
+            MediaContainer: {
+              Metadata: url.pathname.startsWith("/library/sections/")
+                ? [target]
+                : [source],
+            },
+          },
+        };
+      return {
+        status: partial && url.searchParams.get("id") === "84" ? 400 : 200,
+        data: "",
+      };
+    });
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={[from]}>
+          <MediaActionDialogHost />
+          <CurrentEditorRoute />
+        </MemoryRouter>,
+      );
+      openMetadataDialog(source, onSaved);
+    });
+    await settle();
+    await change("Title", "Destination");
+    await click(button("Save"));
+    expect(document.querySelector('[data-testid="route"]')?.textContent).toBe(
+      to,
+    );
+    expect(
+      document.body.textContent?.includes("Plex merged the music items"),
+    ).toBe(partial);
+    expect(onSaved).toHaveBeenCalledTimes(partial ? 0 : 1);
+  },
+);
+
+it("cancels pending preference reads when the opened session changes", async () => {
+  let finish!: (response: { status: number; data: unknown }) => void;
+  transport.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finish = resolve;
+    }),
+  );
+  await render();
+  await click(button("Advanced"));
+  const signal = transport.mock.calls[0][4]!;
+  await act(async () => useAuthSession.setState({ revision: 2 }));
+  expect(signal.aborted).toBe(true);
+  await act(async () =>
+    finish({
+      status: 200,
+      data: {
+        MediaContainer: {
+          Metadata: [
+            {
+              ...original,
+              Preferences: {
+                Setting: [
+                  {
+                    id: "old",
+                    label: "Old session preference",
+                    type: "bool",
+                    value: false,
+                    default: false,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    }),
+  );
+  await settle();
+  expect(document.body.textContent).not.toContain("Old session preference");
+  expect(writes()).toEqual([]);
+});
+
+it("shows existing edition information read-only when its owner has no Plex Pass", async () => {
+  data = {
+    ...original,
+    editionTitle: "Director's Cut",
+    Field: [{ name: "editionTitle", locked: true }],
+  };
+  await render();
+  expect(input("Edition")?.disabled).toBe(true);
+  expect(
+    document.querySelector<HTMLButtonElement>(
+      '[aria-label="Unlock Edition metadata"]',
+    )?.disabled,
+  ).toBe(true);
+  expect(writes()).toEqual([]);
+});
+
+it("shows existing music parents before typing without sending an undefined title filter", async () => {
+  data = {
+    ...original,
+    type: "album",
+    parentRatingKey: "7",
+    parentTitle: "Current artist",
+  };
+  transport.mockResolvedValue({
+    status: 200,
+    data: {
+      MediaContainer: {
+        size: 2,
+        Metadata: [
+          {
+            ratingKey: "7",
+            title: "Current artist",
+            type: "artist",
+            librarySectionID: 2,
+          },
+          {
+            ratingKey: "8",
+            title: "Another artist",
+            type: "artist",
+            librarySectionID: 2,
+          },
+        ],
+      },
+    },
+  });
+  await render();
+  await click(document.querySelector('[aria-label="Open"]')!);
+  expect(document.body.textContent).toContain("Another artist");
+  const request = transport.mock.calls.find(([url]) =>
+    url.startsWith("/library/sections/2/all"),
+  )!;
+  expect(new URL(request[0], "http://plex").searchParams.has("title")).toBe(
+    false,
+  );
+  expect(writes()).toEqual([]);
+});

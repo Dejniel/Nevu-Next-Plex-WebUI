@@ -89,7 +89,8 @@ response shape; avoid a repository-wide type-only rewrite.
 
 Video queue occurrences, timeline replies, artwork choices and current-cast
 snapshots now have checked response contracts. The metadata editor uses its own
-editable-field model; video and playlist queues share occurrence validation.
+editable-field model and checked per-item preferences shared with server/library
+settings; video and playlist queues share occurrence validation.
 Envelope/collection checks are shared with Match. Full video/music/photo metadata,
 file/stream details and child records now share one decoder with canonical sync;
 the old global metadata/file types are removed. Playback decisions have a separate

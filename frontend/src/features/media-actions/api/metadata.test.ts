@@ -12,7 +12,10 @@ import {
   MetadataSaveError,
 } from "./metadata";
 
-vi.mock("shared/api/backend", () => ({ ProxiedRequest: vi.fn(), getBackendURL: () => "" }));
+vi.mock("shared/api/backend", () => ({
+  ProxiedRequest: vi.fn(),
+  getBackendURL: () => "",
+}));
 const transport = vi.mocked(ProxiedRequest);
 const data = {
   ratingKey: "42",
@@ -131,9 +134,11 @@ it("preserves current cast characters when editing names after an intervening ch
     },
   });
   await createMetadataEditor(data).save(
-    { actor: ["Actor", "New actor"] },
-    { actor: true },
-    {},
+    {
+      changes: { actor: ["Actor", "New actor"] },
+      locks: { actor: true },
+      artwork: {},
+    },
     signal(),
   );
   expect(transport.mock.calls.map((call) => call[1])).toEqual(["GET", "PUT"]);
@@ -147,9 +152,11 @@ it("does not write artwork or cast names when the current cast cannot be read", 
   transport.mockResolvedValueOnce({ status: 500, data: "" });
   await expect(
     createMetadataEditor(data).save(
-      { actor: ["Actor"] },
-      {},
-      { thumb: { type: "remove" } },
+      {
+        changes: { actor: ["Actor"] },
+        locks: {},
+        artwork: { thumb: { type: "remove" } },
+      },
       signal(),
     ),
   ).rejects.toThrow();
@@ -167,9 +174,11 @@ it.each([{}, [null], [{ tag: "Actor", role: {} }]])(
     });
     await expect(
       createMetadataEditor(data).save(
-        { actor: ["Actor"] },
-        {},
-        { thumb: { type: "remove" } },
+        {
+          changes: { actor: ["Actor"] },
+          locks: {},
+          artwork: { thumb: { type: "remove" } },
+        },
         signal(),
       ),
     ).rejects.toThrow("invalid current cast information");
@@ -180,9 +189,13 @@ it.each([{}, [null], [{ tag: "Actor", role: {} }]])(
 it("uses the captured administrator session and applies final locks after artwork", async () => {
   const abort = signal();
   await createMetadataEditor(data).save(
-    { title: "New title" },
-    { title: true, thumb: false },
-    { thumb: { type: "existing", url: "metadata://posters/a", preview: "/a" } },
+    {
+      changes: { title: "New title" },
+      locks: { title: true, thumb: false },
+      artwork: {
+        thumb: { type: "existing", url: "metadata://posters/a", preview: "/a" },
+      },
+    },
     abort,
   );
   expect(transport.mock.calls.map((call) => call[1])).toEqual(["PUT", "PUT"]);
@@ -206,9 +219,11 @@ it("streams binary uploads through the existing proxy without wrapping files in 
   const file = new File(["image"], "cover.png", { type: "image/png" });
   const abort = signal();
   await createMetadataEditor({ ...data, type: "album" }).save(
-    {},
-    { thumb: true },
-    { thumb: { type: "file", file } },
+    {
+      changes: {},
+      locks: { thumb: true },
+      artwork: { thumb: { type: "file", file } },
+    },
     abort,
   );
   expect(fetchMock).toHaveBeenCalledWith(
@@ -276,7 +291,10 @@ it.each(["profile", "token", "server", "revision"])(
       });
     if (change === "revision") useAuthSession.setState({ revision: 2 });
     await expect(
-      editor.save({ title: "New" }, {}, {}, signal()),
+      editor.save(
+        { changes: { title: "New" }, locks: {}, artwork: {} },
+        signal(),
+      ),
     ).rejects.toThrow("session changed");
     expect(transport).not.toHaveBeenCalled();
   },
@@ -290,15 +308,17 @@ it("does not start another write after aborting an artwork operation", async () 
   });
   await expect(
     createMetadataEditor(data).save(
-      { summary: "Changed" },
-      {},
       {
-        thumb: {
-          type: "existing",
-          url: "metadata://image",
-          preview: "/preview",
+        changes: { summary: "Changed" },
+        locks: {},
+        artwork: {
+          thumb: {
+            type: "existing",
+            url: "metadata://image",
+            preview: "/preview",
+          },
+          art: { type: "remove" },
         },
-        art: { type: "remove" },
       },
       controller.signal,
     ),
@@ -315,13 +335,15 @@ it("reports completed artwork and publishes one refresh after a partial failure"
   try {
     await expect(
       createMetadataEditor(data).save(
-        { summary: "Changed" },
-        {},
-        { thumb: { type: "remove" } },
+        {
+          changes: { summary: "Changed" },
+          locks: {},
+          artwork: { thumb: { type: "remove" } },
+        },
         signal(),
       ),
     ).rejects.toMatchObject({
-      completedArtwork: ["thumb"],
+      completed: { artwork: ["thumb"], preferences: false },
       message: expect.stringContaining("administrator"),
     });
     expect(changed).toHaveBeenCalledTimes(1);
@@ -343,7 +365,10 @@ it("invalidates the original scope without refetching through a replaced session
     return { status: 200, data: "" };
   });
   await expect(
-    createMetadataEditor(data).save({ title: "New title" }, {}, {}, signal()),
+    createMetadataEditor(data).save(
+      { changes: { title: "New title" }, locks: {}, artwork: {} },
+      signal(),
+    ),
   ).rejects.toThrow("session changed");
   expect(invalidate).toHaveBeenCalledWith({
     refetchType: "none",
@@ -359,7 +384,10 @@ it("requires an unrestricted active user as well as the Plex management permissi
     activeUser: { id: 1, restricted: true } as Plex.UserData,
   });
   await expect(
-    createMetadataEditor(data).save({ title: "New" }, {}, {}, signal()),
+    createMetadataEditor(data).save(
+      { changes: { title: "New" }, locks: {}, artwork: {} },
+      signal(),
+    ),
   ).rejects.toThrow("administrator");
   expect(transport).not.toHaveBeenCalled();
 });
@@ -372,14 +400,256 @@ it.each(["ordinary", "invalid-field", "invalid-url"])(
     const editor = createMetadataEditor({ ...data, type: "photo" });
     await expect(
       editor.save(
-        kind === "invalid-field" ? { studio: "Studio" } : {},
-        {},
-        kind === "invalid-url"
-          ? { thumb: { type: "url", url: "file:///image" } }
-          : {},
+        {
+          changes: kind === "invalid-field" ? { studio: "Studio" } : {},
+          locks: {},
+          artwork:
+            kind === "invalid-url"
+              ? { thumb: { type: "url", url: "file:///image" } }
+              : {},
+        },
         signal(),
       ),
     ).rejects.toThrow();
     expect(transport).not.toHaveBeenCalled();
   },
 );
+
+const setting = {
+  id: "episodeSort",
+  label: "Episode sorting",
+  type: "text",
+  value: "-1",
+  default: "-1",
+  enumValues: "-1:Library default|0:Oldest|1:Newest",
+};
+const preferenceResponse = (settings: unknown[] = [setting]) => ({
+  status: 200,
+  data: {
+    MediaContainer: {
+      Metadata: [{ ratingKey: "42", Preferences: { Setting: settings } }],
+    },
+  },
+});
+
+it("revalidates preference definitions and writes only changed supported values", async () => {
+  transport.mockImplementation(async (_path, method) =>
+    method === "GET" ? preferenceResponse() : { status: 200, data: "" },
+  );
+  await createMetadataEditor(data).save(
+    { changes: {}, locks: {}, artwork: {}, preferences: { episodeSort: "1" } },
+    signal(),
+  );
+  expect(transport.mock.calls.map((call) => call[1])).toEqual(["GET", "PUT"]);
+  expect(transport.mock.calls[1][0]).toBe(
+    "/library/metadata/42/prefs?episodeSort=1",
+  );
+});
+
+it.each([
+  ["episodeSort", "unknown"],
+  ["hidden", "1"],
+  ["episodeSort", "1"],
+])(
+  "does not write rejected or newly hidden preference %s=%s",
+  async (id, value) => {
+    const preferences = { [id]: value };
+    transport.mockResolvedValue(
+      preferenceResponse([
+        {
+          ...setting,
+          hidden:
+            Object.hasOwn(preferences, "episodeSort") &&
+            preferences.episodeSort === "1",
+        },
+      ]),
+    );
+    await expect(
+      createMetadataEditor(data).save(
+        { changes: {}, locks: {}, artwork: {}, preferences },
+        signal(),
+      ),
+    ).rejects.toThrow();
+    expect(transport.mock.calls.every((call) => call[1] === "GET")).toBe(true);
+  },
+);
+
+it("reports an acknowledged preference write when the later metadata write fails", async () => {
+  transport
+    .mockResolvedValueOnce(preferenceResponse())
+    .mockResolvedValueOnce({ status: 200, data: "" })
+    .mockResolvedValueOnce({ status: 400, data: "" });
+  await expect(
+    createMetadataEditor(data).save(
+      {
+        changes: { title: "Edited" },
+        locks: {},
+        artwork: {},
+        preferences: { episodeSort: "1" },
+      },
+      signal(),
+    ),
+  ).rejects.toMatchObject({ completed: { artwork: [], preferences: true } });
+});
+
+it("shares the existing artwork transport for logos and square art", async () => {
+  useServerSession.setState({
+    server: {
+      machineIdentifier: "local",
+      version: "1.43.4",
+    } as Plex.ServerPreferences,
+  });
+  const editor = createMetadataEditor(data);
+  transport.mockResolvedValueOnce({
+    status: 200,
+    data: { MediaContainer: { Metadata: [] } },
+  });
+  expect(await editor.artwork("clearLogo", signal())).toEqual([]);
+  expect(transport.mock.calls[0][0]).toBe("/library/metadata/42/clearLogos");
+  await editor.save(
+    {
+      changes: {},
+      locks: { clearLogo: false },
+      artwork: {
+        clearLogo: {
+          type: "existing",
+          url: "metadata://logo",
+          preview: "/logo",
+        },
+        squareArt: { type: "remove" },
+      },
+    },
+    signal(),
+  );
+  expect(transport.mock.calls[1][0]).toContain("/clearLogo?url=");
+  expect(transport.mock.calls[2][0]).toBe("/library/metadata/42/squareArt");
+  expect(transport.mock.calls[3][0]).toContain("clearLogo.locked=0");
+});
+
+it("gates edition edits before mutation and uses the native edition field when allowed", async () => {
+  await expect(
+    createMetadataEditor(data).save(
+      { changes: { editionTitle: "Director's Cut" }, locks: {}, artwork: {} },
+      signal(),
+    ),
+  ).rejects.toThrow("Plex Pass");
+  expect(transport).not.toHaveBeenCalled();
+  useServerSession.setState({
+    server: {
+      machineIdentifier: "local",
+      version: "1.43.4",
+      ownerFeatures: "pass",
+    } as Plex.ServerPreferences,
+  });
+  await createMetadataEditor(data).save(
+    {
+      changes: { editionTitle: "Director's Cut" },
+      locks: { editionTitle: true },
+      artwork: {},
+    },
+    signal(),
+  );
+  expect(
+    new URL(transport.mock.calls[0][0], "http://plex").searchParams.get(
+      "editionTitle.value",
+    ),
+  ).toBe("Director's Cut");
+});
+
+it("checks music parents before moving a track and rejects cross-library or mismatched album targets", async () => {
+  const track = {
+    ...data,
+    type: "track",
+    parentRatingKey: "5",
+    grandparentRatingKey: "7",
+  };
+  const artist = { ...data, ratingKey: "8", title: "Artist", type: "artist" };
+  const album = {
+    ...data,
+    ratingKey: "9",
+    title: "Album",
+    type: "album",
+    parentRatingKey: "8",
+  };
+  const rows: Record<string, unknown> = {
+    "42": track,
+    "8": artist,
+    "9": album,
+  };
+  transport.mockImplementation(async (path, method) =>
+    method === "GET"
+      ? {
+          status: 200,
+          data: {
+            MediaContainer: { Metadata: [rows[path.split("/").at(-1)!]] },
+          },
+        }
+      : { status: 200, data: "" },
+  );
+  const input = {
+    changes: {},
+    locks: {},
+    artwork: {},
+    parents: {
+      artist: { id: "8", title: "Untrusted label" },
+      album: { id: "9", title: "Album" },
+    },
+  };
+  await createMetadataEditor(track).save(input, signal());
+  const path = new URL(transport.mock.calls.at(-1)![0], "http://plex");
+  expect(path.searchParams.get("artist.id.value")).toBe("8");
+  expect(path.searchParams.get("album.id.value")).toBe("9");
+  transport.mockClear();
+  rows["9"] = { ...album, librarySectionID: 3 };
+  await expect(
+    createMetadataEditor(track).save(input, signal()),
+  ).rejects.toThrow("this library");
+  rows["9"] = { ...album, parentRatingKey: "7" };
+  await expect(
+    createMetadataEditor(track).save(input, signal()),
+  ).rejects.toThrow("selected artist");
+  expect(transport.mock.calls.every((call) => call[1] === "GET")).toBe(true);
+});
+
+it("resolves a native album merge first and applies remaining artwork and fields to the surviving ID", async () => {
+  const album = {
+    ...data,
+    type: "album",
+    title: "Source",
+    parentRatingKey: "7",
+  };
+  const target = { ...album, ratingKey: "84", title: "Destination" };
+  transport.mockImplementation(async (path, method) =>
+    method !== "GET"
+      ? { status: 200, data: "" }
+      : {
+          status: 200,
+          data: {
+            MediaContainer: {
+              Metadata: path.startsWith("/library/sections/")
+                ? [target]
+                : [album],
+            },
+          },
+        },
+  );
+  const result = await createMetadataEditor(album).save(
+    {
+      changes: { title: "Destination", summary: "Edited" },
+      locks: { title: true },
+      artwork: {
+        thumb: { type: "existing", url: "metadata://image", preview: "/image" },
+      },
+    },
+    signal(),
+  );
+  const writes = transport.mock.calls.filter((call) => call[1] !== "GET");
+  expect(new URL(writes[0][0], "http://plex").searchParams.get("id")).toBe(
+    "42",
+  );
+  expect(writes[1][0]).toContain("/library/metadata/84/poster?");
+  const final = new URL(writes[2][0], "http://plex").searchParams;
+  expect(final.get("id")).toBe("84");
+  expect(final.get("summary.value")).toBe("Edited");
+  expect(result).toEqual({ ratingKey: "84" });
+});

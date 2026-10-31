@@ -25,6 +25,7 @@ interface AppDialogProps {
   headerContent?: ReactNode;
   contentSx?: SxProps<Theme>;
   contentRef?: React.Ref<HTMLDivElement>;
+  maxWidth?: number;
 }
 
 export default function AppDialog({
@@ -38,6 +39,7 @@ export default function AppDialog({
   headerContent,
   contentSx,
   contentRef,
+  maxWidth,
 }: AppDialogProps) {
   const titleId = useId();
   const compact = size === "compact";
@@ -70,7 +72,7 @@ export default function AppDialog({
               ? { xs: "calc(100% - 32px)", sm: "auto" }
               : { xs: "100%", sm: "90vw" },
             minWidth: compact ? { sm: 360 } : undefined,
-            maxWidth: compact ? 440 : 1800,
+            maxWidth: maxWidth ?? (compact ? 440 : 1800),
             maxHeight: compact
               ? "calc(100dvh - 32px)"
               : { xs: "100dvh", sm: "calc(100dvh - 64px)" },

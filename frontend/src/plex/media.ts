@@ -132,6 +132,7 @@ interface MetadataFields {
   grandparentThumb?: string;
   composite?: string;
   originalTitle?: string;
+  editionTitle?: string;
   contentRating?: string;
   summary?: string;
   index?: number;
@@ -147,6 +148,9 @@ interface MetadataFields {
   tagline?: string;
   thumb?: string;
   art?: string;
+  clearLogo?: string;
+  squareArt?: string;
+  banner?: string;
   theme?: string;
   duration?: number;
   originallyAvailableAt?: string;

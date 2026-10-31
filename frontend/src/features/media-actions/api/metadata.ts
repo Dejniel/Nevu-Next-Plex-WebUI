@@ -1,4 +1,11 @@
-import { isLibraryItemType, libraryItemTypeNumbers } from "@nevu/contracts";
+import {
+  isLibraryItemType,
+  libraryItemTypeNumbers,
+  validatePreferenceChanges,
+  type PreferenceChanges,
+} from "@nevu/contracts";
+import { useServerSession } from "features/session/model";
+import { prepareMusicEdit } from "./metadataMusic";
 import {
   publishMediaChange,
   mediaMetadataQueryKey,
@@ -8,6 +15,8 @@ import { PlexClient, PlexRequestError } from "shared/api/PlexClient";
 import { serverQueryClient } from "shared/api/queryClient";
 import { createMetadataSession } from "./metadataSession";
 import {
+  artworkTypes,
+  metadataCapabilities,
   metadataFields,
   normalizeTags,
   type ArtworkField,
@@ -15,8 +24,13 @@ import {
   type MetadataEditingItem,
   type ArtworkOption,
   type MetadataUpdate,
+  type MetadataMusicParents,
 } from "../model/metadataEditing";
-import { readArtworkChoices, readMetadataCast } from "./metadataResponses";
+import {
+  readArtworkChoices,
+  readMetadataCast,
+  readMetadataPreferences,
+} from "./metadataResponses";
 
 export type ArtworkUpdate =
   | { type: "existing"; url: string; preview: string }
@@ -24,10 +38,22 @@ export type ArtworkUpdate =
   | { type: "file"; file: File }
   | { type: "remove" };
 export type ArtworkChanges = Partial<Record<ArtworkField, ArtworkUpdate>>;
+export interface MetadataSaveInput {
+  changes: MetadataUpdate;
+  locks: MetadataLockUpdate;
+  artwork: ArtworkChanges;
+  preferences?: PreferenceChanges;
+  parents?: MetadataMusicParents;
+}
+export interface MetadataSaveProgress {
+  artwork: ArtworkField[];
+  preferences: boolean;
+  replacement?: MetadataEditingItem;
+}
 export class MetadataSaveError extends Error {
   constructor(
     message: string,
-    public readonly completedArtwork: readonly ArtworkField[],
+    public readonly completed: MetadataSaveProgress,
   ) {
     super(message);
     this.name = "MetadataSaveError";
@@ -38,6 +64,7 @@ export function buildMetadataUpdatePath(
   data: MetadataEditingItem,
   changes: MetadataUpdate,
   locks: MetadataLockUpdate = {},
+  parents: MetadataMusicParents = {},
 ) {
   if (
     !isLibraryItemType(data.type) ||
@@ -48,10 +75,20 @@ export function buildMetadataUpdatePath(
     type: String(libraryItemTypeNumbers[data.type]),
     id: data.ratingKey,
   });
-  if (data.type === "album" && changes.title !== undefined) {
-    if (!data.parentRatingKey || !/^\d+$/.test(data.parentRatingKey))
+  if (
+    data.type === "album" &&
+    (changes.title !== undefined || parents.artist)
+  ) {
+    const artistID = parents.artist?.id ?? data.parentRatingKey;
+    if (!artistID || !/^\d+$/.test(artistID))
       throw new Error("Plex could not identify this album's artist.");
-    params.set("artist.id.value", data.parentRatingKey);
+    params.set("artist.id.value", artistID);
+    if (changes.title === undefined)
+      params.set("title.value", data.title ?? "");
+  }
+  if (data.type === "track" && (parents.artist || parents.album)) {
+    if (parents.artist) params.set("artist.id.value", parents.artist.id);
+    if (parents.album) params.set("album.id.value", parents.album.id);
   }
   for (const [field, value] of Object.entries(changes)) {
     if (Array.isArray(value)) {
@@ -115,6 +152,19 @@ export function createMetadataEditor(data: MetadataEditingItem) {
       ),
   );
   const path = `/library/metadata/${encodeURIComponent(data.ratingKey)}`;
+  const capabilities = metadataCapabilities(
+    data.type,
+    useServerSession.getState().server,
+  );
+  const readPreferences = async (id: string, signal: AbortSignal) => {
+    assertCurrent(signal);
+    const response = await client.get(
+      `/library/metadata/${id}?includePreferences=1`,
+      signal,
+    );
+    assertCurrent(signal);
+    return readMetadataPreferences(response, id);
+  };
   const assertCurrent = (signal?: AbortSignal) => {
     session.assertCurrent(signal);
     if (
@@ -129,25 +179,43 @@ export function createMetadataEditor(data: MetadataEditingItem) {
     revision,
     id: data.ratingKey,
     assertCurrent,
+    capabilities,
+    preferences: (signal: AbortSignal) =>
+      readPreferences(data.ratingKey, signal),
     async artwork(
       field: ArtworkField,
       signal: AbortSignal,
     ): Promise<ArtworkOption[]> {
       assertCurrent(signal);
+      if (!capabilities.artwork.includes(field))
+        throw new Error("This artwork type is unavailable for this item.");
       const response = await client.get(
-        `${path}/${field === "thumb" ? "posters" : "arts"}`,
+        `${path}/${artworkTypes[field].choices}`,
         signal,
       );
       assertCurrent(signal);
       return readArtworkChoices(response);
     },
     async save(
-      changes: MetadataUpdate,
-      locks: MetadataLockUpdate,
-      artwork: ArtworkChanges,
+      {
+        changes,
+        locks,
+        artwork,
+        preferences: preferenceInput = {},
+        parents = {},
+      }: MetadataSaveInput,
       signal: AbortSignal,
     ) {
       assertCurrent(signal);
+      if (
+        (changes.editionTitle !== undefined ||
+          Object.hasOwn(locks, "editionTitle")) &&
+        !metadataCapabilities(data.type, useServerSession.getState().server)
+          .edition
+      )
+        throw new Error(
+          "Editing editions requires a supported Plex server and Plex Pass for its owner.",
+        );
       const allowed = new Set<string>(
         metadataFields(data.type).map((field) => field.id),
       );
@@ -155,11 +223,14 @@ export function createMetadataEditor(data: MetadataEditingItem) {
         Object.keys(changes).some((field) => !allowed.has(field)) ||
         Object.keys(locks).some(
           (field) =>
-            !allowed.has(field) && field !== "thumb" && field !== "art",
+            !allowed.has(field) &&
+            !capabilities.artwork.includes(field as ArtworkField),
         )
       )
         throw new Error("This field is not editable for this media type.");
-      for (const update of Object.values(artwork)) {
+      for (const [field, update] of Object.entries(artwork)) {
+        if (!capabilities.artwork.includes(field as ArtworkField))
+          throw new Error("This artwork type is unavailable for this item.");
         if (update.type === "url" && !validArtworkURL(update.url))
           throw new Error("Enter an HTTP or HTTPS image URL.");
         if (
@@ -171,13 +242,46 @@ export function createMetadataEditor(data: MetadataEditingItem) {
         )
           throw new Error("Choose a JPEG, PNG, WebP or GIF image.");
       }
+      const music =
+        Object.keys(parents).length ||
+        (["artist", "album"].includes(data.type) && changes.title !== undefined)
+          ? await prepareMusicEdit(client, data, changes, parents, signal)
+          : { data, parents, destination: undefined };
+      const target = music.destination ?? music.data;
+      const targetPath = `/library/metadata/${target.ratingKey}`;
+      const preferenceUpdates = Object.keys(preferenceInput).length
+        ? validatePreferenceChanges(
+            await readPreferences(target.ratingKey, signal),
+            preferenceInput,
+          )
+        : {};
       let metadataPath =
-        Object.keys(changes).length || Object.keys(locks).length
-          ? buildMetadataUpdatePath(data, changes, locks)
+        Object.keys(changes).length ||
+        Object.keys(locks).length ||
+        Object.keys(parents).length
+          ? buildMetadataUpdatePath(target, changes, locks, music.parents)
           : null;
-      const completed: ArtworkField[] = [];
+      const completed: MetadataSaveProgress = {
+        artwork: [],
+        preferences: false,
+      };
       let attempted = false;
       try {
+        if (music.destination) {
+          attempted = true;
+          await client.put(
+            buildMetadataUpdatePath(
+              music.data,
+              { title: changes.title ?? music.data.title ?? "" },
+              {},
+              music.parents,
+            ),
+            undefined,
+            signal,
+          );
+          completed.replacement = music.destination;
+          assertCurrent(signal);
+        }
         if (changes.actor !== undefined) {
           // Cast names are editable; their character information is not. Read
           // it at save time so an intervening refresh cannot lose those values.
@@ -195,29 +299,38 @@ export function createMetadataEditor(data: MetadataEditingItem) {
           assertCurrent(signal);
           attempted = true;
           if (update.type === "remove")
-            await client.delete(`${path}/${field}`, signal);
+            await client.delete(`${targetPath}/${field}`, signal);
           else if (update.type === "existing")
             await client.put(
-              `${path}/${field === "thumb" ? "poster" : "art"}?${new URLSearchParams({ url: update.url })}`,
+              `${targetPath}/${artworkTypes[field].selection}?${new URLSearchParams({ url: update.url })}`,
               undefined,
               signal,
             );
           else if (update.type === "url")
             await client.post(
-              `${path}/${field === "thumb" ? "posters" : "arts"}?${new URLSearchParams({ url: update.url })}`,
+              `${targetPath}/${artworkTypes[field].choices}?${new URLSearchParams({ url: update.url })}`,
               undefined,
               signal,
             );
           else {
             await client.upload(
-              `${path}/${field === "thumb" ? "posters" : "arts"}`,
+              `${targetPath}/${artworkTypes[field].choices}`,
               update.file,
               signal,
             );
           }
-          completed.push(field);
+          completed.artwork.push(field);
         }
         assertCurrent(signal);
+        if (Object.keys(preferenceUpdates).length) {
+          attempted = true;
+          await client.put(
+            `${targetPath}/prefs?${new URLSearchParams(preferenceUpdates)}`,
+            undefined,
+            signal,
+          );
+          completed.preferences = true;
+        }
         // Artwork selection/upload can lock fields itself. Apply the user's
         // final lock choices after assets, in the same write as edited values.
         if (metadataPath) {
@@ -227,7 +340,7 @@ export function createMetadataEditor(data: MetadataEditingItem) {
         assertCurrent(signal);
       } catch (error) {
         throw new MetadataSaveError(
-          `${completed.length ? "Some artwork was saved. " : ""}${errorMessage(error)}`,
+          `${completed.replacement ? "Plex merged the music items. " : ""}${completed.artwork.length ? "Some artwork was saved. " : completed.preferences ? "Item settings were saved. " : ""}${errorMessage(error)}`,
           completed,
         );
       } finally {
@@ -240,28 +353,51 @@ export function createMetadataEditor(data: MetadataEditingItem) {
           } catch {
             /* The old scope stays invalidated without fetching with a new token. */
           }
-          void serverQueryClient.invalidateQueries({
-            refetchType,
-            queryKey: mediaMetadataQueryKey(scope, data.ratingKey),
-            exact: true,
-          });
-          void serverQueryClient.invalidateQueries({
-            refetchType,
-            queryKey: [
-              "media-artwork",
-              scope.serverId,
-              scope.profileKey,
-              data.ratingKey,
-            ],
-          });
-          publishMediaChange({
-            ...scope,
-            kind: "item",
-            effect: "unknown",
-            id: data.ratingKey,
-          });
+          const changedIDs = new Set([
+            data.ratingKey,
+            completed.replacement?.ratingKey ?? data.ratingKey,
+          ]);
+          for (const id of changedIDs) {
+            void serverQueryClient.invalidateQueries({
+              refetchType,
+              queryKey: mediaMetadataQueryKey(scope, id),
+              exact: true,
+            });
+            void serverQueryClient.invalidateQueries({
+              refetchType,
+              queryKey: ["media-artwork", scope.serverId, scope.profileKey, id],
+            });
+            void serverQueryClient.invalidateQueries({
+              refetchType,
+              queryKey: [
+                "metadata-preferences",
+                scope.serverId,
+                scope.profileKey,
+                revision,
+                id,
+              ],
+            });
+          }
+          if (Object.keys(parents).length) {
+            for (const id of [
+              data.parentRatingKey,
+              data.grandparentRatingKey,
+              parents.artist?.id,
+              parents.album?.id,
+            ])
+              if (id) changedIDs.add(id);
+          }
+          for (const id of changedIDs)
+            publishMediaChange({
+              ...scope,
+              sectionId: String(data.librarySectionID),
+              kind: "item",
+              effect: "unknown",
+              id,
+            });
         }
       }
+      return { ratingKey: target.ratingKey };
     },
   };
 }

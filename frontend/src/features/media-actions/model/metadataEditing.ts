@@ -2,6 +2,7 @@ const textFields = {
   title: ["title", "Title", "text"],
   titleSort: ["titleSort", "Sort title", "text"],
   originalTitle: ["originalTitle", "Original title", "text"],
+  editionTitle: ["editionTitle", "Edition", "text"],
   originallyAvailableAt: ["originallyAvailableAt", "Release date", "date"],
   year: ["year", "Year", "number"],
   studio: ["studio", "Studio", "text"],
@@ -29,7 +30,18 @@ const metadataTagFields = {
 
 type MetadataTextField = keyof typeof textFields;
 type MetadataTagField = keyof typeof metadataTagFields;
-export type ArtworkField = "thumb" | "art";
+export const artworkTypes = {
+  thumb: { choices: "posters", selection: "poster", label: "Poster" },
+  art: { choices: "arts", selection: "art", label: "Background" },
+  clearLogo: { choices: "clearLogos", selection: "clearLogo", label: "Logo" },
+  squareArt: {
+    choices: "squareArts",
+    selection: "squareArt",
+    label: "Square art",
+  },
+  banner: { choices: "banners", selection: "banner", label: "Banner" },
+} as const;
+export type ArtworkField = keyof typeof artworkTypes;
 export type MetadataField = MetadataTextField | MetadataTagField;
 export type MetadataValue = string | readonly string[];
 export type MetadataDraft = Partial<Record<MetadataField, MetadataValue>>;
@@ -49,6 +61,9 @@ export type MetadataEditingItem = {
   type: string;
   librarySectionID?: number;
   parentRatingKey?: string;
+  grandparentRatingKey?: string;
+  parentTitle?: string;
+  grandparentTitle?: string;
   Role?: MetadataActor[];
   Field?: { name: string; locked: boolean }[];
 } & Partial<
@@ -84,15 +99,14 @@ export interface MetadataFieldDefinition {
   kind: "text" | "multiline" | "number" | "date" | "tags";
 }
 
-const basic: MetadataField[] = ["title", "titleSort", "summary"];
-const video: MetadataField[] = [
-  ...basic,
-  "originalTitle",
+const basic: MetadataField[] = ["title", "titleSort"];
+const videoDetails: MetadataField[] = [
   "originallyAvailableAt",
   "year",
   "studio",
   "contentRating",
   "tagline",
+  "summary",
 ];
 const videoTags: MetadataField[] = [
   "genre",
@@ -112,24 +126,53 @@ const musicTags: MetadataField[] = [
   "label",
 ];
 const fieldsByType: Record<string, readonly MetadataField[]> = {
-  movie: [...video, ...videoTags],
-  show: [...video, ...videoTags],
-  season: [...basic, "index", "collection", "label"],
+  movie: [
+    ...basic,
+    "originalTitle",
+    "editionTitle",
+    ...videoDetails,
+    ...videoTags,
+  ],
+  show: [
+    ...basic,
+    "originalTitle",
+    "editionTitle",
+    ...videoDetails,
+    ...videoTags,
+  ],
+  season: [...basic, "index", "summary", "collection", "label"],
   episode: [
-    ...video,
+    ...basic,
+    "originalTitle",
     "index",
+    ...videoDetails,
     "director",
     "writer",
     "producer",
     "actor",
     "label",
   ],
-  artist: [...basic, ...musicTags, "country", "similar"],
-  album: [...basic, "originallyAvailableAt", "year", "studio", ...musicTags],
-  track: [...basic, "originalTitle", "index", "parentIndex", "mood", "label"],
-  photo: [...basic, "originallyAvailableAt", "tag", "label"],
-  photoalbum: [...basic, "tag", "label"],
-  clip: [...basic, "originallyAvailableAt", "tag", "label"],
+  artist: [...basic, "summary", ...musicTags, "country", "similar"],
+  album: [
+    ...basic,
+    "originallyAvailableAt",
+    "year",
+    "studio",
+    "summary",
+    ...musicTags,
+  ],
+  track: [
+    ...basic,
+    "originalTitle",
+    "index",
+    "parentIndex",
+    "summary",
+    "mood",
+    "label",
+  ],
+  photo: [...basic, "originallyAvailableAt", "summary", "tag", "label"],
+  photoalbum: [...basic, "summary", "tag", "label"],
+  clip: [...basic, "originallyAvailableAt", "summary", "tag", "label"],
 };
 
 export function supportsMetadataEditing(type: string) {
@@ -261,4 +304,83 @@ export function metadataArtworkLabel(type: string) {
     : ["photo", "photoalbum", "episode", "clip"].includes(type)
       ? "Thumbnail"
       : "Poster";
+}
+
+function serverAtLeast(version: string | undefined, minimum: number[]) {
+  const parts = version
+    ?.match(/^(\d+)\.(\d+)\.(\d+)/)
+    ?.slice(1)
+    .map(Number);
+  if (!parts) return false;
+  for (let index = 0; index < minimum.length; index++) {
+    if (parts[index] !== minimum[index]) return parts[index] > minimum[index];
+  }
+  return true;
+}
+
+export function metadataCapabilities(
+  type: string,
+  server: Pick<
+    Plex.ServerPreferences,
+    "version" | "ownerFeatures" | "myPlexSubscription"
+  > | null,
+) {
+  const pass =
+    server?.myPlexSubscription ||
+    server?.ownerFeatures?.split(",").includes("pass");
+  const edition = Boolean(
+    pass &&
+      serverAtLeast(
+        server?.version,
+        type === "show" ? [1, 43, 3] : [1, 28, 1],
+      ) &&
+      ["movie", "show"].includes(type),
+  );
+  const artwork: ArtworkField[] = ["thumb", "art"];
+  if (
+    serverAtLeast(server?.version, [1, 43, 0]) &&
+    ["movie", "show", "season"].includes(type)
+  ) {
+    artwork.push("clearLogo", "squareArt");
+    if (type !== "movie") artwork.push("banner");
+  }
+  return { edition, artwork };
+}
+
+export interface MetadataParent {
+  id: string;
+  title: string;
+}
+export interface MetadataMusicParents {
+  artist?: MetadataParent;
+  album?: MetadataParent;
+}
+export function metadataMusicParents(
+  data: MetadataEditingItem,
+): MetadataMusicParents {
+  if (data.type !== "album" && data.type !== "track") return {};
+  const track = data.type === "track";
+  const artist = track ? data.grandparentRatingKey : data.parentRatingKey;
+  const title = track ? data.grandparentTitle : data.parentTitle;
+  return {
+    artist: artist ? { id: artist, title: title ?? artist } : undefined,
+    album:
+      track && data.parentRatingKey
+        ? {
+            id: data.parentRatingKey,
+            title: data.parentTitle ?? data.parentRatingKey,
+          }
+        : undefined,
+  };
+}
+export function metadataParentChanges(
+  before: MetadataMusicParents,
+  after: MetadataMusicParents,
+): MetadataMusicParents {
+  return Object.fromEntries(
+    Object.entries(after).filter(
+      ([key, value]) =>
+        value?.id !== before[key as keyof MetadataMusicParents]?.id,
+    ),
+  );
 }

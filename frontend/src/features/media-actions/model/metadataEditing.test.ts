@@ -110,3 +110,53 @@ it("rejects empty titles and fractional track numbers", () => {
     }),
   ).toEqual({});
 });
+
+it("limits editions and additional artwork by media type and server capabilities", async () => {
+  const { metadataCapabilities } = await import("./metadataEditing");
+  const server = {
+    version: "1.43.4.10903-test",
+    ownerFeatures: "pass,collections",
+    myPlexSubscription: false,
+  };
+  expect(metadataCapabilities("show", server)).toMatchObject({
+    edition: true,
+    artwork: ["thumb", "art", "clearLogo", "squareArt", "banner"],
+  });
+  expect(
+    metadataCapabilities("movie", { ...server, ownerFeatures: "" }).edition,
+  ).toBe(false);
+  expect(
+    metadataCapabilities("show", { ...server, version: "1.42.0" }).edition,
+  ).toBe(false);
+  expect(
+    metadataCapabilities("movie", { ...server, version: "1.42.0" }),
+  ).toEqual({ edition: true, artwork: ["thumb", "art"] });
+  expect(metadataCapabilities("album", server)).toEqual({
+    edition: false,
+    artwork: ["thumb", "art"],
+  });
+});
+
+it("separates music relationships from ordinary text and sends only changed parent identities", async () => {
+  const { metadataMusicParents, metadataParentChanges } = await import(
+    "./metadataEditing"
+  );
+  const initial = metadataMusicParents({
+    ratingKey: "42",
+    type: "track",
+    parentRatingKey: "5",
+    parentTitle: "Album",
+    grandparentRatingKey: "3",
+    grandparentTitle: "Artist",
+  });
+  expect(initial).toEqual({
+    artist: { id: "3", title: "Artist" },
+    album: { id: "5", title: "Album" },
+  });
+  expect(
+    metadataParentChanges(initial, {
+      artist: { id: "3", title: "Renamed" },
+      album: { id: "6", title: "Other" },
+    }),
+  ).toEqual({ album: { id: "6", title: "Other" } });
+});

@@ -54,6 +54,11 @@ export default function TitleDetails({
           <Grid size={{ xs: 6, md: 3 }}>
             <Detail label="Content rating" value={data.contentRating} />
           </Grid>
+          {data.editionTitle && (
+            <Grid size={{ xs: 6, md: 3 }}>
+              <Detail label="Edition" value={data.editionTitle} />
+            </Grid>
+          )}
           <Grid size={{ xs: 12, md: 6 }}>
             <Detail
               label="Countries"
