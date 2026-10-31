@@ -1,11 +1,19 @@
 import type { MediaMetadata } from "plex/media";
 import { getPlexTitleIdentity } from "./mediaIdentity";
-type ExtraSource = "local" | "discover";
+/** Discover supplies display fields and stream locations, not local library files. */
+export type DiscoverExtra = Pick<
+  MediaMetadata,
+  "title" | "guid" | "duration" | "extraType" | "subtype" | "thumb"
+> &
+  (
+    { ratingKey: string; key?: string } | { ratingKey?: string; key: string }
+  ) & {
+    Media?: { videoResolution?: string; Part?: { key?: string }[] }[];
+  };
 
-export interface TitleExtra {
-  source: ExtraSource;
-  metadata: MediaMetadata;
-}
+export type TitleExtra =
+  | { source: "local"; metadata: MediaMetadata }
+  | { source: "discover"; metadata: DiscoverExtra };
 
 export function getDiscoverID(
   item: Partial<Pick<MediaMetadata, "guid" | "Guid">>,
@@ -15,7 +23,7 @@ export function getDiscoverID(
   return getPlexTitleIdentity(guid)?.id ?? null;
 }
 
-function extraIdentity(extra: MediaMetadata): string[] {
+function extraIdentity(extra: DiscoverExtra | MediaMetadata): string[] {
   const title = (extra.title || "").trim().toLowerCase();
   const signature = [
     extra.extraType ?? "",
@@ -31,20 +39,22 @@ function extraIdentity(extra: MediaMetadata): string[] {
 
 export function mergeTitleExtras(
   localExtras: MediaMetadata[] = [],
-  discoverExtras: MediaMetadata[] = [],
+  discoverExtras: DiscoverExtra[] = [],
 ): TitleExtra[] {
   const seen = new Set<string>();
   const merged: TitleExtra[] = [];
 
-  const append = (metadata: MediaMetadata, source: ExtraSource) => {
-    const identities = extraIdentity(metadata);
+  const append = (extra: TitleExtra) => {
+    const identities = extraIdentity(extra.metadata);
     if (identities.some((identity) => seen.has(identity))) return;
     identities.forEach((identity) => seen.add(identity));
-    merged.push({ source, metadata });
+    merged.push(extra);
   };
 
-  localExtras.forEach((extra) => append(extra, "local"));
-  discoverExtras.forEach((extra) => append(extra, "discover"));
+  localExtras.forEach((metadata) => append({ source: "local", metadata }));
+  discoverExtras.forEach((metadata) =>
+    append({ source: "discover", metadata }),
+  );
   return merged;
 }
 
@@ -78,7 +88,9 @@ export function withoutExtra(
   return extras.filter((extra) => extra !== selected);
 }
 
-export function extraTypeLabel(extra: MediaMetadata): string {
+export function extraTypeLabel(
+  extra: Pick<MediaMetadata, "extraType" | "subtype">,
+): string {
   if (extra.subtype) {
     return extra.subtype
       .replace(/([a-z])([A-Z])/g, "$1 $2")

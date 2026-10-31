@@ -1,9 +1,9 @@
-import type { MediaMetadata } from "entities/media/model";
+import type { MediaMetadata, MusicQueueItem } from "entities/media/model";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MusicProvider, useMusic } from "./MusicProvider";
 import { serverQueryClient } from "shared/api/queryClient";
-import type { MusicQueue } from "../api/music";
+import type { MusicQueue } from "./musicQueue";
 import {
   musicSessionKey,
   readMusicSession,
@@ -40,13 +40,12 @@ vi.mock("entities/media/model", () => ({
     queryFn: async () => ({ ratingKey: id, type: "track", title: id }),
   }),
 }));
-const track = (id: number, entry: number) =>
-  ({
-    ratingKey: String(id),
-    type: "track",
-    title: String(id),
-    playQueueItemID: entry,
-  }) as MediaMetadata;
+const track = (id: number, entry: number): MusicQueueItem => ({
+  ratingKey: String(id),
+  type: "track",
+  title: String(id),
+  playQueueItemID: entry,
+});
 const queue: MusicQueue = {
   id: 10,
   version: 1,

@@ -114,7 +114,6 @@ interface MetadataFields {
   key?: string;
   guid?: string;
   Guid?: { id: string }[];
-  playQueueItemID?: number;
   skipChildren?: boolean;
   parentRatingKey?: string;
   grandparentRatingKey?: string;

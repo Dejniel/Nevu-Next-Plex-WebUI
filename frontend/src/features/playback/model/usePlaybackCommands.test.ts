@@ -25,10 +25,11 @@ describe("playback commands", () => {
   let options: Parameters<typeof usePlaybackCommands>[0];
   let commands: ReturnType<typeof usePlaybackCommands>;
   const movie = {
-    type: "movie",
+    type: "movie" as const,
     ratingKey: "10",
+    title: "Movie",
     librarySectionID: 2,
-  } as MediaMetadata;
+  } satisfies MediaMetadata;
   function Harness() {
     commands = usePlaybackCommands(options);
     return null;

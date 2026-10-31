@@ -12,7 +12,7 @@ function extra(
   key: string,
   extraType = 1,
 ): MediaMetadata {
-  return { title, duration, key, ratingKey: key, extraType } as MediaMetadata;
+  return { type: "clip", title, duration, key, ratingKey: key, extraType };
 }
 
 describe("Plex Discover extras", () => {
@@ -20,7 +20,7 @@ describe("Plex Discover extras", () => {
     expect(
       getDiscoverID({
         guid: "plex://movie/5d7769cefb0d55001f530acd",
-      } as MediaMetadata),
+      }),
     ).toBe("5d7769cefb0d55001f530acd");
   });
 

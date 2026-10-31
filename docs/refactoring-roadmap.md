@@ -81,11 +81,11 @@ Rows render Query metadata directly. `shared/lib/useItemSelection`
 stores scoped IDs and supplies the foundation for future library selection.
 Static hero composition remains in the screen.
 
-### 5. Improve Plex contracts gradually — in progress
+### 5. Media response contracts — complete
 
-Replace global `Plex` types with imported request and view models one endpoint
-family at a time. Start where a product change already requires understanding a
-response shape; avoid a repository-wide type-only rewrite.
+The media endpoint families below decode unknown replies into imported response
+and view models. Remaining global `Plex` types, including server/account data,
+can migrate alongside their workflows rather than through a type-only rewrite.
 
 Video queue occurrences, timeline replies, artwork choices and current-cast
 snapshots now have checked response contracts. The metadata editor uses its own
@@ -100,7 +100,10 @@ libraries and canonical metadata. Library sections/catalogs, filter descriptions
 collections and playlists now decode unknown responses before Query publication.
 Paged reads share envelope checks; playlist occurrences remain separate from
 canonical metadata, including repeated and unavailable entries. Discover extras
-and music queue occurrences remain to migrate.
+have a cloud display/stream contract without local file assumptions; resolved
+stream URLs are checked before playback. Music queue windows share occurrence
+decoding with video, retaining repeated songs, global selection outside the
+window and native empty-queue replies. Queue IDs do not enter canonical metadata.
 
 ### 6. Make Plex notification updates more selective — complete
 

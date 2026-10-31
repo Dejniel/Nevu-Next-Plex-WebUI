@@ -40,10 +40,11 @@ export default function MediaExtraPlayback({
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     setDiscover(null);
     setError(null);
     if (extra.source === "discover")
-      void resolveDiscoverExtra(extra)
+      void resolveDiscoverExtra(extra, controller.signal)
         .then((source) => {
           if (active) setDiscover(source);
         })
@@ -57,6 +58,7 @@ export default function MediaExtraPlayback({
         });
     return () => {
       active = false;
+      controller.abort();
     };
   }, [extra, attempt]);
 

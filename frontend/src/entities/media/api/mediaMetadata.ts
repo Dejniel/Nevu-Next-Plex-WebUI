@@ -168,7 +168,6 @@ export function readMediaMetadata(
       key: identity,
       guid: text,
       Guid: array((value) => ({ id: identity(object(value).id) })),
-      playQueueItemID: integer,
       skipChildren: flag,
       parentRatingKey: identity,
       grandparentRatingKey: identity,

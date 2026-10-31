@@ -1,58 +1,8 @@
-import type { MediaMetadata } from "entities/media/model";
+import type { MusicQueueItem } from "entities/media/model";
 import { PlexClient, PlexRequestError } from "shared/api/PlexClient";
 import { queryBuilder } from "shared/lib/query";
-
-export interface MusicQueue {
-  id: number;
-  version: number;
-  total: number;
-  selected: number;
-  selectedOffset: number;
-  shuffled: boolean;
-  items: MediaMetadata[];
-}
-
-export type MusicQueueSource =
-  | { kind: "library"; id: string; libraryUUID?: string }
-  | { kind: "playlist"; id: string };
-
-export function readMusicQueue(response: {
-  MediaContainer?: {
-    playQueueID: number;
-    playQueueVersion: number;
-    playQueueTotalCount: number;
-    playQueueSelectedItemID: number;
-    playQueueSelectedItemOffset: number;
-    playQueueShuffled?: boolean | number;
-    Metadata?: MediaMetadata[];
-  };
-}): MusicQueue {
-  const data = response.MediaContainer;
-  if (
-    !data ||
-    !Number.isSafeInteger(data.playQueueID) ||
-    data.playQueueID <= 0 ||
-    !Number.isSafeInteger(data.playQueueTotalCount)
-  )
-    throw new Error("Plex returned an invalid music queue.");
-  const items = data.Metadata ?? [];
-  if (
-    !Array.isArray(items) ||
-    items.some((item) => item.type !== "track" || !item.playQueueItemID)
-  )
-    throw new Error("Plex returned an invalid music queue.");
-  if (new Set(items.map((item) => item.playQueueItemID)).size !== items.length)
-    throw new Error("Plex returned duplicate music queue entries.");
-  return {
-    id: data.playQueueID,
-    version: data.playQueueVersion,
-    total: data.playQueueTotalCount,
-    selected: data.playQueueSelectedItemID,
-    selectedOffset: data.playQueueSelectedItemOffset,
-    shuffled: Boolean(data.playQueueShuffled),
-    items,
-  };
-}
+import type { MusicQueueSource } from "../model/musicQueue";
+import { readMusicQueue } from "./musicQueueResponse";
 
 export function musicAPI(context: Record<string, unknown>, serverID: string) {
   const client = new PlexClient(() => String(context["X-Plex-Token"] ?? ""));
@@ -74,6 +24,7 @@ export function musicAPI(context: Record<string, unknown>, serverID: string) {
         `/playQueues/${id}?${params({ window: 50, ...(center && { center }), includeBefore: 1, includeAfter: 1 })}`,
         signal,
       ),
+      id,
     );
   // Mutation responses can acknowledge an edit before materializing its window.
   const change = async (
@@ -162,7 +113,7 @@ export function musicAPI(context: Record<string, unknown>, serverID: string) {
       return change(id, "/reset", "PUT", {}, signal);
     },
     async timeline(
-      item: Pick<MediaMetadata, "ratingKey" | "playQueueItemID">,
+      item: Pick<MusicQueueItem, "ratingKey" | "playQueueItemID">,
       queueID: number,
       state: string,
       time: number,

@@ -66,8 +66,10 @@ Artist, album and photo-album pages use canonical metadata and the same paged
 catalog with a `children` source and parent identity. History scroll positions
 are UI state, kept separately from server data. `features/music` owns playback
 identity and a profile-scoped Query resource for Plex's native queue; queue entry
-IDs distinguish repeated songs. Its persistent controls reuse the shared
-native/Shaka player, with original audio and one Plex conversion after a format
+IDs distinguish repeated songs. Checked windows keep global selection separate
+from loaded occurrences and accept Plex's explicit empty-queue reply. Queue
+occurrence IDs stay outside canonical metadata. Its persistent controls reuse the
+shared native/Shaka player, with original audio and one Plex conversion after a format
 failure. Its source model owns cancellation, late responses and session cleanup.
 Repeat uses the shared player's native loop or Plex's queue reset; queue mutations
 share one cancellation owner and read a fresh bounded window after acknowledgement.
@@ -360,7 +362,8 @@ Acknowledged selections update playback snapshots without inventing streams;
 failed downloads/selections retain playback and remain visible for retry.
 Local extras, Discover trailers, card previews, and full playback share this
 engine. Local extras use the same fallback controller; Discover has its own source
-resolver. Plex supplies conversions; Nevu has no separate transcoder.
+resolver and checked cloud display/stream contracts. Obsolete resolution requests
+are cancelled. Plex supplies conversions; Nevu has no separate transcoder.
 
 Playback setup shares the media metadata API and uses the known server ID for
 queue creation. Queue failures remain retryable warnings; transient progress-report

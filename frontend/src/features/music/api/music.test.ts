@@ -1,5 +1,5 @@
-import type { MediaMetadata } from "entities/media/model";
-import { musicAPI, readMusicQueue } from "./music";
+import { musicAPI } from "./music";
+import { readMusicQueue } from "./musicQueueResponse";
 import { PlexRequestError } from "shared/api/PlexClient";
 const transport = vi.hoisted(() => ({
   post: vi.fn(),
@@ -22,12 +22,12 @@ vi.mock("shared/api/PlexClient", async (importOriginal) => ({
   },
 }));
 const entry = {
-  type: "track",
+  type: "track" as const,
   ratingKey: "12",
   playQueueItemID: 100,
   title: "Track",
   Media: [{ Part: [{ key: "/library/parts/12/file.flac" }] }],
-} as MediaMetadata;
+};
 const response = {
   MediaContainer: {
     playQueueID: 3,
@@ -56,6 +56,34 @@ it("keeps duplicate songs distinct by native queue entry IDs", () => {
     }),
   ).toThrow("invalid music queue");
 });
+it("accepts a native empty queue without selection or total-count fields", () => {
+  expect(
+    readMusicQueue({
+      MediaContainer: { size: 0, playQueueID: 3, playQueueVersion: 2 },
+    }),
+  ).toMatchObject({
+    total: 0,
+    items: [],
+    selected: null,
+    selectedOffset: null,
+  });
+});
+
+it.each([
+  { ...response.MediaContainer, playQueueVersion: -1 },
+  { ...response.MediaContainer, playQueueTotalCount: -1 },
+  { ...response.MediaContainer, playQueueSelectedItemOffset: 2 },
+  { ...response.MediaContainer, playQueueShuffled: "false" },
+  { ...response.MediaContainer, size: 3 },
+  { ...response.MediaContainer, Metadata: [{ ...entry, playQueueItemID: -1 }] },
+  { ...response.MediaContainer, Metadata: [{ ...entry, ratingKey: null }] },
+  { ...response.MediaContainer, Metadata: [{ ...entry, duration: "30000" }] },
+])(
+  "rejects malformed queue data before publishing it (%j)",
+  (MediaContainer) => {
+    expect(() => readMusicQueue({ MediaContainer })).toThrow();
+  },
+);
 it("creates an album queue at a selected track and reads bounded windows", async () => {
   const api = musicAPI({ "X-Plex-Token": "test-token" }, "server");
   await api.create({ kind: "library", id: "10" }, "12");
@@ -175,3 +203,89 @@ it("explains a refused native shuffle without reading or replacing the playing q
   expect(transport.get).not.toHaveBeenCalled();
   expect(transport.post).not.toHaveBeenCalled();
 });
+
+it("accepts a bounded window that does not contain the globally selected occurrence", () => {
+  const queue = readMusicQueue({
+    MediaContainer: {
+      ...response.MediaContainer,
+      size: 2,
+      playQueueTotalCount: 5,
+      Metadata: [
+        { ...entry, playQueueItemID: 104 },
+        { ...entry, playQueueItemID: 105 },
+      ],
+    },
+  });
+  expect(queue.selected).toBe(100);
+  expect(queue.selectedOffset).toBe(0);
+  expect(queue.items.map((item) => item.playQueueItemID)).toEqual([104, 105]);
+  expect(queue.items[0]).not.toHaveProperty("Media");
+});
+
+it("rejects a different queue's response before it can replace the requested queue", async () => {
+  transport.get.mockResolvedValue({
+    MediaContainer: { ...response.MediaContainer, playQueueID: 4 },
+  });
+  await expect(musicAPI({}, "server").get(3)).rejects.toThrow(
+    "invalid music queue",
+  );
+});
+
+it("materializes the native empty response after removal of the final entry", async () => {
+  transport.get.mockResolvedValue({
+    MediaContainer: {
+      size: 0,
+      playQueueID: 3,
+      playQueueVersion: 2,
+      playQueueShuffled: false,
+    },
+  });
+  await expect(musicAPI({}, "server").remove(3, 100)).resolves.toEqual({
+    id: 3,
+    version: 2,
+    total: 0,
+    selected: null,
+    selectedOffset: null,
+    shuffled: false,
+    items: [],
+  });
+});
+
+it.each([
+  null,
+  [],
+  {},
+  { MediaContainer: null },
+  { MediaContainer: [] },
+  { MediaContainer: { ...response.MediaContainer, Metadata: undefined } },
+  { MediaContainer: { ...response.MediaContainer, Metadata: {} } },
+  { MediaContainer: { ...response.MediaContainer, Metadata: [null] } },
+  { MediaContainer: { ...response.MediaContainer, Metadata: [entry, entry] } },
+  {
+    MediaContainer: { ...response.MediaContainer, playQueueSelectedItemID: 0 },
+  },
+  {
+    MediaContainer: {
+      ...response.MediaContainer,
+      playQueueSelectedItemOffset: undefined,
+    },
+  },
+  { MediaContainer: { ...response.MediaContainer, playQueueTotalCount: 1 } },
+  {
+    MediaContainer: {
+      ...response.MediaContainer,
+      Metadata: [{ ...entry, grandparentTitle: {} }],
+    },
+  },
+  {
+    MediaContainer: {
+      ...response.MediaContainer,
+      Metadata: [{ ...entry, title: null }],
+    },
+  },
+])(
+  "rejects incomplete or inconsistent materialized queue windows (%j)",
+  (value) => {
+    expect(() => readMusicQueue(value)).toThrow("invalid music queue");
+  },
+);

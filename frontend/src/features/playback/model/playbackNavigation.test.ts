@@ -10,16 +10,18 @@ import {
 } from "features/media-lists/model";
 
 const movie = {
-  type: "movie",
+  type: "movie" as const,
   ratingKey: "10",
+  title: "Movie",
   librarySectionID: 2,
-} as MediaMetadata;
+} satisfies MediaMetadata;
 const episode = {
-  type: "episode",
+  type: "episode" as const,
   ratingKey: "20",
+  title: "Episode",
   grandparentRatingKey: "15",
   librarySectionID: 3,
-} as MediaMetadata;
+} satisfies MediaMetadata;
 
 it("builds browse destinations for movies and episodes", () => {
   expect(playbackBrowsePath(movie)).toBe("/browse/2?mid=10");
@@ -27,7 +29,7 @@ it("builds browse destinations for movies and episodes", () => {
 });
 
 it("advances episodes and falls back to their show", () => {
-  const queue = [episode, { ratingKey: "21" } as MediaMetadata];
+  const queue = [episode, { ...episode, ratingKey: "21" }];
 
   expect(playbackAdvancePath(episode, queue)).toBe("/watch/21");
   expect(playbackAdvancePath(episode, queue, true)).toBe("/watch/21?t=0");

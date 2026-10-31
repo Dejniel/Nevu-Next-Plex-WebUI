@@ -10,6 +10,10 @@ vi.mock("features/session/model", () => ({
 }));
 const movie = { ratingKey: "1", type: "movie" as const, title: "Movie" };
 
+it("does not promote queue occurrence IDs into canonical media metadata", () => {
+  expect(readMediaMetadata({...movie, playQueueItemID:123})).toEqual(movie);
+});
+
 it("reads signed Unix timestamps separately from nonnegative media counters", () => {
   const item = {
     ...movie,

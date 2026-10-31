@@ -41,8 +41,8 @@ export type {
   MediaStream,
 } from "plex/media";
 export { readMediaMetadata } from "./api/mediaMetadata";
-export type { PlaybackQueueItem } from "./model/mediaQueue";
-export { readPlaybackQueueItem } from "./api/mediaQueue";
+export type { PlaybackQueueItem, MusicQueueItem } from "./model/mediaQueue";
+export { readPlaybackQueueItem, readMusicQueueItem } from "./api/mediaQueue";
 export {
   formatMediaRating,
   getMediaRatings,
@@ -86,7 +86,7 @@ export {
   withoutExtra,
   extraTypeLabel,
 } from "./model/mediaExtras";
-export type { TitleExtra } from "./model/mediaExtras";
+export type { TitleExtra, DiscoverExtra } from "./model/mediaExtras";
 export {
   indexMediaAvailability,
   isMediaInLibrary,

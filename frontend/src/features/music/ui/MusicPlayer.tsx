@@ -410,7 +410,7 @@ export function MusicPlayer() {
                     disabled={music.busy || !music.queue?.items.length}
                     onClick={() =>
                       void music.loadWindow(
-                        music.queue!.items[0].playQueueItemID!,
+                        music.queue!.items[0].playQueueItemID,
                       )
                     }
                   >
@@ -426,7 +426,7 @@ export function MusicPlayer() {
                     disabled={music.busy || !music.queue?.items.length}
                     onClick={() =>
                       void music.loadWindow(
-                        music.queue!.items.at(-1)!.playQueueItemID!,
+                        music.queue!.items.at(-1)!.playQueueItemID,
                       )
                     }
                   >
@@ -455,7 +455,7 @@ export function MusicPlayer() {
                         textTransform: "none",
                         color: "text.primary",
                       }}
-                      onClick={() => void music.select(item.playQueueItemID!)}
+                      onClick={() => void music.select(item.playQueueItemID)}
                     >
                       <Box sx={{ minWidth: 0 }}>
                         <Typography noWrap>{item.title}</Typography>
@@ -478,7 +478,7 @@ export function MusicPlayer() {
                       }
                       onClick={() =>
                         void music.move(
-                          item.playQueueItemID!,
+                          item.playQueueItemID,
                           items[index - 2]?.playQueueItemID,
                         )
                       }
@@ -495,7 +495,7 @@ export function MusicPlayer() {
                       }
                       onClick={() =>
                         void music.move(
-                          item.playQueueItemID!,
+                          item.playQueueItemID,
                           items[index + 1].playQueueItemID,
                         )
                       }
@@ -506,7 +506,7 @@ export function MusicPlayer() {
                       size="small"
                       aria-label={`Remove ${item.title} from queue`}
                       disabled={music.busy || item.playQueueItemID === entry}
-                      onClick={() => void music.remove(item.playQueueItemID!)}
+                      onClick={() => void music.remove(item.playQueueItemID)}
                     >
                       <CloseRounded fontSize="small" />
                     </IconButton>

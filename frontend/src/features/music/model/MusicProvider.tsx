@@ -18,13 +18,15 @@ import {
   type MediaMetadata,
   mediaMetadataQueryOptions,
   type MediaItemData,
+  type MusicQueueItem,
 } from "entities/media/model";
 import { useLibraries } from "entities/library/model";
 import {
   getPlaylistEntry,
   type PlaylistPlaybackContext,
 } from "features/media-lists/model";
-import { musicAPI, type MusicQueue } from "../api/music";
+import { musicAPI } from "../api/music";
+import type { MusicQueue } from "./musicQueue";
 import {
   musicSessionKey,
   readMusicSession,
@@ -112,14 +114,14 @@ function useMusicController() {
   }
   function choose(
     result: MusicQueue,
-    item: MediaMetadata,
+    item: MusicQueueItem,
     playing = true,
     startTime = 0,
   ) {
     position.current = startTime;
     setSession({
       queueID: result.id,
-      entryID: item.playQueueItemID!,
+      entryID: item.playQueueItemID,
       ratingKey: item.ratingKey,
       playing,
       startTime,

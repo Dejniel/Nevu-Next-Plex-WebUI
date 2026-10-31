@@ -1,7 +1,6 @@
 /** Navigation/preview data for a queue occurrence, never a full media snapshot. */
-export interface PlaybackQueueItem {
+interface QueueItemFields {
   ratingKey: string;
-  type: string;
   title: string;
   summary?: string;
   thumb?: string;
@@ -9,4 +8,15 @@ export interface PlaybackQueueItem {
   viewOffset?: number;
   playlistItemID?: number;
   playQueueItemID?: number;
+}
+
+export interface PlaybackQueueItem extends QueueItemFields {
+  type: "movie" | "episode" | "clip";
+}
+
+export interface MusicQueueItem extends QueueItemFields {
+  type: "track";
+  playQueueItemID: number;
+  duration?: number;
+  grandparentTitle?: string;
 }

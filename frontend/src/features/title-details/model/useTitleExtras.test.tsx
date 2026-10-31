@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { notifyManager } from "@tanstack/react-query";
-import { type MediaMetadata, fetchDiscoverExtras } from "entities/media/model";
+import { type MediaMetadata, type DiscoverExtra, fetchDiscoverExtras } from "entities/media/model";
 import { serverQueryClient as client } from "shared/api/queryClient";
 import { useTitleExtras } from "./useTitleExtras";
 vi.mock("entities/media/api/mediaExtras", async (original) => ({
@@ -41,7 +41,7 @@ it("shares Discover extras between hero and details and keeps the local trailer 
   } as MediaMetadata;
   vi.mocked(fetchDiscoverExtras).mockResolvedValue([
     { ratingKey: "cloud-trailer", extraType: 1, title: "Cloud trailer" },
-  ] as MediaMetadata[]);
+  ]);
   await act(async () =>
     root.render(
       <>
@@ -61,7 +61,7 @@ it("does not refetch extras for an unrelated metadata edit of the same title", a
   expect(fetchDiscoverExtras).toHaveBeenCalledTimes(1);
 });
 it("cancels an old match's extras without exposing them after a GUID change", async () => {
-  let finish!: (items: MediaMetadata[]) => void;
+  let finish!: (items: DiscoverExtra[]) => void;
   vi.mocked(fetchDiscoverExtras).mockImplementationOnce(
     () =>
       new Promise((resolve) => {
@@ -73,7 +73,7 @@ it("cancels an old match's extras without exposing them after a GUID change", as
   item = { ...item, guid: "plex://movie/5d776824f617c900201df023" };
   await act(async () => root.render(<Harness />));
   expect(signal.aborted).toBe(true);
-  await act(async () => finish([{ ratingKey: "old-trailer", extraType: 1 }] as MediaMetadata[]));
+  await act(async () => finish([{ ratingKey: "old-trailer", title: "Old trailer", extraType: 1 }]));
   expect(state.extras).toEqual([]);
 });
 it("keeps local extras usable after a failed Discover read", async () => {

@@ -1,41 +1,58 @@
-import { plexObject, PlexResponseError } from "shared/api/plexResponse";
-import type { PlaybackQueueItem } from "../model/mediaQueue";
+import {
+  plexObject,
+  plexFields,
+  plexString,
+  plexInteger,
+  PlexResponseError,
+} from "shared/api/plexResponse";
+import type { PlaybackQueueItem, MusicQueueItem } from "../model/mediaQueue";
+
+function queueFields(row: Record<string, unknown>, resource: string) {
+  const text = (value: unknown) => plexString(value, resource);
+  const integer = (value: unknown) => plexInteger(value, resource);
+  const occurrence = (value: unknown) => {
+    const id = integer(value);
+    if (!id) throw new PlexResponseError(resource);
+    return id;
+  };
+  const ratingKey = text(row.ratingKey);
+  if (!/^\d+$/.test(ratingKey)) throw new PlexResponseError(resource);
+  return {
+    ratingKey,
+    title: text(row.title),
+    ...plexFields(row, {
+      summary: text,
+      thumb: text,
+      index: integer,
+      viewOffset: integer,
+      playlistItemID: occurrence,
+      playQueueItemID: occurrence,
+    }),
+  };
+}
 
 export function readPlaybackQueueItem(value: unknown): PlaybackQueueItem {
   const resource = "playback queue";
-  const item = plexObject(value, resource);
-  if (
-    typeof item.ratingKey !== "string" ||
-    !/^\d+$/.test(item.ratingKey) ||
-    typeof item.type !== "string" ||
-    !["movie", "episode", "clip"].includes(item.type) ||
-    typeof item.title !== "string" ||
-    ["summary", "thumb"].some(
-      (field) => item[field] !== undefined && typeof item[field] !== "string",
-    ) ||
-    ["index", "viewOffset", "playlistItemID", "playQueueItemID"].some(
-      (field) =>
-        item[field] !== undefined &&
-        (!Number.isSafeInteger(item[field]) ||
-          Number(item[field]) < (field.endsWith("ItemID") ? 1 : 0)),
-    )
-  )
+  const row = plexObject(value, resource);
+  const type = row.type;
+  if (type !== "movie" && type !== "episode" && type !== "clip")
+    throw new PlexResponseError(resource);
+  return { ...queueFields(row, resource), type };
+}
+
+export function readMusicQueueItem(value: unknown): MusicQueueItem {
+  const resource = "music queue";
+  const row = plexObject(value, resource);
+  const fields = queueFields(row, resource);
+  if (row.type !== "track" || fields.playQueueItemID === undefined)
     throw new PlexResponseError(resource);
   return {
-    ratingKey: item.ratingKey,
-    type: item.type,
-    title: item.title,
-    ...(item.summary !== undefined && { summary: item.summary as string }),
-    ...(item.thumb !== undefined && { thumb: item.thumb as string }),
-    ...(item.index !== undefined && { index: item.index as number }),
-    ...(item.viewOffset !== undefined && {
-      viewOffset: item.viewOffset as number,
-    }),
-    ...(item.playlistItemID !== undefined && {
-      playlistItemID: item.playlistItemID as number,
-    }),
-    ...(item.playQueueItemID !== undefined && {
-      playQueueItemID: item.playQueueItemID as number,
+    ...fields,
+    type: "track",
+    playQueueItemID: fields.playQueueItemID,
+    ...plexFields(row, {
+      duration: (value) => plexInteger(value, resource),
+      grandparentTitle: (value) => plexString(value, resource),
     }),
   };
 }
